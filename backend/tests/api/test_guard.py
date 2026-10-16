@@ -7,9 +7,8 @@ from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from app.api.guard import ApiGuard
-from app.config import get_settings
 
-PORT = get_settings().port
+PORT = 8000  # the default; tests/api/conftest.py removes VOCAB_PORT from the environment
 ORIGIN = f"http://127.0.0.1:{PORT}"
 VITE = "http://127.0.0.1:5173"
 
