@@ -1,8 +1,9 @@
 """Command line: `python -m app [--reload]` runs the API; `python -m app db ...` manages the DB;
 `python -m app plan today` prints today's session plan (read-only); `python -m app demo seed`
 builds the fictional demo database; `python -m app ai simulate` shows the AI gateway at work
-offline; `python -m app ai status | test | usage` look at the real AI providers. `--demo` (before
-the command) works on the demo database."""
+offline; `python -m app ai status | test | usage` look at the real AI providers;
+`python -m app library import <file>` previews (or, with `--commit`, imports) a Markdown list.
+`--demo` (before the command) works on the demo database."""
 
 import argparse
 import os
@@ -143,6 +144,19 @@ def _build_parser() -> argparse.ArgumentParser:
     usage.add_argument(
         "--days", type=_days, default=7, help="how many study days to look back (1-90, default 7)"
     )
+    library = commands.add_parser("library", help="vocabulary library")
+    library_commands = library.add_subparsers(dest="library_command", required=True)
+    importer = library_commands.add_parser(
+        "import", help="preview a Markdown list (writes nothing unless --commit)"
+    )
+    importer.add_argument("file", type=Path, help="the Markdown file (UTF-8)")
+    importer.add_argument("--deck-id", type=int, help="add to this deck instead of a new one")
+    importer.add_argument(
+        "--no-triage", action="store_true", help="queue the new terms directly (skip triage)"
+    )
+    importer.add_argument(
+        "--commit", action="store_true", help="import the clear lines with the default choices"
+    )
     return parser
 
 
@@ -240,6 +254,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "ai":
         return _ai(args, settings)
     url = settings.resolved_database_url
+    if args.command == "library":
+        from app.cli_library import run_library_import
+
+        return run_library_import(
+            url, args.file, deck_id=args.deck_id, no_triage=args.no_triage, commit=args.commit
+        )
     if args.command == "plan":
         try:
             plan = build_today_plan(url, args.at)
