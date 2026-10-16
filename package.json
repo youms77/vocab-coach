@@ -1,0 +1,22 @@
+{
+  "name": "vocab-coach",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local app that turns the words you care about into active vocabulary.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "scripts": {
+    "setup": "uv --directory backend sync && npm --prefix frontend install",
+    "dev": "concurrently --kill-others --names api,web --prefix-colors cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "uv --directory backend run python -m app --reload",
+    "dev:web": "npm --prefix frontend run dev",
+    "check:api": "uv --directory backend run ruff check . && uv --directory backend run ruff format --check . && uv --directory backend run pytest",
+    "check:web": "npm --prefix frontend run check",
+    "check": "npm run check:api && npm run check:web"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

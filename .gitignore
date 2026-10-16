@@ -1,0 +1,46 @@
+# --- Personal data: never commit (database, audio recordings, backups, exports) ---
+data/
+*.db
+*.sqlite
+*.sqlite3
+exports/
+backups/
+*.zip
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+npm-debug.log*
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Editors and OS ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+
+# --- Claude Code personal settings (shared settings in .claude/settings.json stay tracked) ---
+.claude/settings.local.json

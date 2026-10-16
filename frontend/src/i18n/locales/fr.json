@@ -1,0 +1,31 @@
+{
+  "app": {
+    "name": "vocab-coach",
+    "tagline": "Transformez les mots qui comptent pour vous en mots que vous employez vraiment."
+  },
+  "nav": {
+    "home": "Accueil",
+    "skipToContent": "Aller au contenu principal"
+  },
+  "settings": {
+    "language": "Langue",
+    "theme": "Thème",
+    "themeSystem": "Système",
+    "themeLight": "Clair",
+    "themeDark": "Sombre"
+  },
+  "home": {
+    "title": "Bienvenue",
+    "intro": "Voici le socle de votre coach de vocabulaire. Votre séance du jour, votre bibliothèque de mots et vos progrès apparaîtront ici au fil du développement.",
+    "todayTitle": "Séance du jour",
+    "todayEmpty": "Rien à réviser pour l'instant. Importez une liste de mots pour commencer (bientôt disponible).",
+    "statusTitle": "État du système",
+    "apiChecking": "Vérification du serveur local…",
+    "apiOk": "Le serveur local fonctionne (version {{version}}).",
+    "apiDown": "Impossible de joindre le serveur local. Le backend est-il lancé ?"
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "back": "Retour à l'accueil"
+  }
+}

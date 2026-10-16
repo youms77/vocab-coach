@@ -1,0 +1,31 @@
+{
+  "app": {
+    "name": "vocab-coach",
+    "tagline": "Turn the words you care about into words you actually use."
+  },
+  "nav": {
+    "home": "Home",
+    "skipToContent": "Skip to main content"
+  },
+  "settings": {
+    "language": "Language",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark"
+  },
+  "home": {
+    "title": "Welcome",
+    "intro": "This is the foundation of your vocabulary coach. Your daily session, your word library and your progress will appear here as the app grows.",
+    "todayTitle": "Today's session",
+    "todayEmpty": "Nothing to review yet. Import a word list to get started (coming soon).",
+    "statusTitle": "System status",
+    "apiChecking": "Checking the local server…",
+    "apiOk": "Local server is running (version {{version}}).",
+    "apiDown": "Cannot reach the local server. Is the backend running?"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "back": "Back to home"
+  }
+}
