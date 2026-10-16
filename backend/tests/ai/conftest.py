@@ -13,8 +13,9 @@ from app.ai.gateway import Gateway
 from app.ai.providers.fake import FakeProvider
 from app.ai.schemas.connection_test import ConnectionTestOutput
 from app.ai.tasks import TaskSpec
-from app.ai.types import AiResult
+from app.ai.types import AiResult, ProviderRequest
 from app.db.models import AICallLog
+from tests.ai.fake_server import FakeServer, Handler, Reply
 
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost", None, ""}
 
@@ -121,6 +122,21 @@ def make_gateway(engine: Engine, clock: FakeClock) -> Callable[..., Gateway]:
     return make
 
 
+@pytest.fixture
+def make_server() -> Iterator[Callable[..., FakeServer]]:
+    """Fake HTTP servers on the loopback interface, all stopped at the end of the test."""
+    servers: list[FakeServer] = []
+
+    def make(*script: Reply, handler: Handler | None = None) -> FakeServer:
+        server = FakeServer(script, handler=handler).__enter__()
+        servers.append(server)
+        return server
+
+    yield make
+    for server in servers:
+        server.__exit__(None, None, None)
+
+
 def ping(gateway: Gateway, **kwargs: Any) -> AiResult[ConnectionTestOutput]:
     """The `connection_test` task, the simplest real call."""
     return gateway.generate_json(
@@ -131,3 +147,16 @@ def ping(gateway: Gateway, **kwargs: Any) -> AiResult[ConnectionTestOutput]:
 def log_rows(engine: Engine) -> list[AICallLog]:
     with Session(engine) as session:
         return list(session.scalars(select(AICallLog).order_by(AICallLog.id)))
+
+
+def provider_request(
+    *, timeout_s: float = 5.0, max_output_tokens: int = 100, user: str = "ping"
+) -> ProviderRequest:
+    """A request as the gateway builds it for the `connection_test` task."""
+    return ProviderRequest(
+        system="You are a connectivity probe. Reply with one JSON object and nothing else.",
+        user=f'Set "ok" to true and copy the text below into "echo".\n\n{user}',
+        json_schema=ConnectionTestOutput.model_json_schema(),
+        timeout_s=timeout_s,
+        max_output_tokens=max_output_tokens,
+    )

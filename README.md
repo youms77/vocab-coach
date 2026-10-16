@@ -7,8 +7,10 @@ expressions you meet in your reading, classes or daily life; the app builds a us
 walks you through a first discovery, schedules spaced reviews (FSRS), makes you produce sentences and speak,
 logs your recurring errors (prepositions, tenses…) and shows your progress with real statistics.
 
-> **Status: milestone M0 (foundation).** The app starts and shows an empty home screen. Features arrive
-> milestone by milestone — see [`docs/PROGRESS.md`](docs/PROGRESS.md) and the roadmap in
+> **Status: milestone M2.b1 (AI providers).** The app starts and shows an empty home screen. Behind it
+> sit the data model, the review scheduler, demo data and an AI gateway with Groq and Ollama adapters,
+> usable from the command line (`python -m app ai ...`). Gemini follows in M2.b2; screens arrive milestone
+> by milestone — see [`docs/PROGRESS.md`](docs/PROGRESS.md) and the roadmap in
 > [`docs/SPEC.md`](docs/SPEC.md#9-roadmap).
 
 ![Home screen](docs/screenshots/home.png)
@@ -98,8 +100,69 @@ The same seed always produces the same data. Everything in the demo (`content/de
 
 ## Configuration
 
-Copy `.env.example` to `.env` and fill in what you need. `.env` is ignored by Git.
-The free AI keys (Gemini, Groq) are configured from milestone M2; step-by-step instructions will be added here.
+Copy `.env.example` to `.env` (same folder) and fill in what you need. `.env` is ignored by Git, so your
+keys never reach the repository. Every variable is optional: without any key the app still starts and
+runs in a degraded mode (no AI features).
+
+> **Privacy.** Whatever the app sends to an AI provider leaves your computer. Send nothing confidential.
+> On the **free tier of Gemini**, Google's pricing page says the content *may be used to improve its
+> products* (it is not on the paid tier). Gemini arrives in milestone M2.b2.
+
+### Groq: free text model and speech-to-text (available now)
+
+1. Create an API key at <https://console.groq.com/keys> (sign in or create an account if the console asks).
+2. In `.env`, add `VOCAB_GROQ_API_KEY=` followed by the key: no quotes, no spaces.
+3. Check it from the `backend` folder:
+
+   ```powershell
+   cd backend
+   uv run python -m app ai status
+   uv run python -m app ai test
+   ```
+
+   You should see a line like `groq: ok (openai/gpt-oss-20b, 650 ms, tokens in/out 96/14)`.
+
+The free plan has limits. Approximate values from [Groq's rate-limits page](https://console.groq.com/docs/rate-limits)
+(read on 2026-10-16; they change, and your own limits are shown in your Groq console):
+
+| Model used by default | Requests | Tokens / audio | Notes |
+|---|---|---|---|
+| `openai/gpt-oss-20b` (text) | 30 per minute, 1,000 per day | 8,000 tokens per minute, 200,000 per day | the app falls back or waits when a limit is hit |
+| `whisper-large-v3` (speech-to-text) | 20 per minute, 2,000 per day | 7,200 audio seconds per hour, 28,800 per day | clips up to 25 MB |
+
+### Ollama: optional, local and offline
+
+Ollama runs a model on your own computer. It is slower and less accurate than the cloud models; it is
+useful offline or as a last fallback.
+
+1. Install Ollama for Windows from <https://ollama.com/download>. It keeps running in the background.
+2. Download a model: `ollama pull gemma3:4b` (about 3.4 GB). Prefer a model that does not "think" (`qwen3`,
+   `gpt-oss`... spend their token budget reasoning).
+3. In `.env`, add `VOCAB_OLLAMA_BASE_URL=http://127.0.0.1:11434`. Write `127.0.0.1`, not `localhost`: on
+   Windows `localhost` may resolve to the IPv6 address first, where Ollama does not listen.
+4. Check it: `uv run python -m app ai test --provider ollama`. The first request can take a minute while
+   the model loads into memory.
+
+To use another model, set `VOCAB_OLLAMA_MODEL` (or `VOCAB_GROQ_TEXT_MODEL`,
+`VOCAB_GROQ_TRANSCRIPTION_MODEL`); leave them empty to keep the defaults.
+
+### Checking your setup
+
+Run these from the `backend` folder:
+
+| Command | What it does |
+|---|---|
+| `uv run python -m app ai status` | providers, configured or not, models and order. Never prints a key. |
+| `uv run python -m app ai test` | one real request per configured provider: status, model, time, tokens. Exit code 0 = all fine, 1 = a test failed, 2 = nothing configured or a usage error. |
+| `uv run python -m app ai test --provider groq --audio my_clip.wav` | also transcribes a short clip (Groq Whisper) and prints the text. |
+| `uv run python -m app ai usage --days 7` | requests and tokens per study day, provider and model (read-only). |
+
+`ai test` and `ai usage` work on your personal database (not `--demo`): the test requests use a little of
+your free quota and are recorded in it.
+
+If a test fails, the message says why: `auth` means the key is wrong or refused (nothing is retried);
+`quota` means a limit was reached (wait, or let the app use the next provider); `network` means the
+provider cannot be reached (for Ollama: is it running, and is the address right?).
 
 ## Daily use
 
@@ -118,6 +181,7 @@ Until then, back up `data/` yourself if it matters to you.
 | Start backend + frontend | `.\start.ps1` / `./start.sh` (or `npm run dev` after `npm run setup`) |
 | Run every check (lint, types, tests) | `npm run check` |
 | Backend tests only | `uv --directory backend run pytest` |
+| Real-provider tests (optional, your own keys) | `$env:VOCAB_RUN_LIVE=1; uv --directory backend run pytest tests/live -m live -v` |
 | Frontend tests only | `npm --prefix frontend test` |
 
 - API docs (development): <http://127.0.0.1:8000/docs>

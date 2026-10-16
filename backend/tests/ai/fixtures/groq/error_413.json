@@ -1,0 +1,1 @@
+{"error":{"message":"Request too large for model `openai/gpt-oss-20b` in organization `org_01example` service tier `on_demand` on tokens per minute (TPM): Limit 8000, Requested 12000, please reduce your message size and try again.","type":"tokens","code":"rate_limit_exceeded"}}

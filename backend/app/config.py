@@ -42,8 +42,20 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     groq_api_key: SecretStr | None = None
     ollama_base_url: str | None = None
+    # Model overrides (M2.b). Empty or missing means "the adapter's default model".
+    groq_text_model: str | None = None
+    groq_transcription_model: str | None = None
+    ollama_model: str | None = None
 
-    @field_validator("gemini_api_key", "groq_api_key", "ollama_base_url", mode="before")
+    @field_validator(
+        "gemini_api_key",
+        "groq_api_key",
+        "ollama_base_url",
+        "groq_text_model",
+        "groq_transcription_model",
+        "ollama_model",
+        mode="before",
+    )
     @classmethod
     def empty_means_not_configured(cls, value: object) -> object:
         # `VOCAB_GROQ_API_KEY=` in .env arrives as an empty string.

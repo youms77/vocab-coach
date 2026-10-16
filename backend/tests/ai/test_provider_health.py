@@ -87,6 +87,22 @@ def test_decisions_after_the_limits() -> None:
     assert _decide(ErrorKind.AUTH).misconfigured
 
 
+def test_exhausted_retries_set_the_provider_aside_for_a_short_cooldown() -> None:
+    for kind in (ErrorKind.RATE_LIMITED, ErrorKind.TRANSIENT):
+        assert _decide(kind, failed=2).cooldown is None  # still retrying
+        assert _decide(kind, failed=3).cooldown == policy.EXHAUSTED_RETRY_COOLDOWN
+    assert timedelta(seconds=60) == policy.EXHAUSTED_RETRY_COOLDOWN
+    assert _decide(ErrorKind.NETWORK).cooldown is None  # a refused connection is instant anyway
+
+
+def test_a_cooldown_reports_the_error_that_started_it() -> None:
+    health = ProviderHealth()
+    health.record_failure("a", ErrorKind.TRANSIENT, cooldown_until=NOW + timedelta(seconds=60))
+    assert health.blocked_by("a", NOW) is ErrorKind.TRANSIENT
+    health.record_failure("b", ErrorKind.RATE_LIMITED, cooldown_until=NOW + timedelta(seconds=60))
+    assert health.blocked_by("b", NOW) is ErrorKind.RATE_LIMITED
+
+
 def test_retry_after_is_used_up_to_the_cap() -> None:
     assert _decide(ErrorKind.RATE_LIMITED, retry_after=7.0).wait_s == 7.0
     assert _decide(ErrorKind.RATE_LIMITED, retry_after=policy.MAX_WAIT_S).action is Action.RETRY
