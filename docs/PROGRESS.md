@@ -4,11 +4,79 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M2.c1 — AI and settings API, backend only (2026-10-16), branch
-  `feat/m2c1-ai-api`, cut from `main` (M2.a, M2.b1, M2.b2 and M1.a to M1.c are merged).
-- **Next milestone**: **M2.c2** — the settings page and the "test connection" button (frontend), on top of the
-  API reference below.
+- **Last milestone completed**: M2.c2 — settings page, frontend only (2026-10-16), branch
+  `feat/m2c2-settings-page`, cut from `main` after PR #7 (M2.c1) was merged. **M2 is complete** except its
+  acceptance criterion "one real test call succeeds with the user's key", which only the owner can run.
+- **Next milestone**: **M3 — Library and import** (SPEC §10).
 - The owner has not yet run anything against the real services: see "Owner's manual scenario" below.
+
+## M2.c2 — Settings page (frontend) ✅
+
+### Done
+
+- **`/settings`** (`frontend/src/features/settings/`, D-066), with a "Settings" link in the top bar:
+  - **one card per provider**: state (ready, not configured, turned off, key refused, paused until hh:mm), last
+    error, models, key or address form (password field, never pre-filled, cleared once saved, D-067), removal
+    confirmed inline, `credential_source: "environment"` disables the field and names the variable;
+  - **"Test connection"** per provider: disabled while running, "Testing… n s", result with model, time, tokens,
+    translated reason, HTTP status and the provider's English message in a disclosure (D-069);
+  - **provider order**: up / down buttons and an on / off checkbox per provider, one `PATCH`, a warning when every
+    provider is off;
+  - **AI usage**: today per provider and model (requests, successes, errors, tokens, average time) and the last 7
+    days (the daily counter of SPEC §7);
+  - **study settings** built from `GET /api/settings` in four groups (daily study, study day, consolidation, audio),
+    bounds checked before sending, a refused value shown on its field. `ui_language` is left out on purpose (D-066).
+- **Demo database**: keys, test and order disabled with an explanation; study settings editable.
+- **Degraded-mode banner** on every page (`components/AiBanner.tsx`), separate wording when AI is turned off.
+- **API layer**: `apiSend()` (JSON writes), `ApiError` with `code` and `detail`, hooks in `api/ai.ts` and
+  `api/settings.ts`; the 14 error codes, `last_error` kinds and test reasons have i18n keys (D-068).
+- **i18n**: every new string in `en.json` and `fr.json` (same keys, checked by the existing test).
+- **Tests** (D-070): `test/mockApi.ts` (fetch router recording calls); `SettingsPage.test.tsx` (20 tests: cards,
+  save / empty / refused / locked / unreachable, removal, environment, demo, test waiting state and single request,
+  failed test, 409, order, usage, bounds, server-refused value, no language field, French); `AiBanner.test.tsx` (4).
+  The home page test's fetch mock now returns a fresh response per request.
+- **No backend change, no migration, no new dependency, SPEC.md unchanged.** README (Configuration),
+  `docs/architecture.md`, D-066 to D-070.
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes **on the commit, in a clean temporary worktree**: ruff check, ruff format --check (145 files),
+  pytest **856 passed, 4 deselected**, tsc, oxlint, vitest **35 passed** (11 before). `npm --prefix frontend run
+  build` passes. (In the shared checkout, `ruff check` fails on `backend/app/services/importing.py`, an
+  uncommitted M3 file that is not part of this milestone.)
+- A test was checked to fail when the behaviour breaks (not clearing the key after saving).
+- **Manual scenario** in the in-app browser, through the real Vite proxy, on a **temporary data folder and a
+  temporary `.env`** (never the repository's): banner on the home page and its link; invented Gemini key saved (the
+  temporary `.env` got the line, the field was emptied, the key was nowhere in the page's HTML, the banner went away);
+  Ollama address `http://127.0.0.1:9` (nothing listening) saved then tested → "could not be reached" with the last
+  error "network problem"; order changed (Groq first, Ollama off) and confirmed by `GET /api/ai/status`; unknown time
+  zone refused next to its field with the backend's reason; French; light theme; phone width (375 px) after a fix
+  (wide usage tables made the page scroll sideways).
+- **No real AI request** was made: the invented Gemini key was never tested.
+
+### Owner's manual scenario (about 3 minutes)
+
+1. `start.cmd`, then **Settings** in the top bar. Without keys: the banner says the app runs without AI.
+2. Paste your Gemini key, **Save**: "Saved", the field empties, the card says "Ready", the banner disappears.
+3. **Test connection**: "It works: gemini-3.5-flash-lite answered in … s" — this is M2's last acceptance criterion
+   and the first real use of the `responseFormat` field (D-056). If it fails, send the sentence and the provider
+   message.
+4. Same for Groq (and Ollama if installed: `http://127.0.0.1:11434`).
+5. AI usage shows the test calls; change the order and check `uv run python -m app ai status` (from `backend/`).
+6. `start.cmd -Demo`: the AI controls are disabled with an explanation.
+
+### Left / notes
+
+- **Still to confirm with real calls** (unchanged, D-056): `responseFormat`, upper-case `thinkingLevel`, real
+  `retryDelay` values, free tier from Cameroon.
+- Leaving the page during a test: the request continues and the status is refreshed, but the result is not shown on
+  return (D-069).
+- `ui_language` (backend setting) and the browser-stored language are not synchronised (D-066).
+- The frontend has no formatter (no Prettier in the project); code follows the existing style by hand.
+
+### Known issues
+
+- None known.
 
 ## M2.c1 — AI and settings API (backend) ✅
 
@@ -513,13 +581,12 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M2.c2 (settings page)
+## Next step: M3 (library and import)
 
-- **M2.c2**: the settings page in `frontend/src/features/settings/` (route in `src/routes.tsx`, TanStack Query hooks
-  in `api/`): provider cards (configured, available, cooldown, last error, model), key / address form, remove, order
-  (up / down and enable), "test connection" with a waiting state, today's usage, the other settings from
-  `GET /api/settings`. Every string through i18n (en / fr), error `code` -> i18n key. See the API reference in the
-  M2.c1 section. Settle first the owner's findings from the real Gemini / Groq / Ollama calls (D-056 "to confirm").
+- **M3 — Library and import** (SPEC §10, module A): Markdown import with preview, quick add, batch enrichment
+  through the gateway (call the AI first, then write in a short transaction), review and editing, intake triage, list
+  extension, duplicates, search and filters.
+- Before or alongside: the owner's real calls (M2.c2 scenario above) to close M2 and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅

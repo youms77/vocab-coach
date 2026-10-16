@@ -997,3 +997,69 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   (`ai test`, including the audio check) and `POST /api/ai/test` both use it; the CLI tests passed unchanged.
 - A lock per provider (`acquire(blocking=False)`) raises `TestInProgress`: a double click would spend the free
   quota twice. The lock is per process, which is enough for one local backend.
+
+## D-066 — What the settings page shows, and where (M2.c2)
+
+- **One page, `/settings`** (`frontend/src/features/settings/`), in this order: AI providers (one card each), provider
+  order, AI usage, study settings. A "Settings" link in the top bar. The language and theme switches stay in the top
+  bar.
+- **Study settings are built from `GET /api/settings`** (type, bounds, default): the page only decides the groups
+  (daily study, study day, consolidation, audio), the labels / hints (i18n, per key) and the spin-button steps of the
+  float settings. Each group is its own form and sends only the keys that changed, in one `PATCH`. Bounds and number
+  shape are checked before sending; the backend stays the authority (a 422 `invalid_setting` is shown on the field
+  its `key` names, with the English reason).
+- **`ui_language` is not on the page.** The interface language is the top bar's choice, stored in the browser
+  (M0, never derived from the browser language). Showing the backend setting too would give two sources that can
+  disagree. Syncing them (so that, e.g., exports or AI prompts know the language) is left for the milestone that
+  needs it.
+- **`tts_rate` is shown** although speech synthesis comes with M4: SPEC module J lists "audio speed", and the value
+  is stored now.
+- **Degraded-mode banner on every page** (`components/AiBanner.tsx`) when `GET /api/ai/status` says `degraded`, with
+  calmer wording when the owner turned AI off (`ai_off`), and a link to `/settings` (not shown on that page). Nothing
+  while loading or when the backend is down (the home page already says so). The status is refetched every 30 s so a
+  cooldown that ends clears the banner.
+
+## D-067 — Keys and addresses on the page (M2.c2)
+
+- The key field is `type="password"`, `autocomplete="off"`, no spell check; it is **never pre-filled** (the API
+  never returns a key) and is **cleared as soon as the backend accepted it**; on failure the value stays so it can be
+  corrected. The Ollama address is `type="url"` (not secret, D-062) but is not returned by the API either, so the
+  page says "configured", never the address.
+- Empty or blank values are refused on the page, without a request.
+- **Remove asks for confirmation inline** (two buttons, no browser `confirm()` dialog): removing a key the owner may
+  not have kept elsewhere is the only destructive action here.
+- `credential_source: "environment"`: field, Save and Remove disabled, with the variable name and where to change it;
+  the connection test stays possible (the key exists).
+- **Demo database** (`demo: true`): keys, test and order are disabled with an explanation; study settings stay
+  editable (D-064).
+
+## D-068 — Errors on the page (M2.c2)
+
+- `ApiError` (`api/client.ts`) now carries `code` and the whole `detail` (D-063), and `apiSend()` sends JSON bodies
+  with `Content-Type: application/json` (the guard refuses anything else, D-061).
+- `features/settings/errorMessage.ts` maps the 14 known codes to `errors.<code>` i18n keys; an unknown code gets
+  "Unexpected error (HTTP n)"; a failed `fetch` and a 502 / 504 from the Vite proxy mean "cannot reach the local
+  server". The English `message` is shown under the translated sentence only for `invalid_credential` and
+  `invalid_setting` (it says *why*, never the value); the provider's own message after a failed test is behind a
+  "Provider message (English)" disclosure.
+- `last_error` kinds and test `reason` values have their own i18n keys (`settings.errorKinds.*`,
+  `settings.test.reasons.*`).
+
+## D-069 — The connection test on the page (M2.c2)
+
+- A TanStack Query mutation per provider; the button is disabled while it runs and shows "Testing… n s" (seconds
+  counted from the mutation's `submittedAt`, ticking every second) with a hint that it can take up to ~90 s. The
+  result (status, model, time, tokens, translated reason, HTTP status) is announced in an `aria-live` region.
+- A double click cannot send a second request (disabled button); a test started elsewhere gives 409
+  `test_in_progress`, shown as a message.
+- After a test, the AI status and usage are refetched (the test changes health and adds call-log rows). Leaving the
+  page during a test does not cancel the request; the result is not shown when coming back, but the refreshed status
+  reflects it. Accepted for a tool the owner opens rarely.
+
+## D-070 — Frontend tests with a small API router (M2.c2)
+
+- `src/test/mockApi.ts` replaces `fetch` with a router keyed by `"METHOD /path"` (without `/api` and the query),
+  records every call (method, path, headers, parsed JSON body) and answers 404 to an unknown route, so a missing mock
+  fails visibly. `apiErrorResponse()` builds the backend's error format.
+- A `Response` body can be read once: the home page test's single shared response now returns a clone per request
+  (the layout makes two requests since the banner exists).

@@ -169,9 +169,10 @@ http.py      urllib client: error status = a normal answer, network failure = Pr
 |---|---|
 | `main.tsx` | bootstraps i18n, theme, TanStack Query client, router |
 | `routes.tsx` | route table (one entry per feature) |
-| `components/` | `Layout` (top bar, skip link, "Demo data" badge, outlet), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage` |
+| `components/` | `Layout` (top bar, skip link, "Demo data" badge, outlet), `AiBanner` (degraded mode, every page), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage` |
 | `features/home/` | home screen with empty "Today's session" and backend status |
-| `api/` | `client.ts` (fetch wrapper for `/api`), `health.ts` (query hook) |
+| `features/settings/` | `/settings`: provider cards (key / address form, connection test), provider order, AI usage, study settings; `errorMessage.ts` maps the API's `detail.code` to i18n keys (M2.c2) |
+| `api/` | `client.ts` (`apiGet`, `apiSend`, `ApiError` with `code`), `health.ts`, `ai.ts`, `settings.ts` (query and mutation hooks) |
 | `i18n/` | i18next setup, `locales/en.json`, `locales/fr.json`, typed keys |
 | `theme.ts`, `styles.css` | theme preference and CSS design tokens (light/dark) |
-| `test/` | Vitest setup and `renderApp()` helper |
+| `test/` | Vitest setup, `renderApp()` helper, `mockApi()` (fetch replaced by a small router that records calls) |
