@@ -7,6 +7,7 @@ license = "MIT"
 dependencies = [
     "alembic>=1.20.0",
     "fastapi>=0.143.2",
+    "fsrs>=6.3.2,<7",
     "pydantic-settings>=2.16.0",
     "pyyaml>=6.0.3",
     "sqlalchemy>=2.1.4",
@@ -47,4 +48,4 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"] # assert is fine in tests
+"tests/**" = ["S101", "S311"] # assert and seeded random generators are fine in tests

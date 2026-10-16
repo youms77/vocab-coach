@@ -5,13 +5,15 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.db.models import Card, Deck, DeckItem, ErrorCategory, LexicalItem, ReviewLog
-from app.domain.enums import CardDirection, SrsState
+from app.domain.enums import CardDirection, ItemStatus, SrsState
 
 NOW = datetime(2026, 10, 16, 8, 0, tzinfo=UTC)
 
 
-def add_item(session: Session, term: str = "shed light on") -> LexicalItem:
-    item = LexicalItem(term=term, normalized_form=term.lower())
+def add_item(
+    session: Session, term: str = "shed light on", status: ItemStatus = ItemStatus.DRAFT
+) -> LexicalItem:
+    item = LexicalItem(term=term, normalized_form=term.lower(), status=status)
     session.add(item)
     session.flush()
     return item

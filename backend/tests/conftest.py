@@ -1,5 +1,6 @@
 """Shared fixtures: every database test runs on a temporary SQLite file built by the migrations."""
 
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -15,11 +16,27 @@ def sqlite_url(path: Path) -> str:
     return f"sqlite:///{path.as_posix()}"
 
 
-@pytest.fixture
-def db_url(tmp_path: Path) -> str:
-    url = sqlite_url(tmp_path / "test.sqlite3")
+@pytest.fixture(scope="session")
+def migrated_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A database built once by the migrations; each test gets a fresh copy of it."""
+    path = tmp_path_factory.mktemp("template") / "template.sqlite3"
+    url = sqlite_url(path)
     migrate.upgrade(url)
-    return url
+    engine = create_db_engine(url)
+    try:
+        with engine.connect() as connection:
+            # Fold the write-ahead log into the file so a plain copy is complete.
+            connection.exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)")
+    finally:
+        engine.dispose()
+    return path
+
+
+@pytest.fixture
+def db_url(tmp_path: Path, migrated_template: Path) -> str:
+    path = tmp_path / "test.sqlite3"
+    shutil.copyfile(migrated_template, path)
+    return sqlite_url(path)
 
 
 @pytest.fixture

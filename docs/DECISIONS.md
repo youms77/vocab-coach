@@ -199,3 +199,172 @@ Decisions that change `docs/SPEC.md` require the owner's approval and must say s
   - adds `database: {ok, revision, at_head}`, and `status` stays `"ok"`;
   - it never creates a missing database file.
 - **CI**: runs `alembic upgrade head && alembic check` on a temporary database (Linux and Windows jobs).
+
+## D-022 — SRS interface, FSRS adapter and fuzzing (M1.b, 2026-10-16)
+
+- **Version**: `fsrs` **6.3.2**, the latest on PyPI (`python -m pip index versions fsrs` via `uvx pip`,
+  2026-10-16), declared `fsrs>=6.3.2,<7`. The wheel source was read before writing the adapter.
+- **Interface** (`app/domain/srs.py`):
+  - `SrsEngine` (Protocol) with `initial_state`, `review` and `retrievability`;
+  - `SrsCardState`, a library-free dataclass (state, due, step, stability, difficulty, last review, opaque
+    `payload`);
+  - `EngineFactory = Callable[[retention], SrsEngine]`.
+  Services never see an `fsrs` type; a fake engine in the tests proves they do not depend on FSRS.
+- **Adapter** (`app/domain/fsrs_engine.py`, the only module that imports `fsrs`):
+  - our `new` is Learning, step 0;
+  - `srs_payload` stores `Card.to_dict()` and is the restore source (exact round trip); columns mirror it;
+  - `srs_algorithm` = `fsrs-6.3.2` on the card and in `review_log`;
+  - it stays in `domain/`: pure computation that never reads the clock (`card_id` and `due` are always
+    passed; instants are normalised to `datetime.UTC`, because `review_card` refuses any other `tzinfo`).
+- **Learning steps**: the library defaults, written out (1 min, 10 min; relearning 10 min). A new card rated
+  Good goes to step 1, due in 10 min; Again stays at step 0, due in 1 min. The milestone text said "first
+  learning step" for Good; the tests check the real behaviour (approved with the plan).
+- **Target retention**: read from the `target_retention` setting at every review. Not retroactive: due dates
+  already set are not recomputed.
+- **Fuzzing**: on in production. fsrs draws from the module-global `random.random`, which cannot be seeded
+  without touching global state. So the adapter builds the scheduler with `enable_fuzzing=False` and applies
+  the same fuzz ranges itself with an injected `random.Random` (uniform whole-day draw within the library's
+  bounds). Tests pass `fuzz=False`; M1.c will pass `Random(seed)` for a reproducible 60-day simulation.
+- **Note**: fsrs computes retrievability from whole elapsed days.
+
+## D-023 — Service layer (M1.b)
+
+- **Decision**: database operations live in `app/services/` (reviews, items, discovery, decks, durations,
+  planning).
+  - They take a `Session`, work in the caller's transaction and never commit (like `record_event`, D-017).
+  - Entry points (the CLI now, the API from M3) commit or roll back.
+  - `discovery.py` is separate from `items.py` to avoid an import cycle (a review re-checks the item status;
+    discovery records reviews).
+- **Why**: `domain/` stays pure and unit-tested; one transaction per user action keeps rows and events
+  consistent.
+
+## D-024 — Repetitions and lapses (M1.b)
+
+- **Decision**:
+  - `reps` +1 on every review;
+  - `lapses` +1 only for Again on a card in Review state: failing a learning or relearning step is not a
+    lapse;
+  - `review_log` gets the full before/after snapshot, with `elapsed_days` and `scheduled_days` in fractional
+    days.
+- **Refusals** (`ReviewNotAllowed`): a review earlier than the card's last review (the same instant is
+  accepted); a card whose item is not `learning`, `consolidated` or `active` (this covers `archived` and
+  `known`).
+- **Why**: the usual SRS meaning of a lapse (forgetting a graduated card), so M9 lapse statistics compare
+  with other tools.
+
+## D-025 — Item status rules (M1.b)
+
+- **Decision**: an explicit table in `app/domain/item_status.py` maps every allowed transition to the only
+  operation allowed to perform it (manual, start discovery, complete discovery, automatic, mark active,
+  unarchive). Anything else raises `InvalidItemTransition`. Every change writes `item.status_changed`.
+
+  | From | To |
+  |---|---|
+  | draft | triage, queued, known, archived |
+  | triage | queued, known, archived |
+  | queued | discovering (start discovery), triage, known, archived |
+  | discovering | learning (complete discovery only), archived |
+  | learning | consolidated (automatic), active (module G), archived |
+  | consolidated | learning (automatic), active (module G), archived |
+  | active | archived |
+  | known | queued, archived |
+  | archived | learning if the item has cards, else queued (unarchive) |
+
+- **Consolidated** ⇔ the productive card's stability ≥ `consolidation_min_stability_days` (existing
+  setting, default 7, also used by module G). Checked after every review; `active` is never downgraded.
+- **Unarchive**: back to `learning` when the item has cards (then the consolidation check runs), else
+  `queued`.
+- **Discovery**:
+  - `start_discovery(item, via_deck)` refuses a paused or done deck and a deck the item is not in, and turns
+    a queued deck active;
+  - `complete_discovery` creates both cards (refused if one exists) and logs a new `card.created` event per
+    card;
+  - without initial ratings the cards stay `new`, due at the start of the next study day; with them, the
+    first reviews are recorded at once;
+  - `discovery.completed` keeps the measured `duration_ms`.
+
+## D-026 — Deck statuses: pause and done (M1.b)
+
+- **Decision**:
+  - `queued → active | paused | done`, `active → paused | done`, `paused → active | done`, `done → active`
+    (reopen);
+  - `paused` and `done` stop new terms only: cards already created are still reviewed;
+  - `activated_at` keeps the first activation; `completed_at` is set on done and cleared on reopen;
+  - a queued deck becomes active only when its first term starts discovery, never because the planner
+    proposed it.
+- **Why**: reviews are memory upkeep and must never stop because a list is paused.
+
+## D-027 — Queue order (M1.b)
+
+- **Decision**:
+  - supplying decks (`queued`, `active`) are ordered by future deadline first (earliest first), then manual
+    `queue_position` (unset last), then id;
+  - a deadline today or in the past gives a `deadline_passed` warning, and the deck keeps its normal place;
+  - a term in several decks is proposed once, through its first eligible deck, and only while `queued`;
+  - `reorder_queue(deck_ids)` must list every deck that is not done exactly once; it writes dense positions
+    0..n-1 and `deck.reordered`;
+  - the `priority` column is not used: the manual position covers it.
+
+## D-028 — Duration estimates (M1.b)
+
+- **Defaults** (`app/domain/durations.py`): receptive card 15 s, typed productive card 25 s, oral answer
+  60 s, discovery 150 s, targeted-practice block 5 min, consolidation block 10 min.
+- **Observed values**:
+  - reviews are grouped by duration class (receptive, typed productive, oral), because exercise types only
+    arrive in M4; a class's median response time over the last 30 days replaces the default from 30 reviews;
+  - discovery: median `duration_ms` of `discovery.completed` events over 30 days, from 10 values.
+- A due card is planned by its direction (receptive or typed productive); the exercise is chosen at review
+  time.
+
+## D-029 — Planner formula and constants (M1.b)
+
+- **Blocks**:
+  1. due reviews, i.e. due before the end of the study day: new/learning/relearning cards by due date, then
+     Review cards by increasing retrievability; the two cards of a term are not adjacent when avoidable;
+  2. new terms;
+  3. targeted practice: the most frequent error code of the last 14 days with at least 2 errors (ties: the
+     most recent);
+  4. consolidation: a `proposed` or `accepted` task.
+- **New terms allowed**: `n = min(cap_quota, cap_budget, cap_anticipation, available)`, with
+  `B = budget × 60`, `Q` the quota and `P` the sum of the deadline paces:
+  - `cap_quota = Q` if `P ≤ Q`, else `min(P, 2Q)`;
+  - `cap_budget = max(0, ⌊(B − reviews − targeted block − consolidation block) / discovery⌋)`;
+  - `cap_anticipation = max(0, ⌊7 × (B − L7) / (NEW_ITEM_CARDS × NEW_CARD_REVIEWS_FIRST_WEEK × card)⌋)`,
+    where `L7` is the mean forecast load of the next 7 study days, `card` the mean of the receptive and
+    productive estimates, `NEW_ITEM_CARDS = 2` and `NEW_CARD_REVIEWS_FIRST_WEEK = 4`.
+- **Reported limit**: `nothing_to_learn` without candidates; otherwise the binding cap, ties in the order
+  budget, anticipation, quota; `supply` when fewer terms exist than allowed (added with the plan).
+- **Overflow**: time accumulates in block order (reviews, targeted practice, consolidation); entries past the
+  budget get `overflow: true`. Reviews over budget → 0 new terms and a `reviews_over_budget` warning.
+- **Order of new terms**: interrupted discoveries, each deadline deck's pace, active decks in queue order,
+  then queued decks (listed in `decks_to_activate`).
+- **Warnings**: a stable code and parameters, no text; the frontend translates them.
+
+## D-030 — Deadline pace and the 2 × quota cap (M1.b)
+
+- **Decision**:
+  - `required = ⌈remaining / days_left⌉`; `remaining` = queued + discovering terms of the deck; `days_left`
+    = study days from today to the day before the deadline;
+  - terms still in triage get a separate `deadline_triage_pending` warning;
+  - a deadline may raise the quota up to 2 × quota, no more;
+  - if the pace exceeds `achievable = min(2Q, cap_budget, cap_anticipation)`, `deadline_unrealistic` gives
+    the achievable pace and the projected last day (`today + ⌈remaining / achievable⌉ − 1`; null if 0).
+- **Why**: a talk can justify a heavier fortnight, but an unbounded quota would bury the following weeks in
+  reviews. The warning lets the user decide (cut the list or move the date).
+
+## D-031 — Read-only planner and `plan today` (M1.b)
+
+- **Decision**:
+  - `plan_session` is pure and its output (`SessionPlan`, Pydantic) is serialisable;
+  - it writes no `study_session` and no event: M4 records the session when the user starts it;
+  - `python -m app plan today [--at ISO] [--json]` sets `PRAGMA query_only = ON` on its connection (SQLite
+    itself refuses any write) and rolls back; a naive `--at` is local time in the `timezone` setting; it
+    refuses a missing or outdated database.
+
+## D-032 — Faster database tests (M1.b)
+
+- **Decision**: the suite runs the migrations once per session into a template file and copies it for each
+  test. The template is itself built from scratch by `alembic upgrade head`, and the downgrade/upgrade test
+  still uses its own fresh file.
+- **Why**: status and queue tests are parameterised over every transition; the suite went from ~30 s to
+  ~8 s, which matters on the Windows CI job.

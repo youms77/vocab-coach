@@ -38,6 +38,7 @@ class EventType(StrEnum):
     ENRICHMENT_GENERATED = "enrichment.generated"
     ENRICHMENT_EDITED = "enrichment.edited"
     DISCOVERY_COMPLETED = "discovery.completed"
+    CARD_CREATED = "card.created"
     CARD_REVIEWED = "card.reviewed"
     PRODUCTION_RECORDED = "production.recorded"
     ERROR_RECORDED = "error.recorded"
@@ -103,7 +104,7 @@ class DeckReordered(Event):
     event_type = EventType.DECK_REORDERED
     entity_type = "deck"
 
-    # Queued decks in their new order.
+    # All decks that are not done, in their new queue order.
     deck_ids: list[Id]
 
 
@@ -185,6 +186,16 @@ class DiscoveryCompleted(Event):
 
 
 # --- Reviews, productions, errors --------------------------------------------------------------
+
+
+class CardCreated(Event):
+    event_type = EventType.CARD_CREATED
+    entity_type = "card"
+    entity_id_field = "card_id"
+
+    card_id: Id
+    lexical_item_id: Id
+    direction: CardDirection
 
 
 class CardReviewed(Event):
