@@ -4,12 +4,84 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M2.b1 — Groq + Ollama adapters and the `ai status | test | usage` CLI
-  (2026-10-16), branch `feat/m2b1-ai-providers`, **cut from `feat/m2a-ai-core`** (PR #4, M2.a, is still open:
-  merge it first, then retarget this PR on `main`). M1.a, M1.b and M1.c are merged (PR #1, #2, #3).
-- **Next milestone**: **M2.b2** — the Gemini adapter (design already decided, D-055), then **M2.c** — API
-  endpoints, settings page, "test connection" button.
+- **Last milestone completed**: M2.b2 — the Gemini adapter (2026-10-16), branch `feat/m2b2-gemini`, **cut from
+  `feat/m2b1-ai-providers`** (M2.b1 is committed there, its PR is not merged yet; merge M2.a's PR #4, then M2.b1's,
+  then retarget this one on `main`). M1.a, M1.b and M1.c are merged (PR #1, #2, #3).
+- **Next milestone**: **M2.c** — API endpoints, settings page, "test connection" button.
 - The owner has not yet run anything against the real services: see "Owner's manual scenario" below.
+
+## M2.b2 — Gemini adapter ✅
+
+### Done
+
+- **Facts re-verified in the official documentation (2026-10-16)**, D-056: models (new: `gemini-4-argon` has no
+  free tier), free tier and privacy (unchanged), quotas and regions (unchanged), `responseFormat` confirmed in
+  the v1beta discovery document (the older JSON fields are marked deprecated), thinking levels per model
+  (`gemini-3.8-flash` has no minimal level), `temperature` ignored on recent models, error pages (still only the
+  Interactions API). Two points of the documentation contradict each other (thinking on 2.5 models) and the real
+  `generateContent` error body is still undocumented: both are listed as "to confirm".
+- **`providers/gemini.py`** (D-057): `generateContent` v1beta, key in `x-goog-api-key` only, default
+  `gemini-3.5-flash-lite` (`VOCAB_GEMINI_MODEL`, new in `Settings` and `.env.example`), model name validated before
+  it enters the URL, thinking table + 512 tokens of headroom, thoughts left out of the answer, tokens = candidates +
+  thoughts, blocked / truncated / empty answers are `invalid_output`.
+- **Risk n° 1 isolated** (D-058): one function builds the JSON fields (`responseFormat` or the older
+  `responseMimeType` + `responseJsonSchema`); a 400 that names the refused field makes the adapter fall back for
+  that call and use the older fields from then on.
+- **`to_gemini_schema`** (`providers/schema.py`): the Groq / Ollama simplification, but `minimum`, `maximum`,
+  `minItems`, `maxItems` are kept. Groq and Ollama schemas are byte-identical to M2.b1's.
+- **Errors** (D-059): both body shapes (classic `status` + `details[]`, Interactions `error.code`); a `PerDay`
+  quota is `quota_exhausted` with `retry_after` ignored; per-minute 429 uses `retryDelay` / `Retry-After` /
+  "retry in Ns"; 400 `API_KEY_INVALID` and the region / free-tier `FAILED_PRECONDITION` are `auth`; 402 is a quota
+  problem; 404 points to `VOCAB_GEMINI_MODEL`.
+- **Policy** (D-060): `MAX_WAIT_S` kept at 20 s, with the reasoning and tests on Gemini-shaped delays (14 s and 20 s
+  wait, 21 s and 57 s fall back, a daily quota never waits).
+- **Wiring**: `build_providers()` returns Gemini, Groq and Ollama; `ai status` / `ai test` lost their "not available
+  yet" special cases (`ai test --provider gemini` works like the others).
+- **Tests** (offline, loopback fake servers, 26 fixtures in `tests/ai/fixtures/gemini/`): adapter (request, thinking
+  table, both JSON modes, every answer and error row), schema converter, gateway with Gemini + Groq (retry, fallback,
+  cooldowns, `reload()`, repair, JSON-field switch), hostile-server secret tests, CLI, settings, `build_providers`,
+  plus the live test (`tests/live`, off by default).
+- **README**: Google AI Studio key section with the free-tier privacy warning; `docs/architecture.md`; D-056 to D-060.
+- **No migration, no frontend change, SPEC.md unchanged.**
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes: ruff check, ruff format --check, pytest **735 passed, 4 deselected** (the live tests;
+  621 before this milestone), tsc, oxlint, vitest 11 passed.
+- Without any key (variables forced to empty, data directory in a temporary folder): `ai status` lists Gemini,
+  Groq and Ollama as not configured with their models and no "not available yet"; `ai test --provider gemini` exits
+  2 (no database / not configured); `--demo ai test` exits 2; nothing created in the repository.
+- **Not run by me, on purpose**: no real Gemini call, no live test, no `ai test` with a key. The `.env` was never
+  opened.
+
+### Owner's manual scenario (with your own key, about 2 minutes)
+
+1. Create a key at <https://aistudio.google.com/apikey>, put `VOCAB_GEMINI_API_KEY=...` in `.env` (README, section
+   Gemini).
+2. `uv run python -m app ai status` (from `backend/`): Gemini configured, model `gemini-3.5-flash-lite`.
+3. `uv run python -m app ai test --provider gemini`: `gemini: ok (...)`, exit 0. This is the first real exercise
+   of the `responseFormat` field. If it fails, send the one-line message.
+4. A wrong key: a clear `auth` message (never the key), exit 1. From a country the free tier does not serve: `auth`
+   with a region / free-tier message.
+5. `uv run python -m app ai usage`: today's calls with Gemini's tokens (candidates + thinking).
+6. Optional: `$env:VOCAB_RUN_LIVE=1; uv --directory backend run pytest tests/live -m live -v` (a warning says if
+   the older JSON fields had to be used).
+
+### Left / notes
+
+- **To confirm by the first real call** (D-056): the `responseFormat` field and the upper-case `thinkingLevel`
+  are accepted; the real error bodies and quota ids; the real `retryDelay` values (then re-examine D-060);
+  whether the free tier works in Cameroon (hypothesis B.11). If `responseFormat` is refused, D-058's switch
+  already copes; the default should then be changed.
+- **Gemini first means content goes to Google's free tier first** (may be used to improve its products): the
+  README says so; the settings page (M2.c) is where the order and the keys become editable.
+- `gemini-3.1-flash-lite` and any model set through `VOCAB_GEMINI_MODEL` outside the thinking table get no
+  `thinkingConfig` (a model that thinks by default is protected by the 512-token headroom only).
+- Live tests are 1 request per provider, 2 for Gemini if the JSON field has to be switched.
+
+### Known issues
+
+- None known.
 
 ## M2.b1 — Real providers (Groq, Ollama) and `ai status | test | usage` ✅
 
@@ -357,14 +429,12 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M2.b2 (Gemini), then M2.c (endpoints and settings page)
+## Next step: M2.c (endpoints and settings page)
 
-- **M2.b2**: the Gemini adapter (`generateContent`, design in D-055), its schema converter, `VOCAB_GEMINI_MODEL`,
-  Gemini in `build_providers()`, README section for the Google AI Studio key, live test. First re-check the
-  Gemini facts of D-046 and settle the owner's findings from the real Groq / Ollama calls.
 - **M2.c**: API endpoints, settings page (keys written to `.env`, then `get_settings.cache_clear()` +
   `get_gateway().reload()`; order, daily usage from `services/ai_usage.py`), "test connection" button
-  (`generate_json("connection_test", ..., pin_provider=...)`, as `ai test` already does).
+  (`generate_json("connection_test", ..., pin_provider=...)`, as `ai test` already does). Settle first the owner's
+  findings from the real Gemini / Groq / Ollama calls (D-056 "to confirm", D-054, D-046).
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅

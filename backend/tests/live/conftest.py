@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from app.ai.providers import build_providers
+from app.ai.providers.gemini import GeminiProvider
 from app.ai.providers.groq import GroqProvider
 from app.ai.providers.ollama import OllamaProvider
 from app.config import Settings
@@ -31,6 +32,15 @@ def live_settings() -> Settings:
     if os.environ.get("VOCAB_RUN_LIVE") != "1":
         pytest.skip("live tests are off: set VOCAB_RUN_LIVE=1 to call the real providers")
     return Settings()
+
+
+@pytest.fixture(scope="session")
+def gemini(live_settings: Settings) -> GeminiProvider:
+    provider = build_providers(live_settings)["gemini"]
+    if not provider.is_configured():
+        pytest.skip("Gemini is not configured (VOCAB_GEMINI_API_KEY)")
+    assert isinstance(provider, GeminiProvider)
+    return provider
 
 
 @pytest.fixture(scope="session")

@@ -15,6 +15,7 @@ import pytest
 
 from app.ai.gateway import Gateway
 from app.ai.providers import build_providers
+from app.ai.providers.gemini import GeminiProvider
 from app.ai.providers.groq import GroqProvider
 from app.ai.providers.ollama import OllamaProvider
 from app.ai.types import ProviderError
@@ -135,4 +136,112 @@ def test_a_bad_url_is_refused_without_a_request_and_without_echoing_it() -> None
     provider = GroqProvider(KEY, base_url="file:///C:/secret.txt")
     with pytest.raises(ProviderError) as caught:
         provider.generate_json(provider_request())
+    assert "secret.txt" not in caught.value.message
+
+
+# --- Gemini: the key travels in `x-goog-api-key` (D-049, D-057) -------------------------------
+
+GEMINI_KEY = "AIzaSy_a+b/c=d_0123456789"
+GEMINI_VARIANTS = (GEMINI_KEY, quote(GEMINI_KEY, safe=""), quote_plus(GEMINI_KEY))
+
+
+def _gemini_leaks(text: str) -> list[str]:
+    return [variant for variant in GEMINI_VARIANTS if variant in text]
+
+
+def _gemini_echo(status: int, *, classic: bool = True) -> Callable[[Received], Reply]:
+    def handler(received: Received) -> Reply:
+        message = (
+            f"bad credentials {received.headers.get('x-goog-api-key')} sent to {received.path}; "
+            f"raw={GEMINI_KEY} url={quote(GEMINI_KEY, safe='')} form={quote_plus(GEMINI_KEY)} "
+            f"headers={json.dumps(received.headers)}"
+        )
+        error = (
+            {"code": status, "status": "INVALID_ARGUMENT", "message": message}
+            if classic
+            else {"code": "invalid_request", "message": message}
+        )
+        return Reply(status=status, body={"error": error})
+
+    return handler
+
+
+def _gemini(server: FakeServer) -> GeminiProvider:
+    return GeminiProvider(GEMINI_KEY, base_url=server.base_url + "/v1beta")
+
+
+@pytest.mark.parametrize("classic", [True, False])
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 429, 500, 503, 418])
+def test_gemini_messages_never_contain_the_key(
+    make_server: ServerFactory, status: int, classic: bool
+) -> None:
+    server = make_server(handler=_gemini_echo(status, classic=classic))
+    with pytest.raises(ProviderError) as caught:
+        _gemini(server).generate_json(provider_request())
+
+    error = caught.value
+    for text in (error.message, str(error), repr(error), repr(error.args)):
+        assert _gemini_leaks(text) == [], (status, text)
+    assert "***" in error.message
+
+
+def test_gemini_key_is_only_ever_sent_in_its_header(make_server: ServerFactory) -> None:
+    server = make_server(handler=_gemini_echo(400))
+    with pytest.raises(ProviderError):
+        _gemini(server).generate_json(provider_request())
+    [received] = server.requests
+    assert received.headers["x-goog-api-key"] == GEMINI_KEY
+    assert _gemini_leaks(received.path) == [] and _gemini_leaks(received.body.decode()) == []
+    others = {k: v for k, v in received.headers.items() if k != "x-goog-api-key"}
+    assert _gemini_leaks(json.dumps(others)) == []
+    assert "?" not in received.path  # no `?key=` query string, ever
+
+
+def test_gemini_gateway_result_log_and_database_stay_clean(
+    make_server: ServerFactory,
+    make_gateway: GatewayFactory,
+    engine,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    gemini = make_server(handler=_gemini_echo(400))
+    groq = make_server(handler=_echo(401))
+    gateway = make_gateway(_gemini(gemini), _provider(groq), secrets=[GEMINI_KEY, KEY])
+
+    result = ping(gateway)
+
+    assert _gemini_leaks(result.detail or "") == [] and _leaks(result.detail or "") == []
+    assert _gemini_leaks(caplog.text) == [] and _leaks(caplog.text) == []
+    for row in log_rows(engine):
+        texts = " | ".join(str(getattr(row, column.name)) for column in AICallLog.__table__.columns)
+        assert _gemini_leaks(texts) == [] and _leaks(texts) == []
+    for status in gateway.status():
+        assert _gemini_leaks(repr(status)) == []
+
+
+def test_gemini_reprs_and_settings_hide_the_key() -> None:
+    provider = GeminiProvider(GEMINI_KEY)
+    for text in (repr(provider), str(provider), repr([provider]), repr({"gemini": provider})):
+        assert _gemini_leaks(text) == []
+    settings = Settings(_env_file=None, gemini_api_key=GEMINI_KEY)
+    assert _gemini_leaks(repr(settings)) == [] and _gemini_leaks(str(settings)) == []
+    assert _gemini_leaks(repr(build_providers(settings))) == []
+    assert GEMINI_KEY in settings.secret_values()  # so that the gateway masks it too
+
+
+def test_gemini_network_failures_say_nothing_about_the_address(make_server: ServerFactory) -> None:
+    server = make_server(Reply(drop=True))
+    with pytest.raises(ProviderError) as caught:
+        _gemini(server).generate_json(provider_request())
+    error = caught.value
+    assert server.base_url.rsplit(":", 1)[1] not in error.message
+    assert error.__cause__ is None and error.__suppress_context__
+    assert _gemini_leaks("".join(traceback.format_exception(error))) == []
+
+
+def test_gemini_bad_url_is_refused_without_echoing_it() -> None:
+    with pytest.raises(ProviderError) as caught:
+        GeminiProvider(GEMINI_KEY, base_url="file:///C:/secret.txt").generate_json(
+            provider_request()
+        )
     assert "secret.txt" not in caught.value.message

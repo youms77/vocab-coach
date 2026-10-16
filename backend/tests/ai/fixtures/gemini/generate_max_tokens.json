@@ -1,0 +1,1 @@
+{"candidates":[{"content":{"role":"model","parts":[{"text":"{\"ok\":tr"}]},"finishReason":"MAX_TOKENS","index":0}],"usageMetadata":{"promptTokenCount":88,"candidatesTokenCount":8,"thoughtsTokenCount":500,"totalTokenCount":596},"modelVersion":"gemini-3.5-flash-lite"}

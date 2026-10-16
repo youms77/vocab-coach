@@ -37,7 +37,7 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/domain/` | pure business logic (see "Domain and services" below) | M1.a, M1.b |
 | `app/services/` | operations that read and write the database, in the caller's transaction | M1.b |
 | `app/db/` | data layer (see below) | M1.a |
-| `app/ai/` | AI gateway, prompts, schemas, providers (see "AI gateway" below) | M2.a, M2.b1 (Groq, Ollama; Gemini in M2.b2) |
+| `app/ai/` | AI gateway, prompts, schemas, providers (see "AI gateway" below) | M2.a, M2.b1 (Groq, Ollama), M2.b2 (Gemini) |
 | `app/speech/` | transcription, pronunciation | empty (M6) |
 | `alembic.ini` | Alembic configuration (URL comes from the app settings) | M1.a |
 | `tests/` | pytest suite; database tests use a temporary SQLite file built by the migrations | M0, M1.a |
@@ -108,7 +108,7 @@ domain/                           pure: no session, no network, no clock (`now` 
   and observed durations; `plan_session` computes the blocks and the number of new terms (formula in
   D-029). Nothing is written.
 
-## AI gateway (`backend/app/ai/`, M2.a, M2.b1)
+## AI gateway (`backend/app/ai/`, M2.a, M2.b1, M2.b2)
 
 ```
 caller (service / route)      call the AI first, then write the result in its own short transaction
@@ -123,6 +123,7 @@ gateway.py   Gateway         one shared core for text and transcription
    ▼
 providers/   Provider protocol: name, capabilities, is_configured(), model_for(), generate_json(), transcribe()
    │         (optional `min_request_timeout_s`: a local model that must load first)
+   ├─ gemini.py        GeminiProvider (text, generateContent v1beta; JSON fields in one function)
    ├─ groq.py          GroqProvider (text + Whisper)      ── extends ──▶ openai_compat.py (chat completions)
    ├─ ollama.py        OllamaProvider (native /api/chat, no key, "configured" = a base URL)
    ├─ fake.py          scripted provider, tests + `ai simulate`
@@ -147,12 +148,13 @@ http.py      urllib client: error status = a normal answer, network failure = Pr
   in every message (by the adapter, then again by the gateway); the key only travels in an HTTP header.
   Tests run with a socket guard that allows only the loopback interface: the adapters are tested against
   fake HTTP servers (`tests/ai/fake_server.py`), never the real services.
-- **Real providers** (`build_providers()`): Groq and Ollama, configured or not, so `status()` and
-  `pin_provider` know them. Models are defaults in the adapters, overridable by `VOCAB_GROQ_TEXT_MODEL`,
-  `VOCAB_GROQ_TRANSCRIPTION_MODEL`, `VOCAB_OLLAMA_MODEL`. Gemini joins in M2.b2.
+- **Real providers** (`build_providers()`): Gemini, Groq and Ollama, configured or not, so `status()` and
+  `pin_provider` know them. Models are defaults in the adapters, overridable by `VOCAB_GEMINI_MODEL`,
+  `VOCAB_GROQ_TEXT_MODEL`, `VOCAB_GROQ_TRANSCRIPTION_MODEL`, `VOCAB_OLLAMA_MODEL`. Gemini's API key goes
+  in the `x-goog-api-key` header only; its error bodies are read in two shapes (D-059).
 - **Live tests** (`tests/live/`, marker `live`): one real request per configured provider, only with
   `VOCAB_RUN_LIVE=1`; excluded from `npm run check` and the CI.
-- Decisions: D-038 to D-045 (M2.a), D-046 to D-055 (M2.b1). Tools: `uv run python -m app ai simulate`
+- Decisions: D-038 to D-045 (M2.a), D-046 to D-055 (M2.b1), D-056 to D-060 (M2.b2). Tools: `uv run python -m app ai simulate`
   (fake providers, throwaway database), `ai status`, `ai test`, `ai usage` (real providers).
 
 ## Frontend (`frontend/src/`)

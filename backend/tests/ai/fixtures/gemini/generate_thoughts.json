@@ -1,0 +1,1 @@
+{"candidates":[{"content":{"role":"model","parts":[{"text":"The user wants a ping reply.","thought":true},{"text":"{\"ok\":true,\"echo\":\"ping\"}"}]},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":90,"candidatesTokenCount":11,"thoughtsTokenCount":40,"totalTokenCount":141},"modelVersion":"gemini-3.5-flash-lite","responseId":"resp_example_0001"}

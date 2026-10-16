@@ -7,9 +7,9 @@ expressions you meet in your reading, classes or daily life; the app builds a us
 walks you through a first discovery, schedules spaced reviews (FSRS), makes you produce sentences and speak,
 logs your recurring errors (prepositions, tenses…) and shows your progress with real statistics.
 
-> **Status: milestone M2.b1 (AI providers).** The app starts and shows an empty home screen. Behind it
-> sit the data model, the review scheduler, demo data and an AI gateway with Groq and Ollama adapters,
-> usable from the command line (`python -m app ai ...`). Gemini follows in M2.b2; screens arrive milestone
+> **Status: milestone M2.b2 (AI providers).** The app starts and shows an empty home screen. Behind it
+> sit the data model, the review scheduler, demo data and an AI gateway with Gemini, Groq and Ollama
+> adapters, usable from the command line (`python -m app ai ...`). Screens arrive milestone
 > by milestone — see [`docs/PROGRESS.md`](docs/PROGRESS.md) and the roadmap in
 > [`docs/SPEC.md`](docs/SPEC.md#9-roadmap).
 
@@ -106,9 +106,36 @@ runs in a degraded mode (no AI features).
 
 > **Privacy.** Whatever the app sends to an AI provider leaves your computer. Send nothing confidential.
 > On the **free tier of Gemini**, Google's pricing page says the content *may be used to improve its
-> products* (it is not on the paid tier). Gemini arrives in milestone M2.b2.
+> products* (it is not on the paid tier). Your words, sentences and corrections are sent to Gemini first
+> (it is the first provider tried): if that matters to you, leave the Gemini key empty and the app uses
+> Groq or Ollama only.
 
-### Groq: free text model and speech-to-text (available now)
+### Gemini: the main free text model (Google AI Studio)
+
+1. Sign in at <https://aistudio.google.com/apikey> with a Google account and create an API key (Google may ask
+   you to accept its terms; check there whether your account and country get the free tier).
+2. In `.env`, add `VOCAB_GEMINI_API_KEY=` followed by the key: no quotes, no spaces.
+3. Check it from the `backend` folder:
+
+   ```powershell
+   cd backend
+   uv run python -m app ai test --provider gemini
+   ```
+
+   You should see a line like `gemini: ok (gemini-3.5-flash-lite, 700 ms, tokens in/out 88/11)`.
+
+- **Model**: `gemini-3.5-flash-lite` by default (a stable model, free of charge according to
+  [Google's pricing page](https://ai.google.dev/gemini-api/docs/pricing), read on 2026-10-16). To use
+  another one, set `VOCAB_GEMINI_MODEL` (for instance `gemini-3.8-flash`); leave it empty for the default.
+  Some models have no free tier (`gemini-4-argon`, per Google's pricing page): with a free key, a call to one of them is refused.
+- **Limits**: Google does not publish the free-tier numbers; they are per project and shown in
+  [AI Studio](https://aistudio.google.com/). A per-minute limit is waited for (up to 20 seconds) or the app
+  moves on to Groq; a daily limit sets Gemini aside for an hour (the quota resets at midnight Pacific time).
+- **Availability**: Cameroon is in Google's list of supported countries. Whether the free tier works for
+  your key from there is only confirmed by a real call: if `ai test` reports `auth` with a message about
+  the region or the free tier, the app keeps working with Groq and Ollama.
+
+### Groq: free text model and speech-to-text
 
 1. Create an API key at <https://console.groq.com/keys> (sign in or create an account if the console asks).
 2. In `.env`, add `VOCAB_GROQ_API_KEY=` followed by the key: no quotes, no spaces.
@@ -143,7 +170,7 @@ useful offline or as a last fallback.
 4. Check it: `uv run python -m app ai test --provider ollama`. The first request can take a minute while
    the model loads into memory.
 
-To use another model, set `VOCAB_OLLAMA_MODEL` (or `VOCAB_GROQ_TEXT_MODEL`,
+To use another model, set `VOCAB_OLLAMA_MODEL` (or `VOCAB_GEMINI_MODEL`, `VOCAB_GROQ_TEXT_MODEL`,
 `VOCAB_GROQ_TRANSCRIPTION_MODEL`); leave them empty to keep the defaults.
 
 ### Checking your setup
@@ -154,13 +181,15 @@ Run these from the `backend` folder:
 |---|---|
 | `uv run python -m app ai status` | providers, configured or not, models and order. Never prints a key. |
 | `uv run python -m app ai test` | one real request per configured provider: status, model, time, tokens. Exit code 0 = all fine, 1 = a test failed, 2 = nothing configured or a usage error. |
+| `uv run python -m app ai test --provider gemini` | tests only one provider (`gemini`, `groq` or `ollama`). |
 | `uv run python -m app ai test --provider groq --audio my_clip.wav` | also transcribes a short clip (Groq Whisper) and prints the text. |
 | `uv run python -m app ai usage --days 7` | requests and tokens per study day, provider and model (read-only). |
 
 `ai test` and `ai usage` work on your personal database (not `--demo`): the test requests use a little of
 your free quota and are recorded in it.
 
-If a test fails, the message says why: `auth` means the key is wrong or refused (nothing is retried);
+If a test fails, the message says why: `auth` means the key is wrong or refused, or Gemini does not serve your region on the free tier (nothing
+is retried);
 `quota` means a limit was reached (wait, or let the app use the next provider); `network` means the
 provider cannot be reached (for Ollama: is it running, and is the address right?).
 

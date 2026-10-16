@@ -71,29 +71,35 @@ def inline_refs(schema: Mapping[str, Any]) -> dict[str, Any]:
     return resolve(dict(schema), frozenset())
 
 
-def simplify_schema(schema: Mapping[str, Any], *, closed_objects: bool) -> dict[str, Any]:
-    """Inline references, drop `DROPPED_KEYWORDS`, turn `const` into `enum`, merge one-item `allOf`.
+def simplify_schema(
+    schema: Mapping[str, Any],
+    *,
+    closed_objects: bool,
+    dropped: frozenset[str] = DROPPED_KEYWORDS,
+) -> dict[str, Any]:
+    """Inline references, drop the `dropped` keywords, turn `const` into `enum`, merge one-item
+    `allOf`.
 
     With `closed_objects`, every object schema gets `additionalProperties: false` (recommended by
     Groq; the `AiOutput` models ignore extra fields, so it only constrains the model).
     Field names are never touched: `properties` is walked as a mapping of names to schemas.
     """
-    return _simplify(inline_refs(schema), closed_objects)
+    return _simplify(inline_refs(schema), closed_objects, dropped)
 
 
-def _simplify(node: Any, closed: bool) -> Any:
+def _simplify(node: Any, closed: bool, dropped: frozenset[str]) -> Any:
     if not isinstance(node, dict):
         return node
     result: dict[str, Any] = {}
     for key, value in node.items():
-        if key in DROPPED_KEYWORDS or key == "$defs":
+        if key in dropped or key == "$defs":
             continue
         if key == "properties" and isinstance(value, dict):
-            result[key] = {name: _simplify(sub, closed) for name, sub in value.items()}
+            result[key] = {name: _simplify(sub, closed, dropped) for name, sub in value.items()}
         elif key in _SCHEMA_LISTS and isinstance(value, list):
-            result[key] = [_simplify(sub, closed) for sub in value]
+            result[key] = [_simplify(sub, closed, dropped) for sub in value]
         elif key in _SCHEMA_VALUES and isinstance(value, dict):
-            result[key] = _simplify(value, closed)
+            result[key] = _simplify(value, closed, dropped)
         elif key == "const":
             result["enum"] = [value]
         else:
@@ -114,6 +120,22 @@ def to_groq_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
     reference support per model. Optional fields stay optional (best-effort mode allows it).
     """
     return simplify_schema(schema, closed_objects=True)
+
+
+# Gemini documents these bounds as accepted next to the plain structural keywords, so unlike the
+# other providers it keeps them: they steer the model, Pydantic still enforces them afterwards.
+GEMINI_KEPT_KEYWORDS = frozenset({"minimum", "maximum", "minItems", "maxItems"})
+GEMINI_DROPPED_KEYWORDS = DROPPED_KEYWORDS - GEMINI_KEPT_KEYWORDS
+
+
+def to_gemini_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
+    """Schema for Gemini's structured output (`responseFormat.text.schema`, D-056).
+
+    The documented subset: types, `properties`, `required`, `additionalProperties`, `enum`, `items`,
+    `anyOf`, `minimum`/`maximum`, `minItems`/`maxItems`; "not all JSON Schema features are
+    supported", so `format`, `pattern`, string lengths and the rest are dropped, references inlined.
+    """
+    return simplify_schema(schema, closed_objects=True, dropped=GEMINI_DROPPED_KEYWORDS)
 
 
 def to_ollama_schema(schema: Mapping[str, Any]) -> dict[str, Any]:

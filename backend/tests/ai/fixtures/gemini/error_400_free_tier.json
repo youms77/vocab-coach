@@ -1,0 +1,1 @@
+{"error":{"code":400,"message":"The free tier is not available in your country. Please enable billing on your project in Google AI Studio.","status":"FAILED_PRECONDITION"}}

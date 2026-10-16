@@ -146,6 +146,7 @@ def test_without_any_key_the_application_gateway_is_in_degraded_mode(
     # `.env`, so keys written there for real use can never turn this test into a network call.
     for name in ("VOCAB_GEMINI_API_KEY", "VOCAB_GROQ_API_KEY", "VOCAB_OLLAMA_BASE_URL"):
         monkeypatch.setenv(name, "")
+    monkeypatch.setenv("VOCAB_GEMINI_MODEL", "")
     get_settings.cache_clear()
     get_gateway.cache_clear()
     try:
@@ -153,7 +154,7 @@ def test_without_any_key_the_application_gateway_is_in_degraded_mode(
         assert result.reason is UnavailableReason.NO_PROVIDER_CONFIGURED
         # Every real provider is known (D-040), none is configured: nothing was called.
         status = get_gateway().status()
-        assert {s.name for s in status} == {"groq", "ollama"}
+        assert {s.name for s in status} == {"gemini", "groq", "ollama"}
         assert not any(s.configured or s.available for s in status)
     finally:
         get_settings.cache_clear()

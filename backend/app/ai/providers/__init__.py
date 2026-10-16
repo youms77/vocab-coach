@@ -31,13 +31,14 @@ class Provider(Protocol):
 
 def build_providers(settings: Settings | None = None) -> dict[str, Provider]:
     """The real providers, built from the settings, configured or not (D-040): `pin_provider` and
-    `status()` must know every one of them. Gemini joins in M2.b2; until then it is not built, and
-    the gateway skips a name it does not know."""
+    `status()` must know every one of them."""
+    from app.ai.providers.gemini import GeminiProvider
     from app.ai.providers.groq import GroqProvider
     from app.ai.providers.ollama import OllamaProvider
 
     settings = settings or get_settings()
     return {
+        "gemini": GeminiProvider.from_settings(settings),
         "groq": GroqProvider.from_settings(settings),
         "ollama": OllamaProvider.from_settings(settings),
     }

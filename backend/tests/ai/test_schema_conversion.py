@@ -15,10 +15,12 @@ from pydantic import BaseModel, Field
 
 from app.ai.providers.schema import (
     DROPPED_KEYWORDS,
+    GEMINI_DROPPED_KEYWORDS,
     SchemaConversionError,
     inline_refs,
     schema_instruction,
     simplify_schema,
+    to_gemini_schema,
     to_groq_schema,
     to_ollama_schema,
 )
@@ -95,7 +97,7 @@ def test_references_and_unsupported_keywords_are_gone(convert: Any) -> None:
         assert not DROPPED_KEYWORDS & node.keys(), node
 
 
-@pytest.mark.parametrize("convert", [to_groq_schema, to_ollama_schema])
+@pytest.mark.parametrize("convert", [to_groq_schema, to_ollama_schema, to_gemini_schema])
 def test_structure_enums_and_descriptions_survive(convert: Any) -> None:
     schema = convert(RAW)
     assert schema["type"] == "object"
@@ -112,7 +114,7 @@ def test_structure_enums_and_descriptions_survive(convert: Any) -> None:
     assert example["required"] == ["sentence"]
 
 
-@pytest.mark.parametrize("convert", [to_groq_schema, to_ollama_schema])
+@pytest.mark.parametrize("convert", [to_groq_schema, to_ollama_schema, to_gemini_schema])
 def test_optional_fields_stay_optional_and_nullable(convert: Any) -> None:
     schema = convert(RAW)
     assert "confusions" not in schema["required"] and "note" not in schema["required"]
@@ -121,7 +123,7 @@ def test_optional_fields_stay_optional_and_nullable(convert: Any) -> None:
     assert schema["properties"]["confusions"]["anyOf"][0]["items"] == {"type": "string"}
 
 
-@pytest.mark.parametrize("convert", [to_groq_schema, to_ollama_schema])
+@pytest.mark.parametrize("convert", [to_groq_schema, to_ollama_schema, to_gemini_schema])
 def test_every_object_is_closed(convert: Any) -> None:
     objects = [n for n in schema_nodes(convert(RAW)) if n.get("type") == "object"]
     assert len(objects) == 3  # the sheet, a sense, an example
@@ -213,3 +215,44 @@ def test_the_prompt_instruction_carries_the_compact_schema() -> None:
     embedded = json.loads(text.split("nothing else:\n", 1)[1])
     assert embedded == to_groq_schema(RAW)
     assert "\n" not in text.split("nothing else:\n", 1)[1]  # compact: a single line
+
+
+# --- Gemini (D-056): documented bounds are kept, the rest is dropped ----------------------------
+
+
+def test_gemini_keeps_the_documented_bounds_and_drops_the_other_keywords() -> None:
+    schema = to_gemini_schema(RAW)
+    keys = set(everything(schema))
+    assert "$defs" not in keys and "$ref" not in keys
+    for node in schema_nodes(schema):
+        assert not GEMINI_DROPPED_KEYWORDS & node.keys(), node
+    assert schema["properties"]["level"]["minimum"] == 1
+    assert schema["properties"]["level"]["maximum"] == 6
+    examples = schema["properties"]["senses"]["items"]["properties"]["examples"]
+    assert examples["minItems"] == 1 and examples["maxItems"] == 5
+    definition = schema["properties"]["senses"]["items"]["properties"]["definition"]
+    assert definition == {"type": "string"}  # string lengths are not in the documented subset
+
+
+def test_the_gemini_policy_differs_from_the_others_by_the_bounds_only() -> None:
+    assert {
+        "minimum",
+        "maximum",
+        "minItems",
+        "maxItems",
+    } == DROPPED_KEYWORDS - GEMINI_DROPPED_KEYWORDS
+    plain = to_groq_schema(RAW)
+    assert plain["properties"]["level"] == {"type": "integer"}  # Groq output is unchanged
+
+
+def test_gemini_does_not_modify_the_input_and_keeps_field_names() -> None:
+    class Odd(AiOutput):
+        minimum: int = Field(ge=0)
+        maxItems: list[str] = []
+
+    before = copy.deepcopy(RAW)
+    to_gemini_schema(RAW)
+    assert before == RAW
+    schema = to_gemini_schema(Odd.model_json_schema())
+    assert set(schema["properties"]) == {"minimum", "maxItems"}
+    assert schema["properties"]["minimum"]["minimum"] == 0
