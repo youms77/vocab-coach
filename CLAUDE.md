@@ -25,6 +25,9 @@ Run from the repository root.
 | Install / update deps | `npm run setup` | `npm run setup` |
 | All checks | `npm run check` | `npm run check` |
 | Create / upgrade the database | `cd backend; uv run python -m app db upgrade` | same |
+| Start on the demo database | `.\start.ps1 -Demo` (or `start.cmd -Demo`) | `./start.sh --demo` |
+| (Re)build the demo database | `cd backend; uv run python -m app demo seed [--reset] [--seed N] [--days N] [--anchor YYYY-MM-DD]` | same |
+| Any command on the demo database | `cd backend; uv run python -m app --demo plan today` | same |
 | Backend tests | `uv --directory backend run pytest` | same |
 | Backend lint / format | `uv --directory backend run ruff check .` / `ruff format .` | same |
 | Frontend checks | `npm --prefix frontend run check` (typecheck + oxlint + vitest) | same |

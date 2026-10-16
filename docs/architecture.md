@@ -13,9 +13,14 @@ Browser ── http://127.0.0.1:5173 ──> Vite dev server (frontend/)
                                          │
                                          ▼  SQLAlchemy 2 + Alembic (M1.a)
                                     data/vocab-coach.sqlite3  ·  audio in data/audio/ (M6)
+                                    (demo mode: data/vocab-coach-demo.sqlite3, M1.c)
 ```
 
-`npm run dev` (called by `start.ps1` / `start.sh`) runs both servers with `concurrently`.
+`npm run dev` (called by `start.ps1` / `start.sh`) runs both servers with `concurrently`, plus
+`scripts/wait-and-open.mjs`, which opens the browser once `/api/health` and the Vite page answer (M1.c).
+Host and ports of the dev servers live in `frontend/dev-server.json`, read by `vite.config.ts` and the
+opener. Demo mode (`VOCAB_DEMO=1`, `python -m app --demo`, `start.ps1 -Demo`) only changes the database
+file; see D-033.
 Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/dist`.
 
 ## Backend (`backend/`)
@@ -24,9 +29,10 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 |---|---|---|
 | `app/main.py` | `create_app()` factory, CORS, router mounting under `/api` | M0 |
 | `app/config.py` | `Settings` (pydantic-settings, `VOCAB_` env prefix, root `.env`, loopback-only host, absolute database URL) | M0, M1.a |
-| `app/__main__.py`, `app/cli.py` | `python -m app [--reload]` runs the API; `python -m app db upgrade` / `db reset --yes`; `plan today` | M0, M1.a, M1.b |
+| `app/__main__.py`, `app/cli.py` | `python -m app [--demo] [--reload]` runs the API; `db upgrade` / `db reset --yes`; `plan today`; `demo seed` | M0, M1.a, M1.b, M1.c |
 | `app/cli_plan.py` | `plan today`: builds the plan read-only (`PRAGMA query_only`) and renders it as text or JSON | M1.b |
-| `app/api/health.py` | `GET /api/health` → `{status, version, database: {ok, revision, at_head}}` | M0, M1.a |
+| `app/api/health.py` | `GET /api/health` → `{status, version, database: {ok, revision, at_head}, demo}` | M0, M1.a, M1.c |
+| `app/demo/` | fictional demo data: dataset loader, simulated learner, 60-day simulation through the services, provisional direct writes, atomic `demo seed` | M1.c |
 | `app/domain/` | pure business logic (see "Domain and services" below) | M1.a, M1.b |
 | `app/services/` | operations that read and write the database, in the caller's transaction | M1.b |
 | `app/db/` | data layer (see below) | M1.a |
@@ -107,7 +113,7 @@ domain/                           pure: no session, no network, no clock (`now` 
 |---|---|
 | `main.tsx` | bootstraps i18n, theme, TanStack Query client, router |
 | `routes.tsx` | route table (one entry per feature) |
-| `components/` | `Layout` (top bar, skip link, outlet), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage` |
+| `components/` | `Layout` (top bar, skip link, "Demo data" badge, outlet), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage` |
 | `features/home/` | home screen with empty "Today's session" and backend status |
 | `api/` | `client.ts` (fetch wrapper for `/api`), `health.ts` (query hook) |
 | `i18n/` | i18next setup, `locales/en.json`, `locales/fr.json`, typed keys |

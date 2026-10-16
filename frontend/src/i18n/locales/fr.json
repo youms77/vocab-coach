@@ -7,6 +7,10 @@
     "home": "Accueil",
     "skipToContent": "Aller au contenu principal"
   },
+  "demo": {
+    "badge": "Données de démo",
+    "badgeHint": "Base de démonstration fictive : vos propres données ne sont pas affichées."
+  },
   "settings": {
     "language": "Langue",
     "theme": "Thème",

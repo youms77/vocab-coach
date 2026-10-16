@@ -1,0 +1,58 @@
+# Fictional production prompts for the demo seed (D-033): writing and speaking topics, plus
+# correct sentences used to fill the simulated texts up to their word count. Written for the demo.
+
+dataset_version: 1
+
+prompts:
+  - kind: writing
+    text: "Describe the dataset you are working on this semester and what you hope to learn from it."
+  - kind: writing
+    text: "Write a short email to your supervisor asking for a meeting about your thesis plan."
+  - kind: writing
+    text: "Summarise a study you read recently and explain one of its limitations."
+  - kind: writing
+    text: "Explain to a friend who does not study statistics what a confounder is."
+  - kind: speaking
+    text: "Talk for two minutes about a typical day on campus."
+  - kind: speaking
+    text: "Present the main result of your last project as if you were in a job interview."
+  - kind: speaking
+    text: "Explain how you would check whether a model is overfitting."
+  - kind: speaking
+    text: "Describe a mistake you made in a project and what you learned from it."
+  - kind: transcript_analysis
+    text: "Voice chat practice: small talk before a seminar."
+  - kind: transcript_analysis
+    text: "Voice chat practice: mock interview for a junior data analyst position."
+
+fillers:
+  - "I started this project at the beginning of the semester."
+  - "The data come from a small survey of students in two cities."
+  - "We cleaned the variables and removed the duplicated rows."
+  - "My first idea was to compare the two groups directly."
+  - "After a few weeks, I realised that the groups were not comparable."
+  - "The older students had more experience with online tools."
+  - "So I decided to control for age and for the field of study."
+  - "The new estimates were smaller but more convincing."
+  - "I also plotted the distribution of the main outcome."
+  - "It was skewed, so I used the logarithm."
+  - "My supervisor suggested a simple robustness check."
+  - "We ran the model again without the first cohort."
+  - "The main result did not change very much."
+  - "I still need to write the discussion section."
+  - "The hardest part for me is to explain the method clearly."
+  - "When I present, I try to speak slowly and to show one idea per slide."
+  - "Last week I practised the presentation with two classmates."
+  - "They asked good questions about the sample size."
+  - "I think the project will be ready before the deadline."
+  - "In the evening I usually review my vocabulary for twenty minutes."
+  - "On weekends I go to the library with my study group."
+  - "The canteen is crowded at lunchtime, so we eat a bit later."
+  - "Next month I would like to apply for an internship."
+  - "I am preparing answers to the most common interview questions."
+  - "One question I find difficult is about my weaknesses."
+  - "I usually say that I sometimes spend too long on details."
+  - "The interviewer wanted to know how I handle missing data."
+  - "I explained that it depends on why the data are missing."
+  - "Overall, I am more confident than at the start of the year."
+  - "There is still a lot to learn, but I can see some progress."

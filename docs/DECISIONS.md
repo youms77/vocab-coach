@@ -368,3 +368,112 @@ Decisions that change `docs/SPEC.md` require the owner's approval and must say s
   still uses its own fresh file.
 - **Why**: status and queue tests are parameterised over every transition; the suite went from ~30 s to
   ~8 s, which matters on the Windows CI job.
+
+## D-033 — Demo mode, separate database and demo marker (M1.c, 2026-10-16)
+
+- **Separate file**:
+  - `VOCAB_DEMO=1` (or `python -m app --demo`, `start.ps1 -Demo`, `start.sh --demo`) changes the default
+    database to `<data_dir>/vocab-coach-demo.sqlite3`; nothing else changes;
+  - `VOCAB_DEMO` together with `VOCAB_DATABASE_URL` fails at startup: the target would be ambiguous;
+  - `--demo` writes `VOCAB_DEMO=1` into the process environment, so the API's `--reload` subprocess
+    inherits it.
+- **Marker**: a row of the `setting` table with the reserved key `_demo` and the value
+  `{dataset_version, seed, days, anchor}`.
+  - The key is not in the settings registry, so `get_setting` / `set_setting` refuse it, `get_all_settings`
+    skips it, and it can never produce `setting.changed` (D-017). No migration.
+  - `/api/health` returns `demo: true` only when the connected database carries it; the frontend then shows
+    a "Demo data" badge.
+- **Safety checks** (`app/demo/seed.py`):
+  - `demo seed` always targets the demo file, whatever `VOCAB_DATABASE_URL` says; tests pass explicit
+    temporary paths, and CI uses `VOCAB_DATA_DIR`;
+  - a database that holds rows (outside `alembic_version` and the taxonomy) but no marker is refused, even
+    with `--reset`;
+  - a marked database is refused without `--reset`; `--reset` rebuilds it without a backup (it can be
+    regenerated);
+  - `--if-missing` does nothing when the marker is there (used by the launch scripts).
+- **Atomic build**: migrations, taxonomy sync, simulation and marker go to `<name>.tmp-<pid>` in the same
+  folder; the WAL is checkpointed, the target's old `-wal`/`-shm` are removed (a stale log would be
+  replayed into the new file), then `os.replace`. Any failure removes the temporary file and leaves the
+  previous database untouched. On Windows, a file held open by the running API raises `PermissionError`,
+  reported as "stop the app and run the command again" (checked on the owner's machine).
+- **Default anchor**: the current study day (`timezone`, `day_start_hour`). This is the only place the
+  seed reads the clock.
+
+## D-034 — Deterministic simulation and learner model (M1.c)
+
+- **Determinism**:
+  - one `random.Random(seed)` derives, in a fixed order, the generators of the FSRS engine
+    (`FsrsEngine(rng=...)`, D-022), the learner, the calendar, the learner's choices and the productions;
+  - the simulation passes its own engine factory to every service; no set is iterated and every query
+    that feeds a decision is ordered;
+  - same `(seed, days, anchor, dataset_version)` ⇒ same rows. The test fingerprint hashes every table
+    sorted by primary key and **excludes only the real-clock columns `created_at`, `updated_at` and
+    `recorded_at`** (rows written by services, such as cards, get the insert time).
+- **Time**: every service already took explicit instants (M1.b); no clock parameter had to be added and no
+  clock is patched.
+- **Calendar**: study days anchor − days … anchor − 1; about 85 % worked; a forced break on days −25…−23;
+  sessions mostly 18:30–23:30 Douala time, 10 % in the morning, 10 % after midnight (previous study day);
+  activities stop 30 min before the end of the study day, so nothing is later than the anchor day's
+  start. Dataset days are written for 60 days and scaled for shorter runs (future deadlines are not).
+- **Session**: `plan_today` at the start; due reviews in plan order (25 % of days stop at the budget), then
+  new terms through `start_discovery` / `complete_discovery` with initial ratings and a log-normal
+  `duration_ms`, then a production every 2–4 days. One `study_session` per session.
+- **Learner** (`app/demo/learner.py`):
+  - p(success) = retrievability (Review cards; 0.85 for learning steps) × term factor (drawn once in
+    [0.92, 1.06]) × direction factor (productive 0.96), bounded to [0.05, 0.98];
+  - failure → Again; success → Hard/Good/Easy with weights that depend on retrievability; 5 % of proposed
+    ratings differ by one step from the final one;
+  - response times log-normal (σ 0.35) around the D-028 defaults, × 1.6 after a failure;
+  - exercise types: provisional strings in the single constant `DEMO_EXERCISE_TYPES` (by direction and
+    maturity, mature = stability ≥ 21 days). M4 owns the real list.
+- **New terms**: deadline decks get exactly their pace; spare energy (4–6 a day at first, 0–2 from day
+  −45) goes to decks without a deadline. Decks are activated on purpose through the deck service when
+  created (dataset `status_events`); the learner never starts a waiting deck: they stop at the first term
+  of a deck in `decks_to_activate` (owner's choice at plan approval). This keeps "Presenting results"
+  queued.
+- **Guaranteed final states** (last session, through the services): one interrupted discovery, one
+  discovery without ratings (`new` cards), a lapse if no card is in Relearning; terms with a `fate` in the
+  dataset end as draft, triage, known, archived (day −8) or active (`mark_active`, day −5).
+- **Errors in productions**: per code, a Poisson count with a rate per 100 words that moves linearly over
+  the history (`content/demo/errors.yaml`); review errors come from `confusion` entries on terms (failed
+  productive reviews, at most 10, at most 2 per term).
+- **Robustness**: seeds 1 to 12 were checked against every coverage criterion of the milestone; the tests
+  pin seed 42.
+- **Performance** (Windows 11, owner's machine): 2.4–4.4 s for 60 days. Under the 5 s threshold, so the
+  coverage tests share one full 60-day seed (module fixture); determinism uses 21 days and the safety and
+  CLI tests 7 days (each seed also runs the migrations). The backend suite went from ~8 s to ~27 s on the
+  owner's machine. CI also runs the full seed through the CLI on Linux and Windows.
+
+## D-035 — Provisional direct writes, `deck.item_added`, sessions in services (M1.c)
+
+- **Direct writes** (`app/demo/direct_writes.py`), until the owning services exist: deck and term creation
+  and triage decisions (M3), productions and errors (M5), `study_session` rows (M4). Each writes its event
+  with the backdated `occurred_at`. Status changes always go through the existing services.
+- **`study_session` format**: `planned = {format: "demo-provisional-1", plan: SessionPlan}`,
+  `summary = {format, reviews, failed_reviews, discoveries_started, discoveries_completed, productions,
+  errors, words, stopped_at_budget}`. Marked provisional: M4 owns it.
+- **New event `deck.item_added`** (`deck_id`, `lexical_item_id`, `payload_version` 1): written for every
+  `deck_item` row, so a term added to a second deck (D-013) leaves a trace. Open set, no migration (D-015).
+- **Service change**: `start_discovery`, `complete_discovery` and `set_item_status` accept an optional
+  `study_session_id`, passed to their events and to the initial reviews.
+
+## D-036 — Open the browser only when the app answers (M1.c)
+
+- **Script**: `scripts/wait-and-open.mjs` (Node ≥ 22, native `fetch`, no dependency) polls the API's
+  `/api/health` until `status: "ok"`, then the Vite page, every 500 ms for at most 90 s, then opens the
+  browser (`start` on Windows, `open` on macOS, `xdg-open` on Linux). On timeout it prints a message and
+  exits 0. Without `VOCAB_OPEN_BROWSER=1` it exits at once (`-NoBrowser` / `--no-browser`). Vite's own
+  `open` option is removed.
+- **Addresses**: `frontend/dev-server.json` holds the Vite host and port and the backend URL;
+  `vite.config.ts` and the script both read it (`VOCAB_BACKEND_URL` still overrides the backend URL in
+  both). Polling the API directly avoids a proxy error trace in the Vite log at every attempt.
+- **`concurrently`**: `--kill-others` killed the servers as soon as the opener exited with code 0 (checked
+  with concurrently 10.0.6). The dev script now uses `--kill-others-on-fail`: a crashing server still
+  stops the other, Ctrl+C stops everything (owner's choice at plan approval).
+
+## D-037 — Error category levels (M1.c)
+
+- **Decision**: in the taxonomy, level 1 is `grammar`, `lexis`, `register`... and the categories of SPEC
+  module E (`grammar.preposition`, `grammar.tense`, `lexis.false_friend`...) are level 2. The demo summary
+  prints both levels; "prepositions and tenses are the most frequent categories" is checked at level 2
+  (approved with the plan). Statistics (M9) will aggregate by code prefix at either level (D-016).

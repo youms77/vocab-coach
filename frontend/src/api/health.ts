@@ -5,6 +5,8 @@ import { apiGet } from './client'
 export interface Health {
   status: string
   version: string
+  /** True when the backend serves the generated demo database. */
+  demo?: boolean
 }
 
 export function useHealth() {

@@ -3,7 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/app/config.py -> repository root is two levels above `app/`.
@@ -13,6 +13,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ALLOWED_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 DATABASE_FILENAME = "vocab-coach.sqlite3"
+# Demo mode (`VOCAB_DEMO=1`, `python -m app --demo`) uses its own file: the personal database is
+# never touched.
+DEMO_DATABASE_FILENAME = "vocab-coach-demo.sqlite3"
 
 
 class Settings(BaseSettings):
@@ -30,6 +33,8 @@ class Settings(BaseSettings):
     # SQLAlchemy URL. Empty means `<data_dir>/vocab-coach.sqlite3`, resolved as an absolute path
     # so the result does not depend on the current directory (the backend runs from `backend/`).
     database_url: str = ""
+    # Demo mode: the default database becomes `<data_dir>/vocab-coach-demo.sqlite3`.
+    demo: bool = False
     # Origins allowed to call the API during development (Vite dev server).
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
@@ -43,6 +48,16 @@ class Settings(BaseSettings):
             )
         return value
 
+    @model_validator(mode="after")
+    def demo_excludes_database_url(self) -> "Settings":
+        if self.demo and self.database_url:
+            raise ValueError(
+                "VOCAB_DEMO and VOCAB_DATABASE_URL are both set: the target database would be "
+                "ambiguous. Unset VOCAB_DATABASE_URL to use the demo database, or VOCAB_DEMO to "
+                "use that URL."
+            )
+        return self
+
     @property
     def resolved_data_dir(self) -> Path:
         """`data_dir` as an absolute path; a relative value is taken from the repository root."""
@@ -50,10 +65,17 @@ class Settings(BaseSettings):
         return path.resolve()
 
     @property
+    def demo_database_file(self) -> Path:
+        """Where the demo database lives, whatever the mode: `demo` commands only ever use it."""
+        return self.resolved_data_dir / DEMO_DATABASE_FILENAME
+
+    @property
     def resolved_database_url(self) -> str:
         if self.database_url:
             return self.database_url
-        return f"sqlite:///{(self.resolved_data_dir / DATABASE_FILENAME).as_posix()}"
+        personal = self.resolved_data_dir / DATABASE_FILENAME
+        db_file = self.demo_database_file if self.demo else personal
+        return f"sqlite:///{db_file.as_posix()}"
 
 
 @lru_cache

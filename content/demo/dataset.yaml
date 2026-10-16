@@ -1,0 +1,593 @@
+# Fictional demo dataset for `python -m app demo seed` (milestone M1.c, docs/DECISIONS.md D-033).
+#
+# Everything here was written for the demo: no real person, no excerpt from a book or article.
+# Days are relative to the anchor study day (-60 = 60 study days before it). They are scaled
+# when the seed runs over fewer days (e.g. `--days 21`). Decks are listed in creation order.
+#
+# Deck fields:
+#   intake: queue  -> new terms go draft -> queued at creation
+#           triage -> new terms go draft -> triage; `triage_batches` move them on later
+#   queue: back | front   -> position in the deck queue when the deck is created
+#   deadline_day -> deadline relative to the anchor; a day in the past is scaled like the others,
+#                   a day after the anchor is not
+#   status_events -> deck status changes through the deck service. The learner activates a deck
+#                    on purpose (queued -> active); the simulation never starts a waiting deck.
+# Term fields:
+#   ref: <term>  -> the term already exists in an earlier deck: link it (n-n decks, D-013)
+#   fate: draft | triage | known | archived | active -> final status the simulation guarantees
+#   confusion -> a lexical error the learner makes when a productive review of the term fails
+
+dataset_version: 1
+
+decks:
+  - key: causal
+    name: Causal inference reading
+    domain: econometrics
+    description: Terms met while reading course notes on identification strategies.
+    source:
+      title: "Identification strategies, lecture notes (fictional)"
+      author: "Demo course team"
+    created_day: -60
+    intake: queue
+    queue: back
+    status_events:
+      - day: -60
+        to: active
+    terms:
+      - term: confounder
+        type: word
+        pos: noun
+        sentence: "Household income is a confounder here, because it drives both school choice and test scores."
+        fate: active
+      - term: omitted variable bias
+        type: collocation
+        pos: noun
+        sentence: "Without the ability measure, the wage regression suffers from omitted variable bias."
+        fate: active
+      - term: instrumental variable
+        type: collocation
+        pos: noun
+        sentence: "Distance to the nearest college serves as an instrumental variable for schooling."
+      - term: rule out
+        type: phrase
+        pos: verb
+        sentence: "We cannot rule out reverse causality with a single cross-section."
+        fate: active
+        confusion:
+          prompt: "Nous ne pouvons pas exclure un effet inverse."
+          wrong: "We cannot exclude out a reverse effect."
+          code: lexis.wrong_word
+          explanation: "'Rule out' is the natural verb for eliminating a possible explanation."
+      - term: counterfactual
+        type: word
+        pos: noun
+        sentence: "The control group stands in for the counterfactual: what would have happened without the programme."
+        fate: active
+      - term: treatment effect
+        type: collocation
+        pos: noun
+        sentence: "The average treatment effect is small but precisely estimated."
+      - term: selection bias
+        type: collocation
+        pos: noun
+        sentence: "Volunteers are more motivated, so comparing them with everyone else creates selection bias."
+      - term: identification strategy
+        type: collocation
+        pos: noun
+      - term: robustness check
+        type: collocation
+        pos: noun
+        sentence: "As a robustness check, the authors drop the first two cohorts and re-estimate the model."
+        fate: active
+      - term: parallel trends assumption
+        type: collocation
+        pos: noun
+      - term: spillover
+        type: word
+        pos: noun
+        sentence: "Untreated villages next to treated ones may benefit from spillovers."
+      - term: attrition
+        type: word
+        pos: noun
+        sentence: "Attrition was higher in the control group, which worries the referees."
+      - term: plausibly exogenous
+        type: collocation
+        pos: adjective
+      - term: shed light on
+        type: phrase
+        pos: verb
+        sentence: "This natural experiment sheds light on how class size affects learning."
+        confusion:
+          prompt: "Cette étude éclaire le rôle des enseignants."
+          wrong: "This study puts light on the role of teachers."
+          code: lexis.collocation
+          explanation: "The fixed phrase is 'shed light on', not 'put light on'."
+      - term: hold constant
+        type: phrase
+        pos: verb
+        sentence: "Holding income constant, older households save more."
+      - term: drive the results
+        type: collocation
+        pos: verb
+        sentence: "A handful of outliers drive the results in the smaller sample."
+      - term: hinge on
+        type: phrase
+        pos: verb
+        sentence: "The whole argument hinges on the exclusion restriction."
+        confusion:
+          prompt: "Tout repose sur cette hypothèse."
+          wrong: "Everything hangs of this assumption."
+          code: lexis.wrong_word
+          explanation: "'Hinge on' (or 'rest on') expresses that everything depends on one point."
+      - term: caveat
+        type: word
+        pos: noun
+        sentence: "One caveat: the survey only covers urban areas."
+        confusion:
+          prompt: "Une réserve : l'enquête ne couvre que les villes."
+          wrong: "One reserve: the survey only covers cities."
+          code: lexis.false_friend
+          explanation: "'Réserve' in this sense is a 'caveat'; 'reserve' means a stock or a protected area."
+      - term: to a large extent
+        type: phrase
+        pos: adverb
+      - term: bear out
+        type: phrase
+        pos: verb
+        sentence: "The follow-up survey bears out the first results."
+        confusion:
+          prompt: "Les données confirment la prédiction."
+          wrong: "The data bear in the prediction."
+          code: lexis.collocation
+          explanation: "The phrasal verb is 'bear out' (confirm)."
+      - term: back-of-the-envelope
+        type: word
+        pos: adjective
+      - term: cherry-pick
+        type: word
+        pos: verb
+        sentence: "Reporting only the significant specifications would be cherry-picking."
+      - term: tease out
+        type: phrase
+        pos: verb
+        sentence: "It is hard to tease out the effect of tutoring from the effect of motivation."
+      - term: noisy estimate
+        type: collocation
+        pos: noun
+      - term: take into account
+        type: phrase
+        pos: verb
+        sentence: "The model takes seasonal variation into account."
+        confusion:
+          prompt: "Il faut tenir compte de la saisonnalité."
+          wrong: "We must take in count the seasonality."
+          code: lexis.collocation
+          explanation: "The expression is 'take into account'; 'take in count' is a calque of French."
+      - term: underpowered
+        type: word
+        pos: adjective
+        sentence: "With forty schools, the trial is underpowered for subgroup analysis."
+      - term: run a regression
+        type: collocation
+        pos: verb
+        sentence: "We ran a regression of earnings on years of schooling."
+        confusion:
+          prompt: "Nous avons fait une régression."
+          wrong: "We made a regression."
+          code: lexis.collocation
+          explanation: "In English you 'run' (or 'estimate') a regression."
+      - term: point estimate
+        type: collocation
+        pos: noun
+      - term: downward biased
+        type: collocation
+        pos: adjective
+      - term: overstate
+        type: word
+        pos: verb
+        sentence: "Self-reported hours tend to overstate actual working time."
+        confusion:
+          prompt: "Les heures déclarées surestiment le temps réel."
+          wrong: "Reported hours overestimate on the real time."
+          code: lexis.wrong_word
+          explanation: "'Overstate' (or 'overestimate', without 'on') is the verb here."
+
+  - key: campus
+    name: Campus life
+    domain: everyday
+    description: Everyday English for life at university.
+    created_day: -45
+    intake: queue
+    queue: back
+    status_events:
+      - day: -45
+        to: active
+      - day: -20
+        to: paused
+    terms:
+      - term: on campus
+        type: collocation
+        pos: adverb
+        sentence: "Most first-year students live on campus."
+      - term: dorm
+        type: word
+        pos: noun
+        fate: archived
+      - term: office hours
+        type: collocation
+        pos: noun
+        sentence: "Come to my office hours if the problem set is unclear."
+      - term: hand in
+        type: phrase
+        pos: verb
+        sentence: "Please hand in your report by Friday noon."
+        confusion:
+          prompt: "Je dois rendre mon devoir demain."
+          wrong: "I must give back my homework tomorrow."
+          code: lexis.wrong_word
+          explanation: "For coursework, 'hand in' (or 'submit') is the usual verb; 'give back' means return."
+      - term: sign up for
+        type: phrase
+        pos: verb
+        sentence: "I signed up for the evening statistics workshop."
+      - term: catch up on
+        type: phrase
+        pos: verb
+        sentence: "I spent Sunday catching up on the lectures I missed."
+        confusion:
+          prompt: "J'ai rattrapé les cours manqués."
+          wrong: "I caught the lectures I missed."
+          code: lexis.wrong_word
+          explanation: "'Catch up on' means doing what you missed; 'catch' alone does not."
+      - term: run late
+        type: phrase
+        pos: verb
+      - term: get the hang of
+        type: phrase
+        pos: verb
+        sentence: "It took me a week to get the hang of the new software."
+      - term: flatmate
+        type: word
+        pos: noun
+      - term: grab a coffee
+        type: collocation
+        pos: verb
+        sentence: "Shall we grab a coffee before the seminar?"
+      - term: be swamped
+        type: phrase
+        pos: verb
+        sentence: "I can't meet this week, I'm swamped with assignments."
+      - term: pull an all-nighter
+        type: phrase
+        pos: verb
+        sentence: "She pulled an all-nighter to finish the project."
+      - term: tuition fees
+        type: collocation
+        pos: noun
+      - term: deadline extension
+        type: collocation
+        pos: noun
+      - term: drop a course
+        type: collocation
+        pos: verb
+        sentence: "He dropped a course to have more time for his internship."
+      - term: get along with
+        type: phrase
+        pos: verb
+        sentence: "I get along with my lab partners."
+      - term: make up for
+        type: phrase
+        pos: verb
+      - term: fill in a form
+        type: collocation
+        pos: verb
+        confusion:
+          prompt: "J'ai rempli le formulaire d'inscription."
+          wrong: "I filled the registration formular."
+          code: lexis.wrong_word
+          explanation: "'Formular' does not exist: say 'fill in (or fill out) the form'."
+      - term: skip a class
+        type: collocation
+        pos: verb
+      - term: show up
+        type: phrase
+        pos: verb
+        sentence: "Only half of the group showed up for the review session."
+        confusion:
+          prompt: "Seulement la moitié du groupe est venue."
+          wrong: "Only half of the group showed on."
+          code: lexis.collocation
+          explanation: "The phrasal verb is 'show up' (arrive, attend)."
+      - term: figure out
+        type: phrase
+        pos: verb
+        sentence: "We finally figured out why the script was so slow."
+      - term: student loan
+        type: collocation
+        pos: noun
+      - term: study group
+        type: collocation
+        pos: noun
+      - term: lecture hall
+        type: collocation
+        pos: noun
+
+  - key: thesis
+    name: Thesis defence
+    domain: academic
+    description: Phrases for defending a master's thesis.
+    created_day: -40
+    intake: queue
+    queue: front
+    deadline_day: -14
+    status_events:
+      - day: -40
+        to: active
+      - day: -15
+        to: done
+    terms:
+      - ref: shed light on
+      - term: trade-off
+        type: word
+        pos: noun
+        sentence: "There is a trade-off between bias and precision."
+      - term: contribution to the literature
+        type: collocation
+        pos: noun
+      - term: limitation
+        type: word
+        pos: noun
+        sentence: "The main limitation of this study is the small sample."
+      - term: address a concern
+        type: collocation
+        pos: verb
+        confusion:
+          prompt: "Je vais répondre à cette inquiétude."
+          wrong: "I will answer to this worry."
+          code: lexis.collocation
+          explanation: "In an academic setting you 'address a concern'; 'answer' takes no 'to'."
+      - term: build on
+        type: phrase
+        pos: verb
+        sentence: "This chapter builds on earlier work on school choice."
+        confusion:
+          prompt: "Ce chapitre s'appuie sur des travaux antérieurs."
+          wrong: "This chapter builds over earlier work."
+          code: grammar.preposition.dependent
+          explanation: "'Build on' takes 'on'."
+      - term: set out to
+        type: phrase
+        pos: verb
+        sentence: "This thesis sets out to measure the effect of mobile money on savings."
+      - term: fall short of
+        type: phrase
+        pos: verb
+        sentence: "The response rate fell short of our expectations."
+      - term: in line with
+        type: phrase
+        pos: preposition
+        sentence: "These estimates are in line with previous studies."
+        confusion:
+          prompt: "Ces résultats sont conformes aux études précédentes."
+          wrong: "These results are conform to previous studies."
+          code: lexis.word_form
+          explanation: "'Conform' is a verb; say 'in line with' or 'consistent with'."
+      - term: further research
+        type: collocation
+        pos: noun
+
+  - key: interview
+    name: ML interview prep
+    domain: data science
+    description: Vocabulary for data-science job interviews.
+    created_day: -30
+    intake: triage
+    queue: back
+    deadline_day: 18
+    status_events:
+      - day: -30
+        to: active
+    triage_batches:
+      - day: -30
+        count: 18
+      - day: -12
+        count: 9
+    terms:
+      - term: overfitting
+        type: word
+        pos: noun
+        sentence: "A perfect training score is often a sign of overfitting."
+      - ref: trade-off
+      - term: walk someone through
+        type: phrase
+        pos: verb
+        sentence: "Can you walk me through your last project?"
+      - term: regularization
+        type: word
+        pos: noun
+        sentence: "Regularization shrinks the coefficients towards zero."
+      - term: feature engineering
+        type: collocation
+        pos: noun
+        sentence: "Most of the gain came from feature engineering, not from the model."
+      - term: data leakage
+        type: collocation
+        pos: noun
+        confusion:
+          prompt: "Il y avait une fuite de données dans le pipeline."
+          wrong: "There was a data leak in the pipeline."
+          code: lexis.word_form
+          explanation: "In modelling, the term is 'data leakage'; a 'data leak' is a security incident."
+      - term: ground truth
+        type: collocation
+        pos: noun
+      - term: false positive
+        type: collocation
+        pos: noun
+        fate: known
+      - term: baseline model
+        type: collocation
+        pos: noun
+        sentence: "Always compare against a simple baseline model."
+      - term: hyperparameter tuning
+        type: collocation
+        pos: noun
+      - term: cross-validation
+        type: word
+        pos: noun
+      - term: imbalanced dataset
+        type: collocation
+        pos: noun
+        sentence: "Accuracy is misleading on an imbalanced dataset."
+      - term: edge case
+        type: collocation
+        pos: noun
+        sentence: "The function crashed on an edge case with an empty list."
+      - term: pipeline
+        type: word
+        pos: noun
+        fate: known
+      - term: scale up
+        type: phrase
+        pos: verb
+      - term: deploy a model
+        type: collocation
+        pos: verb
+        sentence: "We deployed the model behind a simple API."
+      - term: off the top of my head
+        type: spoken_formula
+        pos: phrase
+        sentence: "Off the top of my head, I'd say around ten thousand rows."
+      - term: that's a great question
+        type: spoken_formula
+        pos: phrase
+      - term: drill down into
+        type: phrase
+        pos: verb
+      - term: roll out
+        type: phrase
+        pos: verb
+        sentence: "The feature was rolled out to ten percent of users first."
+      - term: interpretable
+        type: word
+        pos: adjective
+      - term: tweak
+        type: word
+        pos: verb
+      - term: sanity check
+        type: collocation
+        pos: noun
+        sentence: "As a sanity check, I plotted the predictions against the raw data."
+      - term: bottleneck
+        type: word
+        pos: noun
+        sentence: "Data cleaning was the real bottleneck of the project."
+      - term: stakeholder
+        type: word
+        pos: noun
+        sentence: "I presented the results to non-technical stakeholders."
+      - term: outperform
+        type: word
+        pos: verb
+        sentence: "The tree-based model outperformed the logistic regression on recall."
+        confusion:
+          prompt: "Le modèle a fait mieux que la régression."
+          wrong: "The model overperformed the regression."
+          code: lexis.word_form
+          explanation: "The verb is 'outperform'."
+      - term: in hindsight
+        type: phrase
+        pos: adverb
+        fate: triage
+      - term: iterate on
+        type: phrase
+        pos: verb
+        fate: triage
+      - term: deal-breaker
+        type: word
+        pos: noun
+        fate: triage
+      - term: ballpark figure
+        type: collocation
+        pos: noun
+        fate: triage
+      - term: trade off against
+        type: phrase
+        pos: verb
+      - term: false negative
+        type: collocation
+        pos: noun
+
+  - key: presenting
+    name: Presenting results
+    domain: speaking
+    description: Spoken formulas for presenting data and results.
+    created_day: -10
+    intake: queue
+    queue: back
+    terms:
+      - ref: walk someone through
+      - term: as you can see on this slide
+        type: spoken_formula
+        pos: phrase
+      - term: to put this into perspective
+        type: spoken_formula
+        pos: phrase
+        sentence: "To put this into perspective, that is one patient in a thousand."
+      - term: what stands out here is
+        type: spoken_formula
+        pos: phrase
+        sentence: "What stands out here is the sharp drop after March."
+      - term: moving on to
+        type: spoken_formula
+        pos: phrase
+      - term: I'd like to draw your attention to
+        type: spoken_formula
+        pos: phrase
+      - term: this brings me to my next point
+        type: spoken_formula
+        pos: phrase
+      - term: bear with me
+        type: spoken_formula
+        pos: phrase
+        sentence: "Bear with me for a second while I find the right chart."
+      - term: to sum up
+        type: spoken_formula
+        pos: phrase
+      - term: the key takeaway is
+        type: spoken_formula
+        pos: phrase
+        sentence: "The key takeaway is that simple models were good enough."
+      - term: if I could just go back to
+        type: spoken_formula
+        pos: phrase
+      - term: that's beyond the scope of this talk
+        type: spoken_formula
+        pos: phrase
+      - term: I'll come back to that
+        type: spoken_formula
+        pos: phrase
+      - term: correct me if I'm wrong
+        type: spoken_formula
+        pos: phrase
+      - term: in a nutshell
+        type: spoken_formula
+        pos: phrase
+        sentence: "In a nutshell, the new model is faster and just as accurate."
+      - term: let's take a closer look at
+        type: spoken_formula
+        pos: phrase
+      - term: on the one hand
+        type: spoken_formula
+        pos: phrase
+      - term: it's worth noting that
+        type: spoken_formula
+        pos: phrase
+      - term: roughly speaking
+        type: spoken_formula
+        pos: phrase
+        fate: draft
+      - term: does that answer your question
+        type: spoken_formula
+        pos: phrase
+        fate: draft
