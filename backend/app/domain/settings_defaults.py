@@ -5,11 +5,14 @@ defaults.
 No secret ever goes here: API keys stay in `.env` (see app/config.py).
 """
 
+import copy
 from dataclasses import dataclass
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 SUPPORTED_UI_LANGUAGES = ("en", "fr")
+# AI providers the gateway knows (adapters arrive in M2.b); the order setting lists them.
+KNOWN_AI_PROVIDERS = ("gemini", "groq", "ollama")
 
 
 class SettingError(ValueError):
@@ -24,6 +27,13 @@ class SettingSpec:
     minimum: float | None = None
     maximum: float | None = None
     choices: tuple[str, ...] | None = None
+    # For list settings: the allowed items, and whether an item may appear twice.
+    item_choices: tuple[str, ...] | None = None
+    unique_items: bool = False
+
+    def default_value(self) -> Any:
+        """A copy of the default, so a caller can never change the registry through it."""
+        return copy.deepcopy(self.default)
 
     def validate(self, value: Any) -> Any:
         """Return the value coerced to the setting's type, or raise SettingError."""
@@ -31,6 +41,8 @@ class SettingSpec:
             raise SettingError(
                 f"{self.key}: expected {self.type.__name__}, got {type(value).__name__}"
             )
+        if self.type is list:
+            return self._validate_list(value)
         value = self.type(value)
         if self.minimum is not None and value < self.minimum:
             raise SettingError(f"{self.key}: {value} is below the minimum {self.minimum}")
@@ -41,6 +53,18 @@ class SettingSpec:
         if self.key == "timezone":
             _check_timezone(value)
         return value
+
+    def _validate_list(self, value: list[Any]) -> list[Any]:
+        for item in value:
+            if not isinstance(item, str):
+                raise SettingError(f"{self.key}: items must be strings, got {item!r}")
+            if self.item_choices is not None and item not in self.item_choices:
+                raise SettingError(
+                    f"{self.key}: {item!r} is not one of {', '.join(self.item_choices)}"
+                )
+        if self.unique_items and len(set(value)) != len(value):
+            raise SettingError(f"{self.key}: duplicate items in {value!r}")
+        return list(value)
 
     def _accepted_types(self) -> tuple[type, ...]:
         # An integer is an acceptable float (e.g. tts_rate = 1).
@@ -68,6 +92,14 @@ SETTINGS: dict[str, SettingSpec] = {
         SettingSpec("consolidation_min_stability_days", int, 7, minimum=1),
         SettingSpec("ui_language", str, "en", choices=SUPPORTED_UI_LANGUAGES),
         SettingSpec("tts_rate", float, 1.0, minimum=0.5, maximum=2.0),
+        # AI providers in order of preference. A name that is absent is disabled; [] turns AI off.
+        SettingSpec(
+            "ai_provider_order",
+            list,
+            list(KNOWN_AI_PROVIDERS),
+            item_choices=KNOWN_AI_PROVIDERS,
+            unique_items=True,
+        ),
     )
 }
 
@@ -80,4 +112,4 @@ def spec_for(key: str) -> SettingSpec:
 
 
 def default_for(key: str) -> Any:
-    return spec_for(key).default
+    return spec_for(key).default_value()

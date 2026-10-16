@@ -28,6 +28,7 @@ Run from the repository root.
 | Start on the demo database | `.\start.ps1 -Demo` (or `start.cmd -Demo`) | `./start.sh --demo` |
 | (Re)build the demo database | `cd backend; uv run python -m app demo seed [--reset] [--seed N] [--days N] [--anchor YYYY-MM-DD]` | same |
 | Any command on the demo database | `cd backend; uv run python -m app --demo plan today` | same |
+| Watch the AI gateway work offline | `cd backend; uv run python -m app ai simulate` | same |
 | Backend tests | `uv --directory backend run pytest` | same |
 | Backend lint / format | `uv --directory backend run ruff check .` / `ruff format .` | same |
 | Frontend checks | `npm --prefix frontend run check` (typecheck + oxlint + vitest) | same |
@@ -65,6 +66,10 @@ Vite proxies `/api` to the backend, so the frontend always calls relative `/api/
 - **Active recall**: no screen may show an answer before the user has attempted it.
 - **Never invent a library version, model name, quota or price.** Check: `npm view <pkg> version`,
   `uv add <pkg>` / `pip index versions <pkg>`, or the official documentation, and say what you checked.
+- **Every AI call goes through the gateway** (`app.ai.get_gateway()`): no provider SDK or HTTP call to an
+  AI service anywhere else. Handle `incomplete` and `unavailable` results (degraded mode).
+- **Never hold a write transaction open during an AI call**: call the AI first, then write the results in
+  a short transaction (the gateway writes `ai_call_log` in its own session, D-038).
 - Do not add features absent from `docs/SPEC.md` without asking.
 
 ## Code conventions

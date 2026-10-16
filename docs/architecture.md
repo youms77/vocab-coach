@@ -36,7 +36,7 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/domain/` | pure business logic (see "Domain and services" below) | M1.a, M1.b |
 | `app/services/` | operations that read and write the database, in the caller's transaction | M1.b |
 | `app/db/` | data layer (see below) | M1.a |
-| `app/ai/` | AI gateway, prompts, schemas | empty (M2) |
+| `app/ai/` | AI gateway, prompts, schemas (see "AI gateway" below) | M2.a (no real provider yet) |
 | `app/speech/` | transcription, pronunciation | empty (M6) |
 | `alembic.ini` | Alembic configuration (URL comes from the app settings) | M1.a |
 | `tests/` | pytest suite; database tests use a temporary SQLite file built by the migrations | M0, M1.a |
@@ -106,6 +106,38 @@ domain/                           pure: no session, no network, no clock (`now` 
   engine), decks with their items, discovering items, errors of the last 14 days, pending consolidation tasks
   and observed durations; `plan_session` computes the blocks and the number of new terms (formula in
   D-029). Nothing is written.
+
+## AI gateway (`backend/app/ai/`, M2.a)
+
+```
+caller (service / route)      call the AI first, then write the result in its own short transaction
+   │  get_gateway().generate_json(task, inputs, schema)  /  .transcribe(audio)
+   ▼
+gateway.py   Gateway         one shared core for text and transcription
+   │  tasks.py + prompt_loader.py    registry (pinned prompt version) -> rendered prompt
+   │  policy.py                      constants + decision per error type (retry, repair, fallback, cooldown)
+   │  health.py                      cooldown / misconfigured / last error, in memory, with a lock
+   │  redact.py                      keys masked in every message
+   │  journal.py                     one ai_call_log row per request, own session, commit at once
+   ▼
+providers/   Provider protocol: name, capabilities, is_configured(), model_for(), generate_json(), transcribe()
+             fake.py (scripted, tests + `ai simulate`); Gemini, Groq, Ollama arrive in M2.b
+```
+
+- **Result, not exceptions**: `AiResult` has `status` (`ok` | `incomplete` | `unavailable`), the validated
+  `data`, provider, model, `prompt_version` (`<task>.v<N>`), tokens, number of requests and `call_id`.
+  `unavailable` carries a reason: `no_provider_configured`, `network`, `quota`, `auth`, `timeout`,
+  `all_failed`. Programming errors (unknown task, input too long, wrong schema) raise.
+- **Flow of a call**: render the prompt (single pass, user text framed as data) -> candidates = providers
+  of the `ai_provider_order` setting that are configured, capable and not cooling down -> for each: send,
+  validate with Pydantic, log the request, then success / retry with backoff / one repair of invalid
+  output / fallback. No candidate at all -> `unavailable(no_provider_configured)`, nothing logged.
+- **Adding a task**: a prompt file `prompts/<task>.v<N>.txt`, a schema class in `schemas/`, an entry in
+  `tasks.py`. The gateway is unchanged.
+- **Usage**: `services/ai_usage.py` aggregates `ai_call_log` per study day, provider and model.
+- **Secrets**: keys come from `.env` through `Settings` (`SecretStr`), stay in the backend and are masked
+  in every message. Tests run with a socket guard: no network.
+- Decisions: D-038 to D-045. Tool: `uv run python -m app ai simulate` (fake providers, throwaway database).
 
 ## Frontend (`frontend/src/`)
 

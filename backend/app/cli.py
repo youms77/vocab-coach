@@ -1,6 +1,7 @@
 """Command line: `python -m app [--reload]` runs the API; `python -m app db ...` manages the DB;
 `python -m app plan today` prints today's session plan (read-only); `python -m app demo seed`
-builds the fictional demo database. `--demo` (before the command) works on the demo database."""
+builds the fictional demo database; `python -m app ai simulate` shows the AI gateway at work
+offline. `--demo` (before the command) works on the demo database."""
 
 import argparse
 import os
@@ -117,6 +118,13 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="do nothing when the demo database already holds demo data (launch scripts)",
     )
+
+    ai = commands.add_parser("ai", help="AI gateway tools (no network, no personal data)")
+    ai_commands = ai.add_subparsers(dest="ai_command", required=True)
+    ai_commands.add_parser(
+        "simulate",
+        help="run three gateway scenarios with fake providers on a throwaway database",
+    )
     return parser
 
 
@@ -160,6 +168,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "demo":
         # Never the personal database: always the demo file, whatever VOCAB_DATABASE_URL says.
         return _demo_seed(args, settings.demo_database_file)
+    if args.command == "ai":
+        # A throwaway database: the personal one is never opened.
+        from app.ai.simulate import run_simulation
+
+        return run_simulation()
     url = settings.resolved_database_url
     if args.command == "plan":
         try:
