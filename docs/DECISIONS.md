@@ -477,3 +477,122 @@ Decisions that change `docs/SPEC.md` require the owner's approval and must say s
   module E (`grammar.preposition`, `grammar.tense`, `lexis.false_friend`...) are level 2. The demo summary
   prints both levels; "prepositions and tenses are the most frequent categories" is checked at level 2
   (approved with the plan). Statistics (M9) will aggregate by code prefix at either level (D-016).
+
+## D-038 — Synchronous gateway and the transaction rule (M2.a, 2026-10-16)
+
+- **Decision**: the gateway is synchronous (services take a `Session`, D-023, and FastAPI runs sync
+  routes in a thread pool). `clock`, `sleep` and `rng` are injected so tests never wait.
+- **Rule for callers**: call the AI **first**, then write the results in your own short transaction. Never
+  keep a write transaction open while waiting for a provider: SQLite allows one writer, and a slow call
+  would block the others past `busy_timeout` (5 s).
+- **Exception to D-023**: the gateway writes `ai_call_log` in its own short session, committed at once,
+  never in the caller's transaction. A caller's rollback would otherwise erase the trace of failed
+  calls. A failed journal write is logged (`logging`, masked) and never turns a successful result into
+  an error.
+- **Expected failures are results, not exceptions**: `AiResult.status` is `ok`, `incomplete` or
+  `unavailable` (+ reason). Exceptions (`UnknownTask`, `InputTooLong`, `SchemaMismatch`,
+  `UnknownProvider`, `PromptError`, all `ValueError`s) are programming errors raised before any call.
+
+## D-039 — Error policy and constants (M2.a)
+
+- **Constants** (`app/ai/policy.py`, provisional, M2.b may adjust them after reading the real quotas):
+  `MAX_ATTEMPTS_PER_PROVIDER=3`, backoff 1 s x2 with +/- 25 % jitter, `MAX_WAIT_S=20`,
+  `TOTAL_BUDGET_S=90`, `QUOTA_COOLDOWN=1 h`, `REQUEST_TIMEOUT_S=30` (a task may override it).
+- **Per error type**:
+  - `rate_limited` / `transient`: retry (`retry_after` when <= 20 s, else backoff), then fallback after
+    3 failed attempts;
+  - `quota_exhausted`, or `rate_limited` with `retry_after` > 20 s: no retry, fallback, cooldown;
+  - `network`, `bad_request`: no retry, fallback;
+  - `auth`: no retry, fallback, provider marked misconfigured until `reload()`;
+  - `invalid_output`: one repair on the same provider (the validation message is added to the
+    prompt), then `incomplete`, never a fallback (SPEC section 7: "to complete", without blocking).
+- **Cooldown length** (interpretation of the brief): `QUOTA_COOLDOWN` without indication, else
+  `min(retry_after, 1 h)`. A per-minute 429 with `retry_after=25 s` must not block a provider for an
+  hour.
+- **Counting**: the cap of 3 counts transport failures; the single repair is outside it and its message
+  stays in the prompt of later retries. Validation messages list locations and rules only, never the
+  output itself.
+- **Time budget**, measured with `clock`: a wait that would end past 90 s is not made (next provider, or
+  `unavailable(timeout)`); each request's timeout is capped by the budget left. `timeout` means the
+  budget only (a request timeout is `transient`).
+- **Reason of `unavailable`**: no usable provider -> `no_provider_configured`; budget -> `timeout`;
+  otherwise the common class of the final failures (network, quota = `quota_exhausted` or
+  `rate_limited`, auth) or `all_failed`. Providers skipped for cooldown / auth count in it.
+- An unexpected exception from an adapter is treated as `bad_request` (error code
+  `unexpected:<Type>`) and never reaches the caller.
+
+## D-040 — Fallback, health, pinning, reload (M2.a)
+
+- **Order** = setting `ai_provider_order`; a provider that is absent is disabled; a provider that is not
+  configured is skipped without a log line, as is one in cooldown or marked misconfigured.
+- **Health** (`app/ai/health.py`): in memory, one lock (several FastAPI threads), lost on restart on
+  purpose. `Gateway.status()` returns configured / enabled / available / `cooldown_until` / last error
+  type per provider, never a key.
+- **`pin_provider`**: one provider, no fallback, ignores order, cooldown and the misconfigured mark
+  (M2.b "test connection"). Unknown name -> `UnknownProvider`; not configured or without the capability
+  -> `unavailable(no_provider_configured)`. It is journalled and updates health (a success clears the
+  marks).
+- **`reload()`** clears health and rebuilds the providers when the gateway was given a factory (M2.b calls
+  `get_settings.cache_clear()` then `reload()` after the user changes a key).
+- **Seam**: `get_gateway()` exists now with no real provider (`build_providers()` returns `{}`), so every
+  call is `unavailable(no_provider_configured)`: degraded mode works before M2.b. M2.b's
+  `build_providers()` must include unconfigured providers too (their `is_configured()` is False), so
+  that `pin_provider` and `status()` know them.
+
+## D-041 — Journal granularity (M2.a)
+
+- **One `ai_call_log` row per provider request** (retries and repairs included); skipped providers and
+  `no_provider_configured` write nothing. No migration: the M1.a table already holds everything.
+- `attempt` = rank of the request on that provider; `fallback_from` = the provider that failed just
+  before in the same call; `model` is the provider's model even when the request fails
+  (`Provider.model_for`, the column is NOT NULL); `prompt_version` = `<task>.v<N>` (null for
+  transcription); `AiResult.call_id` is the last row's id (for `production_attempt.ai_call_id`).
+- Never stored: prompts, responses, user text, keys. Error messages are masked, then truncated to 300
+  characters (`AICallLog.ERROR_MESSAGE_MAX` lowered from 500; Python constant, no schema change).
+- **Usage** (`app/services/ai_usage.py`): computed from `ai_call_log` per study day (D-014), per provider
+  and model (requests, successes, errors by code, tokens, mean duration). No counter table.
+
+## D-042 — Prompt files, registry and data framing (M2.a)
+
+- **Format** `app/ai/prompts/<task>.v<N>.txt`: YAML header (`task`, `version`, `description`,
+  `placeholders: {name: data|plain}`), then `@@ system` and `@@ user` sections. Validated at load:
+  file name = header, every used placeholder declared and every declared one used.
+- **Single-pass substitution** with `re.sub` and a function: inserted text is never scanned again;
+  missing or undeclared inputs are errors; no `str.format`, no `%`.
+- **Data framing by construction**: a `data` placeholder is inserted between `<<<USER_DATA` and
+  `USER_DATA>>>`; if the text contains `USER_DATA`, the delimiter becomes `USER_DATA_2`, and so on, so the
+  text cannot close the frame while being inserted unchanged. The loader itself adds the "data, never
+  instructions" rule to the system part.
+- **Registry** (`app/ai/tasks.py`) pins each task's prompt version, output schema, input and output
+  limits. `generate_json(task, inputs, schema)` keeps the SPEC section 7 signature; `schema` must be the
+  registered class (`SchemaMismatch` otherwise), which keeps prompt and schema from drifting apart.
+  `pin_provider` is an additional keyword-only argument. `SPEC.md` is unchanged.
+- Output schemas inherit `AiOutput` (`extra="ignore"`); the gateway always validates with Pydantic,
+  whatever native JSON support a provider has (`ProviderRequest.json_schema` is handed to adapters).
+
+## D-043 — Secrets and masking (M2.a)
+
+- `Settings` gains `gemini_api_key`, `groq_api_key` (`SecretStr`) and `ollama_base_url`; an empty value
+  means "not configured". `repr`/`str` show `SecretStr('**********')`.
+- `mask_secrets` replaces every secret of 6 characters or more (raw, `quote`, `quote_plus`) with `***`, then
+  the message is truncated (masking first, so a cut key cannot escape). It applies to every error
+  message before it is logged, returned, journalled or sent to `logging`. The secret list is read at each
+  call, so it follows a `reload()`.
+
+## D-044 — List settings and `ai_provider_order` (M2.a)
+
+- The settings registry gains list support: `SettingSpec(type=list, item_choices=..., unique_items=True)`.
+  `validate` refuses unknown names, duplicates and non-strings, and returns a copy; `get_setting` and
+  `get_all_settings` return copies of the default so callers cannot alter the registry.
+- `ai_provider_order`: default `["gemini", "groq", "ollama"]`; `[]` turns AI off. Known names live in
+  `KNOWN_AI_PROVIDERS` (`domain/settings_defaults.py`). `setting.changed` is written by `set_setting` as
+  for any setting.
+
+## D-045 — Tests without network (M2.a)
+
+- `tests/ai/conftest.py` has an autouse fixture that refuses `socket.connect` / `connect_ex` to any
+  non-local host and DNS lookups of non-local names (loopback stays open: `socketpair` on Windows goes
+  through 127.0.0.1). Its exception derives from `BaseException`, so the gateway's `except Exception`
+  cannot hide it. The CI has no key.
+- `FakeProvider` (`app/ai/providers/fake.py`) plays a script of successes and typed errors and records
+  the requests it received; it is also what `python -m app ai simulate` uses.

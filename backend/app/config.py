@@ -3,7 +3,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/app/config.py -> repository root is two levels above `app/`.
@@ -38,6 +38,21 @@ class Settings(BaseSettings):
     # Origins allowed to call the API during development (Vite dev server).
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
+    # AI providers (M2). Empty or missing means "not configured". Keys never leave the backend.
+    gemini_api_key: SecretStr | None = None
+    groq_api_key: SecretStr | None = None
+    ollama_base_url: str | None = None
+
+    @field_validator("gemini_api_key", "groq_api_key", "ollama_base_url", mode="before")
+    @classmethod
+    def empty_means_not_configured(cls, value: object) -> object:
+        # `VOCAB_GROQ_API_KEY=` in .env arrives as an empty string.
+        if isinstance(value, str) and not value.strip():
+            return None
+        if isinstance(value, SecretStr) and not value.get_secret_value().strip():
+            return None
+        return value
+
     @field_validator("host")
     @classmethod
     def host_must_be_loopback(cls, value: str) -> str:
@@ -57,6 +72,11 @@ class Settings(BaseSettings):
                 "use that URL."
             )
         return self
+
+    def secret_values(self) -> list[str]:
+        """Every configured secret value, for masking error messages (see app/ai/redact.py)."""
+        keys = (self.gemini_api_key, self.groq_api_key)
+        return [key.get_secret_value() for key in keys if key is not None]
 
     @property
     def resolved_data_dir(self) -> Path:

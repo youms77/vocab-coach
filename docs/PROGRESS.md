@@ -4,10 +4,72 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M1.c — demo data, demo mode, waiting for the API at startup
-  (2026-10-16), branch `feat/m1c-demo-data` (PR to open; the owner merges after green CI). M1.a and M1.b are
-  merged into `main` (PR #1, PR #2).
-- **Next milestone**: M2 — AI gateway.
+- **Last milestone completed**: M2.a — AI gateway core, offline (2026-10-16), branch
+  `feat/m2a-ai-core` (PR to open; the owner merges after green CI). M1.a, M1.b and M1.c are merged into
+  `main` (PR #1, #2, #3).
+- **Next milestone**: M2.b — real providers (Gemini, Groq, Ollama), API endpoints, settings page, "test
+  connection" button.
+
+## M2.a — AI gateway core, offline ✅
+
+### Done
+
+- **Gateway** (`app/ai/`, D-038 to D-045): `Gateway.generate_json(task, inputs, schema)` and
+  `.transcribe(audio)` share one core; Pydantic validation; retry with exponential backoff and jitter
+  (`retry_after` honoured up to 20 s); one repair of invalid output, then `incomplete`; fallback along the
+  `ai_provider_order` setting; quota cooldown; auth providers marked until `reload()`; 90 s time budget;
+  `pin_provider`; `status()`; `get_gateway()` (no real provider yet: every call is
+  `unavailable(no_provider_configured)`, so the app runs in degraded mode).
+- **Results, not exceptions**: `ok` / `incomplete` / `unavailable` + reason; programming errors raise.
+- **Journal**: one `ai_call_log` row per request, written in its own short session (exception to D-023,
+  documented); no prompt, response, user text or key; messages masked and cut to 300 characters. **No
+  migration** (the M1.a table was enough; `alembic check` is empty).
+- **Prompts and schemas**: versioned files with a validated header, single-pass substitution, user text
+  framed as data with a delimiter it cannot forge; task registry pinning the prompt version; the
+  `connection_test` task and `ConnectionTestOutput`.
+- **Secrets**: `VOCAB_GEMINI_API_KEY`, `VOCAB_GROQ_API_KEY` (`SecretStr`), `VOCAB_OLLAMA_BASE_URL`; empty =
+  not configured; keys masked (raw, URL-encoded, form-encoded); `.env.example` documented without URLs.
+- **Settings**: the registry now supports list values; `ai_provider_order` (default
+  `["gemini","groq","ollama"]`, `[]` = AI off).
+- **Usage**: `services/ai_usage.py`, per study day, provider and model, from `ai_call_log`.
+- **Dev tool**: `python -m app ai simulate` (three scenarios, fake providers, throwaway database).
+- **CLAUDE.md**: two permanent rules (every AI call goes through the gateway; never keep a write
+  transaction open during an AI call).
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes: ruff check, ruff format --check, pytest **394 passed** (280 + 114 new, ~28 s;
+  the AI tests take ~2.6 s), tsc, oxlint, vitest 11 passed.
+- `alembic upgrade head && alembic check` on a temporary database: "No new upgrade operations detected".
+- **Tests cover** every acceptance criterion, all offline (an autouse fixture refuses any non-local socket
+  connection and DNS lookup): first-try success; 429 then success (`retry_after` honoured, then > 20 s
+  goes to fallback); quota (fallback, skipped during cooldown with no log line, probed again after);
+  repeated 429; auth + `reload()`; invalid output (repair message in the sent prompt, then `incomplete`,
+  no fallback); no provider configured (0 calls, 0 rows); every `unavailable` reason; time budget;
+  `pin_provider`; transcription and capability filtering; keys never in the database, result, `logging`
+  or `repr(Settings)`; journal write failure; prompts (headers, placeholders, registry, `{{other}}`, `$x`,
+  braces, fake delimiters, version in result and log, input too long); `ai_provider_order`; usage with
+  the 04:00 Douala boundary; concurrent access to the health state.
+- **Manual scenario**: `pytest -k ai` green (209 selected, the keyword also matches unrelated names);
+  `python -m app ai simulate` prints the three scenarios, the log rows and the usage, and the personal
+  database has the same SHA-256 before and after; `start.cmd -NoBrowser` without any key starts and
+  `/api/health` answers (`database.at_head: true`); `git status` shows no `.env` or `data/`.
+
+### Left / notes
+
+- **Not yet verified**: CI on GitHub for this branch (it runs on the PR).
+- Provisional values to revisit in M2.b with the real quotas (all in `app/ai/policy.py`): 3 attempts, 20 s
+  maximum wait, 90 s budget, 1 h cooldown, 30 s request timeout. A provider that returns 429 on every
+  request is retried three times (3 s of waiting) on each call; M2.b may add a short cooldown for that.
+- `app/ai/health.py` is its own file (the plan had it inside `gateway.py`).
+- Callers (M3 onwards) must follow the rule: call the AI first, then write in a short transaction.
+- Transcription uses a fixed 60 s request timeout and has no size check yet (provider limits are M2.b/M6).
+- While checking the startup I ran `alembic upgrade head` once against the personal database by mistake; it
+  was already at head and its SHA-256 did not change.
+
+### Known issues
+
+- None known.
 
 ## M1.c — Demo data, demo mode, waiting for the API ✅
 
@@ -200,13 +262,17 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 - None known.
 
-## Next step: M2 — AI gateway
+## Next step: M2.b — real providers and settings
 
-- Gemini, Groq and Ollama providers behind one gateway; Pydantic output schemas; versioned prompts in
-  `app/ai/prompts/`; retry with backoff and fallback on 429; `ai_call_log`; degraded mode without keys;
-  settings page for keys with a "test connection" button (SPEC §7, §9).
+- Gemini, Groq (text + Whisper) and Ollama adapters implementing `app.ai.providers.Provider`; they
+  translate every library error to `ProviderError(kind, retry_after, status_code, message)` and put
+  `ProviderRequest.json_schema` to use (native JSON mode or in the prompt). `build_providers()` must
+  return all three, configured or not.
+- API endpoints, settings page (keys written to `.env`, then `get_settings.cache_clear()` +
+  `get_gateway().reload()`; order, daily usage from `services/ai_usage.py`), "test connection" button
+  (`generate_json("connection_test", ..., pin_provider=...)`).
 - Check the current free-tier model names, quotas and SDK versions in the official documentation at
-  milestone time (never from memory).
+  milestone time (never from memory), then adjust the constants of `app/ai/policy.py`.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅

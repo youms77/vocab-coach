@@ -15,12 +15,12 @@ def get_setting(session: Session, key: str) -> Any:
     """Stored value if the user changed it, else the default. SettingError on unknown keys."""
     spec = spec_for(key)
     row = session.get(Setting, key)
-    return spec.default if row is None else row.value
+    return spec.default_value() if row is None else row.value
 
 
 def get_all_settings(session: Session) -> dict[str, Any]:
     stored = {row.key: row.value for row in session.scalars(select(Setting)) if row.key in SETTINGS}
-    return {key: stored.get(key, spec.default) for key, spec in SETTINGS.items()}
+    return {key: stored.get(key, spec.default_value()) for key, spec in SETTINGS.items()}
 
 
 def set_setting(session: Session, key: str, value: Any) -> Any:

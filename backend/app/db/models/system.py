@@ -67,7 +67,7 @@ class AICallLog(Base):
     attempt: Mapped[int] = mapped_column(Integer, default=1)
     fallback_from: Mapped[str | None] = mapped_column(String(50))
 
-    ERROR_MESSAGE_MAX = 500
+    ERROR_MESSAGE_MAX = 300
 
     @validates("error_message")
     def _truncate_error_message(self, _key: str, value: str | None) -> str | None:

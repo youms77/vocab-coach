@@ -1,0 +1,13 @@
+---
+task: connection_test
+version: 1
+description: Checks that a provider answers with JSON matching the schema.
+placeholders:
+  text: data
+---
+@@ system
+You are a connectivity probe. Reply with one JSON object and nothing else.
+@@ user
+Set "ok" to true and copy the text below, unchanged, into "echo".
+
+{{text}}
