@@ -16,6 +16,8 @@ from sqlalchemy import Engine
 from app.ai.redact import mask_secrets
 from app.config import get_settings
 from app.db.engine import get_engine, sqlite_file
+from app.domain.item_status import InvalidItemTransition
+from app.services.library import LibraryError
 
 
 def api_error(status: int, code: str, message: str, **extra: Any) -> HTTPException:
@@ -43,5 +45,30 @@ async def _validation_error(_request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse({"detail": detail}, status_code=422)
 
 
+def _error_response(status: int, code: str, message: str, **extra: Any) -> JSONResponse:
+    secrets = get_settings().secret_values()
+    detail = {"code": code, "message": mask_secrets(message, secrets), **extra}
+    return JSONResponse({"detail": detail}, status_code=status)
+
+
+async def _library_error(_request: Request, exc: Exception) -> JSONResponse:
+    """A refusal raised by a library service (module A): its own status, code and details."""
+    assert isinstance(exc, LibraryError)  # noqa: S101 (narrowing)
+    return _error_response(exc.status, exc.code, exc.message, **exc.extra)
+
+
+async def _invalid_transition(_request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, InvalidItemTransition)  # noqa: S101 (narrowing)
+    return _error_response(
+        409,
+        "invalid_transition",
+        f"A term cannot go from {exc.from_status.value} to {exc.to_status.value} this way.",
+        from_status=exc.from_status.value,
+        to_status=exc.to_status.value,
+    )
+
+
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _validation_error)
+    app.add_exception_handler(LibraryError, _library_error)
+    app.add_exception_handler(InvalidItemTransition, _invalid_transition)
