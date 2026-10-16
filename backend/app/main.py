@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api import health
+from app.api.guard import ApiGuard
 from app.config import Settings, get_settings
 
 
@@ -19,6 +20,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     # One router per module, all under /api (see docs/SPEC.md, section 5).
     app.include_router(health.router, prefix="/api")
+    # Added last, so it is the outermost layer: even a CORS preflight goes through the Host check.
+    app.add_middleware(ApiGuard, port=settings.port, allowed_origins=settings.cors_origins)
     return app
 
 
