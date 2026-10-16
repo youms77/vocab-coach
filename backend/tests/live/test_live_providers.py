@@ -1,11 +1,13 @@
 """One real request per configured provider (see `conftest.py` for how to run them)."""
 
 import os
+import warnings
 from pathlib import Path
 
 import pytest
 
 from app.ai.providers import Provider
+from app.ai.providers.gemini import GeminiProvider
 from app.ai.schemas.connection_test import ConnectionTestOutput
 from app.ai.types import AudioClip, ErrorKind, ProviderError, ProviderRequest, TranscriptionRequest
 
@@ -31,6 +33,25 @@ def _live_call(provider: Provider, timeout_s: float) -> ConnectionTestOutput:
         pytest.fail(f"{provider.name}: {exc.kind.value} (HTTP {exc.status_code}): {exc.message}")
     assert response.model
     return ConnectionTestOutput.model_validate_json(response.text)
+
+
+def test_gemini_answers_with_valid_json(gemini: GeminiProvider) -> None:
+    # Settles risk n° 1 (D-058). If Google refuses the `responseFormat` field, the adapter switches
+    # to `responseMimeType` + `responseJsonSchema` by itself: the second request (at most) then
+    # proves the older fields work, and a warning tells the owner which mode is the right one.
+    started_in = gemini.json_mode
+    try:
+        answer = _live_call(gemini, timeout_s=30)
+    except pytest.fail.Exception:
+        if gemini.json_mode == started_in:
+            raise
+        answer = _live_call(gemini, timeout_s=30)
+        warnings.warn(
+            f"Gemini refused the {started_in!r} JSON fields; {gemini.json_mode!r} works: "
+            "update D-058 and make it the default",
+            stacklevel=1,
+        )
+    assert answer.ok is True and "ping" in answer.echo
 
 
 def test_groq_answers_with_valid_json(groq: Provider) -> None:

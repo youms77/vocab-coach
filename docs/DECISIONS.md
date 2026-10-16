@@ -601,7 +601,7 @@ Decisions that change `docs/SPEC.md` require the owner's approval and must say s
 ## D-046 — Provider facts checked before coding (M2.b1, 2026-10-16)
 
 Read in the official documentation on 2026-10-16 (never from memory). Where a page does not say, the
-cell says so. Re-check what matters at the start of M2.b2 (Gemini) and whenever a provider changes.
+cell says so. Re-check what matters at the start of M2.b2 (Gemini) and whenever a provider changes. *Gemini re-checked in M2.b2: D-056.*
 
 | Fact | Value | Source |
 |---|---|---|
@@ -712,7 +712,7 @@ Groq's sign-up asks for a payment method. The owner's real calls settle these.
 |---|---|---|---|
 | `MAX_ATTEMPTS_PER_PROVIDER` | 3 | 3 | unchanged |
 | backoff | 1 s x2, +/-25 % | same | unchanged |
-| `MAX_WAIT_S` | 20 | 20 | Groq's `retry-after` is in seconds (30 requests/min): waiting up to 20 s pays off; reported Gemini delays (14-57 s) often exceed it and then falling back is better than sleeping. Re-examine in M2.b2 |
+| `MAX_WAIT_S` | 20 | 20 | Groq's `retry-after` is in seconds (30 requests/min): waiting up to 20 s pays off; reported Gemini delays (14-57 s) often exceed it and then falling back is better than sleeping. Re-examined in M2.b2: kept, D-060 |
 | `TOTAL_BUDGET_S` | 90 | 90 | unchanged |
 | `QUOTA_COOLDOWN` | 1 h | 1 h | a daily quota does not free up before its reset; one probe per hour costs one failed request |
 | `REQUEST_TIMEOUT_S` | 30 | 30 | unchanged; transcription 60 s; Ollama floor 60 s (below) |
@@ -731,8 +731,9 @@ Groq's sign-up asks for a payment method. The owner's real calls settle these.
 - `build_providers(settings=None)` returns `groq` and `ollama`, configured or not (D-040), so `status()` and
   `pin_provider` know them. **Gemini is not built until M2.b2**: `ai status` shows it as "not available yet",
   `ai test --provider gemini` exits 2, and the gateway skips a name it does not know in `ai_provider_order`.
+  *(M2.b2: Gemini is built too, see D-057; these special cases are gone.)*
 - New optional settings (empty = default): `VOCAB_GROQ_TEXT_MODEL`, `VOCAB_GROQ_TRANSCRIPTION_MODEL`,
-  `VOCAB_OLLAMA_MODEL`; `VOCAB_GEMINI_MODEL` comes with the adapter. Defaults are constants in the adapters.
+  `VOCAB_OLLAMA_MODEL`; `VOCAB_GEMINI_MODEL` came with the Gemini adapter (M2.b2). Defaults are constants in the adapters.
   Adapters take an optional `base_url` in their constructor for tests only (no variable, as in M2.a).
 - The M2.a test that asserted `status() == []` (no provider) now asserts that both providers are known and
   none is configured; it also forces the keys to empty **environment variables** (not `delenv`): an
@@ -775,6 +776,9 @@ Groq's sign-up asks for a payment method. The owner's real calls settle these.
 
 ## D-055 — Gemini adapter design, to build in M2.b2 (decided in M2.b1)
 
+*Built in M2.b2: see D-056 to D-060 for the re-checked facts and what was refined (no `temperature`, the thinking
+table, the automatic switch to the older JSON fields).*
+
 - **API**: `generateContent` (v1beta), stateless, key in `x-goog-api-key`; default model `gemini-3.5-flash-lite`
   (stable, Flash-Lite, free of charge); override `VOCAB_GEMINI_MODEL`.
 - **JSON**: `generationConfig.responseFormat.text = {mimeType: "APPLICATION_JSON", schema}` with the simplified
@@ -789,3 +793,106 @@ Groq's sign-up asks for a payment method. The owner's real calls settle these.
 - **Privacy**: the README must warn that the free tier may use content to improve the products (SPEC section 7).
 - **To confirm by the owner's first real call**: JSON field accepted, error bodies, quota ids, region and free
   tier in Cameroon (hypothesis B.11).
+
+## D-056 — Gemini facts re-checked before coding (M2.b2, 2026-10-16)
+
+D-046 was re-read against the official pages the same day (models, pricing, rate limits, regions, API
+errors, troubleshooting, thinking, structured output, the `generateContent` reference and the v1beta
+discovery document, which lists the exact field names and enum values). **What changed or was settled:**
+
+| Fact | Result | Consequence |
+|---|---|---|
+| Models | the six of D-046 are unchanged. New: **`gemini-4-argon`** (stable, **no free tier**); `gemini-3.1-flash-lite-preview` and the 2.0 models are "shut down"; the 2.5 family is "limited to past users". The models page recommends 3.5 Flash-Lite or 3.8 Flash for new projects | the default stays `gemini-3.5-flash-lite`; a model without a free tier is never a default |
+| Free tier and privacy | unchanged: free for 3.5/3.1 Flash-Lite and 3.8/3.6 Flash; "used to improve our products": yes on the free tier, no on the paid tier | README warning |
+| Quotas, regions | unchanged: not published (AI Studio shows them), per project, RPM / TPM / RPD, reset at midnight Pacific; Cameroon listed, no free / paid split | hypothesis B.11 stays open until the owner's call |
+| JSON | **settled in the discovery document**: `generationConfig.responseFormat` is a `ResponseFormatConfig` with `text: TextResponseFormat {mimeType: MIME_TYPE_UNSPECIFIED, APPLICATION_JSON or TEXT_PLAIN; schema}`. `responseSchema` and `responseJsonSchema` are marked deprecated ("use response_format instead"); `responseMimeType` is a plain string (`application/json`). The narrative pages only show the Interactions form (`response_format`, lowercase `mime_type`) | D-058; still not exercised against the real service |
+| Schema keywords | the structured-output page (Interactions) lists: types incl. `null` and type arrays, `title description properties required additionalProperties enum format(date-time/date/time) minimum maximum items prefixItems minItems maxItems anyOf $ref`; "not all JSON Schema features are supported", large or deeply nested schemas "may be rejected" | `to_gemini_schema` keeps the four bounds (D-057) |
+| Thinking | `ThinkingConfig {thinkingBudget, includeThoughts, thinkingLevel: MINIMAL, LOW, MEDIUM or HIGH}`; "recommended for Gemini 3 or later, earlier models return an error". Per-model table on the thinking page: 3.5-flash-lite default minimal (minimal..high); 3.6-flash default medium (minimal..high); **3.8-flash default medium (low..high, no minimal)**; 4-argon low..high. The same table lists 2.5 models with levels, which **contradicts** the discovery document. `maxOutputTokens` includes thinking tokens | table in D-057; models not in it get no `thinkingConfig` |
+| Temperature | "silently ignored on Gemini 3.6 Flash and newer" | `temperature` is not sent |
+| Answer | `usageMetadata`: promptTokenCount, candidatesTokenCount, thoughtsTokenCount, totalTokenCount...; `finishReason`: STOP, MAX_TOKENS, SAFETY, RECITATION, LANGUAGE, OTHER, BLOCKLIST, PROHIBITED_CONTENT, SPII, MALFORMED_*, ...; `promptFeedback.blockReason`: SAFETY, OTHER, BLOCKLIST, PROHIBITED_CONTENT, IMAGE_SAFETY | anything but STOP is `invalid_output` |
+| Errors | unchanged: the "API errors" page documents **only the Interactions API** (`error.code` snake_case: `authentication`, `rate_limit_exceeded`, `too_many_requests` = per minute, `quota_exceeded` = per day, `failed_precondition`, `payment_required`...). The troubleshooting page says 429 / 503 are retried, 400 / 402 / 403 are not, and mentions "API key was reported as leaked". Forum reports again show the classic shape (`status`, `details[]` with `QuotaFailure.quotaId` containing `PerDay` / `PerMinute`, `RetryInfo.retryDelay` as short as 1 to 14 s even for a daily quota, `limit: 0` for a model without quota, some 429 without `details`) | D-059 |
+
+**Could not be verified (so not asserted)**: the real `generateContent` error body (no official page); that the
+live service accepts `responseFormat` and the upper-case `thinkingLevel`; thinking levels of
+`gemini-3.1-flash-lite`; the 2.5 contradiction above. The owner's first real call settles them.
+
+## D-057 — Gemini adapter (M2.b2)
+
+- **Request**: `POST {base}/models/{model}:generateContent` (v1beta), key in `x-goog-api-key` only (the URL has no
+  query string). Body: `systemInstruction`, one user `contents` entry, `generationConfig` with `maxOutputTokens`
+  = the task's limit + **512** (thinking tokens count against it) and the JSON fields (D-058). No `temperature`
+  (no-op on recent models), no `safetySettings` (defaults). The model name is validated (`[A-Za-z0-9._-]+`,
+  a leading `models/` is accepted) before it enters the URL path: a name from `.env` cannot add a path segment
+  or a query string.
+- **Default model** `gemini-3.5-flash-lite`; `VOCAB_GEMINI_MODEL` (new `Settings.gemini_model`, empty = default).
+  Text only: `transcribe` is a `bad_request`.
+- **Thinking table** (`THINKING_LEVELS`, exact model name -> `thinkingLevel`): `gemini-3.5-flash-lite` and
+  `gemini-3.6-flash` `MINIMAL`; `gemini-3.8-flash` `LOW` (it has no minimal level). Any other model gets **no
+  `thinkingConfig`**: it is an error on models older than Gemini 3 and the levels of `gemini-3.1-flash-lite` are
+  undocumented. The 512-token headroom is added whatever the model.
+- **Answer**: first candidate; the parts are joined, parts with `thought: true` are left out; a `finishReason`
+  other than STOP (MAX_TOKENS = cut off, anything else = stopped by the model, the name being echoed only when
+  it looks like an enum name), a prompt blocked with no candidate, or an empty text is `invalid_output` with
+  fixed wording (never the content). JSON fences are removed. **Tokens**: `input_tokens = promptTokenCount`,
+  `output_tokens = candidatesTokenCount + thoughtsTokenCount` (thinking is billed and counts against the quota),
+  `None` when neither is present. The model recorded is `modelVersion` when the answer carries one.
+- **Schema** (`to_gemini_schema`): like Groq and Ollama (inlined `$ref`, closed objects, `title`, `default`,
+  `format`, `pattern`, string lengths... dropped) **except** that `minimum`, `maximum`, `minItems` and `maxItems`
+  are kept: the documentation lists them. `simplify_schema` got an optional `dropped` set; the default is
+  unchanged, so the Groq and Ollama schemas are identical to M2.b1's. Pydantic still validates everything.
+- `build_providers()` now returns `gemini`, `groq`, `ollama` (D-052 amended: Gemini is built; the "not available
+  yet" cases of `ai status` / `ai test` are gone).
+
+## D-058 — Isolating risk n° 1: the `responseFormat` field (M2.b2)
+
+- All the JSON-related fields of the body come from **one function**, `json_generation_fields(schema, mode)`:
+  `response_format` mode sends `responseFormat.text = {mimeType: "APPLICATION_JSON", schema}`; `legacy` mode sends
+  `responseMimeType: "application/json"` + `responseJsonSchema` (marked deprecated by Google but still listed).
+  Both are unit-tested.
+- The provider starts in `response_format` mode. If Google answers **400 with "unknown name" / "cannot find
+  field" and the field's name** (`responseFormat` or `response_format`), the adapter raises a `bad_request`
+  (the gateway falls back to the next provider for that call) and **switches that instance to `legacy` for the
+  next requests**. No second request inside `generate_json` (a provider makes one request, the journal counts
+  one row per request). The switch is one-way and in memory (a restart tries `response_format` again); a schema
+  error that merely mentions the field is not a missing field and does not switch.
+- Cost if the field is refused: one request to Google and one fallback call, once per process. The live test
+  (`tests/live`) warns when that happened, so D-058 can be updated with the real answer.
+
+## D-059 — Gemini error translation, as implemented (M2.b2)
+
+D-050's Gemini column, with the bodies parsed in both documented shapes (classic: `error.code` is the HTTP
+status, `error.status` a name, `details[]` typed messages; Interactions: `error.code` is a snake_case string):
+
+| Situation | Result |
+|---|---|
+| 429, a violated quota whose id contains `PerDay` (any one of them), the code `quota_exceeded`, or "per day" / "daily" in the message | `quota_exhausted`; **`retry_after` ignored** (reported delays are short even for a daily quota), so the gateway's cooldown is the default hour |
+| 429 otherwise (`PerMinute`, `rate_limit_exceeded`, `too_many_requests`, no `details`) | `rate_limited`; `retry_after` = `RetryInfo.retryDelay`, else the `Retry-After` header, else "retry in 33.5s" in the message, else none |
+| 402 | `quota_exhausted` (Interactions `payment_required`) |
+| 401, 403 (including "API key was reported as leaked") | `auth` |
+| 400 with `API_KEY_INVALID`, `UNAUTHENTICATED` / `PERMISSION_DENIED`, `authentication`, or "API key not valid / expired / invalid" | `auth` |
+| 400 `FAILED_PRECONDITION` (or `failed_precondition`) whose message says "location is not supported", "not available in your country / region" or "free tier" | `auth`, with an explicit "region not supported or free tier not available here" message |
+| Any other 400 (billing precondition, invalid schema, unknown field) | `bad_request` (+ D-058 when it is the `responseFormat` field) |
+| 404 | `bad_request` + "check `VOCAB_GEMINI_MODEL`" |
+| 408, 499, 5xx | `transient` (`Retry-After` kept) |
+| 3xx, other 4xx | `bad_request` |
+
+- A 400 is read before it is classified; every message is the service's own `error.message` (or fixed text),
+  masked with the key (raw, URL- and form-encoded) and cut to 300 characters. Fixtures are built from the
+  documentation and forum reports (`tests/ai/fixtures/README.md`): the quota ids and delays are reported
+  values. Tested end to end through the gateway (`tests/ai/test_gateway_gemini.py`) and with a hostile server
+  that repeats the key in every form (`test_provider_secrets.py`).
+
+## D-060 — `MAX_WAIT_S` kept at 20 s with Gemini's delays (M2.b2)
+
+- **Decision**: no change to `policy.py` (`MAX_WAIT_S = 20`, `TOTAL_BUDGET_S = 90`, backoff, cooldowns). The point
+  left open by D-051 is closed.
+- **Reasoning, from the delays reported for Gemini (14 to 57 s; nothing official)**: a delay up to 20 s is slept
+  (three such attempts cost 28 s of the 90 s budget and a successful retry keeps Gemini first); a longer one
+  makes the gateway fall back to Groq at once and set Gemini aside for exactly that delay (`min(retry_after, 1 h)`),
+  then Gemini is tried first again when its window is over. Raising the limit to about 60 s would let one
+  rate-limited provider eat two thirds of the budget for a call the user waits for; lowering it would give up on
+  the common short delays. A daily quota never waits (D-059).
+- Pinned by tests (14 s and 20 s wait, 21 s and 57 s fall back; three short 429s set Gemini aside for a minute;
+  a daily quota with a 14 s delay cools down for an hour).
+- **To re-examine** after the owner's real runs: the actual `retryDelay` values and how often the free tier is
+  rate limited (`ai usage` shows the errors per provider).

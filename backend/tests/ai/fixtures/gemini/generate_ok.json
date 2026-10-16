@@ -1,0 +1,1 @@
+{"candidates":[{"content":{"role":"model","parts":[{"text":"{\"ok\":true,\"echo\":\"ping\"}"}]},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":88,"candidatesTokenCount":11,"totalTokenCount":99},"modelVersion":"gemini-3.5-flash-lite","responseId":"resp_example_0001"}

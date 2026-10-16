@@ -93,10 +93,7 @@ def run_ai_status(
     out("")
     rows = []
     for name in KNOWN_AI_PROVIDERS:
-        provider = providers.get(name)
-        if provider is None:
-            rows.append((name, "not available yet", "arrives in M2.b2", "-"))
-            continue
+        provider = providers[name]
         configured = "configured" if provider.is_configured() else "not configured"
         models = ", ".join(
             f"{capability.value}: {provider.model_for(capability)}"
@@ -111,7 +108,7 @@ def run_ai_status(
     if not any(p.is_configured() for p in providers.values()):
         out("")
         out("Nothing is configured: the app runs without AI (degraded mode). See the README,")
-        out("section Configuration, to add a free Groq key or a local Ollama server.")
+        out("section Configuration, to add a free Gemini or Groq key, or a local Ollama server.")
     return EXIT_OK
 
 
@@ -184,8 +181,6 @@ def _targets(providers: Mapping[str, Provider], wanted: str | None) -> list[str]
             raise AiCommandError(
                 f"Unknown provider {wanted!r}. Known providers: {', '.join(KNOWN_AI_PROVIDERS)}."
             )
-        if wanted not in providers:
-            raise AiCommandError(f"{wanted} is not available yet in this version (see ai status).")
         if not providers[wanted].is_configured():
             raise AiCommandError(f"{wanted} is not configured (see ai status and the README).")
         return [wanted]

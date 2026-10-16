@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     groq_api_key: SecretStr | None = None
     ollama_base_url: str | None = None
     # Model overrides (M2.b). Empty or missing means "the adapter's default model".
+    gemini_model: str | None = None
     groq_text_model: str | None = None
     groq_transcription_model: str | None = None
     ollama_model: str | None = None
@@ -51,6 +52,7 @@ class Settings(BaseSettings):
         "gemini_api_key",
         "groq_api_key",
         "ollama_base_url",
+        "gemini_model",
         "groq_text_model",
         "groq_transcription_model",
         "ollama_model",

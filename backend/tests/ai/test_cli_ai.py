@@ -11,6 +11,7 @@ from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from app import cli_ai
+from app.ai.providers.gemini import GeminiProvider
 from app.ai.providers.groq import GroqProvider
 from app.ai.providers.ollama import OllamaProvider
 from app.cli import main
@@ -22,6 +23,7 @@ from tests.ai.fake_server import FakeServer, Reply, fixture_reply
 
 ServerFactory = Callable[..., FakeServer]
 KEY = "gsk_test_0123456789abcdefghij"
+GEMINI_KEY = "AIzaSyTest_0123456789abcdefghij"
 
 
 class Capture:
@@ -40,9 +42,18 @@ def _settings(**kwargs: str | None) -> Settings:
     return Settings(_env_file=None, groq_api_key=KEY, **kwargs)  # type: ignore[arg-type]
 
 
-def _providers(groq: FakeServer | None = None, ollama: FakeServer | str | None = None) -> dict:
+def _providers(
+    groq: FakeServer | None = None,
+    ollama: FakeServer | str | None = None,
+    *,
+    gemini: FakeServer | None = None,
+) -> dict:
     ollama_url = ollama.base_url if isinstance(ollama, FakeServer) else ollama
     return {
+        "gemini": GeminiProvider(
+            GEMINI_KEY if gemini else None,
+            base_url=gemini.base_url + "/v1beta" if gemini else "http://x",
+        ),
         "groq": GroqProvider(KEY if groq else None, base_url=groq.base_url if groq else "http://x"),
         "ollama": OllamaProvider(ollama_url),
     }
@@ -65,10 +76,11 @@ def _closed_port() -> int:
 def test_status_without_any_configuration(db_url: str) -> None:
     out = Capture()
     assert run_ai_status(db_url, _settings(), _providers(), out) == cli_ai.EXIT_OK
-    assert out.text.count("not configured") == 2
+    assert out.text.count("not configured") == 3
     assert "Nothing is configured" in out.text and "degraded mode" in out.text
     assert "gemini > groq > ollama" in out.text  # the default order
-    assert "gemini  not available yet" in out.text
+    assert "gemini  not configured" in out.text and "not available" not in out.text
+    assert "text: gemini-3.5-flash-lite" in out.text
 
 
 def test_status_shows_models_and_order_but_never_a_key_or_an_address(
@@ -85,6 +97,16 @@ def test_status_shows_models_and_order_but_never_a_key_or_an_address(
     for secret in (KEY, KEY[-4:], "127.0.0.1", str(ollama.base_url.rsplit(":", 1)[1])):
         assert secret not in out.text
     assert "cooldown" not in out.text.lower()  # health is per process: never shown as information
+
+
+def test_status_shows_a_configured_gemini_with_its_model(
+    db_url: str, make_server: ServerFactory
+) -> None:
+    out = Capture()
+    run_ai_status(db_url, _settings(), _providers(gemini=make_server()), out)
+    [line] = [line for line in out.lines if line.strip().startswith("gemini")]
+    assert line.split() == ["gemini", "configured", "text:", "gemini-3.5-flash-lite", "#1"]
+    assert GEMINI_KEY not in out.text and GEMINI_KEY[-4:] not in out.text
 
 
 def test_status_with_ai_turned_off(db_url: str, engine: Engine) -> None:
@@ -144,6 +166,42 @@ def test_every_configured_provider_is_tested_and_logged(
         ("ollama", "connection_test", True),
     ]
     assert KEY not in out.text
+
+
+def test_gemini_is_tested_through_the_gateway_and_logged(
+    db_url: str, engine: Engine, make_server: ServerFactory
+) -> None:
+    gemini = make_server(fixture_reply("gemini", "generate_thoughts"))
+    out = Capture()
+    code = run_ai_test(db_url, _settings(), _providers(gemini=gemini), provider="gemini", out=out)
+
+    assert code == cli_ai.EXIT_OK
+    assert "gemini: ok (gemini-3.5-flash-lite," in out.text and "tokens in/out 90/51" in out.text
+    [row] = _rows(engine)
+    assert (row.provider, row.model, row.success) == ("gemini", "gemini-3.5-flash-lite", True)
+    assert gemini.requests[0].headers["x-goog-api-key"] == GEMINI_KEY
+    assert GEMINI_KEY not in out.text
+
+
+def test_a_gemini_error_is_explained_without_the_key(
+    db_url: str, make_server: ServerFactory
+) -> None:
+    body = {
+        "error": {
+            "code": 400,
+            "status": "INVALID_ARGUMENT",
+            "message": f"API key not valid ({GEMINI_KEY})",
+            "details": [{"reason": "API_KEY_INVALID"}],
+        }
+    }
+    gemini = make_server(Reply(status=400, body=body))
+    out = Capture()
+    code = run_ai_test(
+        db_url, _settings(gemini_api_key=GEMINI_KEY), _providers(gemini=gemini), out=out
+    )
+    assert code == cli_ai.EXIT_FAILED
+    assert "gemini: FAILED unavailable (auth)" in out.text and "HTTP 400" in out.text
+    assert GEMINI_KEY not in out.text and "***" in out.text
 
 
 def test_a_failing_provider_gives_exit_1_and_the_others_still_run(
@@ -217,7 +275,7 @@ def test_an_answer_that_does_not_match_the_schema_is_incomplete(
 @pytest.mark.parametrize(
     ("kwargs", "fragment"),
     [
-        ({"provider": "gemini"}, "not available yet"),
+        ({"provider": "gemini"}, "gemini is not configured"),
         ({"provider": "ollama"}, "ollama is not configured"),
         ({"provider": "nope"}, "Unknown provider"),
     ],
@@ -407,7 +465,12 @@ def cli_env(monkeypatch: pytest.MonkeyPatch, db_url: str) -> str:
     monkeypatch.setenv("VOCAB_DATABASE_URL", db_url)
     for name in ("VOCAB_GEMINI_API_KEY", "VOCAB_GROQ_API_KEY", "VOCAB_OLLAMA_BASE_URL"):
         monkeypatch.setenv(name, "")
-    for name in ("VOCAB_GROQ_TEXT_MODEL", "VOCAB_GROQ_TRANSCRIPTION_MODEL", "VOCAB_OLLAMA_MODEL"):
+    for name in (
+        "VOCAB_GEMINI_MODEL",
+        "VOCAB_GROQ_TEXT_MODEL",
+        "VOCAB_GROQ_TRANSCRIPTION_MODEL",
+        "VOCAB_OLLAMA_MODEL",
+    ):
         monkeypatch.setenv(name, "")
     monkeypatch.delenv("VOCAB_DEMO", raising=False)
     get_settings.cache_clear()
