@@ -1,0 +1,554 @@
+"""Deterministic simulation of a learner's history through the real services (D-034).
+
+One `random.Random(seed)` feeds every other generator, the FSRS engine's included (D-022). No set
+is iterated and every query that feeds a decision is ordered, so the same (seed, days, anchor,
+dataset_version) always gives the same rows. Every service receives explicit instants: nothing
+here reads the clock.
+
+Calendar: study days anchor - days ... anchor - 1. About 85 % of days are worked, with a forced
+3-day break around day -25 (to build a review backlog). Sessions run mostly between 18:30 and
+23:30 in the `timezone` setting, some in the morning, and about 10 % after midnight (they belong
+to the previous study day, D-014). Nothing happens after the start of the anchor study day.
+"""
+
+import random
+from collections import Counter
+from dataclasses import dataclass, field
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+from sqlalchemy import exists, select
+from sqlalchemy.orm import Session
+
+from app.db.models import Card, Deck, LexicalItem
+from app.db.settings_store import get_setting
+from app.demo import direct_writes as writes
+from app.demo.dataset import (
+    Confusion,
+    DemoDataset,
+    DemoDeck,
+    DemoTerm,
+    DemoTermRef,
+    ErrorTemplate,
+    Fate,
+)
+from app.demo.learner import Learner, poisson
+from app.domain.enums import (
+    CardDirection,
+    DeckStatus,
+    ErrorSource,
+    ItemStatus,
+    ProductionKind,
+    SrsState,
+)
+from app.domain.events import TriageDecision
+from app.domain.fsrs_engine import FsrsEngine
+from app.domain.item_status import REVIEWABLE_STATUSES
+from app.domain.planner import BlockKind, NewItemEntry, ReviewEntry, SessionPlan
+from app.domain.srs import Rating, SrsEngine
+from app.domain.study_day import study_day_bounds
+from app.services.decks import change_deck_status, reorder_queue
+from app.services.discovery import complete_discovery, start_discovery
+from app.services.items import mark_active, transition_item
+from app.services.planning import plan_today
+from app.services.reviews import card_state, record_review
+
+# Length of history the dataset's day offsets are written for; shorter runs scale them.
+REFERENCE_DAYS = 60
+WORKED_DAY_SHARE = 0.85
+FORCED_BREAK_DAYS = (-25, -24, -23)
+AFTER_MIDNIGHT_SHARE = 0.10
+MORNING_SHARE = 0.10
+EVENING_START, EVENING_MINUTES = time(18, 30), 300
+MORNING_START, MORNING_MINUTES = time(7, 0), 90
+AFTER_MIDNIGHT_MINUTES = 80
+# Some days the learner stops when the plan goes past the time budget.
+STOP_AT_BUDGET_SHARE = 0.25
+# Some worked days are reviews only.
+NO_NEW_TERMS_SHARE = 0.25
+# New terms per day for decks without a deadline (deadline decks get their pace): keen at first,
+# then busier from day -45 on.
+APPETITE_EARLY = ((4, 5, 6), (1, 2, 1))
+APPETITE_BUSY = ((0, 1, 2), (1, 2, 1))
+BUSY_FROM_DAY = -45
+FINAL_SESSION_NEW_TERMS = 3
+MARK_ACTIVE_DAY = -5
+ARCHIVE_DAY = -8
+PRODUCTION_EVERY_DAYS = (2, 4)
+PRODUCTION_WORDS = (80, 300)
+PRODUCTION_KINDS = (
+    (ProductionKind.WRITING, ProductionKind.SPEAKING, ProductionKind.TRANSCRIPT_ANALYSIS),
+    (5, 3, 2),
+)
+ERROR_SOURCE = {
+    ProductionKind.WRITING: ErrorSource.WRITING,
+    ProductionKind.SPEAKING: ErrorSource.SPEAKING,
+    ProductionKind.TRANSCRIPT_ANALYSIS: ErrorSource.TRANSCRIPT,
+}
+WRITING_WORDS_PER_MINUTE = 15
+SPEAKING_WORDS_PER_SECOND = 2.0
+MAX_REVIEW_ERRORS = 10
+MAX_REVIEW_ERRORS_PER_TERM = 2
+# Activities stop this long before the end of the study day.
+DAY_END_MARGIN = timedelta(minutes=30)
+
+
+@dataclass(frozen=True)
+class SimulationConfig:
+    seed: int
+    days: int
+    anchor: date
+
+
+@dataclass
+class _SessionCounts:
+    reviews: int = 0
+    failed_reviews: int = 0
+    discoveries_started: int = 0
+    discoveries_completed: int = 0
+    productions: int = 0
+    errors: int = 0
+    words: int = 0
+    stopped_at_budget: bool = False
+
+    def as_dict(self) -> dict[str, int | bool]:
+        return dict(self.__dict__)
+
+
+@dataclass
+class _State:
+    decks: dict[str, Deck] = field(default_factory=dict)
+    items: dict[str, LexicalItem] = field(default_factory=dict)  # lowercased term -> item
+    terms: dict[int, DemoTerm] = field(default_factory=dict)  # item id -> dataset entry
+    review_errors: Counter[int] = field(default_factory=Counter)
+    next_production_day: int = 0
+
+
+class Simulation:
+    def __init__(self, session: Session, dataset: DemoDataset, config: SimulationConfig) -> None:
+        if config.days < 7:
+            raise ValueError("the demo history needs at least 7 days")
+        self.session = session
+        self.dataset = dataset
+        self.config = config
+        root = random.Random(config.seed)  # noqa: S311 (simulation, not security)
+        # Fixed derivation order: adding a generator at the end keeps the others unchanged.
+        self._fsrs_rng = random.Random(root.getrandbits(64))  # noqa: S311
+        self.learner = Learner(random.Random(root.getrandbits(64)))  # noqa: S311
+        self._calendar = random.Random(root.getrandbits(64))  # noqa: S311
+        self._choices = random.Random(root.getrandbits(64))  # noqa: S311
+        self._writing = random.Random(root.getrandbits(64))  # noqa: S311
+        self._engines: dict[float, SrsEngine] = {}
+        self.tz = ZoneInfo(get_setting(session, "timezone"))
+        self.day_start_hour: int = get_setting(session, "day_start_hour")
+        self.state = _State()
+        self.categories = writes.CategoryIds(session)
+        self._templates_by_code: dict[str, list[ErrorTemplate]] = {}
+        for template in dataset.error_templates:
+            self._templates_by_code.setdefault(template.code, []).append(template)
+
+    # --- helpers -------------------------------------------------------------------------------
+
+    def engine_factory(self, retention: float) -> SrsEngine:
+        """One seeded FSRS engine per retention value, shared by every service call."""
+        if retention not in self._engines:
+            self._engines[retention] = FsrsEngine(retention, rng=self._fsrs_rng)
+        return self._engines[retention]
+
+    def scaled(self, offset: int) -> int:
+        """A dataset day offset mapped onto this run's history length."""
+        days = self.config.days
+        return max(-days, min(-1, round(offset * days / REFERENCE_DAYS)))
+
+    def study_day(self, offset: int) -> date:
+        return self.config.anchor + timedelta(days=offset)
+
+    def local(self, day: date, at: time, minutes: float = 0.0) -> datetime:
+        return datetime.combine(day, at, tzinfo=self.tz) + timedelta(minutes=minutes)
+
+    def _deadline(self, spec: DemoDeck) -> date | None:
+        if spec.deadline_day is None:
+            return None
+        offset = spec.deadline_day if spec.deadline_day > 0 else self.scaled(spec.deadline_day)
+        return self.study_day(offset)
+
+    def _fated(self, fate: Fate) -> list[LexicalItem]:
+        return [
+            self.state.items[term.term.lower()]
+            for term in self.dataset.all_terms()
+            if term.fate == fate and term.term.lower() in self.state.items
+        ]
+
+    # --- run -----------------------------------------------------------------------------------
+
+    def run(self) -> None:
+        days = self.config.days
+        breaks = {self.scaled(day) for day in FORCED_BREAK_DAYS}
+        self.state.next_production_day = -days + self._writing.randint(1, 3)
+        for offset in range(-days, 0):
+            day = self.study_day(offset)
+            final = offset == -1
+            worked = final or (offset not in breaks and self._calendar.random() < WORKED_DAY_SHARE)
+            start = self._session_start(day) if worked else None
+            admin_at = (start or self.local(day, time(20, 0))) - timedelta(minutes=10)
+            self._daily_admin(offset, admin_at)
+            if start is not None:
+                _, day_end = study_day_bounds(day, self.tz, self.day_start_hour)
+                self._run_session(offset, start, day_end - DAY_END_MARGIN, final=final)
+
+    def _session_start(self, day: date) -> datetime:
+        draw = self._calendar.random()
+        if draw < AFTER_MIDNIGHT_SHARE:
+            minutes = self._calendar.uniform(0, AFTER_MIDNIGHT_MINUTES)
+            return self.local(day + timedelta(days=1), time(0, 0), minutes)
+        if draw < AFTER_MIDNIGHT_SHARE + MORNING_SHARE:
+            return self.local(day, MORNING_START, self._calendar.uniform(0, MORNING_MINUTES))
+        return self.local(day, EVENING_START, self._calendar.uniform(0, EVENING_MINUTES))
+
+    # --- deck and term lifecycle ---------------------------------------------------------------
+
+    def _daily_admin(self, offset: int, at: datetime) -> None:
+        for spec in self.dataset.decks:
+            if self.scaled(spec.created_day) == offset:
+                self._create_deck(spec, at)
+            for batch_index, batch in enumerate(spec.triage_batches):
+                if self.scaled(batch.day) == offset:
+                    self._triage_batch(spec, batch.count, first=batch_index == 0, at=at)
+            for event in spec.status_events:
+                if self.scaled(event.day) == offset:
+                    change_deck_status(self.session, self.state.decks[spec.key], event.to, at)
+        if offset == self.scaled(ARCHIVE_DAY):
+            for item in self._fated(Fate.ARCHIVED):
+                transition_item(self.session, item, ItemStatus.ARCHIVED, at)
+        if offset == self.scaled(MARK_ACTIVE_DAY):
+            for item in self._fated(Fate.ACTIVE):
+                # A shortened history may not have discovered the term yet.
+                if item.status in (ItemStatus.LEARNING, ItemStatus.CONSOLIDATED):
+                    mark_active(self.session, item, at)
+
+    def _create_deck(self, spec: DemoDeck, at: datetime) -> None:
+        others = list(
+            self.session.scalars(
+                select(Deck)
+                .where(Deck.status != DeckStatus.DONE)
+                .order_by(Deck.queue_position, Deck.id)
+            )
+        )
+        position = None if spec.queue == "front" else len(others)
+        deck = writes.create_deck(
+            self.session, spec, at, deadline=self._deadline(spec), queue_position=position
+        )
+        self.state.decks[spec.key] = deck
+        if spec.queue == "front":
+            reorder_queue(self.session, [deck.id, *(other.id for other in others)], at)
+
+        for position, entry in enumerate(spec.terms):
+            if isinstance(entry, DemoTermRef):
+                item = self.state.items[entry.ref.lower()]
+                writes.add_to_deck(self.session, deck, item, position, at)
+                continue
+            item = writes.create_item(self.session, entry, deck, at)
+            self.state.items[entry.term.lower()] = item
+            self.state.terms[item.id] = entry
+            writes.add_to_deck(self.session, deck, item, position, at)
+            if entry.fate == Fate.DRAFT:
+                continue
+            target = ItemStatus.TRIAGE if spec.intake == "triage" else ItemStatus.QUEUED
+            transition_item(self.session, item, target, at)
+
+    def _triage_batch(self, spec: DemoDeck, count: int, *, first: bool, at: datetime) -> None:
+        pending = [
+            self.state.items[term.term.lower()]
+            for term in spec.own_terms()
+            if self.state.items[term.term.lower()].status == ItemStatus.TRIAGE
+        ]
+        decided = 0
+        for item in pending:
+            fate = self.state.terms[item.id].fate
+            if fate == Fate.TRIAGE:
+                continue  # left for later: the deadline warns about it
+            if fate == Fate.KNOWN:
+                if first:
+                    writes.triage_item(self.session, item, TriageDecision.KNOWN, at)
+                continue
+            if decided < count:
+                writes.triage_item(self.session, item, TriageDecision.LEARN, at)
+                decided += 1
+
+    # --- sessions ------------------------------------------------------------------------------
+
+    def _run_session(self, offset: int, start: datetime, stop: datetime, *, final: bool) -> None:
+        plan = plan_today(self.session, start, self.engine_factory)
+        study = writes.start_study_session(self.session, start, plan.model_dump(mode="json"))
+        counts = _SessionCounts()
+        t = start
+        t = self._reviews(plan, study.id, t, stop, counts)
+        if final:
+            t = self._ensure_relearning(study.id, t, counts)
+        if final or self._choices.random() >= NO_NEW_TERMS_SHARE:
+            t = self._new_terms(offset, plan, study.id, t, stop, counts, final=final)
+        if offset >= self.state.next_production_day and t < stop:
+            t = self._production(offset, study.id, t, counts)
+            self.state.next_production_day = offset + self._writing.randint(*PRODUCTION_EVERY_DAYS)
+        writes.end_study_session(self.session, study, t, counts.as_dict())
+        self.session.flush()
+
+    def _pause(self, t: datetime) -> datetime:
+        return t + timedelta(seconds=self._choices.uniform(2, 8))
+
+    def _reviews(
+        self, plan: SessionPlan, study_id: int, t: datetime, stop: datetime, counts: _SessionCounts
+    ) -> datetime:
+        block = plan.block(BlockKind.REVIEWS)
+        if block is None:
+            return t
+        stop_at_budget = self._choices.random() < STOP_AT_BUDGET_SHARE
+        for entry in block.entries:
+            if not isinstance(entry, ReviewEntry):
+                continue
+            if (stop_at_budget and entry.overflow) or t >= stop:
+                counts.stopped_at_budget = stop_at_budget and entry.overflow
+                break
+            card = self.session.get_one(Card, entry.card_id)
+            t = self._review(card, study_id, t, counts)
+        return t
+
+    def _review(
+        self,
+        card: Card,
+        study_id: int,
+        t: datetime,
+        counts: _SessionCounts,
+        *,
+        force_again: bool = False,
+    ) -> datetime:
+        item = self.session.get_one(LexicalItem, card.lexical_item_id)
+        if item.status not in REVIEWABLE_STATUSES:
+            return t
+        direction = CardDirection(card.direction)
+        state = card_state(card)
+        engine = self.engine_factory(get_setting(self.session, "target_retention"))
+        outcome = self.learner.review(
+            item.id, direction, state.state, state.stability, engine.retrievability(state, t)
+        )
+        final = Rating.AGAIN if force_again else outcome.final_rating
+        auto = Rating.AGAIN if force_again else outcome.auto_rating
+        confusion = self._confusion_for(item, direction) if final == Rating.AGAIN else None
+        log = record_review(
+            self.session,
+            card,
+            final,
+            t,
+            outcome.response_time_ms,
+            outcome.exercise_type,
+            answer=confusion.wrong if confusion else None,
+            auto_rating=auto,
+            study_session_id=study_id,
+            engine_factory=self.engine_factory,
+        )
+        counts.reviews += 1
+        counts.failed_reviews += final == Rating.AGAIN
+        if confusion is not None:
+            term = self.state.terms[item.id]
+            writes.record_error(
+                self.session,
+                self.categories,
+                code=confusion.code,
+                source=ErrorSource.REVIEW,
+                original=confusion.prompt,
+                wrong=confusion.wrong,
+                correction=term.sentence or term.term,
+                alternatives=[],
+                explanation=confusion.explanation,
+                at=t,
+                review_log_id=log.id,
+                lexical_item_id=item.id,
+                study_session_id=study_id,
+            )
+            self.state.review_errors[item.id] += 1
+            counts.errors += 1
+        return self._pause(t + timedelta(milliseconds=outcome.response_time_ms))
+
+    def _confusion_for(self, item: LexicalItem, direction: CardDirection) -> Confusion | None:
+        term = self.state.terms.get(item.id)
+        if (
+            term is None
+            or term.confusion is None
+            or direction != CardDirection.PRODUCTIVE
+            or sum(self.state.review_errors.values()) >= MAX_REVIEW_ERRORS
+            or self.state.review_errors[item.id] >= MAX_REVIEW_ERRORS_PER_TERM
+        ):
+            return None
+        return term.confusion
+
+    def _ensure_relearning(self, study_id: int, t: datetime, counts: _SessionCounts) -> datetime:
+        """The last session leaves at least one card in Relearning (a lapse just before the end)."""
+        relearning = self.session.scalar(
+            select(exists().where(Card.srs_state == SrsState.RELEARNING))
+        )
+        if relearning:
+            return t
+        card = self.session.scalars(
+            select(Card)
+            .join(LexicalItem, LexicalItem.id == Card.lexical_item_id)
+            .where(
+                Card.srs_state == SrsState.REVIEW,
+                LexicalItem.status.in_(sorted(REVIEWABLE_STATUSES)),
+                Card.last_review_at <= t,
+            )
+            .order_by(Card.id)
+            .limit(1)
+        ).first()
+        if card is None:
+            return t
+        return self._review(card, study_id, t, counts, force_again=True)
+
+    # --- new terms -----------------------------------------------------------------------------
+
+    def _choose_new_terms(self, plan: SessionPlan, offset: int, final: bool) -> list[NewItemEntry]:
+        """The plan's new terms the learner takes today, in plan order.
+
+        Deadline decks get exactly their pace; spare energy (an appetite drawn per day, high at
+        the start of the history, lower once the "busy" phase begins) goes to decks without a
+        deadline. The learner never starts a waiting deck: they stop at the first term of a deck the
+        planner lists in `decks_to_activate` (decks are activated on purpose, through the
+        dataset's status events). The last session takes at least three terms.
+        """
+        block = plan.block(BlockKind.NEW_ITEMS)
+        if block is None:
+            return []
+        waiting = set(plan.decks_to_activate)
+        pace_left = {pace.deck_id: pace.required_per_day for pace in plan.deadline_paces}
+        weights = APPETITE_EARLY if offset < self.scaled(BUSY_FROM_DAY) else APPETITE_BUSY
+        spare = self._choices.choices(weights[0], weights=weights[1])[0]
+        eligible: list[NewItemEntry] = []
+        chosen: list[NewItemEntry] = []
+        for entry in block.entries:
+            if not isinstance(entry, NewItemEntry):
+                continue
+            if entry.deck_id in waiting:
+                break
+            eligible.append(entry)
+            if entry.resumed:
+                chosen.append(entry)
+            elif entry.deck_id in pace_left:
+                if pace_left[entry.deck_id] > 0:
+                    pace_left[entry.deck_id] -= 1
+                    chosen.append(entry)
+            elif spare > 0:
+                spare -= 1
+                chosen.append(entry)
+        if final:
+            extra = [entry for entry in eligible if entry not in chosen]
+            chosen += extra[: max(0, FINAL_SESSION_NEW_TERMS - len(chosen))]
+            chosen.sort(key=eligible.index)
+        return chosen
+
+    def _new_terms(
+        self,
+        offset: int,
+        plan: SessionPlan,
+        study_id: int,
+        t: datetime,
+        stop: datetime,
+        counts: _SessionCounts,
+        *,
+        final: bool,
+    ) -> datetime:
+        entries = self._choose_new_terms(plan, offset, final)
+        for index, entry in enumerate(entries):
+            if t >= stop:
+                break
+            item = self.session.get_one(LexicalItem, entry.lexical_item_id)
+            deck = self.session.get(Deck, entry.deck_id) if entry.deck_id is not None else None
+            if item.status == ItemStatus.QUEUED:
+                start_discovery(self.session, item, deck, t, study_session_id=study_id)
+                counts.discoveries_started += 1
+            # Last session: the last term is interrupted, the one before ends without ratings.
+            if final and index == len(entries) - 1:
+                t = self._pause(t + timedelta(seconds=40))
+                continue
+            duration_ms = self.learner.discovery_ms()
+            t += timedelta(milliseconds=duration_ms)
+            ratings = None
+            if not (final and index == len(entries) - 2):
+                ratings = {
+                    direction: self.learner.initial_rating(item.id, direction)
+                    for direction in (CardDirection.RECEPTIVE, CardDirection.PRODUCTIVE)
+                }
+            complete_discovery(
+                self.session,
+                item,
+                t,
+                ratings,
+                duration_ms,
+                study_session_id=study_id,
+                engine_factory=self.engine_factory,
+            )
+            counts.discoveries_completed += 1
+            t = self._pause(t)
+        return t
+
+    # --- productions and errors ----------------------------------------------------------------
+
+    def _error_rate(self, code: str, progress: float) -> float:
+        start, end = self.dataset.error_rates.get(
+            code, (self.dataset.default_error_rate, self.dataset.default_error_rate)
+        )
+        return start + (end - start) * progress
+
+    def _production(
+        self, offset: int, study_id: int, t: datetime, counts: _SessionCounts
+    ) -> datetime:
+        rng = self._writing
+        kinds, weights = PRODUCTION_KINDS
+        kind = rng.choices(kinds, weights=weights)[0]
+        prompt = rng.choice([p.text for p in self.dataset.prompts if p.kind == kind])
+        target_words = rng.randint(*PRODUCTION_WORDS)
+        progress = (offset + self.config.days) / max(self.config.days - 1, 1)
+
+        made: list[ErrorTemplate] = []
+        for code in sorted(self._templates_by_code):
+            mean = self._error_rate(code, progress) * target_words / 100
+            for _ in range(poisson(rng, mean)):
+                made.append(rng.choice(self._templates_by_code[code]))
+        sentences = [template.original for template in made]
+        words = sum(len(sentence.split()) for sentence in sentences)
+        fillers = list(self.dataset.fillers)
+        rng.shuffle(fillers)
+        for filler in fillers * 3:
+            if words >= target_words:
+                break
+            sentences.append(filler)
+            words += len(filler.split())
+        rng.shuffle(sentences)
+        text = " ".join(sentences)
+
+        oral = kind != ProductionKind.WRITING
+        audio_seconds = round(words / SPEAKING_WORDS_PER_SECOND, 1) if oral else None
+        attempt = writes.record_production(
+            self.session,
+            kind,
+            prompt,
+            text,
+            t,
+            audio_seconds=audio_seconds,
+            study_session_id=study_id,
+        )
+        for template in made:
+            writes.record_template_error(
+                self.session, self.categories, template, ERROR_SOURCE[kind], t, attempt.id, study_id
+            )
+        counts.productions += 1
+        counts.errors += len(made)
+        counts.words += attempt.word_count
+        if oral:
+            duration = timedelta(seconds=(audio_seconds or 0) * 2.5)
+        else:
+            duration = timedelta(minutes=attempt.word_count / WRITING_WORDS_PER_MINUTE)
+        return self._pause(t + duration)
+
+
+def simulate(session: Session, dataset: DemoDataset, config: SimulationConfig) -> None:
+    """Fill `session` with the demo history; the caller commits."""
+    Simulation(session, dataset, config).run()

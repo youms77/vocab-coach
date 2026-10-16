@@ -56,7 +56,8 @@ You need **Git**, **uv** and **Node.js LTS (≥ 22.22)**. Python is installed fo
    ```
 
    or double-click `start.cmd` in File Explorer. The first run installs the dependencies (a few minutes),
-   then your browser opens on <http://127.0.0.1:5173>. Press **Ctrl+C** in the terminal to stop.
+   then your browser opens on <http://127.0.0.1:5173> as soon as the app answers. Press **Ctrl+C** in
+   the terminal to stop. Add `-NoBrowser` to start without opening the browser.
 
    If you prefer PowerShell directly: `.\start.ps1` (if scripts are blocked, use
    `powershell -ExecutionPolicy Bypass -File .\start.ps1`).
@@ -70,6 +71,30 @@ git clone https://github.com/<your-account>/vocab-coach.git
 cd vocab-coach
 ./start.sh
 ```
+
+## Try the demo
+
+To see the app with about two months of fictional history (decks, reviews, productions and errors)
+without touching your own data:
+
+```powershell
+.\start.cmd -Demo
+```
+
+(`./start.sh --demo` on macOS / Linux.) The first demo launch generates `data/vocab-coach-demo.sqlite3`
+in a few seconds and prints a summary; the top bar then shows a **Demo data** badge. Your own database
+(`data/vocab-coach.sqlite3`) is never read or changed in demo mode. Start without `-Demo` to get back
+to it.
+
+Other demo commands (run from `backend/`):
+
+| Command | What it does |
+|---|---|
+| `uv run python -m app --demo plan today` | Today's session plan on the demo database |
+| `uv run python -m app demo seed --reset` | Rebuild the demo database (stop the app first) |
+| `uv run python -m app demo seed --seed 7 --days 30 --reset` | Another reproducible history |
+
+The same seed always produces the same data. Everything in the demo (`content/demo/`) is invented.
 
 ## Configuration
 
@@ -104,9 +129,9 @@ Until then, back up `data/` yourself if it matters to you.
 ```
 backend/    FastAPI app (Python 3.13, uv): api/, domain/, db/, ai/, speech/
 frontend/   React + TypeScript + Vite: features/, components/, i18n/, api/
-content/    track syllabus and word lists (later milestones)
+content/    error taxonomy, fictional demo dataset (demo/), later the track syllabus
 docs/       SPEC.md (specification), PROGRESS.md, DECISIONS.md, architecture.md
-scripts/    environment check
+scripts/    environment check, browser opener (wait-and-open.mjs)
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) for details. Contributors using Claude Code: start with

@@ -4,10 +4,76 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M1.b — FSRS service, item statuses, deck queue, daily planner
-  (2026-10-16), branch `feat/m1b-domain-logic` (PR open; the owner merges after green CI). M1.a is merged
-  into `main` (PR #1).
-- **Next milestone**: M1.c — demo data, demo mode, waiting for the API at startup.
+- **Last milestone completed**: M1.c — demo data, demo mode, waiting for the API at startup
+  (2026-10-16), branch `feat/m1c-demo-data` (PR to open; the owner merges after green CI). M1.a and M1.b are
+  merged into `main` (PR #1, PR #2).
+- **Next milestone**: M2 — AI gateway.
+
+## M1.c — Demo data, demo mode, waiting for the API ✅
+
+### Done
+
+- **Demo mode** (D-033): `VOCAB_DEMO` / `python -m app --demo` use `data/vocab-coach-demo.sqlite3`;
+  combined with `VOCAB_DATABASE_URL` it fails at startup. Demo marker = reserved `setting` row `_demo`
+  (`{dataset_version, seed, days, anchor}`), outside the settings registry. `/api/health` adds `demo`; the
+  top bar shows a "Demo data" badge (EN/FR).
+- **`python -m app demo seed`** `[--seed 42] [--days 60] [--anchor YYYY-MM-DD] [--reset] [--if-missing]`:
+  always the demo file; refuses unmarked data (even with `--reset`) and a marked database without
+  `--reset`; atomic build in a temporary file; reports a file held open by the app on Windows; prints rows
+  per table, terms by status, cards by state, errors by category (levels 1 and 2) and the duration.
+- **Dataset** (`content/demo/`, version 1, all invented): 5 decks, 113 terms (all four unit types, 60 with an
+  origin sentence, 3 shared between decks, 17 with a lexical confusion), 59 error templates over 17 taxonomy
+  codes, 10 production prompts and filler sentences.
+- **Simulation** (`app/demo/`, D-034): 60 study days through the real services (planner, discovery, reviews,
+  item and deck statuses) with a seeded FSRS engine; simulated learner; productions with error rates per
+  100 words (fixed expressions fall from 3 to 1, past simple vs present perfect stable at 2, connectors
+  rising); lexical errors from failed reviews; one `study_session` per session (provisional format).
+- **Provisional direct writes** (D-035) for deck/term creation, triage decisions, productions, errors and
+  sessions; new event `deck.item_added`; `study_session_id` accepted by the discovery services.
+- **Launch** (D-036): `start.ps1 -Demo` / `start.cmd -Demo` / `start.sh --demo` run `db upgrade` then
+  `demo seed --if-missing` on the demo database. `scripts/wait-and-open.mjs` opens the browser once the API
+  and the Vite page answer (90 s limit, never stops the servers); `concurrently --kill-others-on-fail`;
+  `frontend/dev-server.json` shared by Vite and the opener.
+- **CI**: full 60-day `demo seed` + `--demo plan today` on a temporary data folder (Linux and Windows);
+  `node --check` of the opener (Windows job).
+- **No migration and no new setting.**
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes: ruff check, ruff format --check, pytest **280 passed** (~27 s), tsc, oxlint,
+  vitest **11 passed**.
+- **Seed duration**: 2.4–4.4 s for 60 days (CLI, owner's machine).
+- **Tests cover**: determinism (same seed ⇒ same fingerprint, other seed ⇒ different; clock columns
+  `created_at`, `updated_at`, `recorded_at` excluded); every deck and item status; new / learning / review
+  / relearning cards; ≥ 10 error codes, prepositions and tenses on top (level 2); fixed-expression rate per
+  100 words lower in the last 30 days; ≥ 80 % stable productive cards in "Causal inference reading";
+  integrity (no review before discovery, increasing review log per card, nothing after the anchor day's
+  start, every row has its event, status history matches, bank codes in the taxonomy, no duplicate term
+  per deck); plan at the anchor (reviews, new terms, deadline pace, triage warning); safety checks (unmarked
+  data, marked without `--reset`, `VOCAB_DEMO` + `VOCAB_DATABASE_URL`, file in use, failed build keeps the
+  previous file, personal database untouched by the CLI); `/api/health` `demo`; badge shown/absent (Vitest).
+- Seeds 1 to 12 all meet the coverage criteria (checked with a throwaway script).
+- **Manual scenario**:
+  1. `start.cmd -Demo`: first launch printed the seed summary; the opener waited for the API ("App ready")
+     and exited 0 while the servers kept running; `/api/health` → `demo: true`; badge present;
+  2. `uv run python -m app --demo plan today`: 10 reviews, 12 new terms (one resumed), deadline pace and
+     `deadline_triage_pending` warning;
+  3. `start.cmd -NoBrowser` without `-Demo`: `demo: false`, no badge, the opener did nothing; the personal
+     database has the same SHA-256 and modification time as before the demo run; `plan today` is empty;
+  4. `demo seed` refuses (exit 2); `demo seed --reset` while the app runs reports the locked file and keeps
+     the database; after stopping the app, `--reset` prints the same summary.
+
+### Left / notes
+
+- **Not yet verified**: CI on GitHub for this branch; `start.sh --demo` on macOS/Linux (only `bash -n`).
+- Usage sheets and exercise templates for the demo come with M3; productions, errors and sessions move to
+  their services in M4/M5 (the simulation will call them instead of `direct_writes.py`).
+- The demo history's anchor is the day it was generated: after a few days without `--reset`, the demo shows a
+  growing review backlog (like a real user who stopped).
+
+### Known issues
+
+- None known.
 
 ## M1.b — FSRS service, statuses, queue, planner ✅
 
@@ -134,13 +200,14 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 - None known.
 
-## Next step: M1.c — demo data, demo mode, waiting for the API at startup
+## Next step: M2 — AI gateway
 
-- Fictional demo data (decks, terms, errors), with history backdated through `occurred_at`. Simulate about
-  60 days of reviews through the real services with `FsrsEngine(rng=Random(seed))` so the result is
-  reproducible (D-022).
-- Demo mode, kept apart from the user's own database.
-- Launch scripts wait for the API (`wait-on` or equivalent) before opening the browser.
+- Gemini, Groq and Ollama providers behind one gateway; Pydantic output schemas; versioned prompts in
+  `app/ai/prompts/`; retry with backoff and fallback on 429; `ai_call_log`; degraded mode without keys;
+  settings page for keys with a "test connection" button (SPEC §7, §9).
+- Check the current free-tier model names, quotas and SDK versions in the official documentation at
+  milestone time (never from memory).
+- The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅
 

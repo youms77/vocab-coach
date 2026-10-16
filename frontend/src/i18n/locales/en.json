@@ -7,6 +7,10 @@
     "home": "Home",
     "skipToContent": "Skip to main content"
   },
+  "demo": {
+    "badge": "Demo data",
+    "badgeHint": "Fictional demo database: your own data is not shown."
+  },
   "settings": {
     "language": "Language",
     "theme": "Theme",

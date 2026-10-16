@@ -54,6 +54,12 @@ jobs:
         run: |
           uv run alembic upgrade head
           uv run alembic check
+      - name: Full demo seed (60 days) on a temporary data folder
+        env:
+          VOCAB_DATA_DIR: ${{ runner.temp }}/demo-data
+        run: |
+          uv run python -m app demo seed --anchor 2026-09-01
+          uv run python -m app --demo plan today --at 2026-09-01T19:00
 
   frontend:
     name: Frontend (typecheck + lint + vitest + build)
@@ -113,6 +119,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uv run alembic check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Full demo seed (60 days) on a temporary data folder
+        working-directory: backend
+        shell: pwsh
+        run: |
+          $env:VOCAB_DATA_DIR = Join-Path $env:RUNNER_TEMP 'demo-data'
+          uv run python -m app demo seed --anchor 2026-09-01
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv run python -m app --demo plan today --at 2026-09-01T19:00
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Browser opener script parses
+        run: node --check scripts/wait-and-open.mjs
       - name: Frontend tests and build
         working-directory: frontend
         run: |

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy import Engine, text
 
 from app import __version__
+from app.db.demo_marker import has_demo_marker
 from app.db.engine import get_engine, sqlite_file
 from app.db.migrate import schema_status
 
@@ -23,6 +24,8 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     database: DatabaseHealth
+    # True when the database holds generated demo data (it carries the demo marker).
+    demo: bool
 
 
 def database_health(engine: Engine) -> DatabaseHealth:
@@ -39,7 +42,22 @@ def database_health(engine: Engine) -> DatabaseHealth:
     return DatabaseHealth(ok=True, revision=status.revision, at_head=status.at_head)
 
 
+def is_demo_database(engine: Engine, database: DatabaseHealth) -> bool:
+    if not database.ok:
+        return False
+    try:
+        return has_demo_marker(engine)
+    except Exception:
+        return False
+
+
 @router.get("/health", response_model=HealthResponse)
 def health(engine: Annotated[Engine, Depends(get_engine)]) -> HealthResponse:
     # `status` stays "ok" while the API answers; the database state is reported separately.
-    return HealthResponse(status="ok", version=__version__, database=database_health(engine))
+    database = database_health(engine)
+    return HealthResponse(
+        status="ok",
+        version=__version__,
+        database=database,
+        demo=is_demo_database(engine, database),
+    )

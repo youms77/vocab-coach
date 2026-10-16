@@ -1,12 +1,15 @@
 """Command line: `python -m app [--reload]` runs the API; `python -m app db ...` manages the DB;
-`python -m app plan today` prints today's session plan (read-only)."""
+`python -m app plan today` prints today's session plan (read-only); `python -m app demo seed`
+builds the fictional demo database. `--demo` (before the command) works on the demo database."""
 
 import argparse
+import os
 import sys
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
+from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -71,6 +74,11 @@ def _serve(reload: bool) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app", description=__doc__)
     parser.add_argument("--reload", action="store_true", help="restart the API on code changes")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="use the demo database (data/vocab-coach-demo.sqlite3), same as VOCAB_DEMO=1",
+    )
     commands = parser.add_subparsers(dest="command")
 
     db = commands.add_parser("db", help="manage the SQLite database")
@@ -88,15 +96,70 @@ def _build_parser() -> argparse.ArgumentParser:
         "--at", help="plan as of this ISO date-time (e.g. 2026-11-01T08:00; local if no offset)"
     )
     today.add_argument("--json", action="store_true", help="print the raw plan as JSON")
+
+    demo = commands.add_parser("demo", help="fictional demo data (always the demo database)")
+    demo_commands = demo.add_subparsers(dest="demo_command", required=True)
+    seed = demo_commands.add_parser(
+        "seed", help="generate the demo database from content/demo/ (deterministic)"
+    )
+    seed.add_argument("--seed", type=int, default=42, help="random seed (default 42)")
+    seed.add_argument("--days", type=int, default=60, help="days of history (default 60)")
+    seed.add_argument(
+        "--anchor",
+        type=date.fromisoformat,
+        help="anchor study day, YYYY-MM-DD (default: the current study day)",
+    )
+    seed.add_argument(
+        "--reset", action="store_true", help="rebuild an existing demo database (no backup)"
+    )
+    seed.add_argument(
+        "--if-missing",
+        action="store_true",
+        help="do nothing when the demo database already holds demo data (launch scripts)",
+    )
     return parser
+
+
+def _demo_seed(args: argparse.Namespace, demo_file: Path) -> int:
+    # Imported here: the simulation pulls in every service, which other commands do not need.
+    from app.demo.seed import DemoSeedError, check_target, is_seeded, render_summary, seed_demo
+
+    if args.if_missing and is_seeded(demo_file):
+        print(f"Demo database already seeded ({demo_file}).")
+        return 0
+    try:
+        check_target(demo_file, reset=args.reset)  # refuse before announcing anything
+        print(f"Generating the demo database ({demo_file})...", flush=True)
+        summary = seed_demo(
+            demo_file, seed=args.seed, days=args.days, anchor=args.anchor, reset=args.reset
+        )
+    except DemoSeedError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    except Exception as exc:
+        print(f"demo seed failed: {exc}", file=sys.stderr)
+        return 1
+    print(render_summary(summary))
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    if args.demo:
+        # Through the environment so the API's reload subprocess inherits it too.
+        os.environ["VOCAB_DEMO"] = "1"
+        get_settings.cache_clear()
+    try:
+        settings = get_settings()
+    except ValidationError as exc:
+        print(f"Invalid configuration: {exc}", file=sys.stderr)
+        return 1
     if args.command is None:
         return _serve(args.reload)
 
-    settings = get_settings()
+    if args.command == "demo":
+        # Never the personal database: always the demo file, whatever VOCAB_DATABASE_URL says.
+        return _demo_seed(args, settings.demo_database_file)
     url = settings.resolved_database_url
     if args.command == "plan":
         try:

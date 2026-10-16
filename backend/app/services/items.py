@@ -25,6 +25,8 @@ def set_item_status(
     to_status: ItemStatus,
     at: datetime,
     kind: TransitionKind,
+    *,
+    study_session_id: int | None = None,
 ) -> None:
     """Check the transition, apply it, log `item.status_changed`. Raises InvalidItemTransition."""
     at = as_utc(at)
@@ -36,6 +38,7 @@ def set_item_status(
         session,
         ItemStatusChanged(lexical_item_id=item.id, from_status=from_status, to_status=to_status),
         occurred_at=at,
+        study_session_id=study_session_id,
     )
 
 

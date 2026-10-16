@@ -31,6 +31,7 @@ class EventType(StrEnum):
     DECK_CREATED = "deck.created"
     DECK_STATUS_CHANGED = "deck.status_changed"
     DECK_REORDERED = "deck.reordered"
+    DECK_ITEM_ADDED = "deck.item_added"
     ITEM_CREATED = "item.created"
     ITEM_STATUS_CHANGED = "item.status_changed"
     ITEM_TRIAGED = "item.triaged"
@@ -106,6 +107,17 @@ class DeckReordered(Event):
 
     # All decks that are not done, in their new queue order.
     deck_ids: list[Id]
+
+
+class DeckItemAdded(Event):
+    """A term was put in a deck (a `deck_item` row): new, or already in another deck (D-013)."""
+
+    event_type = EventType.DECK_ITEM_ADDED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    deck_id: Id
+    lexical_item_id: Id
 
 
 # --- Items -------------------------------------------------------------------------------------

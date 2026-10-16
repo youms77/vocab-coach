@@ -29,7 +29,12 @@ class DiscoveryError(ValueError):
 
 
 def start_discovery(
-    session: Session, item: LexicalItem, via_deck: Deck | None, at: datetime
+    session: Session,
+    item: LexicalItem,
+    via_deck: Deck | None,
+    at: datetime,
+    *,
+    study_session_id: int | None = None,
 ) -> None:
     """Queued -> discovering. A queued deck becomes active with its first discovered term."""
     at = as_utc(at)
@@ -43,7 +48,14 @@ def start_discovery(
             raise DiscoveryError(f"item {item.id} is not in deck {via_deck.id}")
         if via_deck.status not in SUPPLYING_STATUSES:
             raise DiscoveryError(f"deck {via_deck.id} is {via_deck.status}: no new terms")
-    set_item_status(session, item, ItemStatus.DISCOVERING, at, TransitionKind.START_DISCOVERY)
+    set_item_status(
+        session,
+        item,
+        ItemStatus.DISCOVERING,
+        at,
+        TransitionKind.START_DISCOVERY,
+        study_session_id=study_session_id,
+    )
     if via_deck is not None and via_deck.status == DeckStatus.QUEUED:
         change_deck_status(session, via_deck, DeckStatus.ACTIVE, at)
 
@@ -55,6 +67,7 @@ def complete_discovery(
     initial_ratings: Mapping[CardDirection, Rating] | None = None,
     duration_ms: int | None = None,
     *,
+    study_session_id: int | None = None,
     engine_factory: EngineFactory = default_engine_factory,
 ) -> tuple[Card, Card]:
     """Discovering -> learning; creates the receptive and productive cards.
@@ -66,7 +79,14 @@ def complete_discovery(
     at = as_utc(at)
     if session.scalar(select(exists().where(Card.lexical_item_id == item.id))):
         raise DiscoveryError(f"item {item.id} already has cards")
-    set_item_status(session, item, ItemStatus.LEARNING, at, TransitionKind.COMPLETE_DISCOVERY)
+    set_item_status(
+        session,
+        item,
+        ItemStatus.LEARNING,
+        at,
+        TransitionKind.COMPLETE_DISCOVERY,
+        study_session_id=study_session_id,
+    )
     item.discovered_at = at
 
     tz = ZoneInfo(get_setting(session, "timezone"))
@@ -84,12 +104,14 @@ def complete_discovery(
             session,
             CardCreated(card_id=card.id, lexical_item_id=item.id, direction=direction),
             occurred_at=at,
+            study_session_id=study_session_id,
         )
         cards.append(card)
     record_event(
         session,
         DiscoveryCompleted(lexical_item_id=item.id, duration_ms=duration_ms),
         occurred_at=at,
+        study_session_id=study_session_id,
     )
 
     for card in cards:
@@ -102,6 +124,7 @@ def complete_discovery(
                 at,
                 None,
                 DISCOVERY_EXERCISE_TYPE,
+                study_session_id=study_session_id,
                 engine_factory=engine_factory,
             )
     session.flush()

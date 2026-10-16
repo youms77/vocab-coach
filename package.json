@@ -9,9 +9,10 @@
   },
   "scripts": {
     "setup": "uv --directory backend sync && npm --prefix frontend install",
-    "dev": "concurrently --kill-others --names api,web --prefix-colors cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
+    "dev": "concurrently --kill-others-on-fail --names api,web,open --prefix-colors cyan,magenta,gray \"npm:dev:api\" \"npm:dev:web\" \"npm:dev:open\"",
     "dev:api": "uv --directory backend run python -m app --reload",
     "dev:web": "npm --prefix frontend run dev",
+    "dev:open": "node scripts/wait-and-open.mjs",
     "check:api": "uv --directory backend run ruff check . && uv --directory backend run ruff format --check . && uv --directory backend run pytest",
     "check:web": "npm --prefix frontend run check",
     "check": "npm run check:api && npm run check:web"
