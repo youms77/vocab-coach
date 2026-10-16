@@ -4,11 +4,95 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M2.b2 — the Gemini adapter (2026-10-16), branch `feat/m2b2-gemini`, **cut from
-  `feat/m2b1-ai-providers`** (M2.b1 is committed there, its PR is not merged yet; merge M2.a's PR #4, then M2.b1's,
-  then retarget this one on `main`). M1.a, M1.b and M1.c are merged (PR #1, #2, #3).
-- **Next milestone**: **M2.c** — API endpoints, settings page, "test connection" button.
+- **Last milestone completed**: M2.c1 — AI and settings API, backend only (2026-10-16), branch
+  `feat/m2c1-ai-api`, cut from `main` (M2.a, M2.b1, M2.b2 and M1.a to M1.c are merged).
+- **Next milestone**: **M2.c2** — the settings page and the "test connection" button (frontend), on top of the
+  API reference below.
 - The owner has not yet run anything against the real services: see "Owner's manual scenario" below.
+
+## M2.c1 — AI and settings API (backend) ✅
+
+M2.c was cut in two: this part is the backend (protection, `.env` writing, endpoints); the settings page and the
+"test connection" button are **M2.c2**.
+
+### Done
+
+- **Protection of the API** (D-061, `app/api/guard.py`): Host check on every request, Origin / `Sec-Fetch-Site`
+  check on writes, JSON-only write bodies; applies to the whole app (`/docs` too). Checked through a real Vite: the
+  proxy rewrites `Host` and forwards `Origin`.
+- **`.env` writing** (D-062, `app/services/env_file.py`): closed list of three variables, comments / order / CRLF
+  kept, atomic replace, lock, Windows retries, refused when an environment variable defines the same name.
+- **Shared connection test** (D-065): `app/services/ai_connection_test.py`, used by `ai test` (CLI tests unchanged)
+  and the API; a lock per provider.
+- **Endpoints** (D-063, D-064): `/api/ai/status`, `/api/ai/providers/{name}/credential` (PUT, DELETE),
+  `/api/ai/test`, `/api/ai/usage`, `/api/settings` (GET, PATCH). New event `ai.credential_changed`. One error
+  format, 422 answers without the received value.
+- **Tests**: `tests/test_env_file.py`, `tests/ai/test_connection_test_service.py`, `tests/api/` (guard, AI
+  endpoints, settings endpoints; real adapters over fake servers, temporary `.env` and database, network blocked).
+- **No migration, no frontend change, SPEC.md unchanged.** README (Configuration), `docs/architecture.md`.
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes: ruff check, ruff format --check, pytest **856 passed, 4 deselected** (735 before this
+  milestone), tsc, oxlint, vitest 11 passed. `alembic check`: "No new upgrade operations detected".
+- Manual scenario on a **temporary data folder and a temporary `.env`** (never the repository's): API started,
+  `status` (nothing configured), PUT of an invented key (`configured: true`, no restart), an invalid key (422 with a
+  clear message), a malformed body (422 without the value), `test` → `unavailable / auth` HTTP 400 "API key not
+  valid" (**this was a real request to Google with an invented key**: it confirms that Gemini's 400 `API_KEY_INVALID`
+  reaches the app as `auth`, D-059; it says nothing about `responseFormat`, which Google validates after the key),
+  `usage` (1 request, error `auth`), DELETE (`VOCAB_GEMINI_API_KEY=` left in the file), PATCH of the order (taken
+  into account at once), a PUT with a foreign `Origin` (403), a foreign `Host` (403), a `text/plain` body (415).
+- The real `.env` and the personal database were never opened. `ai test` with a real key was **not provided** by the
+  owner for this milestone and is still pending (see M2.b2's manual scenario).
+
+### API reference for M2.c2
+
+Every error is `{"detail": {"code", "message", ...}}`. Writes need `Content-Type: application/json`.
+
+| Route | Request | Success (200) |
+|---|---|---|
+| `GET /api/ai/status` | – | `{ai_off, degraded, demo, order: [str], providers: [{name, capabilities: [str], configured, enabled, available, cooldown_until: ISO\|null, misconfigured, last_error: str\|null, models: {capability: model}, credential_source: "env_file"\|"environment"\|"none", credential_kind: "api_key"\|"base_url"}]}` (providers always `gemini, groq, ollama`, in that order) |
+| `PUT /api/ai/providers/{name}/credential` | `{"value": str}` (extra fields refused) | the provider object above |
+| `DELETE /api/ai/providers/{name}/credential` | – | the provider object |
+| `POST /api/ai/test` | `{"provider": str}` | `{provider, status: "ok"\|"incomplete"\|"unavailable", reason: str\|null (no_provider_configured, network, quota, auth, timeout, all_failed), model, elapsed_ms, input_tokens, output_tokens, error_code, http_status, message, detail_kind: "none"\|"provider"\|"schema"}`. A call can last up to ~90 s: the page must show a waiting state. |
+| `GET /api/ai/usage?days=7` (1–90) | – | `{days: [{day: "YYYY-MM-DD", requests, successes, input_tokens, output_tokens, rows: [{provider, model, requests, successes, errors: {code: n}, input_tokens, output_tokens, avg_duration_ms\|null}]}]}`, today first, empty days included |
+| `GET /api/settings` | – | `{key: {value, default, is_default, type: "int"\|"float"\|"str"\|"list", minimum, maximum, choices, item_choices}}` for every setting |
+| `PATCH /api/settings` | `{key: value, ...}` | the same object as `GET`, all or nothing |
+
+| Status | `code` | When |
+|---|---|---|
+| 403 | `forbidden_host`, `forbidden_origin`, `cross_site_request` | guard (the page itself never triggers them) |
+| 415 | `unsupported_media_type` | write body that is not JSON |
+| 422 | `invalid_request` (+ `errors: [{loc, message}]`) | body or query of the wrong shape (e.g. `days=0`) |
+| 422 | `invalid_credential` | key or address that cannot be saved (message says why, never the value) |
+| 422 | `invalid_setting` (+ `key`) | unknown key, wrong type, out of bounds, duplicate or unknown provider in the order |
+| 404 | `unknown_provider` | provider name not gemini / groq / ollama |
+| 409 | `set_in_environment` | an environment variable defines the key: editing refused |
+| 409 | `env_file_locked` | another program holds `.env` (close it, retry) |
+| 409 | `test_in_progress` | the same provider is already being tested |
+| 409 | `demo_read_only` | demo database: credential writes, test and order change refused |
+| 500 | `env_file_write_failed` | `.env` could not be written |
+| 503 | `database_unavailable` | usage / settings with no database file (`db upgrade` first) |
+
+Notes for the page: `ollama` has `credential_kind: "base_url"` (a URL, shown in clear by the user's own choice, but
+never returned by the API: show the state "configured", not the value). `configured` is true after a PUT without a
+restart. `last_error` is one of `rate_limited, quota_exhausted, transient, network, auth, bad_request,
+invalid_output`. Status codes and `code` values should get i18n keys; `message` is English.
+
+### Left / notes
+
+- **M2.c2**: the settings page (keys, order, test button, usage), i18n en / fr, a banner when `degraded`, handling
+  of `demo`, `credential_source: "environment"` (field disabled with an explanation) and the error codes above.
+  The browser calls go through the Vite proxy, which already forwards `Origin`; nothing to change in `vite.config.ts`.
+- **Still to confirm with real calls** (unchanged from M2.b2, D-056): `responseFormat`, upper-case `thinkingLevel`,
+  real `retryDelay` values, free tier from Cameroon.
+- `Origin`-less writes (curl, scripts) are accepted by design: only a browser sets `Origin`, and a browser page
+  cannot remove it.
+- The per-provider test lock and the `.env` lock are per process: fine for one local backend, not for several.
+
+### Known issues
+
+- None known.
 
 ## M2.b2 — Gemini adapter ✅
 
@@ -429,12 +513,13 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M2.c (endpoints and settings page)
+## Next step: M2.c2 (settings page)
 
-- **M2.c**: API endpoints, settings page (keys written to `.env`, then `get_settings.cache_clear()` +
-  `get_gateway().reload()`; order, daily usage from `services/ai_usage.py`), "test connection" button
-  (`generate_json("connection_test", ..., pin_provider=...)`, as `ai test` already does). Settle first the owner's
-  findings from the real Gemini / Groq / Ollama calls (D-056 "to confirm", D-054, D-046).
+- **M2.c2**: the settings page in `frontend/src/features/settings/` (route in `src/routes.tsx`, TanStack Query hooks
+  in `api/`): provider cards (configured, available, cooldown, last error, model), key / address form, remove, order
+  (up / down and enable), "test connection" with a waiting state, today's usage, the other settings from
+  `GET /api/settings`. Every string through i18n (en / fr), error `code` -> i18n key. See the API reference in the
+  M2.c1 section. Settle first the owner's findings from the real Gemini / Groq / Ollama calls (D-056 "to confirm").
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅

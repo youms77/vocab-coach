@@ -104,6 +104,12 @@ Copy `.env.example` to `.env` (same folder) and fill in what you need. `.env` is
 keys never reach the repository. Every variable is optional: without any key the app still starts and
 runs in a degraded mode (no AI features).
 
+The AI keys can also be added, replaced and removed from the application itself: the API that the
+settings page uses (milestone M2.c2) writes the three AI variables into `.env` for you and keeps your
+comments and other lines. Editing `.env` by hand stays possible. If one of these variables is **also set
+as an environment variable**, the environment wins and the application will not edit that key (remove the
+environment variable first).
+
 > **Privacy.** Whatever the app sends to an AI provider leaves your computer. Send nothing confidential.
 > On the **free tier of Gemini**, Google's pricing page says the content *may be used to improve its
 > products* (it is not on the paid tier). Your words, sentences and corrections are sent to Gemini first

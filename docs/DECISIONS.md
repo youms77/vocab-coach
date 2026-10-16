@@ -896,3 +896,104 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   a daily quota with a 14 s delay cools down for an hour).
 - **To re-examine** after the owner's real runs: the actual `retryDelay` values and how often the free tier is
   rate limited (`ai usage` shows the errors per provider).
+
+## D-061 — Protecting the API against forged requests (M2.c1)
+
+- **Threat**: the API holds the keys and will write `.env`. It listens on the loopback only, but the owner's
+  browser can reach it, so a page opened in another tab could (a) make the browser send a write request
+  (CSRF), or (b) use DNS rebinding (a hostile domain resolving to 127.0.0.1) to read answers.
+- **Rules** (`app/api/guard.py`, a pure ASGI middleware, added last so it is the outermost layer: even a CORS
+  preflight goes through the Host check; it applies to the whole application, `/docs` and `/openapi.json`
+  included, and to the frontend served by the same port in M10):
+  1. `Host` must be `127.0.0.1:<port>`, `localhost:<port>` or `[::1]:<port>` (case-insensitive; exactly one
+     `Host` header) else 403 `forbidden_host`, for every method.
+  2. POST / PUT / PATCH / DELETE: `Origin`, when present, must be in `cors_origins` or be the backend's own
+     origin, else 403 `forbidden_origin` (`Origin: null` included); `Sec-Fetch-Site: cross-site` is 403
+     `cross_site_request`.
+  3. POST / PUT / PATCH with a body must be `application/json` (parameters allowed) else 415
+     `unsupported_media_type`. FastAPI alone already answers 422 to a form body (tested), but this rule does not
+     depend on a FastAPI version, and it makes any request from another site "non simple": the browser sends a
+     preflight, which CORS refuses.
+- **No CSRF token**: a single-user application on the loopback with no cookie and no session has nothing a token
+  would protect further. The browser sets `Origin` / `Sec-Fetch-Site` and a page cannot forge them; the JSON
+  rule forces a preflight; the Host rule stops rebinding.
+- **Through Vite** (checked with a real Vite 8.3.4 and an echo server): the proxy's `changeOrigin: true` rewrites
+  `Host` to the backend's (`127.0.0.1:<backend port>`) and forwards `Origin` unchanged
+  (`http://127.0.0.1:5173`), so on port 5173 the Host check is Vite's own (`server.allowedHosts`: it answered
+  "Blocked request" to a foreign Host) and the Origin check is ours. A GET without `Origin` is accepted; reads
+  from another site are stopped by CORS (no `Access-Control-Allow-Origin`) and by the Host rule.
+- Format: `{"detail": {"code", "message"}}` (D-063). Tests: `tests/api/test_guard.py`.
+
+## D-062 — Writing `.env` from the API (M2.c1)
+
+- **Where**: the path is `Settings.model_config["env_file"]` (one source of truth; tests redirect it with
+  `monkeypatch.setitem`). **What**: a closed list: `VOCAB_GEMINI_API_KEY`, `VOCAB_GROQ_API_KEY`,
+  `VOCAB_OLLAMA_BASE_URL` (`app/services/env_file.py`).
+- **Editing** is a pure function on the text (`set_variable`): every active `NAME=` line (also `export NAME=`,
+  name matched without regard to case, like pydantic-settings) is replaced in place; otherwise the line is
+  appended with the file's own line ending (CRLF or LF; a missing final newline is not added). A commented line
+  is left alone; comments, other variables and their order are kept. Removing is `NAME=` (an empty value is "not
+  configured"); removing an absent variable, or setting the same value, writes nothing and records no event. A
+  missing file gets a two-line comment header.
+- **Validation**: a key is 8 to 512 printable characters with no space, quote, backtick, `#`, `=` or `$` (`$`
+  because python-dotenv expands `${VAR}` in unquoted values). The Ollama address uses the same rules (`=` allowed,
+  1 to 512 characters) then `ollama._normalize` (http or https and a host; stored without the trailing slash).
+  Messages never contain the value.
+- **A process environment variable wins** over `.env`, so editing would change nothing: refused with 409
+  `set_in_environment` (present even if empty, compared without case).
+- **Writing**: a module `threading.Lock` held from the read until the settings cache is cleared and the gateway
+  reloaded (two edits cannot overwrite each other); a temporary file in the same folder, flushed and fsynced, then
+  `os.replace` (atomic); a UTF-8 BOM is dropped. On Windows `os.replace` fails with `PermissionError` while an
+  editor or an antivirus holds the file: 3 attempts 100 ms apart, then 409 `env_file_locked`. Another `OSError` is
+  500 `env_file_write_failed`. The temporary file is always removed.
+- **Limit**: a multi-line quoted value (allowed by python-dotenv) is not handled; unlikely for these variables.
+- uvicorn `--reload` only watches `*.py`, so writing `.env` does not restart the server: the API clears
+  `get_settings()` and calls `gateway.reload()` itself.
+
+## D-063 — One error format and 422 answers without `input` (M2.c1)
+
+- Every error is `{"detail": {"code", "message", ...}}` (`app/api/errors.py`): `code` is stable (the settings page
+  maps it to an i18n key), `message` is English and masked with the configured keys.
+- FastAPI's own 422 answers include the received value (`input`), which would send a pasted key straight back to
+  the page and into any proxy log. A `RequestValidationError` handler answers 422 `invalid_request` with only
+  `errors: [{loc, message}]`; `input` and `ctx` are dropped. Tested with malformed bodies containing a recognisable
+  string.
+- Codes added by M2.c1: `forbidden_host`, `forbidden_origin`, `cross_site_request` (403), `unsupported_media_type`
+  (415), `invalid_request` (422), `invalid_credential` (422), `invalid_setting` (422, with `key`),
+  `unknown_provider` (404), `set_in_environment`, `env_file_locked`, `test_in_progress`, `demo_read_only` (409),
+  `env_file_write_failed` (500), `database_unavailable` (503). Unknown routes keep FastAPI's plain 404.
+
+## D-064 — AI and settings endpoints (M2.c1)
+
+- `GET /api/ai/status`, `PUT|DELETE /api/ai/providers/{name}/credential`, `POST /api/ai/test`,
+  `GET /api/ai/usage?days=`, `GET|PATCH /api/settings`. The gateway comes from `Depends(get_gateway)` (tests
+  replace it). `Gateway` got two read-only accessors, `providers` and `provider_order()`.
+- **`credential_source`**: `environment` when the variable exists in the process (it blocks editing, even empty),
+  else `env_file` when the provider is configured, else `none`. Responses carry no key, no end of key and no
+  Ollama address (tested on every response, `/openapi.json`, logs, `event_log` and `repr`).
+- **Event after the file**: `ai.credential_changed {provider, action: set | removed}` (new event type, no
+  migration: `event_type` is a free string) is written in a short transaction once the file and the gateway are
+  up to date. If that write fails (database absent or busy) the file is already changed, so the failure is logged
+  (masked) and the answer stays 200.
+- **Test endpoint**: a plain `def` route with no database session in its dependencies (D-038); an unconfigured
+  provider answers 200 `unavailable` / `no_provider_configured` without any request; 409 `test_in_progress` when
+  the same provider is being tested.
+- **Usage**: every day of the window is returned, empty ones included (today first), in a read-only session
+  (`PRAGMA query_only`, reset to OFF afterwards because the connection returns to the pool).
+- **Settings**: `GET` returns an object keyed by setting with `value, default, is_default, type, minimum, maximum,
+  choices, item_choices`; `PATCH` is all-or-nothing (one invalid value rolls everything back: 422 `invalid_setting`
+  with the key). `_demo` and unknown keys are refused. The provider order is read by the gateway on every call, so a
+  PATCH applies at once.
+- **Demo**: when the demo marker is present (or `VOCAB_DEMO`), credential writes, the connection test and a PATCH
+  of `ai_provider_order` answer 409 `demo_read_only`; other settings stay editable; reads work.
+- A `reload()` while a test runs: the running call keeps the old provider object and its success may be noted in
+  the new health state. Harmless.
+
+## D-065 — Shared connection-test service (M2.c1)
+
+- `app/services/ai_connection_test.py`: `run_connection_test(gateway, session_factory, provider, secrets)` makes
+  the `connection_test` call pinned to the provider and returns a `ConnectionTestReport` (status, reason, model,
+  time, tokens, last logged error code and HTTP status, masked message of 300 characters, `detail_kind`). The CLI
+  (`ai test`, including the audio check) and `POST /api/ai/test` both use it; the CLI tests passed unchanged.
+- A lock per provider (`acquire(blocking=False)`) raises `TestInProgress`: a double click would spend the free
+  quota twice. The lock is per process, which is enough for one local backend.
