@@ -1,4 +1,6 @@
-"""`python -m app library import <file>`: preview a Markdown list, or import it with `--commit`.
+"""`python -m app library import | enrich | extend`.
+
+`import <file>`: preview a Markdown list, or import it with `--commit`.
 
 Without `--commit` nothing is written (the connection is read-only). With `--commit` the clear
 lines are imported with the default duplicate choices; ambiguous lines are left out (they need a
@@ -7,11 +9,17 @@ correction or a confirmation, which the web page offers).
 Exit codes, in the spirit of D-053: 0 preview shown or import done (even with ambiguous lines);
 1 the file is refused (too large, not UTF-8) or nothing could be imported; 2 usage error (missing
 file, no database, unknown deck).
+
+`enrich`: usage sheets for the terms waiting for one, batch after batch (`--dry-run` only lists
+them). `extend <deck_id>`: related terms suggested by the AI, waiting for triage. Exit codes: 0
+done, 1 the AI was unavailable (nothing is lost: run again later), 2 usage error.
 """
 
 import sys
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import Engine, text
@@ -31,6 +39,10 @@ from app.domain.study_day import study_day_of
 from app.services import importing
 from app.services.importing import ImportPreview, ImportTarget, PreviewRow
 from app.services.library import LibraryError
+
+if TYPE_CHECKING:
+    from app.ai.gateway import Gateway
+    from app.config import Settings
 
 EXIT_OK, EXIT_FAILED, EXIT_USAGE = 0, 1, 2
 
@@ -189,3 +201,161 @@ def _commit(
         f"({summary.ambiguous} ambiguous left out)."
     )
     return EXIT_OK
+
+
+# --- library enrich / library extend (M3.b) ------------------------------------------------------
+
+
+def _open(url: str) -> Engine | None:
+    db_file = sqlite_file(url)
+    if db_file is not None and not db_file.exists():
+        print(f"No database at {db_file}. Run `python -m app db upgrade` first.", file=sys.stderr)
+        return None
+    engine = create_db_engine(url)
+    if not migrate.schema_status(engine).at_head:
+        engine.dispose()
+        print("The database is not up to date. Run `python -m app db upgrade`.", file=sys.stderr)
+        return None
+    return engine
+
+
+def _build_gateway(engine: Engine, settings: "Settings") -> "Gateway":
+    from app.ai.gateway import Gateway
+    from app.ai.providers import build_providers
+
+    return Gateway(
+        lambda: build_providers(settings),
+        session_factory=lambda: Session(engine, expire_on_commit=False),
+        secrets=settings.secret_values,
+    )
+
+
+GatewayFactory = Callable[[Engine], "Gateway"]
+
+
+def run_library_enrich(
+    url: str,
+    settings: "Settings",
+    *,
+    deck_id: int | None = None,
+    item_ids: Sequence[int] = (),
+    include_incomplete: bool = False,
+    dry_run: bool = False,
+    gateway_factory: GatewayFactory | None = None,
+) -> int:
+    """Run batches until nothing is left (or the AI is unavailable). Exit 0 when every batch ran,
+    1 when the AI was unavailable, 2 on a usage error."""
+    from app.services import enrichment
+
+    engine = _open(url)
+    if engine is None:
+        return EXIT_USAGE
+    factory = lambda: Session(engine, expire_on_commit=False)  # noqa: E731
+    try:
+        with factory() as session:
+            try:
+                if item_ids:
+                    waiting = enrichment.explicit_waiting(session, item_ids)
+                else:
+                    waiting = enrichment.list_pending(
+                        session, deck_id=deck_id, include_incomplete=include_incomplete
+                    )
+            except LibraryError as exc:
+                print(exc.message, file=sys.stderr)
+                return EXIT_USAGE
+            rows = [(item.id, item.term, str(item.status)) for item in waiting]
+            session.rollback()
+        print(f"{len(rows)} term(s) waiting for a usage sheet.")
+        for item_id, term, status in rows:
+            print(f"  #{item_id:<5} {term}  [{status}]")
+        if dry_run or not rows:
+            return EXIT_OK
+        gateway = (gateway_factory or (lambda e: _build_gateway(e, settings)))(engine)
+        totals = {"generated": 0, "needs_completion": 0, "superseded": 0, "failed": 0}
+        batch = 0
+        while True:
+            batch += 1
+            report = enrichment.run_enrichment(
+                factory,
+                gateway,
+                deck_id=deck_id,
+                item_ids=list(item_ids) or None,
+                include_incomplete=include_incomplete,
+            )
+            for key in totals:
+                totals[key] += getattr(report, key)
+            reason = f", {report.reason.value}" if report.reason else ""
+            print(
+                f"Batch {batch} ({len(report.item_ids)} terms): {report.status}{reason}; "
+                f"{report.generated} sheet(s), {report.needs_completion} to complete, "
+                f"{report.remaining} left."
+            )
+            progress = report.generated + report.needs_completion + report.superseded
+            if report.status == "unavailable" or report.remaining == 0 or progress == 0:
+                break
+        print(
+            f"Done: {totals['generated']} sheet(s) generated, {totals['needs_completion']} "
+            f"to complete by hand, {totals['superseded']} dropped (changed meanwhile), "
+            f"{report.remaining} still waiting."
+        )
+        if report.status == "unavailable":
+            print(
+                "The AI is unavailable"
+                + (f" ({report.reason.value})" if report.reason else "")
+                + ": the terms stay waiting. You can type a sheet by hand.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        return EXIT_OK
+    except enrichment.EnrichmentRunning as exc:
+        print(exc.message, file=sys.stderr)
+        return EXIT_FAILED
+    finally:
+        engine.dispose()
+
+
+def run_library_extend(
+    url: str,
+    settings: "Settings",
+    deck_id: int,
+    *,
+    count: int,
+    gateway_factory: GatewayFactory | None = None,
+) -> int:
+    """Ask the AI for related terms; they wait in triage. Exit 0 / 1 (AI failed) / 2 (usage)."""
+    from app.services import extension
+
+    engine = _open(url)
+    if engine is None:
+        return EXIT_USAGE
+    try:
+        gateway = (gateway_factory or (lambda e: _build_gateway(e, settings)))(engine)
+        try:
+            report = extension.extend_deck(
+                lambda: Session(engine, expire_on_commit=False), gateway, deck_id, count=count
+            )
+        except LibraryError as exc:
+            print(exc.message, file=sys.stderr)
+            return EXIT_USAGE
+        if report.status != "ok":
+            reason = f" ({report.reason.value})" if report.reason else ""
+            print(f"No suggestion: the AI answer was {report.status}{reason}.", file=sys.stderr)
+            return EXIT_FAILED
+        with Session(engine) as session:
+            from app.db.models import LexicalItem
+
+            terms = [session.get(LexicalItem, i) for i in report.created]
+            print(
+                f"{len(report.created)} new term(s) waiting for triage in deck #{deck_id} "
+                f"({report.suggested} suggested, {report.dropped_existing} already in the "
+                f"library, {report.dropped_in_batch} repeated or extra):"
+            )
+            possible = {p.item_id for p in report.possible_duplicates}
+            for item in terms:
+                if item is not None:
+                    mark = "  (possible duplicate)" if item.id in possible else ""
+                    print(f"  #{item.id:<5} {item.term}{mark}")
+        print("Sort them with the triage (GET /api/triage, or the library page).")
+        return EXIT_OK
+    finally:
+        engine.dispose()

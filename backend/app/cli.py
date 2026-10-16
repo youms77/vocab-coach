@@ -2,7 +2,9 @@
 `python -m app plan today` prints today's session plan (read-only); `python -m app demo seed`
 builds the fictional demo database; `python -m app ai simulate` shows the AI gateway at work
 offline; `python -m app ai status | test | usage` look at the real AI providers;
-`python -m app library import <file>` previews (or, with `--commit`, imports) a Markdown list.
+`python -m app library import <file>` previews (or, with `--commit`, imports) a Markdown list;
+`library enrich` writes usage sheets through the AI and `library extend <deck_id>` asks for related
+terms.
 `--demo` (before the command) works on the demo database."""
 
 import argparse
@@ -157,7 +159,45 @@ def _build_parser() -> argparse.ArgumentParser:
     importer.add_argument(
         "--commit", action="store_true", help="import the clear lines with the default choices"
     )
+    enrich = library_commands.add_parser(
+        "enrich", help="generate usage sheets for the terms waiting for one (AI)"
+    )
+    enrich.add_argument("--deck-id", type=int, help="only the terms of this deck")
+    enrich.add_argument(
+        "--item-id",
+        type=int,
+        action="append",
+        default=[],
+        dest="item_ids",
+        metavar="N",
+        help="only this term (repeatable; any status but archived)",
+    )
+    enrich.add_argument(
+        "--include-incomplete",
+        action="store_true",
+        help="also retry the sheets left to complete (needs_completion)",
+    )
+    enrich.add_argument(
+        "--dry-run", action="store_true", help="only list the terms waiting for a sheet"
+    )
+    extend = library_commands.add_parser(
+        "extend", help="ask the AI for related terms for a deck (they wait for triage)"
+    )
+    extend.add_argument("deck_id", type=int, help="the deck to extend")
+    extend.add_argument(
+        "--count", type=_count, default=20, help="how many suggestions (10-30, default 20)"
+    )
     return parser
+
+
+def _count(value: str) -> int:
+    try:
+        count = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a number") from None
+    if not 10 <= count <= 30:
+        raise argparse.ArgumentTypeError("--count must be between 10 and 30")
+    return count
 
 
 def _days(value: str) -> int:
@@ -185,10 +225,11 @@ def _ai(args: argparse.Namespace, settings: Settings) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(errors="replace")
-    if args.demo and args.ai_command in ("test", "usage"):
+    # `ai usage --demo` reads the demo database's log (M3.b: `library enrich --demo` fills it).
+    if args.demo and args.ai_command == "test":
         print(
-            f"`ai {args.ai_command}` works on your personal database (the demo database has no "
-            "AI call log, D-033): run it without --demo.",
+            f"`ai {args.ai_command}` works on your personal database (D-033, D-064): run it "
+            "without --demo.",
             file=sys.stderr,
         )
         return cli_ai.EXIT_USAGE
@@ -255,9 +296,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _ai(args, settings)
     url = settings.resolved_database_url
     if args.command == "library":
-        from app.cli_library import run_library_import
+        from app import cli_library
 
-        return run_library_import(
+        if args.library_command == "enrich":
+            return cli_library.run_library_enrich(
+                url,
+                settings,
+                deck_id=args.deck_id,
+                item_ids=args.item_ids,
+                include_incomplete=args.include_incomplete,
+                dry_run=args.dry_run,
+            )
+        if args.library_command == "extend":
+            return cli_library.run_library_extend(url, settings, args.deck_id, count=args.count)
+        return cli_library.run_library_import(
             url, args.file, deck_id=args.deck_id, no_triage=args.no_triage, commit=args.commit
         )
     if args.command == "plan":

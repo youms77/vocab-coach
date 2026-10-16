@@ -25,7 +25,7 @@ from app.domain.events import TriageDecision
 from app.domain.item_status import InvalidItemTransition, TransitionKind, unarchive_target
 from app.domain.markdown_import import MAX_BODY_LINES, ImportHeader
 from app.domain.study_day import study_day_of
-from app.services import duplicates, importing, library, triage
+from app.services import duplicates, enrichment, importing, library, triage
 from app.services.items import transition_item, unarchive_item
 
 router = APIRouter(dependencies=[Depends(require_database)])
@@ -60,6 +60,7 @@ class ItemOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     decks: list[library.DeckRef]
+    sheet_status: enrichment.SheetState  # current usage sheet (M3.b, additive)
 
 
 class DeckLinkOut(BaseModel):
@@ -103,16 +104,24 @@ class DeckOut(BaseModel):
     items_by_status: dict[str, int]
 
 
-def _items_out(session: Session, items: list[LexicalItem]) -> list[ItemOut]:
+def items_out(session: Session, items: list[LexicalItem]) -> list[ItemOut]:
     decks = library.decks_of(session, (item.id for item in items))
+    sheets = enrichment.sheet_states(session, (item.id for item in items))
     return [
-        ItemOut.model_validate({**_columns(item), "decks": decks.get(item.id, [])})
+        ItemOut.model_validate(
+            {
+                **_columns(item),
+                "decks": decks.get(item.id, []),
+                "sheet_status": sheets.get(item.id, enrichment.SheetState.NONE),
+            }
+        )
         for item in items
     ]
 
 
 def _columns(item: LexicalItem) -> dict[str, object]:
-    return {name: getattr(item, name) for name in ItemOut.model_fields if name != "decks"}
+    computed = ("decks", "sheet_status")
+    return {name: getattr(item, name) for name in ItemOut.model_fields if name not in computed}
 
 
 def _item_detail(
@@ -124,7 +133,7 @@ def _item_detail(
         .where(DeckItem.lexical_item_id == item.id)
         .order_by(Deck.id)
     ).all()
-    base = _items_out(session, [item])[0]
+    base = items_out(session, [item])[0]
     return ItemDetail(
         **base.model_dump(),
         deck_links=[
@@ -227,6 +236,7 @@ def list_items(
     item_type: ItemType | None = None,
     status: Annotated[list[ItemStatus] | None, Query()] = None,
     include_archived: bool = False,
+    sheet: library.SheetFilter | None = None,
     sort: library.ItemSort = "created_at",
     order: Literal["asc", "desc"] = "asc",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -240,13 +250,14 @@ def list_items(
         item_type=item_type,
         statuses=tuple(status or ()),
         include_archived=include_archived,
+        sheet=sheet,
         sort=sort,
         descending=order == "desc",
         limit=limit,
         offset=offset,
     )
     total, items = library.list_items(session, query)
-    return ItemPage(total=total, items=_items_out(session, items))
+    return ItemPage(total=total, items=items_out(session, items))
 
 
 class QuickAddRequest(BaseModel):
@@ -281,7 +292,7 @@ def quick_add(body: QuickAddRequest, session: SessionDep) -> QuickAddOut:
     )
     session.commit()
     return QuickAddOut(
-        item=_items_out(session, [result.item])[0],
+        item=items_out(session, [result.item])[0],
         deck_id=result.deck.id,
         attached=result.attached,
         duplicates=result.duplicates,
@@ -341,7 +352,7 @@ def change_status(item_id: int, body: StatusRequest, session: SessionDep) -> Ite
     else:
         transition_item(session, item, body.to, now)
     session.commit()
-    return _items_out(session, [item])[0]
+    return items_out(session, [item])[0]
 
 
 class MergeRequest(BaseModel):

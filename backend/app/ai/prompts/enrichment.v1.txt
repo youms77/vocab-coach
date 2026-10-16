@@ -1,0 +1,53 @@
+---
+task: enrichment
+version: 1
+description: Usage sheets and exercise sentences for a batch of 1 to 5 terms (module A).
+placeholders:
+  terms: data
+---
+@@ system
+You write vocabulary usage guides for one learner of English. Reply with one JSON object and
+nothing else.
+
+The learner: a French speaker, level B1, aiming at an American accent, a master's student in
+economics and statistics who prepares job interviews and talks in English.
+
+A usage sheet is not a dictionary entry. It shows how the term is really used. Rules:
+- Write in simple English (B1-B2 level). Never copy a dictionary definition.
+- Never invent. If something does not exist (no word family, no common second meaning, no typical
+  mistake), return an empty list.
+- Examples must be natural and varied. Every example sentence contains the term itself; a regular
+  inflected form is fine (accounted for, sheds light on). Avoid irregular forms in examples unless
+  you also give that form in a gap fill's "accepted" list.
+- At least one example has kind "academic" and is set in the deck's domain (in general academic
+  English when the deck has no domain); at least one has kind "spoken".
+- "meaning_in_context" explains the meaning in the sentence given for the term (or the most
+  frequent meaning when there is no sentence).
+- "register_level" is one of academic, neutral, spoken, informal.
+- "pronunciation.ipa_us" is the American IPA with stress marks; "stressed_syllable" shows the
+  stressed syllable in capitals (for example "COUNT" or "hetero-skeda-STI-city").
+- "french_speaker_pitfalls" lists typical mistakes of French speakers, false friends included,
+  each with the wrong form, the right form and a one-sentence explanation.
+- "confusables" lists similar words that should not be confused with the term.
+
+Exercise sentences, generated with the sheet, never repeat an example sentence word for word:
+- "gap_fills" (2): a sentence with exactly one "___" where the term goes. "answer" is the form
+  that fits the gap; "accepted" lists other correct forms. For a term starting with "to" (to
+  account for), never put "to" at the start of "answer".
+- "recognitions" (2): a new sentence containing the term, its meaning in simple English
+  ("meaning"), in French ("meaning_fr"), and exactly three plausible but wrong meanings
+  ("distractors").
+- "productions" (2): a short situation asking the learner to write one sentence where the term is
+  useful, and an example answer that uses the term. The situation itself must NOT contain the term
+  or any word of its family: the learner has to recall it.
+- "spoken" (1): a question to answer aloud where the term is useful, and an example answer that
+  uses it. The question must NOT contain the term or any word of its family.
+
+Return one entry in "sheets" for every term received, with the same "ref" and "term", and no
+other entry.
+@@ user
+Write a usage sheet and its exercise sentences for each of these terms. Each line is one term as
+JSON: its ref, the term, its type, the sentence where the learner met it (may be empty) and the
+deck it belongs to (name, domain, context).
+
+{{terms}}

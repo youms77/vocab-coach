@@ -11,7 +11,7 @@ from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel
-from sqlalchemy import ColumnElement, Select, exists, func, or_, select
+from sqlalchemy import ColumnElement, Select, exists, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.db.event_log import record_event
@@ -20,12 +20,13 @@ from app.db.models import (
     ConsolidationTaskItem,
     Deck,
     DeckItem,
+    Enrichment,
     ErrorEvent,
     LexicalItem,
     ProductionTarget,
     Source,
 )
-from app.domain.enums import DeckKind, DeckStatus, ItemStatus, ItemType
+from app.domain.enums import DeckKind, DeckStatus, EnrichmentStatus, ItemStatus, ItemType
 from app.domain.events import (
     DeckCreated,
     DeckDeleted,
@@ -531,6 +532,8 @@ def delete_item(session: Session, item: LexicalItem, at: datetime) -> None:
 # --- Search --------------------------------------------------------------------------------------
 
 ItemSort = Literal["term", "created_at", "updated_at", "status", "status_changed_at", "id"]
+# State of the current usage sheet (`edited` wins over the status of the sheet).
+SheetFilter = Literal["none", "complete", "needs_completion", "edited"]
 
 
 @dataclass(frozen=True)
@@ -542,6 +545,7 @@ class ItemQuery:
     item_type: ItemType | None = None
     statuses: tuple[ItemStatus, ...] = ()
     include_archived: bool = False
+    sheet: SheetFilter | None = None
     sort: ItemSort = "created_at"
     descending: bool = False
     limit: int = 50
@@ -561,6 +565,46 @@ def _in_deck_where(*conditions: ColumnElement[bool]) -> ColumnElement[bool]:
     )
 
 
+def _current_sheet_where(*conditions: ColumnElement[bool]) -> ColumnElement[bool]:
+    return exists().where(
+        Enrichment.lexical_item_id == LexicalItem.id, Enrichment.is_current, *conditions
+    )
+
+
+def _sheet_matches(pattern: str) -> ColumnElement[bool]:
+    """`q` in the current sheet: simple definition, meaning in context, French translations."""
+    translations = (
+        func.json_each(Enrichment.content, "$.translation_fr").table_valued("value").alias("tr")
+    )
+    in_translation = (
+        select(literal(1))
+        .select_from(translations)
+        .where(func.lower(translations.c.value).like(pattern, escape="\\"))
+        .exists()
+    )
+    return _current_sheet_where(
+        or_(
+            func.lower(func.json_extract(Enrichment.content, "$.definition_simple")).like(
+                pattern, escape="\\"
+            ),
+            func.lower(func.json_extract(Enrichment.content, "$.meaning_in_context")).like(
+                pattern, escape="\\"
+            ),
+            in_translation,
+        )
+    )
+
+
+def _sheet_filter(sheet: SheetFilter) -> ColumnElement[bool]:
+    if sheet == "none":
+        return ~_current_sheet_where()
+    if sheet == "edited":
+        return _current_sheet_where(Enrichment.edited_by_user)
+    return _current_sheet_where(
+        ~Enrichment.edited_by_user, Enrichment.status == EnrichmentStatus(sheet)
+    )
+
+
 def _filtered(query: ItemQuery) -> Select[tuple[LexicalItem]]:
     stmt = select(LexicalItem)
     if query.q and query.q.strip():
@@ -572,8 +616,11 @@ def _filtered(query: ItemQuery) -> Select[tuple[LexicalItem]]:
                 func.lower(LexicalItem.term).like(pattern, escape="\\"),
                 LexicalItem.normalized_form.like(normalized_pattern, escape="\\"),
                 func.lower(LexicalItem.origin_sentence).like(pattern, escape="\\"),
+                _sheet_matches(pattern),
             )
         )
+    if query.sheet is not None:
+        stmt = stmt.where(_sheet_filter(query.sheet))
     if query.deck_id is not None:
         stmt = stmt.where(_in_deck_where(DeckItem.deck_id == query.deck_id))
     if query.domain is not None:

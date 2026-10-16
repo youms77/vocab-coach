@@ -2,6 +2,10 @@
 
 The list shows the term and its sentence only, never a usage sheet: a sheet would bias the
 self-assessment. Decisions are applied all or nothing.
+
+A list-extension suggestion triaged as known also leaves the deck the AI suggested it for (the SPEC:
+only retained terms enter the deck); it stays in the library as `known`, so it is never suggested
+again. Imported terms keep their deck links whatever the decision (D-075, D-084).
 """
 
 from collections.abc import Sequence
@@ -12,9 +16,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.event_log import record_event
-from app.db.models import DeckItem, LexicalItem
+from app.db.models import DeckItem, EventLog, LexicalItem
 from app.domain.enums import ItemStatus, ItemType
-from app.domain.events import ItemTriaged, TriageDecision
+from app.domain.events import DeckItemRemoved, EventType, ItemOrigin, ItemTriaged, TriageDecision
 from app.domain.study_day import as_utc
 from app.services.items import transition_item
 from app.services.library import DeckRef, ItemNotFound, LibraryError, decks_of, get_deck
@@ -106,6 +110,39 @@ def apply_triage(
             session, ItemTriaged(lexical_item_id=item.id, decision=decision), occurred_at=at
         )
         transition_item(session, item, TRIAGE_TARGET[decision], at)
+        if decision is TriageDecision.KNOWN:
+            _leave_extension_deck(session, item, at)
         counts[decision.value] += 1
     session.flush()
     return counts
+
+
+def extension_deck_of(session: Session, item_id: int) -> int | None:
+    """The deck a list extension created this term for (read from its `item.created` event: the
+    term table keeps no origin), or None for any other origin."""
+    payload = session.scalar(
+        select(EventLog.payload)
+        .where(
+            EventLog.event_type == EventType.ITEM_CREATED,
+            EventLog.entity_type == "lexical_item",
+            EventLog.entity_id == item_id,
+        )
+        .order_by(EventLog.id)
+        .limit(1)
+    )
+    if not payload or payload.get("origin") != ItemOrigin.EXTENSION:
+        return None
+    return payload.get("deck_id")
+
+
+def _leave_extension_deck(session: Session, item: LexicalItem, at: datetime) -> None:
+    deck_id = extension_deck_of(session, item.id)
+    if deck_id is None:
+        return
+    link = session.scalar(
+        select(DeckItem).where(DeckItem.deck_id == deck_id, DeckItem.lexical_item_id == item.id)
+    )
+    if link is None:
+        return
+    session.delete(link)
+    record_event(session, DeckItemRemoved(deck_id=deck_id, lexical_item_id=item.id), occurred_at=at)

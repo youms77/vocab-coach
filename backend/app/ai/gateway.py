@@ -101,8 +101,16 @@ class Gateway:
         schema: type[T],
         *,
         pin_provider: str | None = None,
+        validation_context: Mapping[str, Any] | None = None,
+        max_output_tokens: int | None = None,
     ) -> AiResult[T]:
-        """Run a registered task and return its output validated against `schema`."""
+        """Run a registered task and return its output validated against `schema`.
+
+        `validation_context` is handed to Pydantic (`info.context` in the schema's validators), so
+        business rules that depend on the request (the expected terms of a batch...) trigger the
+        repair like any schema error. `max_output_tokens` lowers the task's ceiling for this call
+        (a one-term batch need not reserve the tokens of five); it can never raise it.
+        """
         spec = self._tasks.get(task)
         if spec is None:
             raise UnknownTask(f"unknown AI task {task!r}")
@@ -112,6 +120,10 @@ class Gateway:
             )
         if sum(len(value) for value in inputs.values()) > spec.max_input_chars:
             raise InputTooLong(f"{task}: inputs exceed {spec.max_input_chars} characters")
+        if max_output_tokens is not None and max_output_tokens < 1:
+            raise ValueError("max_output_tokens must be positive")
+        output_tokens = min(max_output_tokens or spec.max_output_tokens, spec.max_output_tokens)
+        context = dict(validation_context) if validation_context is not None else None
         prompt = self._prompts.get(spec.name, spec.prompt_version).render(dict(inputs))
         json_schema = schema.model_json_schema()
 
@@ -127,7 +139,7 @@ class Gateway:
                 user=user,
                 json_schema=json_schema,
                 timeout_s=timeout_s,
-                max_output_tokens=spec.max_output_tokens,
+                max_output_tokens=output_tokens,
             )
             return provider.generate_json(request)
 
@@ -138,7 +150,7 @@ class Gateway:
             timeout_s=spec.timeout_s,
             pin=pin_provider,
             send=send,
-            parse=lambda text: _validate(schema, text),
+            parse=lambda text: _validate(schema, text, context),
         )
 
     def transcribe(
@@ -457,11 +469,13 @@ class Gateway:
         return clean_message(text, self._secrets(), 1000)
 
 
-def _validate[T: BaseModel](schema: type[T], text: str) -> tuple[T | None, str]:
+def _validate[T: BaseModel](
+    schema: type[T], text: str, context: dict[str, Any] | None = None
+) -> tuple[T | None, str]:
     """Validate model output. The message never quotes the output itself (it is stored and sent back
     to the model): only locations and rule names."""
     try:
-        return schema.model_validate_json(text), ""
+        return schema.model_validate_json(text, context=context), ""
     except ValidationError as exc:
         problems = [
             f"{'.'.join(str(part) for part in err['loc']) or 'output'}: {err['msg']}"
