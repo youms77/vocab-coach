@@ -1,0 +1,276 @@
+# Built-in error taxonomy (docs/SPEC.md section 4, module E).
+#
+# Loaded into the `error_category` table by `python -m app db upgrade` (sync_taxonomy): missing codes
+# are added and built-in labels, descriptions and examples are updated. Nothing is ever deleted, and
+# categories created by the user (or proposed by the AI and approved) are left untouched.
+#
+# A code is a dotted path; its parent is the code minus its last segment. Statistics aggregate by
+# code prefix, and an error may point at any node (e.g. `grammar.article`, which has no children).
+# Bump `version` whenever this file changes.
+
+version: 1
+
+categories:
+  - code: grammar
+    label_en: Grammar
+    label_fr: Grammaire
+    description_en: Errors in the structure of the sentence.
+    description_fr: Erreurs dans la structure de la phrase.
+    examples: []
+    children:
+      - code: grammar.preposition
+        label_en: Prepositions
+        label_fr: Prépositions
+        description_en: Wrong, missing or extra preposition.
+        description_fr: Préposition fausse, manquante ou en trop.
+        examples:
+          - { wrong: "I'm in campus.", correct: "I'm on campus." }
+        children:
+          - code: grammar.preposition.time
+            label_en: Time
+            label_fr: Temps
+            description_en: "at / on / in with times, days, months and years."
+            description_fr: "at / on / in avec les heures, jours, mois et années."
+            examples:
+              - { wrong: "The meeting is in Monday.", correct: "The meeting is on Monday." }
+          - code: grammar.preposition.place
+            label_en: Place
+            label_fr: Lieu
+            description_en: "at / on / in for positions and places."
+            description_fr: "at / on / in pour les positions et les lieux."
+            examples:
+              - { wrong: "She works in the reception desk.", correct: "She works at the reception desk." }
+          - code: grammar.preposition.movement
+            label_en: Movement
+            label_fr: Mouvement
+            description_en: "to / into / onto / towards for direction and movement."
+            description_fr: "to / into / onto / towards pour la direction et le mouvement."
+            examples:
+              - { wrong: "I went in the office.", correct: "I went into the office." }
+          - code: grammar.preposition.dependent
+            label_en: Dependent preposition
+            label_fr: Préposition dépendante
+            description_en: The preposition that a verb, noun or adjective requires.
+            description_fr: La préposition imposée par un verbe, un nom ou un adjectif.
+            examples:
+              - { wrong: "It depends of the data.", correct: "It depends on the data." }
+              - { wrong: "I'm interested by statistics.", correct: "I'm interested in statistics." }
+          - code: grammar.preposition.fixed_expression
+            label_en: Fixed expression
+            label_fr: Expression figée
+            description_en: A set phrase that always takes the same preposition.
+            description_fr: Une expression figée qui prend toujours la même préposition.
+            examples:
+              - { wrong: "I study in university.", correct: "I study at university." }
+              - { wrong: "I live in campus.", correct: "I live on campus." }
+          - code: grammar.preposition.by_for_since
+            label_en: "by / for / since"
+            label_fr: "by / for / since"
+            description_en: "Deadlines (by), durations (for) and starting points (since)."
+            description_fr: "Échéance (by), durée (for) et point de départ (since)."
+            examples:
+              - { wrong: "I have lived here since three years.", correct: "I have lived here for three years." }
+      - code: grammar.tense
+        label_en: Tenses
+        label_fr: Temps verbaux
+        description_en: Wrong verb tense or aspect.
+        description_fr: Temps ou aspect du verbe incorrect.
+        examples:
+          - { wrong: "I finished my report, so I can help you now.", correct: "I've finished my report, so I can help you now." }
+        children:
+          - code: grammar.tense.past_simple_vs_present_perfect
+            label_en: Past simple vs present perfect
+            label_fr: Prétérit ou present perfect
+            description_en: Finished time (past simple) versus a link to now (present perfect).
+            description_fr: Moment terminé (prétérit) ou lien avec le présent (present perfect).
+            examples:
+              - { wrong: "I never went to London.", correct: "I've never been to London." }
+              - { wrong: "I have seen him yesterday.", correct: "I saw him yesterday." }
+          - code: grammar.tense.present_simple_vs_continuous
+            label_en: Present simple vs continuous
+            label_fr: Présent simple ou continu
+            description_en: Habits and facts (simple) versus actions in progress (continuous).
+            description_fr: Habitudes et faits (simple) ou action en cours (continu).
+            examples:
+              - { wrong: "I am working here since 2024.", correct: "I have been working here since 2024." }
+              - { wrong: "Look, it rains.", correct: "Look, it's raining." }
+          - code: grammar.tense.future_forms
+            label_en: Future forms
+            label_fr: Formes du futur
+            description_en: "will, going to, present continuous and present simple for the future."
+            description_fr: "will, going to, présent continu et présent simple pour le futur."
+            examples:
+              - { wrong: "I will call you when I will arrive.", correct: "I will call you when I arrive." }
+          - code: grammar.tense.sequence_of_tenses
+            label_en: Sequence of tenses
+            label_fr: Concordance des temps
+            description_en: Tense agreement in reported speech and conditionals.
+            description_fr: Accord des temps au discours indirect et dans les conditionnelles.
+            examples:
+              - { wrong: "If I would have time, I would come.", correct: "If I had time, I would come." }
+      - code: grammar.article
+        label_en: Articles
+        label_fr: Articles
+        description_en: "a / an / the / no article."
+        description_fr: "a / an / the / absence d'article."
+        examples:
+          - { wrong: "The statistics is my field.", correct: "Statistics is my field." }
+      - code: grammar.agreement
+        label_en: Agreement
+        label_fr: Accord
+        description_en: Third-person -s and subject-verb agreement.
+        description_fr: Le -s de la troisième personne et l'accord sujet-verbe.
+        examples:
+          - { wrong: "She work in a bank.", correct: "She works in a bank." }
+      - code: grammar.word_order
+        label_en: Word order
+        label_fr: Ordre des mots
+        description_en: Position of adverbs, adjectives and objects.
+        description_fr: Place des adverbes, des adjectifs et des compléments.
+        examples:
+          - { wrong: "I like very much this method.", correct: "I like this method very much." }
+      - code: grammar.question_form
+        label_en: Question form
+        label_fr: Forme interrogative
+        description_en: Auxiliary and word order in questions.
+        description_fr: Auxiliaire et ordre des mots dans les questions.
+        examples:
+          - { wrong: "Why you chose this topic?", correct: "Why did you choose this topic?" }
+      - code: grammar.countability
+        label_en: Countable and uncountable nouns
+        label_fr: Noms dénombrables et indénombrables
+        description_en: Plurals, much/many, less/fewer with uncountable nouns.
+        description_fr: Pluriels, much/many, less/fewer avec les indénombrables.
+        examples:
+          - { wrong: "They gave me many informations.", correct: "They gave me a lot of information." }
+      - code: grammar.modal
+        label_en: Modal verbs
+        label_fr: Verbes modaux
+        description_en: "Form and meaning of can, must, should, may, might..."
+        description_fr: "Forme et sens de can, must, should, may, might..."
+        examples:
+          - { wrong: "You must to submit it today.", correct: "You must submit it today." }
+      - code: grammar.other
+        label_en: Other grammar
+        label_fr: Autre (grammaire)
+        description_en: A grammar error that fits no other category.
+        description_fr: Une erreur de grammaire qui n'entre dans aucune autre catégorie.
+        examples: []
+
+  - code: lexis
+    label_en: Vocabulary
+    label_fr: Vocabulaire
+    description_en: Errors in the choice or form of words.
+    description_fr: Erreurs dans le choix ou la forme des mots.
+    examples: []
+    children:
+      - code: lexis.false_friend
+        label_en: False friend
+        label_fr: Faux ami
+        description_en: An English word that looks like a French word but means something else.
+        description_fr: Un mot anglais qui ressemble à un mot français mais n'a pas le même sens.
+        examples:
+          - { wrong: "Actually, I live in Douala (= currently).", correct: "Currently, I live in Douala." }
+          - { wrong: "Eventually we could meet tomorrow (= possibly).", correct: "Possibly we could meet tomorrow." }
+      - code: lexis.wrong_word
+        label_en: Wrong word
+        label_fr: Mauvais mot
+        description_en: A real word, but not the right one here.
+        description_fr: Un vrai mot, mais pas le bon ici.
+        examples:
+          - { wrong: "Can you borrow me your pen?", correct: "Can you lend me your pen?" }
+      - code: lexis.collocation
+        label_en: Collocation
+        label_fr: Collocation
+        description_en: Words that do not naturally go together.
+        description_fr: Des mots qui ne vont pas naturellement ensemble.
+        examples:
+          - { wrong: "We made an analysis of the data.", correct: "We carried out an analysis of the data." }
+          - { wrong: "to take a conclusion", correct: "to draw a conclusion" }
+      - code: lexis.word_form
+        label_en: Word form
+        label_fr: Forme du mot
+        description_en: Right word family, wrong part of speech.
+        description_fr: Bonne famille de mots, mauvaise nature grammaticale.
+        examples:
+          - { wrong: "The results are very signification.", correct: "The results are very significant." }
+
+  - code: register
+    label_en: Register
+    label_fr: Registre
+    description_en: The phrasing does not suit the situation.
+    description_fr: La formulation ne convient pas à la situation.
+    examples: []
+    children:
+      - code: register.too_informal
+        label_en: Too informal
+        label_fr: Trop familier
+        description_en: Too casual for an academic or professional context.
+        description_fr: Trop familier pour un contexte universitaire ou professionnel.
+        examples:
+          - { wrong: "The results are kinda weird.", correct: "The results are somewhat unexpected." }
+      - code: register.too_formal
+        label_en: Too formal
+        label_fr: Trop soutenu
+        description_en: Too stiff for everyday conversation.
+        description_fr: Trop soutenu pour une conversation courante.
+        examples:
+          - { wrong: "I shall endeavour to arrive at seven.", correct: "I'll try to get there at seven." }
+
+  - code: discourse
+    label_en: Discourse
+    label_fr: Discours
+    description_en: How sentences and ideas link together.
+    description_fr: L'enchaînement des phrases et des idées.
+    examples: []
+    children:
+      - code: discourse.connectors
+        label_en: Connectors
+        label_fr: Connecteurs
+        description_en: Wrong or misused linking word.
+        description_fr: Mot de liaison faux ou mal employé.
+        examples:
+          - { wrong: "Although it rained, but we went out.", correct: "Although it rained, we went out." }
+      - code: discourse.cohesion
+        label_en: Cohesion
+        label_fr: Cohésion
+        description_en: Unclear references, repetition, or ideas that do not follow.
+        description_fr: Références ambiguës, répétitions ou idées qui ne s'enchaînent pas.
+        examples:
+          - { wrong: "The model and the data are good. It shows...", correct: "The model fits the data well. It shows..." }
+
+  - code: spelling
+    label_en: Spelling
+    label_fr: Orthographe
+    description_en: Misspelled word.
+    description_fr: Mot mal orthographié.
+    examples:
+      - { wrong: "developpement", correct: "development" }
+
+  - code: pronunciation
+    label_en: Pronunciation
+    label_fr: Prononciation
+    description_en: Problems found in spoken answers (module F).
+    description_fr: Problèmes relevés à l'oral (module F).
+    examples: []
+    children:
+      - code: pronunciation.sound
+        label_en: Sound
+        label_fr: Son
+        description_en: A vowel or consonant pronounced as another one.
+        description_fr: Une voyelle ou une consonne prononcée comme une autre.
+        examples:
+          - { wrong: "/sɪŋk/ for 'think'", correct: "/θɪŋk/" }
+      - code: pronunciation.word_stress
+        label_en: Word stress
+        label_fr: Accent tonique
+        description_en: Stress on the wrong syllable.
+        description_fr: Accent placé sur la mauvaise syllabe.
+        examples:
+          - { wrong: "deVElopment stressed as develOPment", correct: "deVElopment" }
+      - code: pronunciation.intelligibility
+        label_en: Intelligibility
+        label_fr: Intelligibilité
+        description_en: A word speech recognition could not understand (a hint, not a verdict).
+        description_fr: Un mot que la reconnaissance vocale n'a pas compris (un indice, pas un verdict).
+        examples: []

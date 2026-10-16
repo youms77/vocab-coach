@@ -48,6 +48,12 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest
+      - name: Models and migrations agree (alembic check)
+        env:
+          VOCAB_DATABASE_URL: sqlite:///${{ runner.temp }}/alembic-check.sqlite3
+        run: |
+          uv run alembic upgrade head
+          uv run alembic check
 
   frontend:
     name: Frontend (typecheck + lint + vitest + build)
@@ -98,6 +104,15 @@ jobs:
         run: |
           uv sync --locked
           uv run pytest
+      - name: Models and migrations agree (alembic check)
+        working-directory: backend
+        shell: pwsh
+        run: |
+          $env:VOCAB_DATABASE_URL = 'sqlite:///' + ($env:RUNNER_TEMP -replace '\\', '/') + '/alembic-check.sqlite3'
+          uv run alembic upgrade head
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv run alembic check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Frontend tests and build
         working-directory: frontend
         run: |

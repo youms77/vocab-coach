@@ -5,8 +5,12 @@ description = "Local API for vocab-coach: turns words you care about into active
 requires-python = ">=3.13"
 license = "MIT"
 dependencies = [
+    "alembic>=1.20.0",
     "fastapi>=0.143.2",
     "pydantic-settings>=2.16.0",
+    "pyyaml>=6.0.3",
+    "sqlalchemy>=2.1.4",
+    "tzdata>=2026.5",
     "uvicorn[standard]>=0.54.0",
 ]
 

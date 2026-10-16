@@ -39,6 +39,15 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 # downloads Python 3.13 if needed.
 Invoke-Step 'Backend dependencies (uv sync)' { uv --directory backend sync --quiet }
 
+# Creates data\vocab-coach.sqlite3 on first run, applies new migrations, loads the error taxonomy.
+Write-Host '==> Database (migrations + error taxonomy)' -ForegroundColor Cyan
+uv --directory backend run python -m app db upgrade
+if ($LASTEXITCODE -ne 0) {
+    Write-Host 'The database could not be prepared (see the message above). The app was not started.' -ForegroundColor Red
+    Write-Host 'If the app is already running in another window, close it and try again.' -ForegroundColor Red
+    exit 1
+}
+
 if (-not (Test-Path (Join-Path $root 'node_modules'))) {
     Invoke-Step 'Launcher dependencies (npm install)' { npm install --no-fund --no-audit }
 }
