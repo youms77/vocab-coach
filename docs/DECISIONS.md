@@ -1063,3 +1063,132 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   fails visibly. `apiErrorResponse()` builds the backend's error format.
 - A `Response` body can be read once: the home page test's single shared response now returns a clone per request
   (the layout makes two requests since the banner exists).
+
+## D-071 — Markdown import parser (M3.a, 2026-10-16)
+
+- `app/domain/markdown_import.py`, pure, no clock (`today` is a parameter: the caller's study day). It never raises
+  on user input: everything odd is an `ImportProblem {line, severity: info|warning|ambiguous|error, code, message
+  (EN), suggestion?}` with a **stable code** (M3.c turns codes into i18n keys). Line numbers are the file's, 1-based,
+  header included. `\r\n`, `\r` and `\n` all end a line (not `str.splitlines`, which also splits on Unicode line
+  separators and form feeds and would shift the numbers); a UTF-8 BOM is removed.
+- **Header**: only when the first non-blank line is `---` and a later `---` closes it (else `unclosed_header` and the
+  file is read as a plain list). Loaded with a subclass of `yaml.SafeLoader` that keeps timestamps as text: PyYAML's
+  own date constructor raises `ValueError` on `2026-13-01`, which would break the "never raises" rule and turn a bad
+  deadline into `invalid_header`. The deadline must match `YYYY-MM-DD` and be a real date (`invalid_deadline`,
+  ignored); a past one is kept with `past_deadline`. Unknown key → `unknown_header_key`; a list or mapping as a value
+  → `invalid_header_value`; invalid YAML or a non-mapping → `invalid_header` (warning), header empty, body still read.
+- **Body**: bullets `-` `*` `+`, `1.` `1)`, checkboxes, plain lines; `**` `__` `*` `_` and backticks around the term
+  are removed. Headings (`#` + space) and horizontal rules are `info` and skipped. The first `|` separates the
+  sentence.
+  - **Ambiguous** (returned with `include: false`): `multiple_separators`; `looks_like_definition` (` = `, ` : `,
+    `word: x`, ` -> `, ` – `, ` - ` without `|`; suggestion `{term, note}`); `looks_like_sentence` (more than 8
+    words or 80 characters without `|`); `nested_item` (a bullet indented 2+ columns more than the first item, so a
+    uniformly indented list is not "nested"); `empty_term`; `term_too_long` (more than 300, the column size).
+  - **Warnings**, imported anyway: `term_not_in_sentence`; `duplicate_in_file` (the kept line is a clear one with a
+    sentence, else the first clear one).
+- **Limits**: 256 KB (UTF-8 bytes) and 1 000 non-blank body lines, else `too_large` (error) and no rows. The CLI also
+  reports `not_utf8`.
+- **Type guess**: 1 word → `word`; 2–4 words, or 5 starting with "to" → `collocation`; longer → `phrase`.
+  `spoken_formula` is never guessed.
+- `check_term()` is shared by the parser and the commit, so the server re-validates rows with the same rules.
+
+## D-072 — Normalised form and naive lemma (M3.a)
+
+- `normalize_term` (`app/domain/normalize.py`): NFKC, casefold, typographic apostrophes / quotes / dashes to ASCII,
+  spaces collapsed, final `.,;:!?` and enclosing quotes removed (repeatedly), initial `to ` removed, placeholders
+  unified with or without parentheses (`someone`/`somebody`/`sb` → `sb`, `something`/`sth` → `sth`, `one's`,
+  `someone's` → `sb's`). `lexical_item.term` keeps the user's spelling. Known limit: `to a large extent` becomes
+  `a large extent` (the rule cannot tell an infinitive from a preposition); harmless, since a match is only a proposal.
+- `naive_lemma`: **single-word terms only** (None otherwise, so expressions never get "possible" matches). It is a
+  *stem*, not a dictionary form: plural `-ies/-es/-s`, `-ed`, `-ing`, undoubled consonant, then a final `-e` dropped and
+  `-y` → `-i`, so `study/studies/studied/studying` and `estimate/estimated` meet. Words under 4 letters, words with a
+  non-letter, and an exception list (news, series, species, analysis, data, physics, statistics, bias, thing, need...)
+  are left alone. No new dependency.
+- **Matching**: same normalised form = `exact`; same lemma, different form = `possible`. Compared with every term,
+  archived and known included, and answered with the existing term's status and decks. **Nothing is ever merged
+  automatically**: the normalised form is not unique in the database (homographs), on purpose.
+- `term_in_sentence`: each word of the term (placeholders left out) must appear in order in the sentence, by equal
+  stem or as a prefix (4+ letters); irregular forms (`drew` for `draw`) give the warning.
+
+## D-073 — Library services and their errors (M3.a)
+
+- `app/services/library.py`, `importing.py`, `triage.py`, `duplicates.py`, in the caller's transaction (D-023).
+  User refusals are `LibraryError` subclasses with `status` and `code`; `app/api/errors.py` turns them (and
+  `InvalidItemTransition`, 409 `invalid_transition`) into the D-063 format with their extra fields.
+- `create_item` writes the term in `draft` with `item.created`, then moves it to `triage` or `queued` through
+  `set_item_status` (D-025 table and events). `add_item_to_deck` writes `deck.item_added` and refuses a second link to
+  the same deck. New decks go to the end of the queue (`queued`, D-026).
+- **Quick add** goes to `queued` directly (the user typed the term because they want to learn it) and, without a deck,
+  to a deck named "Quick adds" created the first time. A duplicate without `on_duplicate` is a 409 `duplicate_term`
+  with the candidates; `attach` links the existing term (status untouched), `new` creates another one.
+- Editing a term's spelling recomputes `normalized_form` and `lemma` and returns the duplicates without blocking.
+- **Search**: `q` matches `lower(term)`, `normalized_form` (with the normalised query) and `lower(origin_sentence)`
+  with escaped `LIKE` (`%`, `_`, `\`). SQLite's `lower()` only folds ASCII; the normalised-form branch covers accented
+  terms. Deck, domain and source filters go through `deck_item` (a term has no source of its own); archived terms are
+  excluded unless asked for.
+
+## D-074 — Import preview and commit (M3.a)
+
+- `preview()` writes nothing (the CLI also sets `PRAGMA query_only`). It adds library problems to each row:
+  `duplicate_exact` (info), `duplicate_possible` (warning), `already_in_deck` (info, when a target deck is given),
+  `existing_status_kept` (info: attaching a `known` or `archived` term does not change its status).
+- `commit()` receives the rows **as validated by the user** (`term, sentence, item_type, include, confirmed,
+  on_duplicate: attach|new|skip, attach_to`) and re-checks each. An included row that is still ambiguous needs
+  `confirmed: true`, and only `looks_like_definition` / `looks_like_sentence` can be confirmed (an empty or over-long
+  term or a stray `|` must be corrected); otherwise 422 `row_rejected` with the row index, line and codes. All rows
+  are checked before anything is written.
+- **Defaults**: exact duplicate → `attach` (the row's sentence goes to `deck_item.context_sentence`), possible
+  duplicate → `new`, a term already in the target deck → skipped, the same term twice in the rows → the first wins.
+- **Header mapping**: `source` → `source.title` (+ `context` → `source.context`); without `source`, `context` →
+  `deck.description`; `domain` → `deck.domain` and `source.domain`; `deadline` → `deck.deadline`. A new deck takes
+  `target.new_deck_name`, else the header's `deck`, else 422 `deck_name_required` (the CLI uses the file name). An
+  existing target deck keeps its own fields: the header is ignored.
+- One transaction; tested by injecting a failure in the middle (no row, no event left).
+
+## D-075 — Triage semantics (M3.a)
+
+- `learn` and `unsure` → `queued`, `known` → `known`; one `item.triaged` per term (the decision itself is kept, so
+  statistics can tell `unsure` from `learn`). **Why `unsure` is queued**: discovery starts with the meaning hidden
+  (module B), so an unsure term costs one short discovery at most, and leaving it in limbo would hide it from the
+  planner.
+- All or nothing: unknown id → 404 `item_not_found`; a term not in `triage` → 409 `not_in_triage` with the ids; the
+  same id twice → 422 `duplicate_decision`.
+- The triage list shows the term, its type, its decks and a sentence (the deck's context sentence, else the origin
+  sentence), **never a usage sheet**, so the self-assessment is not biased.
+
+## D-076 — Deletion rules (M3.a)
+
+- A term with **history** (a card, hence reviews; an error event; a production target; a consolidation target)
+  cannot be deleted: 409 `item_has_history` with `suggestion: "archive"`. Otherwise `item.deleted`, then the row
+  (deck links follow by cascade).
+- A deck cannot be deleted when one of its terms has started discovery (`discovered_at`) or has history, **even
+  through another deck** (strict reading, approved with the plan): 409 `deck_has_history` (pause it or mark it done
+  instead, M4). Otherwise the terms that belong to no other deck are deleted (`item.deleted` each), then
+  `deck.deleted {deck_id, deleted_item_ids}`.
+
+## D-077 — Merge rules (M3.a)
+
+- `merge(source, target)` folds the source into the target and deletes it. Both have cards → 409 `merge_conflict`;
+  only the source has cards → the direction is inverted (the term with the review history is kept, `inverted: true`);
+  same id → 422 `merge_same_item`.
+- Moved to the target: deck links (when both are in the same deck, the target's empty context sentence is filled and
+  the source's link dropped); `origin_sentence`, `notes`, `part_of_speech`, `origin_error_event_id` when the target
+  has none; error events; production and consolidation targets (a duplicate row for the same attempt or task is
+  dropped); the usage sheets and exercise templates **only when the target has none** (otherwise the source's are
+  deleted with it). The kept term's status is unchanged. `item.merged` is written.
+- Duplicate groups (`GET /duplicates`): exact groups by normalised form, then possible groups by lemma with at least
+  two forms; each item says whether it has cards, so the page can show which merges are possible.
+
+## D-078 — New events and the demo (M3.a)
+
+- New event types (open set, no migration, D-015), payloads in `app/domain/events.py`: `deck.updated {deck_id,
+  fields}` and `item.edited {lexical_item_id, fields}` (field **names** only, never values), `deck.deleted {deck_id,
+  deleted_item_ids}`, `item.deleted {lexical_item_id}`, `import.completed {deck_id, lines_read, imported, attached,
+  skipped, ambiguous}`. `item.merged` and `item.triaged` already existed.
+- The demo creates sources, decks, terms, deck links and triage decisions through the services (`direct_writes.py`
+  keeps productions, errors and sessions until M4/M5). Comparing a 60-day seed (seed 42, anchor 2026-09-01) before
+  and after: **every table is identical except `lexical_item`**, where `normalized_form` changed for 27 of 113 terms
+  (e.g. `to a large extent` → `a large extent`) and `lemma` is now filled for single words. The event log (types,
+  counts, payloads) and every status are the same. The determinism tests compare two runs, so they still pass.
+- Library writes are allowed on the demo database (a throwaway sandbox); only AI keys and provider order are
+  protected there (D-064).

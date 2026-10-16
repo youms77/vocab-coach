@@ -203,7 +203,20 @@ provider cannot be reached (for Ollama: is it running, and is the address right?
 
 ## Daily use
 
-Coming with milestones M3–M4 (import a word list, discover new terms, review).
+The pages come with milestones M3–M4 (discover new terms, review). Importing a word list already works from the
+command line (run from the `backend` folder):
+
+```powershell
+uv run python -m app library import ..\content\examples\import-with-header.md            # preview, writes nothing
+uv run python -m app library import ..\content\examples\import-with-header.md --commit   # import the clear lines
+```
+
+One line = one term, optionally followed by `|` and the sentence you met it in; an optional YAML header
+(`deck`, `domain`, `source`, `context`, `deadline`) describes the deck. See the two files in `content/examples/`.
+Ambiguous lines (a translation after `=`, a whole sentence, a sub-item...) are reported and left out; terms
+already in your library are added to the new deck instead of being duplicated. Options: `--deck-id N` (add to an
+existing deck), `--no-triage` (queue the terms directly instead of the "I know it / not sure / to learn" triage),
+and `--demo` before `library` to try it on the demo database.
 
 ## Backup
 

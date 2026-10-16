@@ -29,14 +29,16 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 |---|---|---|
 | `app/main.py` | `create_app()` factory, CORS, router mounting under `/api` | M0 |
 | `app/config.py` | `Settings` (pydantic-settings, `VOCAB_` env prefix, root `.env`, loopback-only host, absolute database URL) | M0, M1.a |
-| `app/__main__.py`, `app/cli.py` | `python -m app [--demo] [--reload]` runs the API; `db upgrade` / `db reset --yes`; `plan today`; `demo seed`; `ai simulate` / `ai status` / `ai test` / `ai usage` | M0, M1.a, M1.b, M1.c, M2.a, M2.b1 |
+| `app/__main__.py`, `app/cli.py` | `python -m app [--demo] [--reload]` runs the API; `db upgrade` / `db reset --yes`; `plan today`; `demo seed`; `ai simulate` / `ai status` / `ai test` / `ai usage`; `library import` | M0, M1.a, M1.b, M1.c, M2.a, M2.b1, M3.a |
 | `app/cli_plan.py` | `plan today`: builds the plan read-only (`PRAGMA query_only`) and renders it as text or JSON | M1.b |
 | `app/cli_ai.py` | `ai status` (providers, models, order; never a key), `ai test` (one real call per configured provider, optional Whisper clip, writes `ai_call_log`), `ai usage` (read-only) | M2.b1 |
+| `app/cli_library.py` | `library import <file> [--deck-id] [--no-triage] [--commit]`: read-only preview, or import of the clear lines with default choices | M3.a |
 | `app/api/health.py` | `GET /api/health` → `{status, version, database: {ok, revision, at_head}, demo}` | M0, M1.a, M1.c |
 | `app/api/guard.py` | ASGI middleware: Host / Origin / Sec-Fetch-Site / JSON-only checks (D-061) | M2.c1 |
 | `app/api/errors.py` | `{"detail": {"code", "message"}}` errors, 422 without `input` (D-063) | M2.c1 |
 | `app/api/ai.py` | `/api/ai/status`, `/providers/{name}/credential`, `/test`, `/usage` (D-064) | M2.c1 |
 | `app/api/settings.py` | `GET` / `PATCH /api/settings` | M2.c1 |
+| `app/api/library.py` | `/api/import/preview\|commit`, `/items` (search, quick add, get, patch, delete, status, merge), `/decks`, `/triage`, `/duplicates`; library errors mapped in `errors.py` | M3.a |
 | `app/services/env_file.py` | safe edit of the three AI variables of `.env` (D-062) | M2.c1 |
 | `app/services/ai_connection_test.py` | shared connection test, CLI and API (D-065) | M2.c1 |
 | `app/demo/` | fictional demo data: dataset loader, simulated learner, 60-day simulation through the services, provisional direct writes, atomic `demo seed` | M1.c |
@@ -84,7 +86,7 @@ db/
 ## Domain and services (M1.b)
 
 ```
-api/ (M3+), cli_plan.py          entry points: open a session, call services, commit or roll back
+api/, cli_plan.py, cli_library.py  entry points: open a session, call services, commit or roll back
    │
 services/                         read/write the database; never commit (D-023)
   reviews.py      record_review(): SRS state, reps/lapses, review_log snapshot, card.reviewed, status check
@@ -93,6 +95,10 @@ services/                         read/write the database; never commit (D-023)
   decks.py        change_deck_status(), reorder_queue()
   durations.py    observed_estimates(): medians from review_log and discovery.completed events
   planning.py     build_plan_inputs() + plan_today(): read-only
+  library.py      sources, decks, terms, deck links, search, quick add, duplicates lookup, deletion rules (M3.a)
+  importing.py    preview() (read-only) and commit() of the rows the user validated (M3.a)
+  triage.py       list_triage() (no usage sheet), apply_triage() all or nothing (M3.a)
+  duplicates.py   list_groups(), merge_items() (inversion, merge_conflict) (M3.a)
    │
 domain/                           pure: no session, no network, no clock (`now` is a parameter)
   study_day.py    as_utc(), study_day_of(), study_day_bounds()        (timezone + day_start_hour)
@@ -103,6 +109,8 @@ domain/                           pure: no session, no network, no clock (`now` 
   durations.py    default durations, duration classes, estimate_durations()
   forecast.py     CardSnapshot, forecast_load() (14 study days, overdue on day 0)
   planner.py      PlanInputs → plan_session() → SessionPlan (blocks, caps, limit, warnings)
+  markdown_import.py  parse_import(text, today) → ParsedImport (header, rows, problems with stable codes) (M3.a)
+  normalize.py    normalize_term(), naive_lemma() (single-word stem), classify_match(), term_in_sentence() (M3.a)
 ```
 
 - **Flow of a review**: `record_review` loads the item, refuses archived/known items and out-of-order
@@ -113,6 +121,12 @@ domain/                           pure: no session, no network, no clock (`now` 
   engine), decks with their items, discovering items, errors of the last 14 days, pending consolidation tasks
   and observed durations; `plan_session` computes the blocks and the number of new terms (formula in
   D-029). Nothing is written.
+- **Flow of an import** (M3.a): the browser reads the Markdown file and sends its text as JSON;
+  `POST /api/import/preview` parses it (`parse_import`) and looks up duplicates and the target deck, without
+  writing; the page lets the user fix, confirm, include or exclude rows and choose `attach | new | skip`; then
+  `POST /api/import/commit` re-checks every row with the same domain functions and writes the deck (and source),
+  the terms (`draft` → `triage` or `queued` through `set_item_status`), the deck links and `import.completed` in one
+  transaction (D-074). The CLI `library import` runs the same two steps.
 
 ## AI gateway (`backend/app/ai/`, M2.a, M2.b1, M2.b2)
 

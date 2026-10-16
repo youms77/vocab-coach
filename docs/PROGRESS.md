@@ -4,11 +4,133 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M2.c2 — settings page, frontend only (2026-10-16), branch
-  `feat/m2c2-settings-page`, cut from `main` after PR #7 (M2.c1) was merged. **M2 is complete** except its
-  acceptance criterion "one real test call succeeds with the user's key", which only the owner can run.
-- **Next milestone**: **M3 — Library and import** (SPEC §10).
-- The owner has not yet run anything against the real services: see "Owner's manual scenario" below.
+- **Last milestone completed**: M3.a — Markdown import, library, duplicates and intake triage, backend only
+  (2026-10-16), branch `feat/m3a-library-import`, **stacked on `feat/m2c2-settings-page`** (M2.c2, not merged yet).
+  M1.a to M2.c1 are merged in `main`.
+- **Next milestone**: **M3.b** — usage sheets (batch enrichment through the gateway) and list extension; then
+  **M3.c** — the library, import, triage and duplicates pages, on top of the API reference below.
+- Merge order: M2.c2's PR first, then M3.a's.
+- The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2.
+
+## M3.a — Markdown import, library, duplicates, intake triage (backend) ✅
+
+M3 is cut in three: **M3.a** (this part: backend, no AI call), **M3.b** (usage sheets and list extension, AI),
+**M3.c** (interface). Branch `feat/m3a-library-import`, **stacked on `feat/m2c2-settings-page`** (the M2.c2 session
+worked in the same folder and its first commit landed on this branch; with the owner's approval the M3.a commits were
+replayed on top of M2.c2's two commits). Merge the M2.c2 PR first, then this one.
+
+### Done
+
+- **Parser** (`app/domain/markdown_import.py`, D-071): header, bullets, checkboxes, wrappers, `|`, ambiguous lines
+  reported and not included, warnings, limits, type guess; never raises on user input.
+- **Normalisation and lemma** (`app/domain/normalize.py`, D-072): normalised form, cautious single-word stem with
+  exceptions, `exact` / `possible` matching, term-in-sentence check. No new dependency.
+- **Services** (D-073 to D-077): `library.py` (sources, decks, terms, deck links, search, quick add, deletion
+  rules), `importing.py` (read-only preview, atomic commit of the validated rows), `triage.py` (all or nothing,
+  `unsure` → queued), `duplicates.py` (groups, merge with inversion and `merge_conflict`).
+- **Events** (D-078): `deck.updated`, `deck.deleted`, `item.edited`, `item.deleted`, `import.completed`.
+- **API** (`app/api/library.py`): 16 routes, reference below. Library errors use the D-063 format.
+- **CLI**: `python -m app [--demo] library import <file> [--deck-id N] [--no-triage] [--commit]`.
+- **Examples**: `content/examples/import-with-header.md`, `import-without-header.md` (fictional).
+- **Demo**: decks, terms, links and triage go through the services; only `lexical_item.normalized_form` / `lemma`
+  differ from before (D-078).
+- **No migration, no frontend change, SPEC.md unchanged.**
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes: ruff check, ruff format --check, pytest **1072 passed, 4 deselected** (856 on `main` before
+  M3.a), tsc, oxlint, vitest 35 passed (M2.c2's tests included). `alembic check`: "No new upgrade operations
+  detected".
+- `demo seed --reset` rebuilt the demo database without error (5 decks, 113 terms, 2 068 events).
+- **Tests cover**: the parser (table-driven: every bullet style, checkbox, wrappers, heading, blank lines, `|`
+  repeated, `term = translation`, sentence-like line, sub-item, invalid YAML, unknown key, past and invalid deadlines,
+  empty file, header only, BOM + CRLF, old Mac endings, size and line limits, odd inputs); both example files give
+  exactly the expected problems at the expected lines (LF and CRLF + BOM); normalisation and lemma (news, series,
+  data, analysis... left alone); services (atomic import with an injected failure, attach / new / skip, term already
+  in the deck, triage or queued intake, all-or-nothing triage with `unsure`, merge with inversion and refusal,
+  `item_has_history`, `deck_has_history`, every new event validated); every API route with filters, paging, 409
+  `duplicate_term`, 422 without the received value, 415 for a non-JSON body (multipart included); the CLI (preview
+  writes nothing, `--commit`, exit codes 0 / 1 / 2, `--demo`).
+- **Manual scenario on the demo database**: the preview printed the header, 12 lines, two ambiguous lines (L16
+  definition, L18 sentence), one in-file duplicate (L17), one `term_not_in_sentence` (L19) and two exact duplicates
+  found in the demo decks (`shed light on`, `as you can see on this slide`); nothing written. With `--commit`: "7 new
+  (waiting for triage), 2 existing added, 3 skipped (2 ambiguous left out)". Through the API (started with `--demo`):
+  `GET /items?deck_id=6` (9 terms), `POST /triage` on two terms (`{"known":1,"unsure":0,"learn":1}`), 5 left in
+  `GET /triage`, `GET /duplicates` (no group in the demo), a `text/plain` POST → 415, a foreign `Origin` → 403.
+
+### API reference for M3.c
+
+Every error is `{"detail": {"code", "message", ...}}` (D-063); writes need `Content-Type: application/json`.
+Ids are integers. `DeckRef = {id, name}`. `Candidate = {id, term, normalized_form, status, match: "exact"|"possible",
+decks: [DeckRef]}`. `Problem = {line: int|null, severity: "info"|"warning"|"ambiguous"|"error", code, message,
+suggestion: object|null}`.
+
+| Route | Request | Success |
+|---|---|---|
+| `POST /api/import/preview` | `{text (≤ 300 000 chars), deck_id?}` | 200 `{header: {deck, domain, source, context, deadline}, rows: [Row], problems: [Problem], rejected, lines_read, importable, ambiguous, with_duplicates}`; `Row = {line, raw, term, sentence, item_type, normalized_form, include, ambiguous, problems: [Problem], duplicates: [Candidate], in_target_deck, default_on_duplicate: "attach"|"new"|null}` |
+| `POST /api/import/commit` | `{header, rows: [{line?, term, sentence?, item_type?, include=true, confirmed=false, on_duplicate?: "attach"|"new"|"skip", attach_to?}] (≤ 1000), target: {deck_id?} or {new_deck_name?}, intake: "triage"|"queued" (default triage)}` | 200 `{deck_id, created_deck, lines_read, imported, attached, skipped, ambiguous, item_ids}` |
+| `GET /api/items` | `q, deck_id, domain, source_id, item_type, status (repeatable), include_archived=false, sort: created_at\|term\|updated_at\|status\|status_changed_at\|id, order: asc\|desc, limit 1–200 (50), offset` | 200 `{total, items: [Item]}`; `Item = {id, term, normalized_form, lemma, item_type, part_of_speech, origin_sentence, notes, status, status_changed_at, discovered_at, created_at, updated_at, decks: [DeckRef]}` |
+| `POST /api/items` (quick add) | `{term, sentence?, deck_id?, item_type?, on_duplicate?: "attach"|"new", attach_to?}` | 201 `{item: Item, deck_id, attached, duplicates: [Candidate]}`; no deck → "Quick adds"; new terms are `queued` |
+| `GET /api/items/{id}` | – | 200 `Item + {deck_links: [{deck_id, deck_name, position, context_sentence, added_at}], has_history, duplicates}` |
+| `PATCH /api/items/{id}` | any of `{term, origin_sentence, item_type, part_of_speech, notes}` | 200 same as GET (duplicates of the new spelling, never blocking) |
+| `DELETE /api/items/{id}` | – | 204 |
+| `POST /api/items/{id}/status` | `{to}` | 200 `Item`; manual D-025 transitions; from `archived`, `to` must be `queued` (no cards) or `learning` (cards) |
+| `POST /api/items/{id}/merge` | `{into}` | 200 `{kept_id, removed_id, inverted}` |
+| `GET /api/decks` | – | 200 `[Deck]`; `Deck = {id, name, description, domain, kind, status, deadline, priority, queue_position, source: {id, title}\|null, created_at, updated_at, item_count, items_by_status: {status: n}}` |
+| `POST /api/decks` | `{name, description?, domain?, deadline?, source_id?}` | 201 `Deck` (`queued`, end of the queue) |
+| `GET /api/decks/{id}` | – | 200 `Deck` |
+| `PATCH /api/decks/{id}` | any of `{name, description, domain, deadline, priority}` | 200 `Deck` (status changes are M4) |
+| `DELETE /api/decks/{id}` | – | 200 `{deck_id, deleted_item_ids}` |
+| `GET /api/triage?deck_id=` | – | 200 `[{item_id, term, item_type, sentence, decks}]` (no usage sheet, on purpose) |
+| `POST /api/triage` | `{decisions: [{item_id, decision: "learn"|"unsure"|"known"}]}` (1–1000) | 200 `{learn, unsure, known}` counts |
+| `GET /api/duplicates` | – | 200 `[{match, key, items: [{id, term, normalized_form, status, has_cards, decks}]}]` |
+
+| Status | `code` | When |
+|---|---|---|
+| 404 | `item_not_found`, `deck_not_found`, `source_not_found` | unknown id |
+| 409 | `duplicate_term` (+ `candidates`) | quick add of a term that may exist, without `on_duplicate` |
+| 409 | `already_in_deck` | quick add `attach` to a deck that already holds the term |
+| 409 | `item_has_history` (+ `suggestion: "archive"`) | delete a term with cards, errors or productions |
+| 409 | `deck_has_history` | delete a deck whose terms started discovery |
+| 409 | `merge_conflict` (+ `item_ids`) | both terms have cards |
+| 409 | `not_in_triage` (+ `item_ids`) | a decision for a term not in triage (nothing applied) |
+| 409 | `invalid_transition` (+ `from_status`, `to_status`) | status change not allowed by D-025 |
+| 422 | `invalid_request` (+ `errors`) | wrong shape, unknown field, bad query value |
+| 422 | `invalid_term` | empty, longer than 300 characters, contains `\|`; `name` / `term` / `item_type` / `priority` set to null |
+| 422 | `row_rejected` (+ `row`, `line`, `problems`) | ambiguous row not confirmed, or invalid row |
+| 422 | `deck_name_required` | new deck without `new_deck_name` nor header `deck` |
+| 422 | `invalid_attach_target` | `attach_to` is not one of the row's duplicates |
+| 422 | `merge_same_item`, `duplicate_decision` | merge into itself, same term twice in a triage |
+| 415 | `unsupported_media_type` | write body that is not JSON (read the file in the browser, send the text) |
+| 503 | `database_unavailable` | no database file |
+
+**Problem codes** (i18n keys for M3.c): parser `too_large`, `not_utf8` (CLI), `invalid_header`,
+`invalid_header_value`, `unclosed_header`, `unknown_header_key`, `invalid_deadline`, `past_deadline`,
+`heading_ignored`, `horizontal_rule`, `multiple_separators`, `looks_like_definition`, `looks_like_sentence`,
+`nested_item`, `empty_term`, `term_too_long`, `term_not_in_sentence`, `duplicate_in_file`; preview `duplicate_exact`,
+`duplicate_possible`, `already_in_deck`, `existing_status_kept`. Suggestions: `looks_like_definition` →
+`{term, note}`, `duplicate_in_file` → `{kept_line}`, duplicates → `{item_id}`, unknown key / bad value → `{key}`.
+
+Notes for the page: a row the user corrects is sent with its new `term` (no `confirmed` needed if it is now clear);
+`confirmed: true` only works for `looks_like_definition` and `looks_like_sentence`. The commit counts every row sent
+in `lines_read`. Time stamps are UTC ISO strings.
+
+### Left / notes
+
+- **M3.b**: usage sheets (batch enrichment through the gateway, call first then write), review and editing (never
+  regenerate an edited sheet), list extension with the same triage, search in sheet content. **M3.c**: the library,
+  import (file read in the browser), triage and duplicates pages, i18n of every code above.
+- Deck pause / resume / done / reorder through the API is M4 (module D).
+- `normalize_term` strips any initial "to " (`to a large extent`); the lemma is a stem and only for single words.
+  Both only *propose* matches.
+- SQLite `lower()` is ASCII-only: `q` with accented capitals may miss the term column, though the normalised-form
+  branch still finds the term itself.
+- The M3.a branch is stacked on M2.c2: if M2.c2 changes before merging, rebase this branch on it (or on `main`
+  once M2.c2 is merged).
+
+### Known issues
+
+- None known.
 
 ## M2.c2 — Settings page (frontend) ✅
 
@@ -581,12 +703,14 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M3 (library and import)
+## Next step: M3.b (usage sheets and list extension)
 
-- **M3 — Library and import** (SPEC §10, module A): Markdown import with preview, quick add, batch enrichment
-  through the gateway (call the AI first, then write in a short transaction), review and editing, intake triage, list
-  extension, duplicates, search and filters.
-- Before or alongside: the owner's real calls (M2.c2 scenario above) to close M2 and the D-056 "to confirm" list.
+- **M3.b** (SPEC module A): batch enrichment through the gateway (5 to 10 terms per call; call the AI first, then
+  write in a short transaction, D-038), `incomplete` / `unavailable` handled (degraded mode: manual sheet entry),
+  review and editing (an edited sheet is never regenerated without consent), exercise sentences stored with the sheet,
+  list extension (10 to 30 suggestions sorted with the same triage), search in sheet content.
+- **M3.c**: the interface for M3.a and M3.b (`frontend/src/features/library/`), every code above as an i18n key.
+- Before or alongside: the owner's real calls (M2.c2 scenario) to close M2 and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅
