@@ -41,17 +41,19 @@ from app.domain.enums import (
     ProductionKind,
     SrsState,
 )
-from app.domain.events import TriageDecision
+from app.domain.events import ItemOrigin, TriageDecision
 from app.domain.fsrs_engine import FsrsEngine
 from app.domain.item_status import REVIEWABLE_STATUSES
 from app.domain.planner import BlockKind, NewItemEntry, ReviewEntry, SessionPlan
 from app.domain.srs import Rating, SrsEngine
 from app.domain.study_day import study_day_bounds
+from app.services import library
 from app.services.decks import change_deck_status, reorder_queue
 from app.services.discovery import complete_discovery, start_discovery
 from app.services.items import mark_active, transition_item
 from app.services.planning import plan_today
 from app.services.reviews import card_state, record_review
+from app.services.triage import apply_triage
 
 # Length of history the dataset's day offsets are written for; shorter runs scale them.
 REFERENCE_DAYS = 60
@@ -235,8 +237,25 @@ class Simulation:
             )
         )
         position = None if spec.queue == "front" else len(others)
-        deck = writes.create_deck(
-            self.session, spec, at, deadline=self._deadline(spec), queue_position=position
+        source_id = None
+        if spec.source is not None:
+            source = library.create_source(
+                self.session,
+                title=spec.source.title,
+                author=spec.source.author,
+                domain=spec.domain,
+                at=at,
+            )
+            source_id = source.id
+        deck = library.create_deck(
+            self.session,
+            name=spec.name,
+            description=spec.description,
+            domain=spec.domain,
+            source_id=source_id,
+            deadline=self._deadline(spec),
+            queue_position=position,
+            at=at,
         )
         self.state.decks[spec.key] = deck
         if spec.queue == "front":
@@ -245,12 +264,21 @@ class Simulation:
         for position, entry in enumerate(spec.terms):
             if isinstance(entry, DemoTermRef):
                 item = self.state.items[entry.ref.lower()]
-                writes.add_to_deck(self.session, deck, item, position, at)
+                library.add_item_to_deck(self.session, deck, item, at, position=position)
                 continue
-            item = writes.create_item(self.session, entry, deck, at)
+            item = library.create_item(
+                self.session,
+                term=entry.term,
+                at=at,
+                origin=ItemOrigin.DEMO,
+                sentence=entry.sentence,
+                item_type=entry.type,
+                part_of_speech=entry.pos,
+                deck_id=deck.id,
+            )
             self.state.items[entry.term.lower()] = item
             self.state.terms[item.id] = entry
-            writes.add_to_deck(self.session, deck, item, position, at)
+            library.add_item_to_deck(self.session, deck, item, at, position=position)
             if entry.fate == Fate.DRAFT:
                 continue
             target = ItemStatus.TRIAGE if spec.intake == "triage" else ItemStatus.QUEUED
@@ -269,10 +297,10 @@ class Simulation:
                 continue  # left for later: the deadline warns about it
             if fate == Fate.KNOWN:
                 if first:
-                    writes.triage_item(self.session, item, TriageDecision.KNOWN, at)
+                    apply_triage(self.session, [(item.id, TriageDecision.KNOWN)], at)
                 continue
             if decided < count:
-                writes.triage_item(self.session, item, TriageDecision.LEARN, at)
+                apply_triage(self.session, [(item.id, TriageDecision.LEARN)], at)
                 decided += 1
 
     # --- sessions ------------------------------------------------------------------------------

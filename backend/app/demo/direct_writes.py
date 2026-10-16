@@ -1,12 +1,12 @@
 """Demo-only direct writes: rows that no service creates yet (D-035, provisional).
 
-Deck and term creation and triage decisions belong to module A (M3); productions and errors to
-module E (M5); study sessions to module D's interface (M4). Until those services exist, the demo
-writes the rows here, always with the matching event and a backdated `occurred_at`. When the
-services arrive, the simulation calls them instead and this module shrinks.
+Productions and errors belong to module E (M5); study sessions to module D's interface (M4). Until
+those services exist, the demo writes the rows here, always with the matching event and a
+backdated `occurred_at`. Decks, terms, deck links and triage decisions moved to the library
+services in M3.a (`app/services/library.py`, `triage.py`).
 """
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -14,127 +14,26 @@ from sqlalchemy.orm import Session
 
 from app.db.event_log import record_event
 from app.db.models import (
-    Deck,
-    DeckItem,
     ErrorCategory,
     ErrorEvent,
-    LexicalItem,
     ProductionAttempt,
-    Source,
     StudySession,
 )
-from app.demo.dataset import DemoDeck, DemoTerm, ErrorTemplate
+from app.demo.dataset import ErrorTemplate
 from app.domain.enums import (
-    DeckKind,
-    DeckStatus,
     ErrorSource,
-    ItemStatus,
     Modality,
     ProductionKind,
 )
 from app.domain.events import (
-    DeckCreated,
-    DeckItemAdded,
     ErrorRecorded,
-    ItemCreated,
-    ItemOrigin,
-    ItemTriaged,
     ProductionRecorded,
     SessionEnded,
     SessionStarted,
-    TriageDecision,
 )
-from app.services.items import transition_item
 
 # Format of `study_session.planned` / `summary` written by the demo; M4 owns the real format.
 DEMO_SESSION_FORMAT = "demo-provisional-1"
-
-
-def create_deck(
-    session: Session,
-    spec: DemoDeck,
-    at: datetime,
-    *,
-    deadline: date | None,
-    queue_position: int | None,
-) -> Deck:
-    source_id = None
-    if spec.source is not None:
-        source = Source(
-            title=spec.source.title,
-            author=spec.source.author,
-            domain=spec.domain,
-            created_at=at,
-            updated_at=at,
-        )
-        session.add(source)
-        session.flush()
-        source_id = source.id
-    deck = Deck(
-        name=spec.name,
-        description=spec.description,
-        domain=spec.domain,
-        source_id=source_id,
-        kind=DeckKind.CUSTOM,
-        status=DeckStatus.QUEUED,
-        deadline=deadline,
-        queue_position=queue_position,
-        created_at=at,
-        updated_at=at,
-    )
-    session.add(deck)
-    session.flush()
-    record_event(
-        session, DeckCreated(deck_id=deck.id, kind=deck.kind, status=deck.status), occurred_at=at
-    )
-    return deck
-
-
-def create_item(session: Session, spec: DemoTerm, deck: Deck, at: datetime) -> LexicalItem:
-    """A new term, in `draft`, created through `deck`."""
-    item = LexicalItem(
-        term=spec.term,
-        normalized_form=spec.term.lower(),
-        item_type=spec.type,
-        part_of_speech=spec.pos,
-        origin_sentence=spec.sentence,
-        status=ItemStatus.DRAFT,
-        status_changed_at=at,
-        created_at=at,
-        updated_at=at,
-    )
-    session.add(item)
-    session.flush()
-    record_event(
-        session,
-        ItemCreated(
-            lexical_item_id=item.id,
-            item_type=item.item_type,
-            origin=ItemOrigin.DEMO,
-            deck_id=deck.id,
-        ),
-        occurred_at=at,
-    )
-    return item
-
-
-def add_to_deck(
-    session: Session, deck: Deck, item: LexicalItem, position: int, at: datetime
-) -> DeckItem:
-    link = DeckItem(deck_id=deck.id, lexical_item_id=item.id, position=position, added_at=at)
-    session.add(link)
-    session.flush()
-    record_event(session, DeckItemAdded(deck_id=deck.id, lexical_item_id=item.id), occurred_at=at)
-    return link
-
-
-def triage_item(
-    session: Session, item: LexicalItem, decision: TriageDecision, at: datetime
-) -> None:
-    """Record the intake decision, then apply the status change through the item service."""
-    record_event(session, ItemTriaged(lexical_item_id=item.id, decision=decision), occurred_at=at)
-    target = ItemStatus.KNOWN if decision == TriageDecision.KNOWN else ItemStatus.QUEUED
-    transition_item(session, item, target, at)
 
 
 def start_study_session(session: Session, at: datetime, planned: dict[str, Any]) -> StudySession:
