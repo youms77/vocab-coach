@@ -1,4 +1,5 @@
-"""Command line: `python -m app [--reload]` runs the API; `python -m app db ...` manages the DB."""
+"""Command line: `python -m app [--reload]` runs the API; `python -m app db ...` manages the DB;
+`python -m app plan today` prints today's session plan (read-only)."""
 
 import argparse
 import sys
@@ -9,6 +10,7 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.cli_plan import CommandError, build_today_plan, render_plan
 from app.config import get_settings
 from app.db import migrate
 from app.db.engine import create_db_engine, sqlite_file
@@ -78,6 +80,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "reset", help="back up the current database file, then recreate an empty one"
     )
     reset.add_argument("--yes", action="store_true", help="confirm the reset")
+
+    plan = commands.add_parser("plan", help="session planning (read-only)")
+    plan_commands = plan.add_subparsers(dest="plan_command", required=True)
+    today = plan_commands.add_parser("today", help="print today's session plan")
+    today.add_argument(
+        "--at", help="plan as of this ISO date-time (e.g. 2026-11-01T08:00; local if no offset)"
+    )
+    today.add_argument("--json", action="store_true", help="print the raw plan as JSON")
     return parser
 
 
@@ -88,6 +98,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     settings = get_settings()
     url = settings.resolved_database_url
+    if args.command == "plan":
+        try:
+            plan = build_today_plan(url, args.at)
+        except CommandError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        print(plan.model_dump_json(indent=2) if args.json else render_plan(plan))
+        return 0
     try:
         if args.db_command == "upgrade":
             result = db_upgrade(url)

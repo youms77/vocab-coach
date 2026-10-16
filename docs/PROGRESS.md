@@ -4,9 +4,70 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M1.a — Data layer (2026-10-16), branch `feat/m1a-data-model` (PR open,
-  merged by the owner after green CI).
-- **Next milestone**: M1.b — FSRS service, planner, queue, demo data.
+- **Last milestone completed**: M1.b — FSRS service, item statuses, deck queue, daily planner
+  (2026-10-16), branch `feat/m1b-domain-logic` (PR open; the owner merges after green CI). M1.a is merged
+  into `main` (PR #1).
+- **Next milestone**: M1.c — demo data, demo mode, waiting for the API at startup.
+
+## M1.b — FSRS service, statuses, queue, planner ✅
+
+### Done
+
+- **Dependency**: `fsrs` 6.3.2 (latest on PyPI on 2026-10-16, checked with `pip index versions`; source read
+  before writing the adapter), declared `>=6.3.2,<7`. See D-022.
+- **SRS** (`app/domain/srs.py`, `fsrs_engine.py`): internal `SrsEngine` interface, library-free state,
+  FSRS adapter (`new` → Learning step 0, `Card.to_dict()` payload, UTC normalisation), fuzzing with an
+  injected generator (off or seeded for tests and simulations).
+- **Review service** (`app/services/reviews.py`): `record_review()` applies the final rating, stores the
+  proposed one, updates `reps`/`lapses`, the full `review_log` snapshot, `card.reviewed`, then the item
+  status; refuses out-of-order reviews and items that are not learning/consolidated/active.
+- **Item statuses** (`app/domain/item_status.py`, `app/services/items.py`, `discovery.py`): explicit
+  transition table with a dedicated error, automatic learning ↔ consolidated (productive stability ≥ 7 days),
+  `mark_active`, unarchive, `start_discovery`, `complete_discovery` (with or without initial ratings), new
+  event `card.created`.
+- **Decks and queue** (`app/domain/deck_queue.py`, `app/services/decks.py`): transition table, pause/done
+  semantics, queue order (deadline then position), dense `reorder_queue`, n-n terms proposed once,
+  automatic activation proposed by the planner without writing.
+- **Study day, durations, forecast**: `study_day_of` / `study_day_bounds`; default durations then observed
+  medians (D-028); `forecast_load` over 14 study days.
+- **Planner** (`app/domain/planner.py`, `app/services/planning.py`): pure `plan_session()` → serialisable
+  `SessionPlan` (blocks, durations, caps, limiting constraint, decks to activate, deadline paces, coded
+  warnings). Formula in D-029 and D-030.
+- **CLI**: `python -m app plan today [--at ISO] [--json]`, read-only (`PRAGMA query_only`).
+- **Tests**: test database built once per session and copied per test (D-032).
+- **No migration and no new setting** (the consolidation threshold reuses
+  `consolidation_min_stability_days`).
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes: ruff check, ruff format --check, pytest **246 passed**, tsc, oxlint, vitest 8
+  passed.
+- `alembic upgrade head && alembic check`: "No new upgrade operations detected".
+- **Tests cover** every acceptance criterion of the milestone: SRS (new + Good/Again, Again in Review → lapse
+  and Relearning, reps, before/after snapshot, exact `to_dict` round trip, 0.95 vs 0.90 retention, fake
+  engine, earlier review refused, seeded fuzz), statuses (every allowed and forbidden transition, events,
+  consolidation around the threshold, discovery with and without ratings, unarchive), queue (order, dense
+  reorder, pause, automatic activation without writes, n-n), study day (04:00 switch in Africa/Douala,
+  learning steps due later today), planner (reviews first, quota, budget, overflow, 7-day anticipation,
+  30 terms / 10 days → 3 per day, unrealistic deadline, past deadline, interrupted discovery first,
+  targeted practice, durations), forecast (overdue on day 0, archived excluded), CLI (database unchanged).
+- **Manual scenario**:
+  1. `uv run python -m app plan today` → empty readable plan: no reviews, 0 new terms, budget 45 min,
+     limit "nothing to learn";
+  2. `--json` → valid JSON;
+  3. `uv run pytest -k "planner or srs or queue or status" -v` → readable names, all green;
+  4. `start.cmd -NoBrowser` starts as before; `/api/health` answers directly and through the Vite proxy.
+
+### Left / notes
+
+- **Not yet verified**: CI on GitHub for this branch (it runs on the PR).
+- Deviations approved with the plan: Good on a new card → step 1 (+10 min); `supply` limit value; durations
+  by class; reviews refused for any status outside learning/consolidated/active; `via_deck` optional;
+  `reorder_queue` covers every deck that is not done.
+
+### Known issues
+
+- None known.
 
 ## M1.a — Data layer ✅
 
@@ -73,13 +134,13 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 - None known.
 
-## Next step: M1.b — FSRS service, planner, queue, demo data
+## Next step: M1.c — demo data, demo mode, waiting for the API at startup
 
-- Install `fsrs` (6.3.2 was current on 2026-10-16; check again) behind an internal SRS interface. Map our
-  `new` state to Learning, step 0, and fill the `review_log` before/after snapshot (see D-012).
-- Item status transition rules; deck queue (activation, reordering, deadlines); daily planner (reviews
-  before new items, quota, deadline pacing, time budget, duration estimate).
-- Fictional demo data, backdated with `occurred_at`.
+- Fictional demo data (decks, terms, errors), with history backdated through `occurred_at`. Simulate about
+  60 days of reviews through the real services with `FsrsEngine(rng=Random(seed))` so the result is
+  reproducible (D-022).
+- Demo mode, kept apart from the user's own database.
+- Launch scripts wait for the API (`wait-on` or equivalent) before opening the browser.
 
 ## M0 — Foundation ✅
 
