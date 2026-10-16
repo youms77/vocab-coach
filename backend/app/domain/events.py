@@ -32,10 +32,15 @@ class EventType(StrEnum):
     DECK_STATUS_CHANGED = "deck.status_changed"
     DECK_REORDERED = "deck.reordered"
     DECK_ITEM_ADDED = "deck.item_added"
+    DECK_UPDATED = "deck.updated"
+    DECK_DELETED = "deck.deleted"
     ITEM_CREATED = "item.created"
     ITEM_STATUS_CHANGED = "item.status_changed"
     ITEM_TRIAGED = "item.triaged"
     ITEM_MERGED = "item.merged"
+    ITEM_EDITED = "item.edited"
+    ITEM_DELETED = "item.deleted"
+    IMPORT_COMPLETED = "import.completed"
     ENRICHMENT_GENERATED = "enrichment.generated"
     ENRICHMENT_EDITED = "enrichment.edited"
     DISCOVERY_COMPLETED = "discovery.completed"
@@ -121,6 +126,43 @@ class DeckItemAdded(Event):
     lexical_item_id: Id
 
 
+class DeckUpdated(Event):
+    """Deck fields edited by the user (names only, never the values)."""
+
+    event_type = EventType.DECK_UPDATED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    deck_id: Id
+    fields: Annotated[list[str], Field(min_length=1)]
+
+
+class DeckDeleted(Event):
+    """A deck with no history was deleted, with the terms that belonged to no other deck."""
+
+    event_type = EventType.DECK_DELETED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    deck_id: Id
+    deleted_item_ids: list[Id]
+
+
+class ImportCompleted(Event):
+    """A Markdown list was imported into `deck_id` (counts over the rows the user validated)."""
+
+    event_type = EventType.IMPORT_COMPLETED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    deck_id: Id
+    lines_read: Annotated[int, Field(ge=0)]
+    imported: Annotated[int, Field(ge=0)]  # new terms created
+    attached: Annotated[int, Field(ge=0)]  # existing terms linked to the deck
+    skipped: Annotated[int, Field(ge=0)]  # excluded, `skip`, or already in the deck
+    ambiguous: Annotated[int, Field(ge=0)]  # ambiguous in the file (imported only if confirmed)
+
+
 # --- Items -------------------------------------------------------------------------------------
 
 
@@ -162,6 +204,27 @@ class ItemMerged(Event):
     # The item that is kept; `merged_item_id` is folded into it.
     lexical_item_id: Id
     merged_item_id: Id
+
+
+class ItemEdited(Event):
+    """Term fields edited by the user (names only, never the values)."""
+
+    event_type = EventType.ITEM_EDITED
+    entity_type = "lexical_item"
+    entity_id_field = "lexical_item_id"
+
+    lexical_item_id: Id
+    fields: Annotated[list[str], Field(min_length=1)]
+
+
+class ItemDeleted(Event):
+    """A term with no history was deleted (terms with history are archived instead)."""
+
+    event_type = EventType.ITEM_DELETED
+    entity_type = "lexical_item"
+    entity_id_field = "lexical_item_id"
+
+    lexical_item_id: Id
 
 
 # --- Usage sheets and discovery ----------------------------------------------------------------
