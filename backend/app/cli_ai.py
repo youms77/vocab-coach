@@ -23,14 +23,18 @@ from sqlalchemy.orm import Session
 from app.ai.gateway import Gateway
 from app.ai.providers import Provider
 from app.ai.redact import clean_message
-from app.ai.schemas.connection_test import ConnectionTestOutput
-from app.ai.types import AiResult, AiStatus, AudioClip, Capability
+from app.ai.types import AiStatus, AudioClip, Capability
 from app.config import Settings
 from app.db import migrate
 from app.db.engine import create_db_engine, sqlite_file
-from app.db.models import AICallLog
 from app.db.settings_store import get_setting
 from app.domain.settings_defaults import KNOWN_AI_PROVIDERS, default_for
+from app.services.ai_connection_test import (
+    ConnectionTestReport,
+    TestInProgress,
+    report_from_result,
+    run_connection_test,
+)
 from app.services.ai_usage import ai_usage_for_day, study_day_now
 
 EXIT_OK = 0
@@ -216,13 +220,13 @@ def _load_clip(path: Path, providers: Mapping[str, Provider], wanted: str | None
 
 
 def _test_text(gateway: Gateway, engine: Engine, settings: Settings, name: str, out: Out) -> bool:
-    started = time.perf_counter()
-    result = gateway.generate_json(
-        "connection_test", {"text": "ping"}, ConnectionTestOutput, pin_provider=name
-    )
-    elapsed_ms = round((time.perf_counter() - started) * 1000)
-    out("    " + _describe(result, name, engine, settings, elapsed_ms))
-    return result.status is AiStatus.OK
+    try:
+        report = run_connection_test(gateway, _sessions(engine), name, settings.secret_values)
+    except TestInProgress:  # cannot happen from the CLI (one test at a time); say it anyway
+        out(f"    {name}: FAILED, a test of this provider is already running")
+        return False
+    out("    " + _describe(report))
+    return report.status is AiStatus.OK
 
 
 def _test_audio(
@@ -231,46 +235,43 @@ def _test_audio(
     started = time.perf_counter()
     result = gateway.transcribe(clip, language="en", pin_provider="groq")
     elapsed_ms = round((time.perf_counter() - started) * 1000)
-    out("    " + _describe(result, "groq", engine, settings, elapsed_ms))
+    report = report_from_result(
+        result, "groq", elapsed_ms, _sessions(engine), settings.secret_values()
+    )
+    out("    " + _describe(report))
     if result.data is not None:
         out(f"    transcript: {_mask(result.data.text, settings) or '(no speech recognised)'}")
-    return result.status is AiStatus.OK
+    return report.status is AiStatus.OK
 
 
-def _describe(
-    result: AiResult, name: str, engine: Engine, settings: Settings, elapsed_ms: int
-) -> str:
-    model = result.model or "?"
-    if result.status is AiStatus.OK:
+def _sessions(engine: Engine) -> Callable[[], Session]:
+    return lambda: Session(engine)
+
+
+def _describe(report: ConnectionTestReport) -> str:
+    name, model = report.provider, report.model or "?"
+    if report.status is AiStatus.OK:
         tokens = ""
-        if result.input_tokens is not None or result.output_tokens is not None:
-            tokens = f", tokens in/out {result.input_tokens}/{result.output_tokens}"
-        return f"{name}: ok ({model}, {elapsed_ms} ms{tokens})"
-    code, http_status = _last_error(engine, result.call_id)
-    if result.status is AiStatus.INCOMPLETE:
-        reason = "the answer did not match the expected schema"
+        if report.input_tokens is not None or report.output_tokens is not None:
+            tokens = f", tokens in/out {report.input_tokens}/{report.output_tokens}"
+        return f"{name}: ok ({model}, {report.elapsed_ms} ms{tokens})"
+    if report.status is AiStatus.INCOMPLETE:
         label = "incomplete"
     else:
-        reason = result.reason.value if result.reason else "unavailable"
+        reason = report.reason.value if report.reason else "unavailable"
         label = f"unavailable ({reason})"
-    parts = [f"{name}: FAILED {label}", f"model {model}", f"{elapsed_ms} ms"]
-    if code:
-        parts.append(f"last error {code}" + (f" HTTP {http_status}" if http_status else ""))
+    parts = [f"{name}: FAILED {label}", f"model {model}", f"{report.elapsed_ms} ms"]
+    if report.error_code:
+        parts.append(
+            f"last error {report.error_code}"
+            + (f" HTTP {report.http_status}" if report.http_status else "")
+        )
     line = ", ".join(parts)
-    if result.detail:
-        line += f"\n      {_mask(result.detail, settings)}"
-    elif result.status is AiStatus.INCOMPLETE:
-        line += f"\n      {reason}"
+    if report.detail_kind == "provider" and report.message:
+        line += f"\n      {report.message}"
+    elif report.detail_kind == "schema":
+        line += "\n      the answer did not match the expected schema"
     return line
-
-
-def _last_error(engine: Engine, call_id: int | None) -> tuple[str | None, int | None]:
-    """Error code and HTTP status of the last logged request, read in a short session."""
-    if call_id is None:
-        return None, None
-    with Session(engine) as session:
-        row = session.get(AICallLog, call_id)
-        return (row.error_code, row.http_status) if row is not None else (None, None)
 
 
 def _database_name(url: str) -> str:
