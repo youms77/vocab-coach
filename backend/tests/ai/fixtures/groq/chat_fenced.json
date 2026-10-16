@@ -1,0 +1,1 @@
+{"id":"chatcmpl-example","object":"chat.completion","created":1760616000,"model":"llama-3.1-8b-instant","choices":[{"index":0,"message":{"role":"assistant","content":"```json\n{\"ok\": true, \"echo\": \"ping\"}\n```"},"finish_reason":"stop"}],"usage":{"prompt_tokens":120,"completion_tokens":22,"total_tokens":142}}

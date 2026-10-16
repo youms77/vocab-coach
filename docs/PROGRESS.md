@@ -4,11 +4,106 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M2.a — AI gateway core, offline (2026-10-16), branch
-  `feat/m2a-ai-core` (PR to open; the owner merges after green CI). M1.a, M1.b and M1.c are merged into
-  `main` (PR #1, #2, #3).
-- **Next milestone**: M2.b — real providers (Gemini, Groq, Ollama), API endpoints, settings page, "test
-  connection" button.
+- **Last milestone completed**: M2.b1 — Groq + Ollama adapters and the `ai status | test | usage` CLI
+  (2026-10-16), branch `feat/m2b1-ai-providers`, **cut from `feat/m2a-ai-core`** (PR #4, M2.a, is still open:
+  merge it first, then retarget this PR on `main`). M1.a, M1.b and M1.c are merged (PR #1, #2, #3).
+- **Next milestone**: **M2.b2** — the Gemini adapter (design already decided, D-055), then **M2.c** — API
+  endpoints, settings page, "test connection" button.
+- The owner has not yet run anything against the real services: see "Owner's manual scenario" below.
+
+## M2.b1 — Real providers (Groq, Ollama) and `ai status | test | usage` ✅
+
+M2.b was cut in two at the owner's request (about 15 significant files plus tests and fixtures): this part
+holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is M2.b2.
+
+### Done
+
+- **Facts verified in the official documentation (2026-10-16)**, with sources, in D-046: Gemini models, free
+  tier and privacy, quotas (not public), regions, JSON, thinking, errors; Groq limits per plan, models, JSON,
+  429 headers, audio limits; Ollama API, errors, models. Gemini's are for M2.b2; what could not be verified is
+  listed there.
+- **`app/ai/http.py`** (D-049): `urllib` client, no SDK and no new dependency; error statuses are normal
+  answers, network failures become `ProviderError` with fixed wording, no redirects, loopback bypasses the
+  proxy, http(s) only, multipart encoder.
+- **`providers/common.py`, `schema.py`** (D-049): `retry_after` in seconds, `34s`, `2m59.56s`, `700ms` and HTTP
+  dates; JSON fence removal; Pydantic schema simplification (inlined `$ref`, dropped validation keywords,
+  closed objects), tested on the shape of an M3 usage sheet.
+- **Groq** (`openai_compat.py` + `groq.py`, D-047): chat completions with `json_schema` best-effort on the
+  documented models, `json_object` on the others, gpt-oss reasoning kept low; Whisper upload with refusal of an
+  empty, over-25-MB or unsupported clip *before* any request.
+- **Ollama** (`ollama.py`, D-048): native `/api/chat`, `stream: false`, `format` schema + schema in the prompt,
+  "configured" = an http(s) base URL, model-not-found tells to `ollama pull`.
+- **Errors** (D-050): every status, header and body shape translated to the D-039 kinds; a daily quota is told
+  from a per-minute limit by the message wording (Groq documents no other way).
+- **Policy** (D-051): new `EXHAUSTED_RETRY_COOLDOWN = 60 s` (closes the M2.a open point), `health.blocked_by()`
+  reports the real cause, and a provider timeout floor (Ollama: 60 s, never beyond the 90 s budget). Other
+  constants kept, with the reasons.
+- **`build_providers()`** (D-052) returns Groq and Ollama, configured or not; new optional
+  `VOCAB_GROQ_TEXT_MODEL`, `VOCAB_GROQ_TRANSCRIPTION_MODEL`, `VOCAB_OLLAMA_MODEL`.
+- **CLI** (`cli_ai.py`, D-053): `ai status`, `ai test [--provider] [--audio]`, `ai usage [--days]`; exit codes
+  0 / 1 (a test failed) / 2 (nothing configured, usage error, no database, `--demo`); never a key or an address;
+  no session open during a call.
+- **Tests** (D-054): fake HTTP servers on the loopback, fixtures from the documentation, hostile-server secret
+  tests, live tests (`tests/live/`, off by default) and a test proving they stay off.
+- **No migration, no frontend change, SPEC.md unchanged.** README: Groq and Ollama set-up, privacy warning,
+  `ai` commands, live tests. `.env.example`: Ollama address and model variables.
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes: ruff check, ruff format --check, pytest **621 passed, 3 deselected** (the live tests;
+  394 existing + 227 new), tsc, oxlint, vitest 11 passed.
+- `alembic upgrade head && alembic check` on a temporary database: "No new upgrade operations detected".
+- Without any key (the three variables forced to empty so the owner's `.env` is never read): `ai status` lists
+  Groq and Ollama as not configured and says the app runs in degraded mode; `ai test` exits 2 ("Nothing is
+  configured"); `ai test --provider groq` exits 2; `ai test --provider gemini` exits 2 ("not available yet");
+  `--demo ai test` exits 2; `ai usage` says nothing was recorded; the API started and `/api/health` answered
+  `database.at_head: true`; `git status` shows no `.env` and no `data/`.
+- **Tests cover** every case of the brief: request construction (URL, headers, body, key never in the URL),
+  valid answers with tokens, every error class from fixtures, `retry_after` formats, empty / blocked / truncated
+  / non-JSON output; the gateway with real adapters over HTTP (429 per minute then success, daily quota then
+  fallback then skip then probe, invalid key ignored until `reload()`, invalid JSON repaired once then
+  `incomplete`, timeout, repeated 429 set aside for a minute, Ollama stopped); the key absent from every error,
+  repr, log, database column, status, traceback and CLI output; the CLI (every exit code, `--audio`, no open
+  transaction during a call).
+- **Not run by me, on purpose**: no real provider call, no live test, no `ai test` with a real key. The `.env`
+  was never opened.
+
+### Owner's manual scenario (with your own keys, about 2 minutes)
+
+1. `uv run python -m app ai status` (from `backend/`): configured or not, models, order, no key shown.
+2. `uv run python -m app ai test`: one `ok` per configured provider with model and time; exit code 0.
+3. Put a wrong key in `.env` for a moment: a clear `auth` message, no key in it, exit code 1.
+4. Cut the network: `unavailable (network)`.
+5. `uv run python -m app ai test --provider groq --audio my_clip.wav`: the transcribed text.
+6. `uv run python -m app ai usage`: today's calls.
+7. Without any key: `start.cmd -NoBrowser` starts as before, `ai test` says nothing is configured (exit 2).
+8. Optional: `$env:VOCAB_RUN_LIVE=1; uv --directory backend run pytest tests/live -m live -v`.
+
+### Left / notes
+
+- **Not yet verified**: CI on GitHub for this branch (it runs on the PR); everything against the real services
+  (the fixtures come from the documentation and public reports; the first real calls may call for adjustments:
+  the exact Groq 429 / 401 bodies, whether the `vocab-coach/0.1` User-Agent is accepted, Whisper's real
+  response, Ollama's first-load time).
+- **Gemini (M2.b2)**: build the adapter from D-055. Re-check the models, pricing and error pages first (read on
+  2026-10-16). Risk n° 1: the `responseFormat` JSON field has never been exercised against the real service; the
+  fallback is `responseMimeType` + `responseJsonSchema`. Add `VOCAB_GEMINI_MODEL`, the Gemini section of the
+  README (key from Google AI Studio, privacy warning already there), the live test, and revisit
+  `MAX_WAIT_S` with real Gemini delays. Hypothesis B.11 (free tier in Cameroon) is confirmed or not by the
+  owner's call.
+- **Groq free plan**: the default text model has 8 000 tokens per minute: M3 tasks that may fall back to Groq
+  must keep input + output well under that, or the answer is a 413 (`bad_request`). `llama-3.x` are not in the
+  free table: if `openai/gpt-oss-20b` is retired, change the default (or `VOCAB_GROQ_TEXT_MODEL`).
+- A transcription refused locally (too big, empty, wrong extension) is journalled as a `bad_request` without
+  HTTP status and counts as a request in `ai usage` (accepted imprecision, D-047).
+- On Windows a refused connection takes about 2 s to fail (the OS retries): Ollama stopped costs 2 s per call
+  until it is set aside for a minute.
+- Another milestone note: the M2.a degraded-mode test now forces empty environment variables instead of
+  `delenv` (D-052): keys in the owner's `.env` can no longer turn it into a network call.
+
+### Known issues
+
+- None known.
 
 ## M2.a — AI gateway core, offline ✅
 
@@ -262,17 +357,14 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 - None known.
 
-## Next step: M2.b — real providers and settings
+## Next step: M2.b2 (Gemini), then M2.c (endpoints and settings page)
 
-- Gemini, Groq (text + Whisper) and Ollama adapters implementing `app.ai.providers.Provider`; they
-  translate every library error to `ProviderError(kind, retry_after, status_code, message)` and put
-  `ProviderRequest.json_schema` to use (native JSON mode or in the prompt). `build_providers()` must
-  return all three, configured or not.
-- API endpoints, settings page (keys written to `.env`, then `get_settings.cache_clear()` +
+- **M2.b2**: the Gemini adapter (`generateContent`, design in D-055), its schema converter, `VOCAB_GEMINI_MODEL`,
+  Gemini in `build_providers()`, README section for the Google AI Studio key, live test. First re-check the
+  Gemini facts of D-046 and settle the owner's findings from the real Groq / Ollama calls.
+- **M2.c**: API endpoints, settings page (keys written to `.env`, then `get_settings.cache_clear()` +
   `get_gateway().reload()`; order, daily usage from `services/ai_usage.py`), "test connection" button
-  (`generate_json("connection_test", ..., pin_provider=...)`).
-- Check the current free-tier model names, quotas and SDK versions in the official documentation at
-  milestone time (never from memory), then adjust the constants of `app/ai/policy.py`.
+  (`generate_json("connection_test", ..., pin_provider=...)`, as `ai test` already does).
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅

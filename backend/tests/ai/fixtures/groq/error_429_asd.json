@@ -1,0 +1,1 @@
+{"error":{"message":"Rate limit reached for model `whisper-large-v3` in organization `org_01example` service tier `on_demand` on audio seconds per day (ASD): Limit 28800, Used 28790, Requested 60. Please try again in 45m10s.","type":"seconds","code":"rate_limit_exceeded"}}

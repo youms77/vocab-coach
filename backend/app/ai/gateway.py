@@ -239,8 +239,11 @@ class Gateway:
                 response: ProviderResponse | None = None
                 data: Any = None
                 error_code: str | None = None
+                # A provider may need longer than the task's timeout (a local model loading); never
+                # more than what is left of the budget.
+                floor = getattr(provider, "min_request_timeout_s", 0.0)
                 try:
-                    response = send(provider, repair, min(timeout_s, remaining))
+                    response = send(provider, repair, min(max(timeout_s, floor), remaining))
                 except ProviderError as exc:
                     error = ProviderError(
                         exc.kind,

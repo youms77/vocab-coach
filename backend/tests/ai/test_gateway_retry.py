@@ -9,7 +9,7 @@ import pytest
 from app.ai.gateway import Gateway
 from app.ai.providers.fake import Failure, FakeProvider, Success
 from app.ai.schemas.connection_test import ConnectionTestOutput
-from app.ai.types import AiStatus, ErrorKind
+from app.ai.types import AiStatus, ErrorKind, UnavailableReason
 from tests.ai.conftest import FakeClock, NetworkBlocked, log_rows, ping
 
 ProviderFactory = Callable[..., FakeProvider]
@@ -147,3 +147,61 @@ def test_request_timeout_is_the_task_timeout(
     a = provider_factory("a", Success())
     ping(make_gateway(a))
     assert a.requests[0].timeout_s == 15.0  # connection_test overrides the 30 s default
+
+
+def test_exhausted_retries_put_the_provider_aside_for_a_minute(
+    provider_factory: ProviderFactory, make_gateway: GatewayFactory, clock: FakeClock
+) -> None:
+    a = provider_factory("a", Failure(ErrorKind.RATE_LIMITED, status_code=429))
+    b = provider_factory("b", Success())
+    gateway = make_gateway(a, b)
+
+    ping(gateway)
+    [status_a, _] = gateway.status()
+    assert status_a.cooldown_until == clock.now() + timedelta(seconds=60)
+    assert not status_a.available
+
+    ping(gateway)  # `a` is skipped: it is not asked three more times
+    assert a.calls == 3 and b.calls == 2
+
+    clock.advance(60)
+    ping(gateway)  # the cooldown is over: `a` is tried again (three more failed attempts)
+    assert a.calls == 6
+
+
+def test_repeated_transient_failures_are_not_reported_as_a_quota(
+    provider_factory: ProviderFactory, make_gateway: GatewayFactory
+) -> None:
+    a = provider_factory("a", Failure(ErrorKind.TRANSIENT, status_code=503))
+    gateway = make_gateway(a)
+
+    first = ping(gateway)
+    second = ping(gateway)  # skipped during its cooldown, the reason must still not say "quota"
+
+    assert first.reason is UnavailableReason.ALL_FAILED
+    assert second.reason is UnavailableReason.ALL_FAILED
+    assert a.calls == 3
+
+
+def test_provider_timeout_floor_is_capped_by_the_budget(
+    provider_factory: ProviderFactory, make_gateway: GatewayFactory
+) -> None:
+    slow_to_fail = provider_factory(
+        "a", Failure(ErrorKind.NETWORK, "connection refused", latency_s=50.0)
+    )
+    local = provider_factory("b", Success())
+    local.min_request_timeout_s = 60.0  # type: ignore[attr-defined]  (an optional attribute)
+
+    result = ping(make_gateway(slow_to_fail, local))
+
+    assert result.ok and result.provider == "b"
+    assert local.requests[0].timeout_s == 40.0  # floor 60 s, but only 90 - 50 s are left
+
+
+def test_provider_timeout_floor_raises_a_short_task_timeout(
+    provider_factory: ProviderFactory, make_gateway: GatewayFactory
+) -> None:
+    local = provider_factory("a", Success())
+    local.min_request_timeout_s = 60.0  # type: ignore[attr-defined]
+    ping(make_gateway(local))
+    assert local.requests[0].timeout_s == 60.0  # the task asked for 15 s

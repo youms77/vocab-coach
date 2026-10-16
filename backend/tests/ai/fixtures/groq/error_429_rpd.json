@@ -1,0 +1,1 @@
+{"error":{"message":"Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01example` service tier `on_demand` on requests per day (RPD): Limit 1000, Used 1000, Requested 1. Please try again in 7m12.5s. Visit https://console.groq.com/docs/rate-limits for more information.","type":"requests","code":"rate_limit_exceeded"}}

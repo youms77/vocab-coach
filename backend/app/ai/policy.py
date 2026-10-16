@@ -1,6 +1,7 @@
 """Error policy of the gateway: every constant lives here, plus the pure decision functions.
 
-The values are provisional: M2.b may adjust them after reading the real free-tier quotas.
+Reviewed in M2.b1 against the real Groq free-tier limits (D-051); Gemini's quotas are only visible
+in AI Studio, so nothing here depends on a number: the policy reacts to what the provider answers.
 """
 
 import random
@@ -18,6 +19,10 @@ JITTER = 0.25  # +/- 25 % on the computed backoff
 MAX_WAIT_S = 20.0  # longest single wait we accept (backoff or `retry_after`)
 TOTAL_BUDGET_S = 90.0  # time allowed for one gateway call, all providers included
 QUOTA_COOLDOWN = timedelta(hours=1)
+# A provider that still fails after `MAX_ATTEMPTS_PER_PROVIDER` rate-limited or transient requests
+# is set aside for a minute (about one per-minute rate-limit window) instead of costing the same
+# three attempts on every call.
+EXHAUSTED_RETRY_COOLDOWN = timedelta(seconds=60)
 REQUEST_TIMEOUT_S = 30.0  # per provider request; tasks may override it
 LOG_MESSAGE_MAX = 300  # characters kept of an error message
 
@@ -64,7 +69,7 @@ def decide(
             return Decision(Action.FALLBACK, cooldown=_cooldown(retry_after))
         case ErrorKind.RATE_LIMITED | ErrorKind.TRANSIENT:
             if failed_attempts >= MAX_ATTEMPTS_PER_PROVIDER:
-                return Decision(Action.FALLBACK)
+                return Decision(Action.FALLBACK, cooldown=EXHAUSTED_RETRY_COOLDOWN)
             if kind is ErrorKind.RATE_LIMITED and retry_after is not None:
                 return Decision(Action.RETRY, wait_s=max(retry_after, 0.0))
             return Decision(Action.RETRY, wait_s=min(backoff(failed_attempts, rng), MAX_WAIT_S))

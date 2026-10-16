@@ -29,7 +29,10 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-q"
+# Live tests call the real provider APIs with the owner's keys: never by default, never in CI.
+# Run them with `VOCAB_RUN_LIVE=1 uv run pytest tests/live -m live`.
+addopts = "-q -m 'not live'"
+markers = ["live: real calls to the AI providers with your own keys (needs VOCAB_RUN_LIVE=1)"]
 
 [tool.ruff]
 line-length = 100

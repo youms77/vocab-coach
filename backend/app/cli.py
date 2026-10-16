@@ -1,7 +1,8 @@
 """Command line: `python -m app [--reload]` runs the API; `python -m app db ...` manages the DB;
 `python -m app plan today` prints today's session plan (read-only); `python -m app demo seed`
 builds the fictional demo database; `python -m app ai simulate` shows the AI gateway at work
-offline. `--demo` (before the command) works on the demo database."""
+offline; `python -m app ai status | test | usage` look at the real AI providers. `--demo` (before
+the command) works on the demo database."""
 
 import argparse
 import os
@@ -15,10 +16,11 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.cli_plan import CommandError, build_today_plan, render_plan
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db import migrate
 from app.db.engine import create_db_engine, sqlite_file
 from app.db.taxonomy import SyncResult, sync_taxonomy
+from app.domain.settings_defaults import KNOWN_AI_PROVIDERS
 
 SQLITE_SIDE_FILES = ("-wal", "-shm")
 
@@ -119,13 +121,80 @@ def _build_parser() -> argparse.ArgumentParser:
         help="do nothing when the demo database already holds demo data (launch scripts)",
     )
 
-    ai = commands.add_parser("ai", help="AI gateway tools (no network, no personal data)")
+    ai = commands.add_parser("ai", help="AI gateway tools")
     ai_commands = ai.add_subparsers(dest="ai_command", required=True)
     ai_commands.add_parser(
         "simulate",
-        help="run three gateway scenarios with fake providers on a throwaway database",
+        help="run three gateway scenarios with fake providers on a throwaway database "
+        "(no network, no personal data)",
+    )
+    ai_commands.add_parser(
+        "status", help="which providers are configured, their models and order (no network)"
+    )
+    test = ai_commands.add_parser(
+        "test",
+        help="one real call per configured provider (uses free quota, writes ai_call_log)",
+    )
+    test.add_argument("--provider", choices=KNOWN_AI_PROVIDERS, help="test this provider only")
+    test.add_argument(
+        "--audio", type=Path, metavar="FILE", help="also transcribe this short clip (Groq Whisper)"
+    )
+    usage = ai_commands.add_parser("usage", help="requests and tokens per study day (read-only)")
+    usage.add_argument(
+        "--days", type=_days, default=7, help="how many study days to look back (1-90, default 7)"
     )
     return parser
+
+
+def _days(value: str) -> int:
+    try:
+        days = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a number of days") from None
+    if not 1 <= days <= 90:
+        raise argparse.ArgumentTypeError("--days must be between 1 and 90")
+    return days
+
+
+def _ai(args: argparse.Namespace, settings: Settings) -> int:
+    if args.ai_command == "simulate":
+        # A throwaway database: the personal one is never opened.
+        from app.ai.simulate import run_simulation
+
+        return run_simulation()
+
+    from app import cli_ai
+    from app.ai.providers import build_providers
+    from app.ai.redact import clean_message
+
+    # A transcript or an error message may hold a character the console cannot show: replace it.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
+    if args.demo and args.ai_command in ("test", "usage"):
+        print(
+            f"`ai {args.ai_command}` works on your personal database (the demo database has no "
+            "AI call log, D-033): run it without --demo.",
+            file=sys.stderr,
+        )
+        return cli_ai.EXIT_USAGE
+    url = settings.resolved_database_url
+    try:
+        providers = build_providers(settings)
+        if args.ai_command == "status":
+            return cli_ai.run_ai_status(url, settings, providers)
+        if args.ai_command == "test":
+            return cli_ai.run_ai_test(
+                url, settings, providers, provider=args.provider, audio=args.audio
+            )
+        return cli_ai.run_ai_usage(url, cli_ai.UsageOptions(days=args.days))
+    except cli_ai.AiCommandError as exc:
+        print(str(exc), file=sys.stderr)
+        return cli_ai.EXIT_USAGE
+    except Exception as exc:
+        message = clean_message(str(exc), settings.secret_values(), cli_ai.MESSAGE_LIMIT)
+        print(f"ai {args.ai_command} failed ({type(exc).__name__}): {message}", file=sys.stderr)
+        return cli_ai.EXIT_FAILED
 
 
 def _demo_seed(args: argparse.Namespace, demo_file: Path) -> int:
@@ -169,10 +238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         # Never the personal database: always the demo file, whatever VOCAB_DATABASE_URL says.
         return _demo_seed(args, settings.demo_database_file)
     if args.command == "ai":
-        # A throwaway database: the personal one is never opened.
-        from app.ai.simulate import run_simulation
-
-        return run_simulation()
+        return _ai(args, settings)
     url = settings.resolved_database_url
     if args.command == "plan":
         try:

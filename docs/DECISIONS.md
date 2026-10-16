@@ -520,6 +520,7 @@ Decisions that change `docs/SPEC.md` require the owner's approval and must say s
   `rate_limited`, auth) or `all_failed`. Providers skipped for cooldown / auth count in it.
 - An unexpected exception from an adapter is treated as `bad_request` (error code
   `unexpected:<Type>`) and never reaches the caller.
+- **Revised in M2.b1**: see D-051 (new `EXHAUSTED_RETRY_COOLDOWN`, provider timeout floor).
 
 ## D-040 — Fallback, health, pinning, reload (M2.a)
 
@@ -596,3 +597,195 @@ Decisions that change `docs/SPEC.md` require the owner's approval and must say s
   cannot hide it. The CI has no key.
 - `FakeProvider` (`app/ai/providers/fake.py`) plays a script of successes and typed errors and records
   the requests it received; it is also what `python -m app ai simulate` uses.
+
+## D-046 — Provider facts checked before coding (M2.b1, 2026-10-16)
+
+Read in the official documentation on 2026-10-16 (never from memory). Where a page does not say, the
+cell says so. Re-check what matters at the start of M2.b2 (Gemini) and whenever a provider changes.
+
+| Fact | Value | Source |
+|---|---|---|
+| **Gemini** stable models | Flash-Lite: `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`; Flash: `gemini-3.8-flash`, `gemini-3.6-flash`. `gemini-3-flash-preview` is a preview. `gemini-2.5-flash(-lite)` are kept only for users who already used them; 2.0 models are shut down | <https://ai.google.dev/gemini-api/docs/models> |
+| Gemini free tier | "Free of charge" for those six models. **Content is used to improve the products on the free tier, not on the paid tier** | <https://ai.google.dev/gemini-api/docs/pricing> |
+| Gemini free quotas | **No public figure**: limits are per project and shown per account in AI Studio; the daily quota resets at midnight Pacific time. Third-party figures disagree and are not used | <https://ai.google.dev/gemini-api/docs/rate-limits> |
+| Gemini in Cameroon | Cameroon is in the list of available countries; the page does not split free and paid tiers. **Hypothesis B.11 stays open until the owner's real call** | <https://ai.google.dev/gemini-api/docs/available-regions> |
+| Gemini API | `generateContent` (v1beta) is "legacy" but "fully supported"; the Interactions API is the recommended one (breaking changes in May 2026). Key in the `x-goog-api-key` header | <https://ai.google.dev/gemini-api/docs/interactions>, <https://ai.google.dev/api/generate-content> |
+| Gemini JSON | `generationConfig.responseFormat.text = {mimeType: "APPLICATION_JSON", schema}`; `responseMimeType` + `responseJsonSchema` are marked deprecated. Accepted schema keywords: `$id $defs $ref $anchor type format title description enum items prefixItems minItems maxItems minimum maximum anyOf oneOf properties additionalProperties required` (+ `propertyOrdering`); next to a `$ref` only `$`-keywords are allowed | <https://ai.google.dev/api/generate-content> (GenerationConfig) |
+| Gemini thinking | `thinkingConfig.thinkingLevel` (Gemini 3+; an **error** on older models) or `thinkingBudget`; `maxOutputTokens` **includes** thinking tokens; default `gemini-3.5-flash-lite` = minimal, `gemini-3.8-flash` = medium (no minimal); usage field `thoughtsTokenCount` | same page, <https://ai.google.dev/gemini-api/docs/thinking> |
+| Gemini finish | `finishReason`: STOP, MAX_TOKENS, SAFETY, RECITATION, BLOCKLIST, PROHIBITED_CONTENT, SPII, OTHER...; `promptFeedback.blockReason`: SAFETY, OTHER, BLOCKLIST, PROHIBITED_CONTENT | same page |
+| Gemini errors | The "API errors" page documents the **Interactions API** (401 `authentication`; 429 `rate_limit_exceeded` = per minute, `quota_exceeded` = per day; 400 `failed_precondition`). Nothing official for `generateContent`. Forum reports: invalid key = **400 `INVALID_ARGUMENT` / `API_KEY_INVALID`**; region = **400 `FAILED_PRECONDITION` "User location is not supported"**; 429 with `QuotaFailure.quotaId` containing `PerDay` or `PerMinute` and `RetryInfo.retryDelay` ("51s", short even for a daily quota). **To confirm with a real call** | <https://ai.google.dev/gemini-api/docs/api-errors>; discuss.ai.google.dev threads "API key not valid" and "User location is not supported" |
+| **Groq** base URL | `https://api.groq.com/openai/v1` (`/chat/completions`, `/audio/transcriptions`) | <https://console.groq.com/docs/speech-to-text> |
+| Groq free plan limits | `openai/gpt-oss-20b`, `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`: 30 requests/min, 1 K/day, 8 K tokens/min, 200 K/day. `whisper-large-v3` and `-turbo`: 20 requests/min, 2 K/day, 7.2 K audio-s/hour, 28.8 K audio-s/day. `llama-3.1-8b-instant` and `llama-3.3-70b-versatile` are production models but **absent from the free table** | <https://console.groq.com/docs/rate-limits> ("Free Plan Limits" tab, read in the page HTML) |
+| Groq models | text: `openai/gpt-oss-20b` (131 072 context, 65 536 output), `openai/gpt-oss-120b`, `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`; speech: `whisper-large-v3` (WER 10.3 %), `whisper-large-v3-turbo` (12 %) | <https://console.groq.com/docs/models>, <https://console.groq.com/docs/speech-to-text> |
+| Groq JSON | `response_format: {type: "json_schema", json_schema: {name, strict, schema}}` on `openai/gpt-oss-20b`, `-120b`, `qwen/qwen3.8-27b`, `meta-models/muse-spark-open` (strict or best-effort); other models only `json_object`, where the prompt must mention JSON. Best-effort allows optional fields. A mismatch gives **HTTP 400** "Generated JSON does not match the expected schema" | <https://console.groq.com/docs/structured-outputs> |
+| Groq reasoning | gpt-oss: `reasoning_effort` low/medium/high, `include_reasoning`, `max_completion_tokens` (default 1024). **Not documented**: whether reasoning counts against the limit (assumed yes) | <https://console.groq.com/docs/reasoning> |
+| Groq 429 | `retry-after` header (seconds, only on 429); `x-ratelimit-*`: requests = per day, tokens = per minute, resets formatted `2m59.56s` / `7.66s`; body `{"error": {"message", "type"}}`. **Not documented**: telling a per-minute from a per-day limit in the body (third-party reports show `code: rate_limit_exceeded` and messages naming `(TPM)`, `(RPD)`, `(TPD)`) | <https://console.groq.com/docs/rate-limits>, <https://console.groq.com/docs/errors> |
+| Groq errors | 401 key, 403 permission, 413 request too large, 498 flex tier full, 503 | <https://console.groq.com/docs/errors> |
+| Groq audio | **25 MB on the free tier**, 100 MB on the developer tier; flac mp3 mp4 mpeg mpga m4a ogg wav webm; minimum 0.01 s (billed 10 s); `prompt` up to 224 tokens; response `json` has a `text` field | <https://console.groq.com/docs/speech-to-text> |
+| **Ollama** chat API | native `POST /api/chat`: `stream` (default **true**), `format` = `"json"` or a JSON Schema, `options.num_predict`, `think`, `keep_alive` (5 min); answer `message.content`, `done_reason`, `prompt_eval_count`, `eval_count`; errors `{"error": "..."}` with 400, 404, 429, 500, 502; listens on `127.0.0.1:11434` by default. The docs advise to put the schema in the prompt as well. The OpenAI-compatibility page documents neither `json_schema` nor errors | <https://docs.ollama.com/api/chat>, <https://docs.ollama.com/capabilities/structured-outputs>, <https://docs.ollama.com/api/errors>, <https://docs.ollama.com/faq> |
+| Ollama models | library: `gemma3` (`gemma3:4b`, 3.4 GB, 128 K context), `llama3.2`, `qwen2.5`...; `qwen3`, `gpt-oss`, `gemma4`... are "thinking" models | <https://ollama.com/library>, <https://ollama.com/library/gemma3> |
+| Ollama install | `OllamaSetup.exe` runs in the background after install; `ollama pull <model>`, `ollama ls` | <https://docs.ollama.com/windows>, <https://docs.ollama.com/cli> |
+
+**Not verified (so not asserted)**: Ollama's first-load latency; the exact Groq 429/401 bodies (the fixtures are
+built from public reports, see `tests/ai/fixtures/README.md`); the real `generateContent` error body; whether
+Groq's sign-up asks for a payment method. The owner's real calls settle these.
+
+## D-047 — Groq adapter (M2.b1)
+
+- **Text**: OpenAI-compatible `chat/completions` through a small base class (`openai_compat.py`) that Groq
+  extends; a later OpenAI-compatible provider is one more subclass. Defaults: `openai/gpt-oss-20b` (in the free
+  table, production, documented for `json_schema`), `whisper-large-v3` (more accurate than turbo for spotting a
+  learner's mistakes; same free limits).
+- **JSON**: `json_schema` in **best-effort** mode (`strict: false`, name `output`) for the models documented for
+  it, with the simplified schema (D-049) and `additionalProperties: false`; any other model gets `json_object`
+  and the schema restated in the system prompt (Groq wants JSON mentioned there). Pydantic still validates.
+- **gpt-oss**: `reasoning_effort: "low"`, `include_reasoning: false`, and `max_completion_tokens` = the task's limit
+  + 1 024 (reasoning may count against it, undocumented). Other models get no reasoning field.
+- **Transcription**: multipart upload (`model`, `language`, `response_format=json`, `temperature=0`, `file`),
+  a short encoder in `http.py`. The adapter refuses **before any request** an empty clip, one over 25 MB (the
+  free-tier limit; constant `MAX_AUDIO_BYTES`), or an extension Groq does not read; the refusal is a
+  `bad_request`, which the gateway journals as a request without HTTP status (so it counts in `ai usage`: a
+  small, accepted imprecision, no interface change). An empty text (silence) is a valid answer: the caller
+  (M6) decides what to tell the user. `Gateway.transcribe` is unchanged.
+- **Tokens**: `usage.prompt_tokens` / `completion_tokens` go to `ai_call_log`; a transcription has none.
+
+## D-048 — Ollama adapter (M2.b1)
+
+- **Native API** `/api/chat`, not `/v1`: only the native one documents `format` (a JSON Schema),
+  `options.num_predict` and the error body. So Ollama does not share the OpenAI-compatible base (assumed).
+- Always `stream: false`, `temperature: 0`; the schema is sent as `format` **and** restated in the system
+  prompt (the documentation's advice). `think` is not sent (unknown to some models, its effect on others is
+  not documented): the default model `gemma3:4b` does not think; with a thinking model an empty answer is
+  reported as such.
+- "Configured" = `VOCAB_OLLAMA_BASE_URL` is an http(s) URL (a `file:` or scheme-less value is "not configured").
+  `.env.example` suggests `http://127.0.0.1:11434`: on Windows `localhost` may resolve to `::1` first.
+- **First request after a pause** loads the model: the adapter declares `min_request_timeout_s = 60`, which
+  the gateway honours (D-051) but never beyond the 90 s budget.
+- A server that answers 200 without being Ollama (HTML...) is a `bad_request`; a cut-off answer
+  (`done_reason: "length"`) or an empty one is `invalid_output`.
+
+## D-049 — HTTP client, schemas and secrets in adapters (M2.b1)
+
+- **Standard-library `urllib`, no SDK, no new dependency.** The three APIs are plain JSON POSTs; an SDK brings
+  its own retry loop and error types that would mix with the gateway's policy (D-039), and `google-genai` is
+  moving to the Interactions API. `httpx2` (a dev dependency, the `pydantic/httpx2` fork) stays possible: its
+  source would be read first (as for `fsrs`, D-022). Consequences: a hand-made multipart encoder, a per-request
+  deadline implemented in `http.py`, an explicit `User-Agent` (`vocab-coach/0.1`: some API gateways refuse
+  `Python-urllib`; unverified, a real call will tell).
+- `http.post` returns a non-2xx answer as a normal `HttpResponse` (the adapter reads its headers and body);
+  failures become `ProviderError` with **fixed wording** (never `str(exc)`, which may quote the URL):
+  `connection refused`, `DNS lookup failed`, `TLS handshake failed`, `connection closed by the server`
+  (`network`); a timeout, connect or read, is `transient`. **Redirects are refused** (a redirect could forward
+  the key to another host). Loopback hosts bypass the system proxy. Only `http` and `https` URLs (`urllib`
+  would open `file:`).
+- **Schemas** (`providers/schema.py`): `Model.model_json_schema()` is simplified, not trusted: `$ref`s are
+  inlined (a recursive model is refused), `title`, `default`, `examples` and validation keywords
+  (`minLength`, `minItems`, `maximum`, `pattern`, `format`...) are dropped, `const` becomes `enum`, objects get
+  `additionalProperties: false`; field names are never mistaken for keywords. Tested on the shape of the M3
+  usage sheets (nested models, lists, enums, optionals). The Pydantic model keeps enforcing everything dropped.
+- **JSON fences** (a Markdown code fence around the JSON) are removed by every adapter, only when the text
+  starts with one.
+- **Secrets** (D-043 extended): the key lives in a private attribute, `__repr__` never shows it, it travels only in
+  the `Authorization` header; every message is the service's own `error.message` or fixed text, masked by the
+  adapter (`mask_secrets`, raw, URL- and form-encoded) and again by the gateway; the 400 `json_validate_failed`
+  answer, which quotes the model's output, is replaced by fixed text. No request body is logged.
+
+## D-050 — Error translation per provider (M2.b1; Gemini column for M2.b2)
+
+| Situation | Groq | Ollama | Gemini (M2.b2) |
+|---|---|---|---|
+| 429, per minute | `rate_limited`; `retry_after` = `retry-after` header, else "try again in 7m12.5s" from the message, else `x-ratelimit-reset-tokens` for a token limit | `rate_limited` (`Retry-After` if present) | `rate_limited`; `RetryInfo.retryDelay` or `Retry-After` |
+| 429, per day | `quota_exhausted` when the message says `per day`, `(RPD)`, `(TPD)` or `(ASD)`; `retry_after` as above (cooldown = min(that, 1 h)); an unlabelled 429 stays `rate_limited` (least penalising) | - | `quota_exhausted` when a violated quota is `PerDay` (any one of them); **`retry_after` ignored** (short even for a daily quota), so the cooldown is 1 h |
+| 5xx, 408, 498 (flex full), timeout | `transient` | `transient` | `transient` (also 499, 504) |
+| Connection refused, DNS, TLS | `network` | `network` | `network` |
+| Key refused | 401, 403 -> `auth` | 401, 403 -> `auth` | 401, 403, **400 `API_KEY_INVALID`**, **400 `FAILED_PRECONDITION` / "location is not supported" / "free tier not available"** -> `auth` with an explicit message |
+| Other 4xx | `bad_request`; 404 model -> hint to set `VOCAB_GROQ_*_MODEL`; 413 -> "too large for this model's limits"; 3xx (no redirect followed) -> `bad_request` | `bad_request`; **404 -> `bad_request` + "run `ollama pull <model>`"** | `bad_request`; 404 model -> hint `VOCAB_GEMINI_MODEL`; 402 -> `quota_exhausted` |
+| Answer unusable | `invalid_output`: 400 "does not match the expected schema" / `json_validate_failed`, `finish_reason` `length` or `content_filter`, empty | `invalid_output`: `done_reason: "length"`, empty | `invalid_output`: `MAX_TOKENS`, `SAFETY`..., `promptFeedback.blockReason`, empty |
+
+- **Blocked content is `invalid_output`** (the owner's brief): one repair, then `incomplete`, never a fallback.
+  The comment of `ErrorKind.BAD_REQUEST` ("includes blocked content") was corrected.
+- A 400 is never classified before reading what it says (a Gemini 400 can mean "invalid key").
+
+## D-051 — Policy constants revised (M2.b1)
+
+| Constant | M2.a | M2.b1 | Why |
+|---|---|---|---|
+| `MAX_ATTEMPTS_PER_PROVIDER` | 3 | 3 | unchanged |
+| backoff | 1 s x2, +/-25 % | same | unchanged |
+| `MAX_WAIT_S` | 20 | 20 | Groq's `retry-after` is in seconds (30 requests/min): waiting up to 20 s pays off; reported Gemini delays (14-57 s) often exceed it and then falling back is better than sleeping. Re-examine in M2.b2 |
+| `TOTAL_BUDGET_S` | 90 | 90 | unchanged |
+| `QUOTA_COOLDOWN` | 1 h | 1 h | a daily quota does not free up before its reset; one probe per hour costs one failed request |
+| `REQUEST_TIMEOUT_S` | 30 | 30 | unchanged; transcription 60 s; Ollama floor 60 s (below) |
+| **`EXHAUSTED_RETRY_COOLDOWN`** | - | **60 s** | closes the point left open in M2.a: a provider that fails 3 times in a row with `rate_limited` or `transient` is set aside for a minute (about one per-minute window) instead of costing three attempts (3 s of waiting) on every call. It also applies to repeated 5xx |
+
+- `health.blocked_by()` now reports the error that started the cooldown (not always "quota"), so repeated
+  transient failures end as `unavailable(all_failed)` rather than a misleading `quota`.
+- **Provider timeout floor** (the only interface addition to M2.a): the gateway sends each request with
+  `min(max(task timeout, provider.min_request_timeout_s), time left in the budget)`, the attribute being optional
+  (`getattr`, default 0). Only Ollama sets it (60 s).
+- Groq's free limits make a fallback call fit in about 8 000 tokens (input + output) per minute: M3 tasks sent
+  to Groq must keep prompts small, or the answer is a 413 (`bad_request`).
+
+## D-052 — Providers built from the settings (M2.b1)
+
+- `build_providers(settings=None)` returns `groq` and `ollama`, configured or not (D-040), so `status()` and
+  `pin_provider` know them. **Gemini is not built until M2.b2**: `ai status` shows it as "not available yet",
+  `ai test --provider gemini` exits 2, and the gateway skips a name it does not know in `ai_provider_order`.
+- New optional settings (empty = default): `VOCAB_GROQ_TEXT_MODEL`, `VOCAB_GROQ_TRANSCRIPTION_MODEL`,
+  `VOCAB_OLLAMA_MODEL`; `VOCAB_GEMINI_MODEL` comes with the adapter. Defaults are constants in the adapters.
+  Adapters take an optional `base_url` in their constructor for tests only (no variable, as in M2.a).
+- The M2.a test that asserted `status() == []` (no provider) now asserts that both providers are known and
+  none is configured; it also forces the keys to empty **environment variables** (not `delenv`): an
+  environment variable, even empty, wins over the owner's real `.env`, so keys written there can never turn a
+  test into a network call.
+
+## D-053 — `ai status`, `ai test`, `ai usage` (M2.b1)
+
+- Same style as `plan today` (module `cli_ai.py`, injectable output). Exit codes: 0 all fine, **1** a test failed,
+  **2** nothing configured / bad arguments / database absent or out of date / `--demo`.
+- `status`: provider, configured or not, models per capability, rank in `ai_provider_order` (read-only, the
+  default order with a note without a database), "AI is turned off" when the order is empty. Never a key (not
+  even its last characters) nor a server address. The in-memory health is empty in a new process, so it is not
+  shown.
+- `test [--provider NAME] [--audio FILE]`: `generate_json("connection_test", ..., pin_provider=...)` per
+  configured provider, one line each (status, model, time, tokens; on failure the reason, the last error code
+  and HTTP status read from `ai_call_log`, and the masked message). `--audio` (Groq only, up to 200 MB read
+  into memory) adds a Whisper request and prints the transcript. The output says these calls use free quota and
+  are recorded in `ai_call_log`. **No session is open during a call** (D-038; tested with a second writer taking
+  the database lock from inside the fake server).
+- `usage [--days N]` (1-90, default 7): `services/ai_usage.py` per study day, provider and model, read-only
+  (`PRAGMA query_only`). `test` and `usage` refuse `--demo` (D-033); `status` does not.
+- stdout and stderr use `errors="replace"`: a transcript may hold characters the Windows console cannot show.
+
+## D-054 — Tests without the real services (M2.b1)
+
+- **Fake HTTP servers** (`tests/ai/fake_server.py`): a thread on `127.0.0.1` playing scripted answers
+  (status, body, headers, delay, dropped connection), keeping every request. The adapters and the gateway run
+  over real loopback sockets; the D-045 guard is unchanged (it allows only the loopback interface).
+- **Fixtures** (`tests/ai/fixtures/<provider>/*.json`): built from the documentation and public reports, with
+  invented identifiers; no real call produced them (`fixtures/README.md`).
+- **Secrets**: a hostile server repeats the key in raw, URL- and form-encoded form in its error message, headers
+  and path; the key must not appear in any error, repr, log record, `ai_call_log` column, status, traceback or
+  CLI output.
+- **Live tests** (`tests/live/`, marker `live`): `addopts = "-q -m 'not live'"` deselects them; they need
+  `VOCAB_RUN_LIVE=1` **and** a configured provider; one request per provider; a quota or rate limit is a skip;
+  Whisper only with `VOCAB_LIVE_AUDIO`. A default-suite test runs them in a subprocess to prove they are all
+  skipped without the opt-in, and without keys even with it. Command:
+  `VOCAB_RUN_LIVE=1 uv run pytest tests/live -m live -v`. The CI has no key and never selects them.
+
+## D-055 — Gemini adapter design, to build in M2.b2 (decided in M2.b1)
+
+- **API**: `generateContent` (v1beta), stateless, key in `x-goog-api-key`; default model `gemini-3.5-flash-lite`
+  (stable, Flash-Lite, free of charge); override `VOCAB_GEMINI_MODEL`.
+- **JSON**: `generationConfig.responseFormat.text = {mimeType: "APPLICATION_JSON", schema}` with the simplified
+  schema (keywords limited to the accepted list of D-046). **Risk n° 1**: documented but untested against the real
+  service. The body builder is one isolated function; a 400 on that field gives `bad_request` (fallback to
+  Groq); the fallback to try is the older `responseMimeType` + `responseJsonSchema`.
+- **Thinking**: a per-model table (`thinkingLevel: "MINIMAL"` for `gemini-3.5-flash-lite`; nothing for an
+  unknown model, since `thinkingLevel` is an error on older models) plus 512 tokens added to `maxOutputTokens`;
+  `output_tokens` = candidates + `thoughtsTokenCount`.
+- **Errors**: D-050 column; parse both error shapes (classic `error.status` / `details[]` and the Interactions
+  style `error.code`), ignore `retryDelay` for daily quotas.
+- **Privacy**: the README must warn that the free tier may use content to improve the products (SPEC section 7).
+- **To confirm by the owner's first real call**: JSON field accepted, error bodies, quota ids, region and free
+  tier in Cameroon (hypothesis B.11).

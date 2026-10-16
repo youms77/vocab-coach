@@ -20,8 +20,10 @@ class ErrorKind(StrEnum):
     TRANSIENT = "transient"  # 5xx, request timeout
     NETWORK = "network"
     AUTH = "auth"
-    BAD_REQUEST = "bad_request"  # includes blocked content
-    INVALID_OUTPUT = "invalid_output"  # unreadable JSON or rejected by the Pydantic schema
+    BAD_REQUEST = "bad_request"  # the provider refuses the request itself, not the model's answer
+    # Unreadable JSON, rejected by the Pydantic schema, empty, truncated or blocked by a safety
+    # filter: the model answered, the answer is unusable.
+    INVALID_OUTPUT = "invalid_output"
 
 
 class AiStatus(StrEnum):

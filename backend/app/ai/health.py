@@ -30,12 +30,13 @@ class ProviderHealth:
         return state
 
     def blocked_by(self, name: str, now: datetime) -> ErrorKind | None:
-        """Why the provider should be skipped: quota (cooldown) or auth (misconfigured)."""
+        """Why the provider should be skipped: auth (misconfigured) or the error that started its
+        cooldown (a quota, a rate limit, or repeated transient failures)."""
         state = self.snapshot(name, now)
         if state.misconfigured:
             return ErrorKind.AUTH
         if state.cooldown_until is not None:
-            return ErrorKind.QUOTA_EXHAUSTED
+            return state.last_error or ErrorKind.QUOTA_EXHAUSTED
         return None
 
     def record_failure(
