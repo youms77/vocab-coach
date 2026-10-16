@@ -1,21 +1,14 @@
 from datetime import date
 from pathlib import Path
 
-from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from app import __version__
 from app.db.demo_marker import DemoMarker, write_demo_marker
-from app.db.engine import create_db_engine, get_engine
-from app.main import create_app
+from app.db.engine import create_db_engine
+from tests.conftest import make_api_client as _client
 from tests.conftest import sqlite_url
-
-
-def _client(engine: Engine) -> TestClient:
-    app = create_app()
-    app.dependency_overrides[get_engine] = lambda: engine
-    return TestClient(app)
 
 
 def test_health_reports_database_at_head(engine: Engine) -> None:

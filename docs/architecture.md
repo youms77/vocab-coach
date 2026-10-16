@@ -33,6 +33,12 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/cli_plan.py` | `plan today`: builds the plan read-only (`PRAGMA query_only`) and renders it as text or JSON | M1.b |
 | `app/cli_ai.py` | `ai status` (providers, models, order; never a key), `ai test` (one real call per configured provider, optional Whisper clip, writes `ai_call_log`), `ai usage` (read-only) | M2.b1 |
 | `app/api/health.py` | `GET /api/health` → `{status, version, database: {ok, revision, at_head}, demo}` | M0, M1.a, M1.c |
+| `app/api/guard.py` | ASGI middleware: Host / Origin / Sec-Fetch-Site / JSON-only checks (D-061) | M2.c1 |
+| `app/api/errors.py` | `{"detail": {"code", "message"}}` errors, 422 without `input` (D-063) | M2.c1 |
+| `app/api/ai.py` | `/api/ai/status`, `/providers/{name}/credential`, `/test`, `/usage` (D-064) | M2.c1 |
+| `app/api/settings.py` | `GET` / `PATCH /api/settings` | M2.c1 |
+| `app/services/env_file.py` | safe edit of the three AI variables of `.env` (D-062) | M2.c1 |
+| `app/services/ai_connection_test.py` | shared connection test, CLI and API (D-065) | M2.c1 |
 | `app/demo/` | fictional demo data: dataset loader, simulated learner, 60-day simulation through the services, provisional direct writes, atomic `demo seed` | M1.c |
 | `app/domain/` | pure business logic (see "Domain and services" below) | M1.a, M1.b |
 | `app/services/` | operations that read and write the database, in the caller's transaction | M1.b |

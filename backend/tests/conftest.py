@@ -5,11 +5,14 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.db import migrate
-from app.db.engine import create_db_engine
+from app.db.engine import create_db_engine, get_engine
+from app.main import create_app
 
 
 def sqlite_url(path: Path) -> str:
@@ -51,3 +54,15 @@ def engine(db_url: str) -> Iterator[Engine]:
 def session(engine: Engine) -> Iterator[Session]:
     with Session(engine) as session:
         yield session
+
+
+def make_api_client(engine: Engine) -> TestClient:
+    """A client on the application, talking to the loopback address the API guard expects."""
+    app = create_app()
+    app.dependency_overrides[get_engine] = lambda: engine
+    return TestClient(app, base_url=f"http://127.0.0.1:{get_settings().port}")
+
+
+@pytest.fixture
+def api_client(engine: Engine) -> TestClient:
+    return make_api_client(engine)

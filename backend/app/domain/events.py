@@ -6,7 +6,7 @@ Later modules add event types here.
 """
 
 from enum import StrEnum
-from typing import Annotated, Any, ClassVar
+from typing import Annotated, Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -46,6 +46,7 @@ class EventType(StrEnum):
     SESSION_STARTED = "session.started"
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
+    AI_CREDENTIAL_CHANGED = "ai.credential_changed"
 
 
 class ItemOrigin(StrEnum):
@@ -284,6 +285,16 @@ class SettingChanged(Event):
         if value not in SETTINGS:
             raise ValueError(f"unknown setting {value!r} (secrets never go to the event log)")
         return value
+
+
+class AiCredentialChanged(Event):
+    """An API key or the Ollama address was saved or removed in `.env` (never the value itself)."""
+
+    event_type = EventType.AI_CREDENTIAL_CHANGED
+    entity_type = "ai_provider"
+
+    provider: Literal["gemini", "groq", "ollama"]
+    action: Literal["set", "removed"]
 
 
 EVENT_MODELS: dict[EventType, type[Event]] = {

@@ -5,7 +5,7 @@ Read-only. A study day starts at `day_start_hour` in the `timezone` setting (D-0
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import case, func, select
@@ -110,3 +110,9 @@ def ai_usage_for_day(session: Session, day: date) -> DailyAiUsage:
 def ai_usage_now(session: Session, now: datetime) -> DailyAiUsage:
     """Usage of the study day that contains `now`."""
     return ai_usage_for_day(session, study_day_now(session, now))
+
+
+def ai_usage_last_days(session: Session, now: datetime, days: int) -> list[DailyAiUsage]:
+    """Usage of the last `days` study days, today first. Days without any call are included."""
+    today = study_day_now(session, now)
+    return [ai_usage_for_day(session, today - timedelta(days=back)) for back in range(days)]

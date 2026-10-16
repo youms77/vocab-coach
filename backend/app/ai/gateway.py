@@ -187,6 +187,15 @@ class Gateway:
             )
         return result
 
+    @property
+    def providers(self) -> ProviderMap:
+        """The providers currently in use (read-only view, for `status` screens)."""
+        return self._providers
+
+    def provider_order(self) -> list[str]:
+        """The `ai_provider_order` the next call would use."""
+        return self._current_order()
+
     def reload(self) -> None:
         """Forget cooldowns and "misconfigured" marks, and rebuild the providers when a factory was
         given (after the user changed a key, for instance)."""
