@@ -8,7 +8,8 @@ function mockFetch(response: Response | Error) {
   return vi
     .spyOn(globalThis, 'fetch')
     .mockImplementation(() =>
-      response instanceof Error ? Promise.reject(response) : Promise.resolve(response),
+      // A body can be read once: every request (health, AI status) gets its own copy.
+      response instanceof Error ? Promise.reject(response) : Promise.resolve(response.clone()),
     )
 }
 

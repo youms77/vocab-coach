@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet } from 'react-router'
 
 import { useHealth } from '../api/health'
+import { AiBanner } from './AiBanner'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { ThemeSwitcher } from './ThemeSwitcher'
 
@@ -25,6 +26,7 @@ export function Layout() {
           <NavLink to="/" end>
             {t('nav.home')}
           </NavLink>
+          <NavLink to="/settings">{t('nav.settings')}</NavLink>
         </nav>
         {health.data?.demo === true && (
           <span className="demo-badge" title={t('demo.badgeHint')}>
@@ -36,6 +38,7 @@ export function Layout() {
           <ThemeSwitcher />
         </div>
       </header>
+      <AiBanner />
       <main id="main" className="content" tabIndex={-1}>
         <Outlet />
       </main>

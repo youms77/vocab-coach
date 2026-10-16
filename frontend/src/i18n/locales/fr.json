@@ -5,18 +5,199 @@
   },
   "nav": {
     "home": "Accueil",
+    "settings": "Réglages",
     "skipToContent": "Aller au contenu principal"
   },
   "demo": {
     "badge": "Données de démo",
     "badgeHint": "Base de démonstration fictive : vos propres données ne sont pas affichées."
   },
+  "aiBanner": {
+    "degraded": "Aucun fournisseur d'IA n'est disponible pour l'instant. L'application continue de fonctionner sans IA : révisions, saisie manuelle et statistiques ne sont pas touchées.",
+    "aiOff": "L'IA est désactivée. L'application fonctionne sans elle ; réactivez un fournisseur quand vous voulez.",
+    "link": "Ouvrir les réglages de l'IA"
+  },
   "settings": {
     "language": "Langue",
     "theme": "Thème",
     "themeSystem": "Système",
     "themeLight": "Clair",
-    "themeDark": "Sombre"
+    "themeDark": "Sombre",
+    "title": "Réglages",
+    "intro": "Fournisseurs d'IA, réglages d'étude et consommation d'IA du jour. Les changements s'appliquent tout de suite, sans redémarrer l'application.",
+    "loading": "Chargement…",
+    "saved": "Enregistré.",
+    "ai": {
+      "title": "Fournisseurs d'IA",
+      "intro": "Offres gratuites uniquement. Les clés restent dans le fichier .env de cet ordinateur : l'application ne les réaffiche jamais et ne les envoie jamais au navigateur.",
+      "privacy": "Les offres gratuites peuvent utiliser ce que vous envoyez pour améliorer les produits du fournisseur. Ollama tourne sur votre propre ordinateur et n'envoie rien à l'extérieur.",
+      "demoNote": "Base de démo : les clés, le test de connexion et l'ordre des fournisseurs ne peuvent pas être modifiés ici. Lancez l'application sur votre propre base pour les configurer.",
+      "loadError": "Impossible de charger l'état de l'IA."
+    },
+    "provider": {
+      "names": {
+        "gemini": "Google Gemini",
+        "groq": "Groq",
+        "ollama": "Ollama (sur cet ordinateur)"
+      },
+      "capabilities": {
+        "text": "Texte",
+        "transcription": "Transcription"
+      },
+      "state": {
+        "notConfigured": "Non configuré",
+        "disabled": "Configuré, mais désactivé dans l'ordre des fournisseurs",
+        "misconfigured": "Le fournisseur a refusé la clé : vérifiez-la, puis enregistrez-la de nouveau",
+        "cooldown": "En pause jusqu'à {{time}} (limite de débit ou quota)",
+        "available": "Prêt",
+        "unavailable": "Indisponible pour l'instant"
+      },
+      "lastError": "Dernière erreur : {{error}}",
+      "models": "Modèles",
+      "keyLabel": "Clé d'API",
+      "addressLabel": "Adresse d'Ollama",
+      "keyPlaceholderNew": "Collez votre clé",
+      "keyPlaceholderReplace": "Collez une nouvelle clé pour remplacer celle enregistrée",
+      "addressPlaceholder": "http://127.0.0.1:11434",
+      "keyHint": "Enregistrée dans .env sur cet ordinateur. Elle n'est plus jamais affichée, même ici.",
+      "addressHint": "L'adresse où Ollama écoute. Elle est enregistrée dans .env et n'est plus affichée.",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "remove": "Supprimer",
+      "removeConfirm": "Supprimer la valeur enregistrée dans .env ?",
+      "removeYes": "Oui, supprimer",
+      "cancel": "Annuler",
+      "removed": "Supprimé. Le fournisseur n'est plus utilisé.",
+      "savedKey": "Enregistré. Utilisé dès maintenant.",
+      "emptyValue": "Saisissez d'abord une valeur.",
+      "environment": "Défini par la variable d'environnement {{variable}}, prioritaire sur .env. Modifiez-la ou supprimez-la à cet endroit, puis redémarrez l'application."
+    },
+    "errorKinds": {
+      "rate_limited": "trop de requêtes par minute",
+      "quota_exhausted": "quota quotidien épuisé",
+      "transient": "erreur temporaire du fournisseur",
+      "network": "problème de réseau",
+      "auth": "clé refusée",
+      "bad_request": "requête refusée par le fournisseur",
+      "invalid_output": "réponse au mauvais format"
+    },
+    "test": {
+      "button": "Tester la connexion",
+      "running": "Test en cours… {{seconds}} s",
+      "runningHint": "Un test peut durer jusqu'à une minute et demie quand le fournisseur est lent.",
+      "needsCredential": "Enregistrez une clé ou une adresse avant de tester.",
+      "ok": "Ça fonctionne : {{model}} a répondu en {{seconds}} s.",
+      "tokens": "Jetons : {{input}} en entrée, {{output}} en sortie.",
+      "incomplete": "Le fournisseur a répondu, mais pas au format attendu ({{seconds}} s). L'appel suivant peut mieux se passer.",
+      "unavailable": "Le test a échoué : {{reason}}.",
+      "details": "Message du fournisseur (en anglais)",
+      "httpStatus": "Statut HTTP {{status}}",
+      "reasons": {
+        "no_provider_configured": "le fournisseur n'est pas configuré",
+        "network": "le fournisseur est injoignable (vérifiez le réseau, ou qu'Ollama est lancé)",
+        "quota": "le quota gratuit est épuisé ou la limite de débit est atteinte ; réessayez plus tard",
+        "auth": "la clé a été refusée",
+        "timeout": "le fournisseur a mis trop de temps à répondre",
+        "all_failed": "le fournisseur a renvoyé des erreurs"
+      }
+    },
+    "order": {
+      "title": "Ordre des fournisseurs",
+      "intro": "L'application essaie le premier fournisseur, puis passe au suivant en cas d'échec. Un fournisseur désactivé n'est jamais appelé.",
+      "use": "Utiliser {{name}}",
+      "up": "Monter {{name}}",
+      "down": "Descendre {{name}}",
+      "save": "Enregistrer l'ordre",
+      "allOff": "Tous les fournisseurs sont désactivés : l'application fonctionnera sans IA.",
+      "notConfigured": "non configuré"
+    },
+    "usage": {
+      "title": "Consommation d'IA",
+      "intro": "Appels faits par l'application, par jour d'étude. Les quotas gratuits sont comptés par les fournisseurs, pas ici.",
+      "today": "Aujourd'hui",
+      "none": "Aucun appel d'IA aujourd'hui.",
+      "loadError": "Impossible de charger la consommation d'IA.",
+      "week": "7 derniers jours",
+      "provider": "Fournisseur",
+      "model": "Modèle",
+      "requests": "Requêtes",
+      "successes": "Réussites",
+      "errors": "Erreurs",
+      "tokens": "Jetons (entrée / sortie)",
+      "avgTime": "Durée moyenne",
+      "day": "Jour",
+      "seconds": "{{value}} s"
+    },
+    "general": {
+      "title": "Réglages d'étude",
+      "loadError": "Impossible de charger les réglages.",
+      "save": "Enregistrer",
+      "default": "Par défaut : {{value}}",
+      "range": "Entre {{min}} et {{max}}.",
+      "atLeast": "Au moins {{min}}.",
+      "notANumber": "Saisissez un nombre.",
+      "notAnInteger": "Saisissez un nombre entier.",
+      "outOfRange": "Hors des limites.",
+      "required": "Saisissez une valeur.",
+      "groups": {
+        "study": "Étude quotidienne",
+        "schedule": "Jour d'étude",
+        "consolidation": "Consolidation",
+        "audio": "Audio"
+      },
+      "fields": {
+        "daily_time_budget_minutes": {
+          "label": "Temps quotidien (minutes)",
+          "hint": "Le plan du jour fait tenir révisions et nouveaux termes dans ce temps."
+        },
+        "new_items_per_day": {
+          "label": "Nouveaux termes par jour",
+          "hint": "Le nombre maximal de nouveaux termes introduits en une journée."
+        },
+        "target_retention": {
+          "label": "Rétention visée",
+          "hint": "Probabilité de se souvenir d'un terme au moment de sa révision (0,90 = 90 %). Plus elle est haute, plus il y a de révisions."
+        },
+        "timezone": {
+          "label": "Fuseau horaire",
+          "hint": "Un nom IANA, comme Africa/Douala ou Europe/Paris."
+        },
+        "day_start_hour": {
+          "label": "Heure de début du jour d'étude",
+          "hint": "Les révisions faites avant cette heure comptent pour la veille."
+        },
+        "consolidation_share": {
+          "label": "Part d'une liste à consolider",
+          "hint": "Part des cartes de production d'une liste qui doivent être consolidées avant qu'une tâche de consolidation soit proposée (0,80 = 80 %)."
+        },
+        "consolidation_min_stability_days": {
+          "label": "Stabilité requise pour consolider (jours)",
+          "hint": "Un terme est consolidé dès que sa carte de production atteint cette stabilité."
+        },
+        "tts_rate": {
+          "label": "Vitesse de l'audio",
+          "hint": "1,0 correspond à la vitesse normale."
+        }
+      }
+    }
+  },
+  "errors": {
+    "network": "Impossible de joindre le serveur local. Le backend est-il lancé ?",
+    "unexpected": "Erreur inattendue (HTTP {{status}}).",
+    "forbidden_host": "Requête refusée : mauvais nom d'hôte. Ouvrez l'application à l'adresse http://127.0.0.1:5173.",
+    "forbidden_origin": "Requête refusée : elle venait d'un autre site.",
+    "cross_site_request": "Requête refusée : elle venait d'un autre site.",
+    "unsupported_media_type": "Requête refusée : le corps n'était pas en JSON.",
+    "invalid_request": "La requête n'avait pas la forme attendue.",
+    "invalid_credential": "Cette valeur ne peut pas être enregistrée.",
+    "invalid_setting": "Cette valeur n'est pas acceptée.",
+    "unknown_provider": "Fournisseur d'IA inconnu.",
+    "set_in_environment": "Une variable d'environnement définit cette valeur : .env ne peut pas la modifier.",
+    "env_file_locked": "Un autre programme a ouvert le fichier .env. Fermez-le et réessayez.",
+    "test_in_progress": "Un test de ce fournisseur est déjà en cours.",
+    "demo_read_only": "Impossible sur la base de démo.",
+    "env_file_write_failed": "Le fichier .env n'a pas pu être écrit.",
+    "database_unavailable": "La base de données n'existe pas encore. Lancez d'abord la mise à niveau de la base."
   },
   "home": {
     "title": "Bienvenue",

@@ -3,6 +3,7 @@ import type { RouteObject } from 'react-router'
 import { Layout } from './components/Layout'
 import { NotFoundPage } from './components/NotFoundPage'
 import { HomePage } from './features/home/HomePage'
+import { SettingsPage } from './features/settings/SettingsPage'
 
 // One entry per feature folder under src/features/ as milestones add them.
 export const routes: RouteObject[] = [
@@ -11,6 +12,7 @@ export const routes: RouteObject[] = [
     element: <Layout />,
     children: [
       { index: true, element: <HomePage /> },
+      { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

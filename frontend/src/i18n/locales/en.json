@@ -5,18 +5,199 @@
   },
   "nav": {
     "home": "Home",
+    "settings": "Settings",
     "skipToContent": "Skip to main content"
   },
   "demo": {
     "badge": "Demo data",
     "badgeHint": "Fictional demo database: your own data is not shown."
   },
+  "aiBanner": {
+    "degraded": "No AI provider is available right now. The app keeps working without AI: reviews, manual entry and statistics are not affected.",
+    "aiOff": "AI is turned off. The app works without it; turn a provider back on whenever you like.",
+    "link": "Open the AI settings"
+  },
   "settings": {
     "language": "Language",
     "theme": "Theme",
     "themeSystem": "System",
     "themeLight": "Light",
-    "themeDark": "Dark"
+    "themeDark": "Dark",
+    "title": "Settings",
+    "intro": "AI providers, study settings and today's AI usage. Changes apply at once, without restarting the app.",
+    "loading": "Loading…",
+    "saved": "Saved.",
+    "ai": {
+      "title": "AI providers",
+      "intro": "Free tiers only. Keys stay in the .env file on this computer: the app never shows them again and never sends them to the browser.",
+      "privacy": "Free tiers may use what you send to improve the provider's products. Ollama runs on your own computer and sends nothing out.",
+      "demoNote": "Demo database: keys, the connection test and the provider order cannot be changed here. Start the app on your own database to set them up.",
+      "loadError": "The AI status could not be loaded."
+    },
+    "provider": {
+      "names": {
+        "gemini": "Google Gemini",
+        "groq": "Groq",
+        "ollama": "Ollama (on this computer)"
+      },
+      "capabilities": {
+        "text": "Text",
+        "transcription": "Transcription"
+      },
+      "state": {
+        "notConfigured": "Not configured",
+        "disabled": "Configured, but turned off in the provider order",
+        "misconfigured": "The provider refused the key: check it, then save it again",
+        "cooldown": "Paused until {{time}} (rate limit or quota)",
+        "available": "Ready",
+        "unavailable": "Not available right now"
+      },
+      "lastError": "Last error: {{error}}",
+      "models": "Models",
+      "keyLabel": "API key",
+      "addressLabel": "Ollama address",
+      "keyPlaceholderNew": "Paste your key",
+      "keyPlaceholderReplace": "Paste a new key to replace the saved one",
+      "addressPlaceholder": "http://127.0.0.1:11434",
+      "keyHint": "Saved in .env on this computer. It is not shown again, even here.",
+      "addressHint": "The address where Ollama listens. It is saved in .env and not shown again.",
+      "save": "Save",
+      "saving": "Saving…",
+      "remove": "Remove",
+      "removeConfirm": "Remove the saved value from .env?",
+      "removeYes": "Yes, remove",
+      "cancel": "Cancel",
+      "removed": "Removed. The provider is no longer used.",
+      "savedKey": "Saved. It is used from now on.",
+      "emptyValue": "Enter a value first.",
+      "environment": "Set by the environment variable {{variable}}, which takes priority over .env. Change or remove it there, then restart the app."
+    },
+    "errorKinds": {
+      "rate_limited": "too many requests per minute",
+      "quota_exhausted": "daily quota used up",
+      "transient": "temporary provider error",
+      "network": "network problem",
+      "auth": "key refused",
+      "bad_request": "request refused by the provider",
+      "invalid_output": "answer in the wrong format"
+    },
+    "test": {
+      "button": "Test connection",
+      "running": "Testing… {{seconds}} s",
+      "runningHint": "A test can take up to a minute and a half when the provider is slow.",
+      "needsCredential": "Save a key or an address before testing.",
+      "ok": "It works: {{model}} answered in {{seconds}} s.",
+      "tokens": "Tokens: {{input}} in, {{output}} out.",
+      "incomplete": "The provider answered, but not in the expected format ({{seconds}} s). It may work better on the next call.",
+      "unavailable": "The test failed: {{reason}}.",
+      "details": "Provider message (English)",
+      "httpStatus": "HTTP status {{status}}",
+      "reasons": {
+        "no_provider_configured": "the provider is not configured",
+        "network": "the provider could not be reached (check the network or that Ollama is running)",
+        "quota": "the free quota is used up or the rate limit was hit; try again later",
+        "auth": "the key was refused",
+        "timeout": "the provider took too long to answer",
+        "all_failed": "the provider returned errors"
+      }
+    },
+    "order": {
+      "title": "Provider order",
+      "intro": "The app tries the first provider, then falls back to the next one. A provider that is turned off is never called.",
+      "use": "Use {{name}}",
+      "up": "Move {{name}} up",
+      "down": "Move {{name}} down",
+      "save": "Save the order",
+      "allOff": "Every provider is turned off: the app will run without AI.",
+      "notConfigured": "not configured"
+    },
+    "usage": {
+      "title": "AI usage",
+      "intro": "Calls made by the app, per study day. Free quotas are counted by the providers, not here.",
+      "today": "Today",
+      "none": "No AI call today.",
+      "loadError": "The AI usage could not be loaded.",
+      "week": "Last 7 days",
+      "provider": "Provider",
+      "model": "Model",
+      "requests": "Requests",
+      "successes": "Successes",
+      "errors": "Errors",
+      "tokens": "Tokens (in / out)",
+      "avgTime": "Average time",
+      "day": "Day",
+      "seconds": "{{value}} s"
+    },
+    "general": {
+      "title": "Study settings",
+      "loadError": "The settings could not be loaded.",
+      "save": "Save",
+      "default": "Default: {{value}}",
+      "range": "Between {{min}} and {{max}}.",
+      "atLeast": "At least {{min}}.",
+      "notANumber": "Enter a number.",
+      "notAnInteger": "Enter a whole number.",
+      "outOfRange": "Out of range.",
+      "required": "Enter a value.",
+      "groups": {
+        "study": "Daily study",
+        "schedule": "Study day",
+        "consolidation": "Consolidation",
+        "audio": "Audio"
+      },
+      "fields": {
+        "daily_time_budget_minutes": {
+          "label": "Daily time budget (minutes)",
+          "hint": "The daily plan fits reviews and new terms into this time."
+        },
+        "new_items_per_day": {
+          "label": "New terms per day",
+          "hint": "The most new terms the plan introduces in one day."
+        },
+        "target_retention": {
+          "label": "Target retention",
+          "hint": "Chance of remembering a term when it is reviewed (0.90 = 90 %). Higher means more reviews."
+        },
+        "timezone": {
+          "label": "Time zone",
+          "hint": "An IANA name such as Africa/Douala or Europe/Paris."
+        },
+        "day_start_hour": {
+          "label": "Hour the study day starts",
+          "hint": "Reviews done before this hour count for the previous day."
+        },
+        "consolidation_share": {
+          "label": "Share of a deck to consolidate",
+          "hint": "Share of a deck's productive cards that must be consolidated before a consolidation task is proposed (0.80 = 80 %)."
+        },
+        "consolidation_min_stability_days": {
+          "label": "Stability needed to consolidate (days)",
+          "hint": "A term counts as consolidated once its productive card is this stable."
+        },
+        "tts_rate": {
+          "label": "Audio speed",
+          "hint": "1.0 is the normal speed."
+        }
+      }
+    }
+  },
+  "errors": {
+    "network": "Cannot reach the local server. Is the backend running?",
+    "unexpected": "Unexpected error (HTTP {{status}}).",
+    "forbidden_host": "Request refused: wrong host name. Open the app at http://127.0.0.1:5173.",
+    "forbidden_origin": "Request refused: it came from another site.",
+    "cross_site_request": "Request refused: it came from another site.",
+    "unsupported_media_type": "Request refused: the body was not JSON.",
+    "invalid_request": "The request was not in the expected shape.",
+    "invalid_credential": "This value cannot be saved.",
+    "invalid_setting": "This value is not accepted.",
+    "unknown_provider": "Unknown AI provider.",
+    "set_in_environment": "An environment variable sets this value, so .env cannot change it.",
+    "env_file_locked": "Another program has the .env file open. Close it and try again.",
+    "test_in_progress": "A test of this provider is already running.",
+    "demo_read_only": "Not possible on the demo database.",
+    "env_file_write_failed": "The .env file could not be written.",
+    "database_unavailable": "The database does not exist yet. Run the database upgrade first."
   },
   "home": {
     "title": "Welcome",
