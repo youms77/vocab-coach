@@ -12,6 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # The API must never be reachable from the network: it holds personal data and API keys.
 ALLOWED_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
+DATABASE_FILENAME = "vocab-coach.sqlite3"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -25,6 +27,9 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1024, le=65535)
     data_dir: Path = REPO_ROOT / "data"
+    # SQLAlchemy URL. Empty means `<data_dir>/vocab-coach.sqlite3`, resolved as an absolute path
+    # so the result does not depend on the current directory (the backend runs from `backend/`).
+    database_url: str = ""
     # Origins allowed to call the API during development (Vite dev server).
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 
@@ -37,6 +42,18 @@ class Settings(BaseSettings):
                 f"({', '.join(sorted(ALLOWED_HOSTS))})."
             )
         return value
+
+    @property
+    def resolved_data_dir(self) -> Path:
+        """`data_dir` as an absolute path; a relative value is taken from the repository root."""
+        path = self.data_dir if self.data_dir.is_absolute() else REPO_ROOT / self.data_dir
+        return path.resolve()
+
+    @property
+    def resolved_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        return f"sqlite:///{(self.resolved_data_dir / DATABASE_FILENAME).as_posix()}"
 
 
 @lru_cache

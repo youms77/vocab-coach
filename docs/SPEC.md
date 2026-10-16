@@ -273,9 +273,14 @@ Main entities (indicative names, to be refined while keeping this coverage):
 - `source`: title, author, field, context, URL or reference, date.
 - `deck`: name, field, type (`custom` | `curriculum` | `error_drill`), source, deadline, priority, status
   (`queued` | `active` | `paused` | `done`), position in the queue.
+- `deck_item` *(approved by owner, M1.a)*: many-to-many link between `deck` and `lexical_item` (position,
+  date added, optional deck-specific context sentence). A term may belong to several decks and still has a
+  single pair of cards.
 - `lexical_item`: term, normalised form, type (`word` | `collocation` | `phrase` | `spoken_formula`), part of
-  speech, deck, original sentence, status (`draft` | `triage` | `queued` | `discovering` | `learning` |
-  `consolidated` | `active` | `known` | `archived`), dates.
+  speech, original sentence, status (`draft` | `triage` | `queued` | `discovering` | `learning` |
+  `consolidated` | `active` | `known` | `archived`), dates. *(approved by owner, M1.a)*: decks are reached
+  through `deck_item` instead of a single deck column; added `lemma`, `origin_error_event_id` (cards born
+  from an error, e.g. "at university", in an `error_drill` deck).
 - `enrichment`: term, structured content (validated JSON), provider, model, prompt version, edited by the user
   (boolean), date.
 - `exercise_template`: term, exercise type, content (gapped sentence, prompt, expected answer, accepted variants).
@@ -294,6 +299,40 @@ Main entities (indicative names, to be refined while keeping this coverage):
 - `event_log`: date, event type, entity, JSON payload (shared log for statistics).
 - `ai_call_log`: date, provider, model, task, tokens, duration, success or error.
 - `setting`: key, value.
+
+**Columns added in M1.a** *(approved by owner, M1.a)*. The complete column list is in
+`backend/app/db/models/`, and the reasons are in `docs/DECISIONS.md` D-011 to D-019.
+
+- **`deck`**: `kind` (`custom` | `curriculum` | `error_drill`), `activated_at` and `completed_at`.
+- **`enrichment`**:
+  - version history kept, with `is_current` (exactly one current sheet per term);
+  - `schema_version`, `status` (`complete` | `needs_completion`) and `edited_at`.
+- **`exercise_template`**: `direction`, `origin` (`ai` | `user` | `demo`) and `prompt_version`.
+- **`card`**:
+  - `step`, `suspended`, `srs_algorithm` and `srs_payload` (the full serialised state of the FSRS library);
+  - `srs_state` includes `new` (never reviewed).
+- **`review_log`**:
+  - the session and the exercise template used;
+  - the audio path;
+  - a before/after FSRS snapshot (state, stability, difficulty, due, elapsed days, retrievability, scheduled
+    days), so retention can be computed without replaying the algorithm.
+- **`production_attempt`**:
+  - `modality` (`written` | `oral`) and `audio_seconds`;
+  - links to the AI call, consolidation task, curriculum unit and study session;
+  - `kind` gains `shadowing`;
+  - target terms live in `production_target` (`used`, `used_correctly`).
+- **`consolidation_task_item`**: the target terms of a consolidation task.
+- **`error_category`**:
+  - labels and descriptions in English and French;
+  - `is_builtin`, `status` (`active` | `proposed` | `rejected`) and `sort_order`.
+- **`error_event`**: comes from either an attempt or a review, never both.
+- **`curriculum_unit`**: `content_status`, provider, model and prompt version, the deck holding its terms, and
+  `progress`.
+- **`event_log`**:
+  - separate `occurred_at` (business date) and `recorded_at`;
+  - `payload_version` and `study_session_id`;
+  - no foreign keys, append-only.
+- **`ai_call_log`**: HTTP status, error code and message (truncated), attempt number and `fallback_from`.
 
 ## 7. AI strategy
 

@@ -25,6 +25,13 @@ node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(
 
 echo "==> Backend dependencies (uv sync)"
 uv --directory backend sync --quiet
+
+# Creates data/vocab-coach.sqlite3 on first run, applies new migrations, loads the error taxonomy.
+echo "==> Database (migrations + error taxonomy)"
+uv --directory backend run python -m app db upgrade || {
+  echo "The database could not be prepared (see the message above). The app was not started." >&2
+  exit 1
+}
 [ -d node_modules ] || { echo "==> Launcher dependencies"; npm install --no-fund --no-audit; }
 [ -d frontend/node_modules ] || { echo "==> Frontend dependencies"; npm --prefix frontend install --no-fund --no-audit; }
 
