@@ -14,7 +14,12 @@ from app.db.settings_store import get_setting
 from app.domain import exercises as ex
 from app.domain.deck_queue import SUPPLYING_STATUSES
 from app.domain.enums import CardDirection, DeckStatus, ItemStatus
-from app.domain.events import CardCreated, DiscoveryCompleted, DiscoveryExerciseResult
+from app.domain.events import (
+    CardCreated,
+    DiscoveryCompleted,
+    DiscoveryExerciseResult,
+    ProductionOrigin,
+)
 from app.domain.fsrs_engine import default_engine_factory
 from app.domain.grading import GradeWarning
 from app.domain.item_status import TransitionKind
@@ -269,6 +274,7 @@ def finish_discovery(
             targets={item.id: used},
             at=at,
             study_session_id=study_session_id,
+            origin=ProductionOrigin.DISCOVERY,
         )
         attempt_id = attempt.id
     return DiscoveryEnd(cards=cards, production_attempt_id=attempt_id, warnings=warnings)

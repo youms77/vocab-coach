@@ -14,9 +14,10 @@ class, D-028); typo -> Hard; wrong or empty -> Again. Easy is never proposed (th
 import difflib
 import re
 import unicodedata
-from collections.abc import Collection, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 from app.domain import exercises as ex
 from app.domain.normalize import stem_token
@@ -41,6 +42,22 @@ class GradeWarning(StrEnum):
     TERM_MISSING = "term_missing"
 
 
+class ConfusionKind(StrEnum):
+    LIBRARY_TERM = "library_term"  # another term of the user's library
+    CONFUSABLE = "confusable"  # a "similar word not to confuse" of the sheet
+    PITFALL = "pitfall"  # the wrong form of a French speaker's pitfall of the sheet
+
+
+@dataclass(frozen=True)
+class Confusion:
+    """Why a typed answer is `wrong` rather than a typo: the word it was confused with. A
+    confusion creates an error event when the review is recorded (SPEC module C)."""
+
+    kind: ConfusionKind
+    matched: str  # the word as the sheet or the library writes it
+    explanation: str | None = None  # the sheet's `difference` or pitfall `explanation`
+
+
 @dataclass(frozen=True)
 class DiffPart:
     """One run of a character diff: `equal`, `replace`, `insert` (missing from the answer) or
@@ -59,6 +76,7 @@ class GradeResult:
     accepted: list[str] = field(default_factory=list)
     diff: list[DiffPart] | None = None
     warnings: list[str] = field(default_factory=list)
+    confusion: Confusion | None = None  # set for a `wrong` caused by a confusion
 
 
 # --- Normalisation and distance ------------------------------------------------------------------
@@ -176,12 +194,14 @@ def grade_typed(
     answer: str,
     accepted: Sequence[str],
     given: str | None,
-    confusions: Collection[str] = (),
+    confusions: Mapping[str, Confusion] | None = None,
     response_time_ms: int | None = None,
     estimate_seconds: float,
 ) -> GradeResult:
-    """Grade a typed answer. `confusions` are words the user may have confused with the term,
-    already normalised with `comparable`."""
+    """Grade a typed answer. `confusions` maps the words the user may have confused with the
+    term, already normalised with `comparable`, to what they are; a match is `wrong` and the
+    result says which confusion it was."""
+    confusions = confusions or {}
     forms: list[str] = []
     for form in (answer, *accepted):
         key = comparable(form, term)
@@ -190,12 +210,14 @@ def grade_typed(
     guess = comparable(given or "", term)
 
     diff: list[DiffPart] | None = None
+    confusion: Confusion | None = None
     if not guess:
         outcome = Outcome.EMPTY
     elif guess in forms:
         outcome = Outcome.EXACT
     elif guess in confusions:
         outcome = Outcome.WRONG
+        confusion = confusions[guess]
     elif exercise_type == ex.TYPED_RECALL and any(is_regular_form(f, guess) for f in forms):
         outcome = Outcome.FORM
     elif not forms:
@@ -213,6 +235,7 @@ def grade_typed(
         expected=answer,
         accepted=list(accepted),
         diff=diff,
+        confusion=confusion,
     )
 
 
@@ -242,3 +265,26 @@ def check_production(term: str, text: str | None, forms: Sequence[str] = ()) -> 
     if text and text.strip() and not ex.contains_term(term, text, forms):
         warnings.append(GradeWarning.TERM_MISSING.value)
     return GradeResult(outcome=None, proposed_rating=None, expected=None, warnings=warnings)
+
+
+def production_rating(feedback: Mapping[str, Any] | None, lexical_item_id: int) -> Rating | None:
+    """The rating proposed for a `sentence_production` checked by the AI, from the stored
+    `correction-1` feedback (D-128): Good when the term was used correctly and no error concerns
+    it, Again when it is absent, misused or has an error. None when the check is missing or
+    unusable (the review is then self-graded). Easy and Hard are never proposed."""
+    if not feedback or feedback.get("format") != "correction-1":
+        return None
+    check = next(
+        (t for t in feedback.get("targets") or [] if t.get("lexical_item_id") == lexical_item_id),
+        None,
+    )
+    if check is None:
+        return None
+    if not check.get("used"):
+        return Rating.AGAIN
+    errors = (feedback.get("output") or {}).get("errors") or []
+    if any(error.get("target_ref") == check.get("ref") for error in errors):
+        return Rating.AGAIN
+    if check.get("used_correctly") is None:
+        return None
+    return Rating.GOOD if check["used_correctly"] else Rating.AGAIN

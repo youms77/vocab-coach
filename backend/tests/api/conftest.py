@@ -14,6 +14,7 @@ import os
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -126,3 +127,56 @@ def env(
     client = TestClient(app, base_url=f"http://127.0.0.1:{get_settings().port}")
     yield ApiEnv(client, gateway, engine, isolated_settings, servers, clock)
     client.close()
+
+
+@dataclass
+class FakeAiEnv:
+    """The API with one scripted `FakeProvider` instead of the real adapters."""
+
+    client: TestClient
+    provider: Any
+    engine: Engine
+    clock: FakeClock
+    db_url: str
+    gateway: Gateway
+
+    def script(self, *steps: Any) -> None:
+        """Replace the provider's script (and restart it)."""
+        self.provider.script = list(steps)
+        self.provider._calls = 0  # noqa: SLF001
+
+    def use(self, provider: Any) -> None:
+        """Answer with another provider (a subclass that spies on the call, for instance)."""
+        self.provider = provider
+        self.gateway._providers = {"fake": provider}  # noqa: SLF001
+
+
+@pytest.fixture
+def fake_env(engine: Engine, db_url: str, clock: FakeClock) -> Iterator[FakeAiEnv]:  # noqa: F811
+    from app.ai.providers.fake import FakeProvider
+    from app.db.taxonomy import sync_taxonomy
+
+    with Session(engine) as session:
+        sync_taxonomy(session)
+        session.commit()
+    provider = FakeProvider("fake", [], advance=clock.advance)
+    gateway = Gateway(
+        {"fake": provider},
+        session_factory=lambda: Session(engine),
+        provider_order=lambda: ["fake"],
+        clock=clock.now,
+        sleep=clock.sleep,
+        rng=FixedRng(),
+    )
+
+    def session_override() -> Iterator[Session]:
+        with Session(engine, expire_on_commit=False) as session:
+            yield session
+
+    app = create_app()
+    app.dependency_overrides[get_engine] = lambda: engine
+    app.dependency_overrides[get_session] = session_override
+    app.dependency_overrides[get_gateway] = lambda: gateway
+    app.dependency_overrides[get_now] = clock.now
+    with TestClient(app, base_url=f"http://127.0.0.1:{get_settings().port}") as client:
+        yield FakeAiEnv(client, provider, engine, clock, db_url, gateway)

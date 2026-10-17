@@ -1,27 +1,36 @@
 """Review endpoints (module C, M4.a): grade an attempt, record the final rating, reveal.
 
 `grade` and `reveal` write nothing. `POST /reviews` grades the answer again on the server: the
-client never sends the proposed rating (an unknown field is refused). No AI call here.
+client never sends the proposed rating (an unknown field is refused). The only AI call is
+`POST /reviews/check-production`, a plain `def` route with no database session in its dependencies
+(D-038): an AI failure is a result (`status`), not an HTTP error.
 """
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Annotated, Any, Self
+from typing import Annotated, Any, Literal, Self
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
+from app.ai import Gateway, get_gateway
 from app.api.clock import NowDep
+from app.api.error_log import ErrorOut
 from app.api.errors import require_database
-from app.db.engine import get_session
+from app.api.productions import correction_out
+from app.db.engine import get_engine, get_session
 from app.domain.enums import ItemStatus, SrsState
 from app.domain.grading import DiffPart
 from app.domain.srs import Rating
-from app.services import review_flow, study_sessions
+from app.services import review_flow, review_production, study_sessions
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
 SessionDep = Annotated[Session, Depends(get_session)]
+GatewayDep = Annotated[Gateway, Depends(get_gateway)]
+EngineDep = Annotated[Engine, Depends(get_engine)]
 Answer = Annotated[str, Field(max_length=2000)]
 ExerciseType = Annotated[str, Field(min_length=1, max_length=64)]
 # Pydantic refuses a negative time; `record` caps a long one at MAX_RESPONSE_TIME_MS.
@@ -124,6 +133,10 @@ class RecordRequest(BaseModel):
     response_time_ms: ResponseTime
     final_rating: Annotated[int, Field(ge=1, le=4)]
     expected_reps: Annotated[int, Field(ge=0)]
+    # The production returned by `check-production` (sentence production only): the server
+    # then proposes Good or Again from the stored correction. 409 `production_mismatch` when it
+    # is not this term's, not from this session, or already used by another review.
+    production_attempt_id: int | None = None
 
 
 class RecordOut(BaseModel):
@@ -132,6 +145,7 @@ class RecordOut(BaseModel):
     state_after: SrsState
     item_status: ItemStatus
     item_status_changed: bool
+    error_event_id: int | None  # an error logged for a lexical confusion (typed answers)
 
 
 @router.post("/reviews", tags=["reviews"])
@@ -151,6 +165,7 @@ def record(body: RecordRequest, session: SessionDep, now: NowDep) -> RecordOut:
         expected_reps=body.expected_reps,
         study_session_id=study.id,
         now=now,
+        production_attempt_id=body.production_attempt_id,
     )
     session.commit()
     return RecordOut(
@@ -159,6 +174,61 @@ def record(body: RecordRequest, session: SessionDep, now: NowDep) -> RecordOut:
         state_after=recorded.state_after,
         item_status=recorded.item_status,
         item_status_changed=recorded.item_status_changed,
+        error_event_id=recorded.error_event_id,
+    )
+
+
+class CheckProductionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    card_id: int
+    session_id: int
+    exercise_template_id: int
+    answer: Annotated[str, Field(min_length=1, max_length=2000)]
+    response_time_ms: ResponseTime  # kept for the final `POST /reviews`, which times the card
+
+
+class CheckProductionOut(BaseModel):
+    production_attempt_id: int
+    status: Literal["ok", "incomplete", "unavailable"]
+    reason: str | None
+    # The stored correction (`correction-1`, see `/productions`): corrected sentence, natural
+    # version, notes, target check. None unless `status` is `ok`.
+    feedback: dict[str, Any] | None
+    errors: list[ErrorOut]
+    proposed_rating: int | None  # 1 (Again) or 3 (Good); None: rate it yourself
+    solution: dict[str, Any]  # the example answer, shown now that the attempt was made (D-103)
+    sheet_summary: dict[str, Any] | None
+
+
+@router.post("/reviews/check-production", tags=["reviews"])
+def check_production(
+    body: CheckProductionRequest, engine: EngineDep, gateway: GatewayDep, now: NowDep
+) -> CheckProductionOut:
+    """Have the AI check a `sentence_production` answer. The sentence is recorded as a production
+    and kept even if the AI is unavailable (then `status` says why and you rate it yourself)."""
+    factory: Callable[[], Session] = lambda: Session(engine, expire_on_commit=False)  # noqa: E731
+    checked = review_production.check_production(
+        factory,
+        gateway,
+        card_id=body.card_id,
+        study_session_id=body.session_id,
+        exercise_template_id=body.exercise_template_id,
+        answer=body.answer,
+        clock=lambda: now,
+    )
+    with factory() as session:
+        corrected = correction_out(session, checked.result)
+        session.rollback()
+    return CheckProductionOut(
+        production_attempt_id=checked.result.attempt_id,
+        status=corrected.status,
+        reason=corrected.reason,
+        feedback=corrected.attempt.feedback,
+        errors=corrected.errors,
+        proposed_rating=checked.proposed_rating,
+        solution=checked.solution,
+        sheet_summary=checked.sheet_summary,
     )
 
 

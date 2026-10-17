@@ -18,26 +18,39 @@ from pydantic import BaseModel
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Card, Enrichment, ExerciseTemplate, LexicalItem
+from app.db.models import (
+    Card,
+    Enrichment,
+    ErrorEvent,
+    ExerciseTemplate,
+    LexicalItem,
+    ProductionAttempt,
+    ProductionTarget,
+    ReviewLog,
+)
 from app.db.settings_store import get_setting
 from app.domain import exercises as ex
 from app.domain.durations import DurationClass, DurationEstimates, duration_class
-from app.domain.enums import CardDirection, ItemStatus, SrsState
+from app.domain.enums import CardDirection, ErrorSource, ItemStatus, ItemType, SrsState
 from app.domain.exercise_choice import TemplateRef, choose_exercise
 from app.domain.fsrs_engine import default_engine_factory
 from app.domain.grading import (
+    Confusion,
+    ConfusionKind,
     GradeResult,
+    Outcome,
     check_production,
     comparable,
     grade_choice,
     grade_typed,
+    normalize_answer,
+    production_rating,
 )
 from app.domain.item_status import REVIEWABLE_STATUSES
 from app.domain.normalize import normalize_term
 from app.domain.review_steps import (
     build_prompt,
     build_solution,
-    confusion_words,
     option_seed,
     prompt_has_cue,
     sheet_summary,
@@ -46,6 +59,7 @@ from app.domain.review_steps import (
 from app.domain.srs import EngineFactory, Rating
 from app.domain.study_day import as_utc, study_day_bounds, study_day_of
 from app.domain.usage_sheet import UsageSheet, read_sheet
+from app.services import error_log
 from app.services.durations import observed_estimates
 from app.services.library import LibraryError, get_item
 from app.services.reviews import ReviewNotAllowed, record_review
@@ -75,6 +89,13 @@ class NotDue(LibraryError):
 
 class ExerciseMismatch(LibraryError):
     status, code = 422, "exercise_mismatch"
+
+
+class ProductionMismatch(LibraryError):
+    """The production sent with a review is not the one checked for this term in this session,
+    or another review already used it."""
+
+    code = "production_mismatch"
 
 
 # --- Context -------------------------------------------------------------------------------------
@@ -291,11 +312,13 @@ def _answer_forms(session: Session, item_id: int) -> list[str]:
     return [form for form in forms if form]
 
 
-def _confusions(session: Session, ctx: ExerciseContext, answer: str | None) -> list[str]:
+def _confusions(session: Session, ctx: ExerciseContext, answer: str | None) -> dict[str, Confusion]:
     """The sheet's confusables and pitfalls, and the answer itself when it is another term of
-    the library ("affect" typed for "effect" is a confusion, not a typo)."""
+    the library ("affect" typed for "effect" is a confusion, not a typo), keyed by their
+    comparable form. When a word is several of these, the sheet's entries win (they explain the
+    difference): confusable, then pitfall, then library term."""
     term = ctx.item.term
-    words = [comparable(word, term) for word in confusion_words(ctx.sheet)]
+    found: dict[str, Confusion] = {}
     if answer and answer.strip():
         other_term = session.scalar(
             select(
@@ -306,8 +329,17 @@ def _confusions(session: Session, ctx: ExerciseContext, answer: str | None) -> l
             )
         )
         if other_term:
-            words.append(comparable(answer, term))
-    return [word for word in words if word]
+            found[comparable(answer, term)] = Confusion(ConfusionKind.LIBRARY_TERM, answer.strip())
+    if ctx.sheet is not None:
+        for pitfall in ctx.sheet.french_speaker_pitfalls:
+            found[comparable(pitfall.wrong, term)] = Confusion(
+                ConfusionKind.PITFALL, pitfall.wrong, pitfall.explanation
+            )
+        for confusable in ctx.sheet.confusables:
+            found[comparable(confusable.term, term)] = Confusion(
+                ConfusionKind.CONFUSABLE, confusable.term, confusable.difference
+            )
+    return {key: confusion for key, confusion in found.items() if key}
 
 
 def grade(
@@ -371,6 +403,11 @@ def _solution(ctx: ExerciseContext) -> dict[str, Any]:
     )
 
 
+def solution_and_summary(ctx: ExerciseContext) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """The solution and the sheet summary, to give once the user has made an attempt (D-103)."""
+    return _solution(ctx), sheet_summary(ctx.item.term, ctx.sheet)
+
+
 def reveal(ctx: ExerciseContext) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """Solution and sheet summary of a self-graded exercise. Writes nothing."""
     if ctx.exercise_type not in ex.SELF_GRADED_TYPES:
@@ -391,6 +428,7 @@ class Recorded:
     item_status: ItemStatus
     item_status_changed: bool
     auto_rating: Rating | None
+    error_event_id: int | None = None
 
 
 def record(
@@ -404,9 +442,11 @@ def record(
     expected_reps: int,
     study_session_id: int,
     now: datetime,
+    production_attempt_id: int | None = None,
     engine_factory: EngineFactory = default_engine_factory,
 ) -> Recorded:
-    """Record the user's final rating. The proposed rating is computed again here."""
+    """Record the user's final rating. The proposed rating is computed again here; for a
+    `sentence_production` it comes from the AI check of `production_attempt_id` (D-128)."""
     now = as_utc(now)
     card, item = ctx.card, ctx.item
     assert card is not None  # noqa: S101 (a review is always of a card)
@@ -432,6 +472,10 @@ def record(
         response_time_ms=response_time_ms,
         now=now,
     )
+    auto_rating = graded.result.proposed_rating
+    if production_attempt_id is not None:
+        attempt = _checked_production(session, ctx, production_attempt_id, study_session_id)
+        auto_rating = production_rating(attempt.ai_feedback, item.id)
     status_before = ItemStatus(item.status)
     try:
         log = record_review(
@@ -442,18 +486,117 @@ def record(
             response_time_ms,
             ctx.exercise_type,
             answer=graded.answer_text,
-            auto_rating=graded.result.proposed_rating,
+            auto_rating=auto_rating,
             study_session_id=study_session_id,
             exercise_template_id=ctx.template.id if ctx.template is not None else None,
+            production_attempt_id=production_attempt_id,
             engine_factory=engine_factory,
         )
     except ReviewNotAllowed as exc:
         raise ReviewRefused(str(exc)) from exc
+    error = _confusion_error(session, ctx, graded, log.id, now, study_session_id)
     return Recorded(
         review_log_id=log.id,
         due_after=log.due_after,
         state_after=SrsState(log.state_after),
         item_status=ItemStatus(item.status),
         item_status_changed=ItemStatus(item.status) != status_before,
-        auto_rating=graded.result.proposed_rating,
+        auto_rating=auto_rating,
+        error_event_id=error.id if error is not None else None,
+    )
+
+
+def _checked_production(
+    session: Session, ctx: ExerciseContext, production_attempt_id: int, study_session_id: int
+) -> ProductionAttempt:
+    """The production a review rated: it must be the one checked for this term, in this session,
+    and not already used by another review. Raises ExerciseMismatch, ProductionMismatch."""
+    if ctx.exercise_type != ex.SENTENCE_PRODUCTION:
+        raise ExerciseMismatch("`production_attempt_id` only goes with a sentence production.")
+    attempt = session.get(ProductionAttempt, production_attempt_id)
+    if attempt is None:
+        raise ProductionMismatch(f"There is no production {production_attempt_id}.")
+    if attempt.study_session_id != study_session_id:
+        raise ProductionMismatch("This production was written in another study session.")
+    is_target = session.scalar(
+        select(
+            exists().where(
+                ProductionTarget.production_attempt_id == attempt.id,
+                ProductionTarget.lexical_item_id == ctx.item.id,
+            )
+        )
+    )
+    if not is_target:
+        raise ProductionMismatch("This production was not written for this term.")
+    already = session.scalar(select(exists().where(ReviewLog.production_attempt_id == attempt.id)))
+    if already:
+        raise ProductionMismatch("This production was already used by another review.")
+    return attempt
+
+
+# --- Errors from reviews -------------------------------------------------------------------------
+
+MULTI_WORD_TYPES = (ItemType.COLLOCATION, ItemType.PHRASE, ItemType.SPOKEN_FORMULA)
+
+
+def _one_word_apart(given: str, expected: str) -> bool:
+    a, b = normalize_answer(given).split(), normalize_answer(expected).split()
+    return len(a) == len(b) and sum(x != y for x, y in zip(a, b, strict=True)) == 1
+
+
+def confusion_category(item_type: ItemType | str, given: str, expected: str) -> str:
+    """`lexis.collocation` when a multi-word term was answered with one word changed ("make a
+    conclusion" for "draw a conclusion"), else `lexis.wrong_word`."""
+    if item_type in MULTI_WORD_TYPES and _one_word_apart(given, expected):
+        return "lexis.collocation"
+    return "lexis.wrong_word"
+
+
+def _confusion_error(
+    session: Session,
+    ctx: ExerciseContext,
+    graded: Graded,
+    review_log_id: int,
+    now: datetime,
+    study_session_id: int,
+) -> ErrorEvent | None:
+    """One error event for a typed answer that is `wrong` because of a lexical confusion (SPEC
+    module C). Nothing for a typo, an empty answer, any other wrong answer, a choice or a
+    self-graded exercise."""
+    result = graded.result
+    if (
+        ctx.exercise_type not in ex.TYPED_TYPES
+        or result.outcome != Outcome.WRONG
+        or result.confusion is None
+        or not graded.answer_text
+        or ctx.content is None
+    ):
+        return None
+    given = graded.answer_text.strip()
+    expected = str(ctx.content["answer"])
+    category = error_log.category_by_code(
+        session, confusion_category(ctx.item.item_type, given, expected)
+    )
+    if category is None:  # the taxonomy was never loaded (`db upgrade` syncs it)
+        return None
+    if ctx.exercise_type == ex.GAP_FILL:
+        original = ex.fill_gap(str(ctx.content["sentence"]), given)
+    else:
+        cues = [ctx.content.get("cue_fr"), ctx.content.get("cue_definition")]
+        original = " / ".join(str(cue) for cue in cues if cue)
+    explanation = result.confusion.explanation or (
+        f'"{given}" is a different word: here the right term is "{expected}".'
+    )
+    return error_log.record_error(
+        session,
+        source=ErrorSource.REVIEW,
+        category=category,
+        erroneous_text=given,
+        correction=expected,
+        at=now,
+        original_text=original,
+        explanation=explanation,
+        lexical_item_id=ctx.item.id,
+        review_log_id=review_log_id,
+        study_session_id=study_session_id,
     )

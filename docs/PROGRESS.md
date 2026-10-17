@@ -4,14 +4,126 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M4.c — review player, keyboard shortcuts, deck queue page (frontend only), on
-  branch `feat/m4c-review-player`, started from `feat/m4b-today-discovery` because M4.b is not merged yet.
-  M4.b is on `feat/m4b-today-discovery` (not merged); M4.a is merged (PR #12); M1.a to M3.c3 are in `main`.
-- **Next milestone**: M5 (errors and writing), after the owner has reviewed and merged M4.b then M4.c.
-- The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
-  M3.c3 below. M4.a makes no AI call.
-- The local `main` of the owner's checkout was still at M2.c1 at the start of M4.a1 (`origin/main` had M3.c3):
-  run `git switch main` then `git pull` before starting a branch from it.
+- **Last milestone completed**: M5.a1 — production correction and error log (backend), on branch
+  `feat/m5a-errors-backend` (not merged yet). M1.a to M4.c are all in `main` (M4.c as `cbcc304`, CI green).
+- **Next milestone**: M5.a2 (backend), then M5.b and M5.c (screens). M5 is cut in four sessions (D-130).
+- The `ai test` call worked (`gemini-3.5-flash-lite`, structured JSON accepted) and the two M5.a1 live tests pass
+  with the owner's key. The owner's manual scenarios (M2.c2, M3.c3, M5.a1) are still to run.
+- Before starting a branch: `git switch main` then `git pull`.
+
+## M5.a1 — Production correction and error log (backend)
+
+Branch `feat/m5a-errors-backend` from `origin/main` (`cbcc304`), six commits: the error log and categories, the
+review errors, the CLI errors commands, the AI correction, the AI-checked sentence production, then the docs. M5 is cut in four sessions (D-130). **One migration**
+(`0002_review_log_production`, D-127: the prompt planned none; see "Departures"). SPEC.md unchanged.
+
+### Done
+
+- **`production_correction` v1** (D-128): prompt, schema with 13 validators (each tested to be rejected, repaired
+  once, then `incomplete`), budgets as named constants, the taxonomy and the learner text framed as the prompt
+  rules say (text = `data`).
+- **Correction service** (`corrections.py`): read, AI call with no transaction open (a test locks the database
+  from another connection during the call), one write transaction (409 `already_corrected` if corrected
+  meanwhile). `ai_feedback` (`correction-1`) with `spans` (code points, tested with « Yaoundé » in both Unicode
+  forms), `error_event_ids`, target checks (`used` deterministic, `used_correctly` from the AI, disagreement
+  noted). `unavailable` / `incomplete` write nothing and can be retried.
+- **Productions API**: `POST/GET /api/productions`, `GET /api/productions/{id}`, `POST .../correct`. The personal
+  sentence of a discovery is corrected through the same route.
+- **Error log and categories** (D-131): manual entry, filters, level-2 facets, pagination, `PATCH` / `DELETE` with
+  events, the category tree, user categories, AI-proposed subcategories accepted or rejected (errors go to the
+  parent); `sync_taxonomy` leaves proposed and rejected categories alone (tested).
+- **Errors from reviews**: a typed `wrong` with a lexical confusion gives one error (`lexis.wrong_word` /
+  `lexis.collocation`, source `review`, `review_log_id`); nothing for choices, typos, empty answers or
+  self-graded types; `grade` / `reveal` still write nothing. `POST /api/reviews` answers `error_event_id`.
+- **AI-checked sentence production** (D-129): `POST /api/reviews/check-production`, then `POST /api/reviews`
+  with `production_attempt_id`: the server proposes Good / Again / none from the stored correction.
+- **Writing topics** (`GET /api/writing/topics`), **new events** (`production.corrected`, `error.updated`,
+  `error.deleted`, `error_category.created|proposed|resolved`; `production.recorded` v2 has `origin`).
+- **CLI**: `write correct --file <txt> [--prompt]`, `errors list|show|add|categories [--proposed]`; examples
+  `content/examples/m5_paragraph.txt` and `m5_correct_paragraph.txt`.
+- **Taxonomy v2** and prompt tuned against the real model (D-132).
+
+### Verified (Windows 11, 2026-10-17)
+
+- `uv --directory backend run ruff check .`, `ruff format --check .`: clean. `pytest`: 1 586 passed, 7 live tests
+  deselected. `alembic check`: no operation. (`npm run check` runs the same backend steps; the frontend is
+  untouched.)
+- **Live** (`VOCAB_RUN_LIVE=1 pytest tests/live/test_live_correction.py -m live`, `gemini-3.5-flash-lite`): the two
+  tests pass: the example paragraph gives exactly `grammar.preposition.fixed_expression` and
+  `grammar.tense.past_simple_vs_present_perfect`; the correct paragraph gives 0 errors and a naturalness note.
+  See D-132 for what had to change and how stable it is (a lite model is not deterministic).
+- Not run by me: the owner's manual scenario below.
+
+### Owner's manual scenario (about 2 minutes, with your key)
+
+1. `cd backend; uv run python -m app write correct --file ../content/examples/m5_paragraph.txt`: two errors, each
+   with its code, the corrected text and a more natural version.
+2. `uv run python -m app errors list`: the two errors, newest first.
+3. Start the app, open `http://127.0.0.1:8000/docs`: `POST /api/errors` (a manual error), then `PATCH
+   /api/errors/{id}` with another `category_code`; `GET /api/errors/{id}` shows the new category.
+
+### API reference for M5.b and M5.c
+
+Errors are `{"detail": {"code", "message", ...}}` (D-063). `ErrorOut = {id, source: writing|review|manual|...,
+original_text, erroneous_text, correction, alternatives[≤ 2], explanation, explanation_fr|null, category: {code,
+label_en, label_fr, status}, term: {id, term}|null, production_attempt_id|null, review_log_id|null, occurred_at,
+updated_at}`. `ProductionOut = {id, kind, modality, prompt_text, text, word_count, corrected, feedback|null,
+ai_call_id, study_session_id, targets: [{lexical_item_id, term, used, used_correctly}], created_at, updated_at}`.
+`feedback` (when corrected) = `{format: "correction-1", prompt_version, provider, model, output, spans,
+error_event_ids, targets}`; `output = {sentences: [{index (from 1), corrected, status: correct|corrected|unnatural}],
+corrected_text, natural_text, errors: [{sentence_index, wrong, correction, alternatives, category_code,
+proposed_subcategory|null, explanation_en, explanation_fr, target_ref|null}], naturalness_notes: [{sentence_index,
+text, suggestion, note}], targets: [{ref, used, used_correctly, comment}], overall_comment}`; `spans[i] = {error: i,
+sentence_index, start, end}` into `text` (Unicode code points) for the highlight of `output.errors[i]`.
+
+| Route | Request | Success |
+|---|---|---|
+| `POST /api/productions` | `{kind: "writing", text (1–4 000), prompt\|null (≤ 500), target_item_ids (≤ 15), study_session_id\|null}` | 201 `ProductionOut` (uncorrected) |
+| `POST /api/productions/{id}/correct` | – (takes a few seconds) | 200 `{status: ok\|incomplete\|unavailable, reason\|null, attempt: ProductionOut, errors: [ErrorOut], proposed_categories: [{id, code, parent_code, label_en, label_fr, description_en, status}]}`. A failed AI is `incomplete` / `unavailable` with HTTP 200, nothing written, retry allowed |
+| `GET /api/productions?kind=&limit=&offset=` | – | 200 `{items: [ProductionOut], total, limit, offset}`, newest first, `limit` ≤ 100 |
+| `GET /api/productions/{id}` | – | 200 `ProductionOut` |
+| `GET /api/writing/topics?count=3&tag=` | `tag`: academic, interview, data_science, everyday, campus | 200 `[{id, en, fr, tags}]` (same all day, skips the last 7 days' prompts) |
+| `POST /api/errors` | `{original_text\|null, erroneous_text, correction, alternatives, category_code, explanation, lexical_item_id\|null}` | 201 `ErrorOut` (source `manual`) |
+| `GET /api/errors?category=&source=&item_id=&production_id=&occurred_from=&occurred_to=&q=&page=&page_size=` | `category` is a code prefix | 200 `{errors, total, page, page_size, facets: [{code, label_en, label_fr, count}]}` (facets per level-2 category over the whole filter) |
+| `GET /api/errors/{id}` | – | 200 `ErrorOut` |
+| `PATCH /api/errors/{id}` | any of `{correction, alternatives, explanation, category_code, lexical_item_id (null unlinks)}` | 200 `ErrorOut`; writes `error.updated` |
+| `DELETE /api/errors/{id}` | – | 204; writes `error.deleted` |
+| `GET /api/error-categories` | – | 200 tree `[{id, code, parent_code, label_en, label_fr, description_en, description_fr, status: active\|proposed\|rejected, origin: builtin\|user\|ai, count, count_recent (14 days), children}]` |
+| `POST /api/error-categories` | `{parent_code\|null, slug, label_en, label_fr, description_en, description_fr}` | 201 node (active) |
+| `POST /api/error-categories/{id}/resolve` | `{decision: accept\|reject, label_en?, label_fr?}` | 200 `{category, reassigned_error_ids}` |
+| `POST /api/reviews/check-production` | `{card_id, session_id, exercise_template_id, answer (1–2 000), response_time_ms ≥ 0}` | 200 `{production_attempt_id, status, reason, feedback\|null, errors, proposed_rating: 1\|3\|null, solution, sheet_summary}` |
+| `POST /api/reviews` | as before plus `production_attempt_id\|null` | 200 as before plus `error_event_id\|null` |
+
+| Status | `code` | When |
+|---|---|---|
+| 404 | `production_not_found`, `item_not_found`, `session_not_found`, `error_not_found`, `category_not_found` | unknown id |
+| 409 | `already_corrected` | `correct` on a production that has its correction |
+| 409 | `production_mismatch` | `production_attempt_id` unknown, from another session, for another term, or already used |
+| 409 | `category_not_proposed` (+ `category_status`) | `resolve` on a category that is not `proposed` |
+| 422 | `text_too_long` | more than 4 000 characters or 40 sentences |
+| 422 | `invalid_production`, `not_correctable`, `exercise_mismatch` | empty text, > 15 targets, prompt > 500; not a written production; not a sentence production, or `production_attempt_id` on another type |
+| 422 | `unknown_category`, `invalid_error` | inactive or unknown code; empty or identical forms, original without the wrong form, > 2 alternatives |
+
+### Departures from the prompt (to approve)
+
+- **Migration 0002** exists although none was planned (D-127), and **the errors of a checked sentence keep
+  `production_attempt_id` instead of receiving the `review_log_id`**: `error_event.single_origin` forbids both.
+  The link is `review_log.production_attempt_id`.
+- `check-production` also returns `proposed_rating` (D-129), and `error_category.created` is a new event the prompt did not list.
+- The personal sentence of a discovery gives errors with source `writing` (no `discovery` value in `ErrorSource`).
+
+### Left / notes
+
+- **M5.a2**: transcript analysis, targeted drills, cards made from errors, suggestions for recurring errors, the
+  demo's errors through the services (D-130). **M5.b / M5.c**: the screens.
+- The owner's manual scenario above, and one real `check-production` in the app once M5.b exists.
+- `response_time_ms` of `check-production` is validated and not stored.
+
+### Known issues
+
+- A lite model sometimes reports style (repetition, formality) as an error; the user can edit or delete any error.
+  Not seen in the final live runs, but expect it from time to time (D-132).
+- `spans` use Unicode code points; the screens must convert for characters outside the BMP (emoji).
 
 ## M4.c — Review player, keyboard shortcuts, deck queue (frontend)
 
@@ -1324,11 +1436,12 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: review M4.b and M4.c, then M5
+## Next step: merge M5.a1, then M5.a2
 
-- Review and merge `feat/m4b-today-discovery` (M4.b1 + M4.b2), then `feat/m4c-review-player` (M4.c1 + M4.c2,
-  stacked on it), once `npm run check` passes in CI.
-- M5: errors and writing (module E), including error events from reviews and AI correction of sentences.
+- Run the owner's manual scenario of M5.a1, approve the departures (D-127: migration 0002 and the review link
+  of the errors), and merge `feat/m5a-errors-backend` once CI is green.
+- M5.a2 (backend): transcript analysis, targeted drills, cards made from errors, suggestions for recurring errors,
+  the demo's errors through the services. Then M5.b and M5.c (the screens, on the API reference above).
 - Before or alongside: the owner's real calls (M2.c2 and M3.c3 scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 

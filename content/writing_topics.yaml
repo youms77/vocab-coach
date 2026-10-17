@@ -1,0 +1,130 @@
+# Free-writing topics (docs/SPEC.md module E, "the user writes a paragraph on a suggested topic").
+#
+# Read by `GET /api/writing/topics` (app/services/writing_topics.py): a deterministic rotation per
+# study day that skips the topics used as a prompt in the last 7 days. No AI call.
+# Tags: academic, interview, data_science, everyday, campus. Ids are stable: never reuse one.
+# Bump `version` whenever this file changes.
+
+version: 1
+
+topics:
+  - id: favourite_course
+    en: Describe a course that changed the way you think, and explain why.
+    fr: Décrivez un cours qui a changé votre façon de penser, et expliquez pourquoi.
+    tags: [academic, campus]
+  - id: master_thesis
+    en: Present the topic of your master's thesis to someone outside your field.
+    fr: Présentez le sujet de votre mémoire de master à quelqu'un d'extérieur à votre domaine.
+    tags: [academic, data_science]
+  - id: correlation_causation
+    en: Explain the difference between correlation and causation with an everyday example.
+    fr: Expliquez la différence entre corrélation et causalité avec un exemple du quotidien.
+    tags: [academic, data_science]
+  - id: dataset_story
+    en: Describe a dataset you have worked with and one thing it taught you.
+    fr: Décrivez un jeu de données sur lequel vous avez travaillé et une chose qu'il vous a apprise.
+    tags: [data_science]
+  - id: tell_me_about_yourself
+    en: "Answer the interview question: \"Tell me about yourself.\""
+    fr: "Répondez à la question d'entretien : « Parlez-moi de vous. »"
+    tags: [interview]
+  - id: greatest_strength
+    en: "Answer the interview question: \"What is your greatest strength?\" Give an example."
+    fr: "Répondez à la question d'entretien : « Quelle est votre plus grande qualité ? » Donnez un exemple."
+    tags: [interview]
+  - id: weakness
+    en: "Answer the interview question: \"What is one of your weaknesses, and how do you work on it?\""
+    fr: "Répondez à la question d'entretien : « Quel est l'un de vos défauts, et comment y travaillez-vous ? »"
+    tags: [interview]
+  - id: team_conflict
+    en: Describe a disagreement in a team project and how it was resolved.
+    fr: Décrivez un désaccord dans un projet d'équipe et la façon dont il a été résolu.
+    tags: [interview, campus]
+  - id: five_years
+    en: Where do you see yourself in five years? Explain your plan.
+    fr: Où vous voyez-vous dans cinq ans ? Expliquez votre projet.
+    tags: [interview]
+  - id: why_this_job
+    en: Explain why you would like to work as a data analyst.
+    fr: Expliquez pourquoi vous aimeriez travailler comme analyste de données.
+    tags: [interview, data_science]
+  - id: chart_description
+    en: Describe a chart you saw recently and what it shows.
+    fr: Décrivez un graphique que vous avez vu récemment et ce qu'il montre.
+    tags: [data_science, academic]
+  - id: missing_data
+    en: Explain to a classmate why missing data can bias a study.
+    fr: Expliquez à un camarade pourquoi des données manquantes peuvent biaiser une étude.
+    tags: [data_science, academic]
+  - id: survey_design
+    en: You must design a short survey about student housing. Describe your choices.
+    fr: Vous devez concevoir un court questionnaire sur le logement étudiant. Décrivez vos choix.
+    tags: [data_science, campus]
+  - id: favourite_tool
+    en: Present a tool you use for data analysis and compare it with another one.
+    fr: Présentez un outil que vous utilisez pour l'analyse de données et comparez-le à un autre.
+    tags: [data_science]
+  - id: recent_result
+    en: Summarise the main result of an article or report you read recently.
+    fr: Résumez le principal résultat d'un article ou d'un rapport que vous avez lu récemment.
+    tags: [academic]
+  - id: presentation_opening
+    en: Write the opening of a ten-minute presentation about your current project.
+    fr: Rédigez l'introduction d'une présentation de dix minutes sur votre projet actuel.
+    tags: [academic, interview]
+  - id: limitations
+    en: Describe the limitations of a study you know and how you would improve it.
+    fr: Décrivez les limites d'une étude que vous connaissez et comment vous l'amélioreriez.
+    tags: [academic, data_science]
+  - id: campus_life
+    en: Describe a typical day on campus during the exam period.
+    fr: Décrivez une journée type sur le campus pendant la période des examens.
+    tags: [campus, everyday]
+  - id: study_group
+    en: Explain how you organise a study group and what makes it work.
+    fr: Expliquez comment vous organisez un groupe de travail et ce qui le fait fonctionner.
+    tags: [campus]
+  - id: library
+    en: Describe the place where you study best and explain why.
+    fr: Décrivez l'endroit où vous travaillez le mieux et expliquez pourquoi.
+    tags: [campus, everyday]
+  - id: first_year_advice
+    en: Give advice to a student who is starting their first year at university.
+    fr: Donnez des conseils à un étudiant qui commence sa première année à l'université.
+    tags: [campus]
+  - id: last_weekend
+    en: Tell what you did last weekend and what you have planned for the next one.
+    fr: Racontez ce que vous avez fait le week-end dernier et ce que vous avez prévu pour le prochain.
+    tags: [everyday]
+  - id: city
+    en: Describe the city where you live to a visitor who has never been there.
+    fr: Décrivez la ville où vous habitez à un visiteur qui n'y est jamais allé.
+    tags: [everyday]
+  - id: habit
+    en: Describe a habit you have recently started and why you started it.
+    fr: Décrivez une habitude que vous avez prise récemment et pourquoi.
+    tags: [everyday]
+  - id: technology_change
+    en: How has technology changed the way students learn since you started university?
+    fr: Comment la technologie a-t-elle changé la façon d'apprendre des étudiants depuis votre entrée à l'université ?
+    tags: [everyday, academic]
+  - id: book_or_film
+    en: Recommend a book or a film and explain who would enjoy it.
+    fr: Recommandez un livre ou un film et expliquez à qui il plairait.
+    tags: [everyday]
+  - id: public_transport
+    en: Describe how you get around your city and what could be improved.
+    fr: Décrivez comment vous vous déplacez dans votre ville et ce qui pourrait être amélioré.
+    tags: [everyday]
+  - id: explain_regression
+    en: Explain what a linear regression does to someone who has never studied statistics.
+    fr: Expliquez ce que fait une régression linéaire à quelqu'un qui n'a jamais étudié les statistiques.
+    tags: [data_science, interview]
+  - id: ethical_data
+    en: Should companies be allowed to sell their users' data? Give your opinion.
+    fr: Les entreprises devraient-elles pouvoir vendre les données de leurs utilisateurs ? Donnez votre avis.
+    tags: [data_science, everyday]
+  - id: mistake_learned
+    en: Describe a mistake you made in a project and what you learned from it.
+    fr: Décrivez une erreur que vous avez faite dans un projet et ce que vous en avez appris.
+    tags: [interview, academic]

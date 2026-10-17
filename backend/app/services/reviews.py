@@ -60,6 +60,7 @@ def record_review(
     study_session_id: int | None = None,
     exercise_template_id: int | None = None,
     audio_path: str | None = None,
+    production_attempt_id: int | None = None,
     engine_factory: EngineFactory = default_engine_factory,
 ) -> ReviewLog:
     """Apply `final_rating` to `card` at `at`, in the caller's transaction (no commit).
@@ -92,6 +93,7 @@ def record_review(
         exercise_template_id=exercise_template_id,
         answer_text=answer,
         audio_path=audio_path,
+        production_attempt_id=production_attempt_id,
         auto_rating=proposed,
         final_rating=rating,
         response_time_ms=response_time_ms,

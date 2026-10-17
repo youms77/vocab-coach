@@ -4,6 +4,8 @@ import pytest
 
 from app.domain import exercises as ex
 from app.domain.grading import (
+    Confusion,
+    ConfusionKind,
     DiffPart,
     Outcome,
     char_diff,
@@ -13,6 +15,7 @@ from app.domain.grading import (
     grade_choice,
     grade_typed,
     normalize_answer,
+    production_rating,
     typo_tolerance,
 )
 from app.domain.srs import Rating
@@ -36,7 +39,9 @@ def typed(
         answer=answer,
         accepted=accepted,
         given=given,
-        confusions=[comparable(c, term) for c in confusions],
+        confusions={
+            comparable(c, term): Confusion(ConfusionKind.CONFUSABLE, c) for c in confusions
+        },
         response_time_ms=ms,
         estimate_seconds=ESTIMATE,
     )
@@ -180,6 +185,26 @@ def test_confusion_is_wrong_not_a_typo() -> None:
     assert confused.outcome == Outcome.WRONG
     assert confused.proposed_rating == Rating.AGAIN
     assert confused.diff is None
+    assert confused.confusion == Confusion(ConfusionKind.CONFUSABLE, "Affect")
+    assert plain.confusion is None
+
+
+def test_only_a_confusion_carries_its_cause() -> None:
+    explained = Confusion(ConfusionKind.PITFALL, "make a conclusion", "We draw a conclusion.")
+    result = grade_typed(
+        exercise_type=ex.GAP_FILL,
+        term="draw a conclusion",
+        answer="draw a conclusion",
+        accepted=[],
+        given="Make a conclusion",
+        confusions={comparable("make a conclusion", "draw a conclusion"): explained},
+        estimate_seconds=ESTIMATE,
+    )
+    assert (result.outcome, result.confusion) == (Outcome.WRONG, explained)
+    # A wrong answer that is no known confusion, a typo, an empty answer: no cause.
+    assert typed("explain", confusions=("affect",)).confusion is None
+    assert typed("acount for", confusions=("affect",)).confusion is None
+    assert typed("", confusions=("affect",)).confusion is None
 
 
 @pytest.mark.parametrize("given", [None, "", "   ", "?!"])
@@ -243,3 +268,38 @@ def test_production_is_self_graded_and_checks_the_term() -> None:
     assert missing.warnings == ["term_missing"]
     assert missing.proposed_rating is None
     assert check_production("rule out", "").warnings == []
+
+
+# --- Rating of an AI-checked sentence production (D-128) -----------------------------------------
+
+
+def _feedback(*, used: bool, correct: bool | None, errors: list[dict] | None = None) -> dict:
+    return {
+        "format": "correction-1",
+        "targets": [{"ref": 0, "lexical_item_id": 7, "used": used, "used_correctly": correct}],
+        "output": {"errors": errors or []},
+    }
+
+
+@pytest.mark.parametrize(
+    ("feedback", "expected"),
+    [
+        (_feedback(used=True, correct=True), Rating.GOOD),
+        (_feedback(used=True, correct=True, errors=[{"target_ref": None}]), Rating.GOOD),
+        (_feedback(used=True, correct=True, errors=[{"target_ref": 0}]), Rating.AGAIN),
+        (_feedback(used=True, correct=False), Rating.AGAIN),
+        (_feedback(used=False, correct=False), Rating.AGAIN),
+        (_feedback(used=False, correct=True), Rating.AGAIN),
+        (_feedback(used=True, correct=None), None),
+        (None, None),
+        ({}, None),
+        ({"format": "other"}, None),
+        ({"format": "correction-1", "targets": []}, None),
+    ],
+)
+def test_production_rating(feedback: dict | None, expected: Rating | None) -> None:
+    assert production_rating(feedback, 7) == expected
+
+
+def test_production_rating_ignores_the_checks_of_other_terms() -> None:
+    assert production_rating(_feedback(used=True, correct=True), 8) is None

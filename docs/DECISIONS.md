@@ -1763,3 +1763,141 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   hard-coded ": ".
 - Accessible names: the space between a button's number and its text is its own text node (a leading space
   inside a `span` is dropped by the name computation, which gave "3 GoodSuggested").
+
+## D-127 — `review_log.production_attempt_id` (migration 0002, M5.a1)
+
+- The prompt of M5.a1 planned no migration. One was needed: the server must know which production a review
+  rated, to compute the proposed rating from the stored correction and to refuse a production used twice
+  (409 `production_mismatch`). Migration `0002_review_log_production` adds `review_log.production_attempt_id`
+  (nullable FK, `ON DELETE SET NULL`) and a unique index: a production is checked for at most one review.
+  It was added in the first M5.a1 commit and is declared here; `alembic check` finds no difference.
+- SQLite cannot add a named foreign key to an existing table, so the migration recreates `review_log` in batch
+  mode. Foreign keys are on during migrations, so dropping the old table would run `ON DELETE SET NULL` on
+  `error_event.review_log_id`: both directions save those links in a temporary table and put them back.
+- **Departure from the prompt (spec 6)**: "the errors of this production receive the `review_log_id`" is not
+  possible. `error_event` has a `single_origin` check (an error comes from a production **or** a review, never
+  both; `ErrorEvent` in `app/db/models/errors.py`). The errors of a checked sentence therefore keep `production_attempt_id` and source
+  `review`; the link goes the other way, `review_log.production_attempt_id`, which is enough to join them.
+  Errors from lexical confusions (typed answers) keep `review_log_id` as before.
+
+## D-128 — The `production_correction` task (M5.a1)
+
+- **Task**: `production_correction` v1, `app/ai/{prompts,schemas}/production_correction*`, pinned in `tasks.py`.
+  Inputs: `mode` (`sentence` when the text is one sentence, else `paragraph`), the numbered sentences, the prompt
+  (cut to 500 characters), up to 15 targets, the active taxonomy codes with a one-line description. The user's
+  text, the prompt and the targets are `data` placeholders (D-042); mode and taxonomy are `plain`. The learner's
+  list of frequent errors is **not** sent (it would push the model towards false positives).
+- **Sentences are numbered from 1** (`split_sentences`), and the validator checks the returned indices equal the
+  sent ones exactly.
+- **Budgets** (named constants in `tasks.py`, like D-080): input 16 000 characters (text 4 000 + numbered JSON
+  about 800 + prompt 500 + 15 targets x about 250 + about 40 taxonomy lines x about 110, 13 000 at most, margin
+  for categories the user adds); output ceiling 10 000 tokens (30 errors x about 170, the corrected and natural
+  texts about 1 000 each, sentences, notes, targets); a call asks for `800 + 250 x sentences` tokens, never more
+  than the ceiling, so one short sentence does not reserve what 40 need (Groq's 8 000 tokens per minute, D-051);
+  timeout 60 s.
+- **Validators** (validation context, D-079; a violation = one repair, then `incomplete`): indices; `wrong` is a
+  substring of its sentence (`find_fragment`: ignores runs of spaces, typographic apostrophes, Unicode
+  composition, then case); `wrong` differs from `correction`; `category_code` is an active code; a proposal's
+  `parent_code` is an active code and its slug matches `^[a-z][a-z0-9_]{1,40}$`; a `correct` sentence has no
+  error; target refs are known and not repeated; notes point at known sentences; at most 30 errors, at most 2
+  alternatives. Messages name locations, never the learner's text. `comment` may be empty.
+- **Flow** (`app/services/corrections.py`, D-038): short read session, closed; AI call with no session open (a
+  test locks the database from another connection during the call); one write transaction that first checks the
+  production is still there and not corrected (409 `already_corrected`). `incomplete` and `unavailable` write
+  nothing and are results (HTTP 200 with `status`/`reason`, D-081): the production stays uncorrected and can be
+  corrected again.
+- **Stored feedback** (`production_attempt.ai_feedback`, `format: "correction-1"`): `prompt_version`, `provider`,
+  `model`, `output` (the validated output), `spans`, `error_event_ids`, `targets`. `ai_call_id` is a column.
+  - `spans`: one per error, in order, `{error, sentence_index, start, end}` as **Unicode code points** into the
+    original text (JavaScript counts UTF-16 units: identical except for characters outside the BMP).
+  - `error_event_ids` has the order of `output.errors`; the API reads the French explanation through it as long
+    as the English explanation is unedited.
+  - `targets`: `used` is deterministic (`contains_term`), `used_correctly` comes from the AI (False when the term
+    is absent), `ai_used` is the AI's own claim and `disagreement` notes where they differ.
+- **Sources**: `ErrorSource` has no `discovery` value and adding one would be a schema change, so the personal
+  sentence of a discovery gives errors with source `writing`. A sentence checked in a review gives `review`: the
+  source is read from `production.recorded.origin` (`ProductionRecorded` version 2 adds `origin`: `writing`,
+  `discovery`, `review`), so a later retry through `/productions/{id}/correct` keeps it.
+- **Proposed subcategories** become `<parent>.<slug>` categories with status `proposed`; the error points at the
+  proposed category; the same proposal reuses it; a rejected code is never proposed again (errors go to the
+  parent). `sync_taxonomy` leaves them alone (tested).
+- Fixed along the way: `error_log.french_explanations` built a `dict` from a SQLAlchemy `Result` (it treated the
+  result as a mapping and always failed); it had never run because nothing wrote feedback yet.
+
+## D-129 — Sentence production checked by the AI (M5.a1; replaces the `sentence_production` note of D-101)
+
+- D-101 said `sentence_production` is self-graded until M5. Now, when the AI check is available, the client
+  calls `POST /api/reviews/check-production` after the attempt (D-103 still holds: the example answer is in the
+  response, so only after the attempt) and sends `production_attempt_id` with the final `POST /api/reviews`.
+  Without the check, or when it fails, the exercise stays self-graded exactly as before (`auto_rating` null).
+- The check records the sentence as a production (prompt = the situation, target = the term, `origin: review`),
+  corrects it in `sentence` mode and returns `{production_attempt_id, status, reason, feedback, errors,
+  proposed_rating, solution, sheet_summary}`. `proposed_rating` is an addition to the prompt's list: without it
+  the client would have to wait for the final call to show "Suggested". An unavailable AI leaves the sentence
+  recorded and uncorrected.
+- **Proposed rating** (`grading.production_rating`, pure, computed by the server from the stored feedback, never
+  sent by the client): term used (deterministic) and judged correct, no error tied to the term (`target_ref`)
+  -> Good; term absent, misused, or with an error tied to it -> Again; no usable correction, or the AI gave no
+  verdict on a used term -> none. Easy and Hard are never proposed.
+- `POST /api/reviews` with `production_attempt_id` refuses (409 `production_mismatch`) a production that does not
+  exist, was written in another study session, was not written for this term, or is already linked to a review
+  (also enforced by the unique index); with another exercise type: 422 `exercise_mismatch`. Nothing is written
+  when it refuses. `response_time_ms` of `check-production` is validated and not stored (the final call times
+  the card).
+
+## D-130 — M5 is cut in four sessions (M5.a1, M5.a2, M5.b, M5.c)
+
+- M5.a1 (backend): correction of written productions, error log, error categories and proposals, errors from
+  reviews, AI-checked sentence production, writing topics, CLI.
+- M5.a2 (backend): transcript analysis, targeted drills, cards made from errors, suggestions for recurring
+  errors, running the demo's errors through the services.
+- M5.b and M5.c (screens): the writing screen and the error log screens.
+- Why: M5 was too large for one session; the backend contract is fixed first, so the screens are built on a
+  documented API.
+
+## D-131 — Error log, categories and writing topics (M5.a1)
+
+- **Sentence splitter** (`domain/sentences.py`, pure): numbered sentences with offsets; line breaks, `!?` runs,
+  abbreviations (`e.g.`, `i.e.`, `etc.`, `et al.`, `Dr.`, `vs.`, `p. 12`), decimals, ellipses, closing quotes,
+  text without final punctuation. At most 40 sentences (422 `text_too_long`, also checked when the production is
+  created, so an uncorrectable text is never stored). The SPEC's "line by line" correction is sentence by
+  sentence; stable indices are what lets the AI output be validated.
+- **Errors** (`services/error_log.py`, `/api/errors`): manual entry (source `manual`, `erroneous_text` must be in
+  `original_text`, active category only); list with category-prefix, source, term, production, date and text
+  filters, newest first, pages of at most 100, and a facet of counts by level-2 category on the current filter;
+  `PATCH` writes `error.updated` (changed fields, old and new codes); `DELETE` removes the row and writes
+  `error.deleted` (the log stays append-only, D-017).
+- **Categories** (`/api/error-categories`): the tree with labels, status, origin (`builtin`, `user`, `ai`) and
+  counts (total and last 14 days); user categories are active at once; `resolve` accepts (optionally renamed) or
+  rejects a proposed category. Rejection moves its errors to the parent (one `error.updated` each, reason
+  `category_rejected`) and keeps the category as `rejected`.
+- **Errors from reviews**: `grade_typed` exposes the cause of a `wrong` (`confusion`: library term, confusable,
+  pitfall). `POST /api/reviews` creates one error for a `typed_recall` or `gap_fill` that is `wrong` with a
+  confusion (source `review`, `lexis.collocation` when a multi-word term was answered with one word changed,
+  else `lexis.wrong_word`); never for a choice, a typo, an empty or unexplained wrong answer, or self-graded
+  types. `grade` and `reveal` still write nothing (the row-count test stays green).
+- **Writing topics**: `content/writing_topics.yaml` (EN and FR, tags `academic`, `interview`, `data_science`,
+  `everyday`, `campus`); `GET /api/writing/topics` is deterministic per study day and avoids the prompts of the
+  last 7 days. No AI call.
+- **New events** (open set, D-015; no migration): `production.corrected`, `error.updated`, `error.deleted`,
+  `error_category.created`, `error_category.proposed`, `error_category.resolved`.
+
+## D-132 — Tuning the prompt against the real model (M5.a1)
+
+- First live run (`gemini-3.5-flash-lite`): "in campus" was classified `grammar.preposition.place`, and the
+  correct paragraph got style remarks as errors (`lexis.collocation`, `register.too_formal`,
+  `discourse.cohesion`, a tense false positive). A first failure of the live tests was a test fixture defect (the
+  temporary database had no taxonomy), fixed in the fixture. The rest was fixed in the prompt and the taxonomy
+  descriptions, not in the tests:
+  - prompt: error or naturalness rule (grammatical + clear + a native could say it = note, not error), style
+    examples, "choose the specific category" rule with the fixed-expression example;
+  - `content/error_taxonomy.yaml` version 2: descriptions of `grammar.preposition.fixed_expression` (with
+    examples of set phrases), `grammar.preposition.place` ("when it is not a set phrase") and
+    `discourse.cohesion` (repeating a clear noun is style);
+  - `content/examples/m5_correct_paragraph.txt` has a repeated-noun sentence (correct, unnatural) instead of
+    "I have the intention to...", which the model rightly treated as borderline.
+- Result with the final prompt and taxonomy: the example paragraph gave exactly the two expected codes in 3 of 3
+  runs, the correct paragraph gave 0 errors and a naturalness note in 7 of 7 runs (counting the two live tests,
+  which pass). Earlier versions of the prompt were worse: 3 of 6 clean on the correct paragraph. A lite model is not
+  deterministic: one run in several may still flag style as an error. Nothing is hidden: the user sees and can
+  edit or delete any error.
