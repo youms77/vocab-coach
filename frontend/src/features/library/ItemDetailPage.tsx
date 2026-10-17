@@ -13,6 +13,7 @@ import {
   type ItemType,
 } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
+import { SheetCard } from './SheetPanel'
 
 function EditForm({ item }: { item: ItemDetail }) {
   const { t } = useTranslation()
@@ -198,6 +199,7 @@ export function ItemDetailPage() {
             <h2 id="edit-title">{t('library.item.edit')}</h2>
             <EditForm key={item.data.updated_at} item={item.data} />
           </section>
+          <SheetCard item={item.data} />
           <section className="card" aria-labelledby="decks-title">
             <h2 id="decks-title">{t('library.terms.decks')}</h2>
             {item.data.deck_links.length === 0 ? (

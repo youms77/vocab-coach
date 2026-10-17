@@ -855,6 +855,141 @@ th {
   gap: var(--space-2);
 }
 
+/* Usage sheets, exercises, enrichment, extension (M3.c3) */
+.badge {
+  display: inline-block;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.sheet-view {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.sheet-entry dt {
+  font-weight: 600;
+}
+
+.sheet-entry dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+.sheet-entry ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.sheet-editor {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.sheet-editor .field textarea,
+.exercise .field textarea {
+  width: 100%;
+}
+
+.sheet-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  margin: 0 0 var(--space-3);
+  min-width: 0;
+}
+
+.sheet-list legend {
+  font-weight: 600;
+  padding: 0 var(--space-1);
+}
+
+.sheet-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.sheet-row .field {
+  flex: 1 1 12rem;
+  margin-bottom: 0;
+}
+
+.sheet-row .field input {
+  max-width: none;
+}
+
+.sheet-versions {
+  margin-top: var(--space-3);
+}
+
+.version-list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+}
+
+.version-list p {
+  margin: var(--space-1) 0;
+}
+
+.exercises {
+  margin-top: var(--space-6);
+}
+
+.exercise-list,
+.pending-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.pending-list {
+  gap: var(--space-1);
+}
+
+.exercise {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.exercise h4 {
+  margin: 0;
+}
+
+.exercise-json {
+  overflow-x: auto;
+  font-size: 0.8125rem;
+}
+
+.field-errors {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-4);
+  font-size: 0.875rem;
+}
+
+.extension {
+  flex-basis: 100%;
+}
+
+.degraded p + p {
+  margin-top: var(--space-2);
+}
+
 @media (max-width: 560px) {
   .topbar__controls {
     margin-left: 0;

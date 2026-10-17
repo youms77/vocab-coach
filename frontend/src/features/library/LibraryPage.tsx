@@ -17,6 +17,7 @@ import {
   type ItemType,
   type SheetState,
 } from '../../api/library'
+import { usePendingEnrichment } from '../../api/enrichment'
 import { useTriage } from '../../api/triage'
 import { ErrorText } from '../settings/ErrorText'
 import { QuickAdd } from './QuickAdd'
@@ -161,6 +162,8 @@ export function LibraryPage() {
   const items = useItems(filters)
   const triage = useTriage()
   const toSort = triage.data?.length ?? 0
+  const pending = usePendingEnrichment(null, false)
+  const waiting = pending.data?.count ?? 0
   const total = items.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -174,6 +177,10 @@ export function LibraryPage() {
           <Link to="/triage">
             {t('library.triageLink')}
             {toSort > 0 && <> ({t('library.toSort', { count: toSort })})</>}
+          </Link>
+          <Link to="/enrichment">
+            {t('library.enrichmentLink')}
+            {waiting > 0 && <> ({t('library.sheetsWaiting', { count: waiting })})</>}
           </Link>
           <Link to="/duplicates">{t('library.duplicatesLink')}</Link>
           <Link to="/library/decks">{t('library.decksLink')}</Link>

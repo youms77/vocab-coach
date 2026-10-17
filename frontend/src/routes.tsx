@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router'
 
 import { Layout } from './components/Layout'
 import { NotFoundPage } from './components/NotFoundPage'
+import { EnrichmentPage } from './features/enrichment/EnrichmentPage'
 import { HomePage } from './features/home/HomePage'
 import { DecksPage } from './features/library/DecksPage'
 import { DuplicatesPage } from './features/library/DuplicatesPage'
@@ -22,6 +23,7 @@ export const routes: RouteObject[] = [
       { path: 'library/decks', element: <DecksPage /> },
       { path: 'library/items/:id', element: <ItemDetailPage /> },
       { path: 'import', element: <ImportPage /> },
+      { path: 'enrichment', element: <EnrichmentPage /> },
       { path: 'triage', element: <TriagePage /> },
       { path: 'duplicates', element: <DuplicatesPage /> },
       { path: 'settings', element: <SettingsPage /> },

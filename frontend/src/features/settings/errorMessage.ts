@@ -34,6 +34,14 @@ const KNOWN_CODES = [
   'invalid_attach_target',
   'merge_same_item',
   'duplicate_decision',
+  'enrichment_running',
+  'sheet_edited',
+  'sheet_changed',
+  'sheet_not_found',
+  'exercise_not_found',
+  'item_archived',
+  'invalid_exercise',
+  'not_enough_context',
 ] as const
 
 type KnownCode = (typeof KNOWN_CODES)[number]

@@ -1294,3 +1294,56 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - Text-like inputs are styled by `input:not([type])`, `search`, `date` and `textarea` too (M3.c1 fields had native
   styling). `.library-page` and `.import-review` use `grid-template-columns: minmax(0, 1fr)` so a wide table
   scrolls in its `.table-wrap` instead of widening the page.
+
+## D-091 — Sheet visibility and search (M3.c3, owner's decisions)
+
+- The library search (`q`) stays on terms only: sheet content is not searched. The sheet-state filter covers the
+  need for now; a content search would be a backend change to plan later. Closes the open point of D-085.
+- On a term's page the usage sheet and its exercises are behind a "Show the usage sheet" button, closed on every
+  visit. Before discovery (`draft`, `triage`, `queued`) a warning says the sheet gives away module B's answer.
+  Nothing is fetched until the user opens it.
+
+## D-092 — Sheet editor and stale versions (M3.c3)
+
+- The editor works on a draft with every text as a string (`sheetForm.ts`); saving trims, turns empty text into
+  `null`, drops rows with an empty required field and sends `schema_version: 1` only with the backend's fields
+  (`extra="forbid"`). The client checks the one content rule (a simple definition or a French translation)
+  before sending; the backend stays the judge.
+- The editor keeps the version it was opened from and sends it as `base_enrichment_id`. On 409 `sheet_changed`
+  the edits stay on screen; "Load the latest version" replaces them only after a confirmation. There is no
+  automatic merge.
+- A term with no sheet gets the same editor with `base_enrichment_id: null` (manual entry, degraded mode).
+
+## D-093 — Regeneration consent (M3.c3)
+
+- "Generate a new version" always sends `confirm_overwrite: false` first. The backend answers 409
+  `sheet_edited` before any AI call when the sheet was edited; the page then asks for consent in an inline
+  alertdialog, and only "Replace my version" resends with `true`. Refusing sends nothing. A failed regeneration
+  (`failed`, `unavailable`) says the existing sheet is kept.
+- A sheet to complete (`needs_completion`) offers "Try the AI again" through `POST /enrichment/run {item_ids}`
+  instead of regeneration, since it was never the user's.
+
+## D-094 — Exercise template editing (M3.c3)
+
+- One form per known type (fields of `app/domain/exercises.py`), lists typed one entry per line; the whole
+  content is sent and validated by the backend (422 `invalid_exercise` shows each field with the backend's English
+  message, like `invalid_request`). An unknown type is shown read-only. Answers are visible here: editing is not
+  a drill, and the panel is behind the sheet's reveal button anyway.
+
+## D-095 — Batch enrichment loop (M3.c3)
+
+- The page calls `POST /enrichment/run` (one batch of at most 5 terms) again with the same scope while terms
+  remain. It stops on: nothing left (`remaining` 0 or an empty batch), any AI failure (`unavailable` or a
+  `reason`, shown with the degraded explanation and links for manual entry), a batch that wrote nothing (avoids a
+  loop when every term changed meanwhile), an error (409 `enrichment_running` included), or the user's "Stop
+  after this batch" (a flag: the running batch always finishes on the server). Leaving the page sets the same
+  flag. No client timeout: a batch may take minutes when it is split.
+- `aiReasons.*` holds the gateway's reasons worded for any AI task; `settings.test.reasons.*` keeps the
+  provider-test wording.
+
+## D-096 — List extension in the decks page (M3.c3)
+
+- "Extend this list" sits on each deck row (number 10 to 30, default 20 as `DEFAULT_COUNT`); the created terms
+  wait in triage and "Sort them now" opens the existing triage page filtered on the deck (`/triage?deck=ID`), so
+  the I know it / not sure / to learn choice and D-084 apply unchanged. Possible duplicates link to the existing
+  terms and to the duplicates page.

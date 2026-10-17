@@ -4,12 +4,95 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M3.c2 — import, triage and duplicates pages (frontend), branch
-  `feat/m3c2-import-triage`, stacked on M3.c1 (`feat/m3c1-library`), M3.b (`feat/m3b-enrichment`), M3.a
-  (`feat/m3a-library-import`) and `feat/m2c2-settings-page`. M1.a to M2.c1 are merged in `main`.
-- **Next milestone**: **M3.c3** — usage sheet view / edit / versions, exercises, batch enrichment, list extension.
-- Merge order: M2.c2's PR, then M3.a's, M3.b's, M3.c1's, M3.c2's.
-- The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2.
+- **Last milestone completed**: M3.c3 — usage sheets, exercises, batch enrichment and list extension pages
+  (frontend), branch `feat/m3c3-sheets`, stacked on M3.c2 (`feat/m3c2-import-triage`), M3.c1
+  (`feat/m3c1-library`), M3.b (`feat/m3b-enrichment`), M3.a (`feat/m3a-library-import`) and
+  `feat/m2c2-settings-page`. M1.a to M2.c1 are merged in `main`. **M3 is complete** (module A).
+- **Next milestone**: **M4** — discovery and reviews (modules B and C, today's session).
+- Merge order: M2.c2's PR, then M3.a's, M3.b's, M3.c1's, M3.c2's, M3.c3's.
+- The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
+  M3.c3 below.
+- **Known issue (pre-existing, not M3.c3)**: `tests/api/test_ai_api.py::test_usage_lists_every_day_today_first`
+  fails on any day other than 2026-10-16, so `npm run check` fails at the pytest step. See M3.c3 "Known issues".
+
+## M3.c3 — Usage sheets, exercises, batch enrichment, list extension (frontend)
+
+Branch `feat/m3c3-sheets`, stacked on M3.c2. No backend change, no migration, no new dependency, SPEC.md
+unchanged. Owner decisions (2026-10-17): library search stays on terms only; the sheet is hidden until opened.
+
+### Done
+
+- **Term page** (`/library/items/:id`, `SheetPanel.tsx`, `SheetView.tsx`, `SheetEditor.tsx`, `sheetForm.ts`,
+  D-091 to D-093): a "Usage sheet and exercises" card, closed by default, with a warning before discovery
+  (`draft`, `triage`, `queued`). Opened: the sheet in SPEC order, its state, provenance (provider, model, prompt
+  version, date), "Edit the sheet" (repeatable rows for every list, register and example kind as selects), saved
+  with `base_enrichment_id`; a 409 `sheet_changed` keeps the edits on screen and offers "Load the latest version"
+  behind a confirmation. No sheet: "Write the sheet by hand" (manual entry, degraded mode) or "Generate with AI".
+  A sheet to complete: "Complete the sheet" or "Try the AI again". "Generate a new version": a 409 `sheet_edited`
+  opens a consent dialog; only "Replace my version" resends with `confirm_overwrite: true`. AI failures say the
+  sheet is kept, with the reason. Versions: list (newest first, by you / by the AI, current), any version opens
+  read-only.
+- **Exercises** (`ExercisesPanel.tsx`, D-094): one block per template (type, direction, "edited by you"), a form
+  per type (gap-fill, typed recall, recognition / listening, sentence production, spoken answer; lists one entry
+  per line), the gap count hint, the whole content sent by `PATCH`; a 422 `invalid_exercise` keeps the form and
+  lists each refused field with the backend's English message (`FieldErrors.tsx`, also used for `invalid_request`).
+- **`/enrichment`** (`features/enrichment/EnrichmentPage.tsx`, D-095): deck filter, "also include the sheets to
+  complete", waiting count and list (links to each term for manual entry); "Generate the sheets" loops on
+  `POST /enrichment/run` until nothing is left, and stops on an AI failure (degraded card with the reason and the
+  settings link), on `enrichment_running`, on a batch that wrote nothing, or after the current batch when the user
+  clicks "Stop after this batch". Progress counts. Linked from the Library page with the waiting count.
+- **List extension** (`ExtensionPanel.tsx`, D-096): "Extend this list" on each deck of `/library/decks`, number
+  10 to 30 (default 20); result: new terms, dropped counts, possible duplicates with links, and "Sort them now"
+  → `/triage?deck=ID`; an AI failure or `not_enough_context` is explained, the deck unchanged.
+- **API layer** `api/enrichment.ts` (types mirroring `usage_sheet.py`, `exercises.py`, `RunReport`, hooks; query
+  keys under `items` so every library write refreshes them); `useInvalidateLibrary` exported.
+- **i18n** (EN + FR, same keys): `sheet.*`, `exercises.*`, `enrichment.*`, `extension.*`, `aiReasons.*` (gateway
+  reasons), 8 more error codes in `KNOWN_CODES` (`enrichment_running`, `sheet_edited`, `sheet_changed`,
+  `sheet_not_found`, `exercise_not_found`, `item_archived`, `invalid_exercise`, `not_enough_context`).
+- **CSS**: badge, sheet view, editor rows, versions, exercises, field errors (tokens only, dark mode included).
+- **Tests** (22 new, 93 in total): `SheetPanel.test.tsx` (9: hidden until opened with the warning and no request,
+  edit saved with `base_enrichment_id`, `sheet_changed` keeps edits and reloads on confirmation, regeneration only
+  after consent, manual entry with the meaning check, generation failure, versions, exercise edit, 422
+  `invalid_exercise`), `EnrichmentPage.test.tsx` (6: loop to the end, degraded stop, running lock, stop after the
+  batch, include-incomplete query and French, library link), `ExtensionPanel.test.tsx` (4: created + triage link,
+  AI failure, count bounds, `not_enough_context`), `sheetForm.test.ts` (3); shared fixtures in `test/fixtures.ts`.
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm --prefix frontend run check`: tsc, oxlint, vitest 93 passed. `npm --prefix frontend run build` passes (same
+  "chunk larger than 500 kB" warning). Backend: ruff check and ruff format pass; pytest **1 failed**, 1189 passed
+  (the pre-existing date-dependent test below; no backend file changed).
+- A test was checked to fail when the behaviour breaks (regeneration sent with `confirm_overwrite: true` first).
+- **In the in-app browser, on the demo database** (no AI key, French UI): term "be swamped" (queued) shows the
+  warning; "Generate with AI" → "no AI provider is set up"; a sheet written by hand saved (state "edited", the
+  typed-recall exercise appeared, D-082); "Generate a new version" → real 409 → consent → "Your sheet is kept";
+  an exercise saved with an empty answer → 422 listing `answer`; a second edit → two versions listed.
+  `/enrichment` → degraded card (103 terms waiting). Extension → "No suggestion: no AI provider is set up".
+  Dark mode at 375 px: `/enrichment`, `/library/decks` with the extension form, the sheet editor; no horizontal
+  scroll.
+- **Not checked in the browser**: the AI happy paths (no key in the demo; covered by mocked tests), the 409
+  `sheet_changed` and `enrichment_running` paths (covered by tests).
+
+### Owner's manual scenario (with a key, about 5 minutes)
+
+1. Start on your own database with a provider set up; open "Generate usage sheets", pick a small deck, run it.
+2. Open a term: show the sheet, check the examples and exercises; edit a field and save (version 2, "edited").
+3. "Generate a new version": the consent dialog appears; accept, check version 3 and that version 2 is kept.
+4. On "Decks", "Extend this list" with 10 suggestions, then "Sort them now".
+
+### Left / notes
+
+- No "restore this version" button (no such route); copy from an old version into the editor by hand.
+- The terms that got a sheet to complete are not named after a batch: tick "also include the sheets to complete"
+  to list them.
+- A long batch keeps the request open (up to a few minutes on splits); the Vite proxy has no timeout set.
+
+### Known issues
+
+- **Pre-existing (M2.c1), not caused by M3.c3**: `test_usage_lists_every_day_today_first` logs its call with the
+  fake clock (2026-10-16 12:00 UTC) but `GET /api/ai/usage` reads the real clock (`datetime.now(UTC)` in
+  `app/api/ai.py`), so the call lands on "today" only on 2026-10-16. Fix in its own change (inject the clock into
+  the route, or freeze it in the test); left out of this frontend milestone.
 
 ## M3.c2 — Import, triage and duplicates pages (frontend)
 
@@ -844,11 +927,11 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M3.c (library interface)
+## Next step: M4 (discovery and reviews)
 
-- **M3.c**: the interface for M3.a and M3.b (`frontend/src/features/library/`), every code above as an i18n key,
-  and the decision on searching inside sheet content.
-- Before or alongside: the owner's real calls (M2.c2 scenario) to close M2 and the D-056 "to confirm" list.
+- **M3.c** is done (c1, c2, c3); sheet-content search was decided against for now (D-091).
+- **M4**: modules B and C, today's session (module D interface), speech synthesis, keyboard shortcuts.
+- Before or alongside: the owner's real calls (M2.c2 and M3.c3 scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅

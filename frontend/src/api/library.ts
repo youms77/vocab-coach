@@ -165,7 +165,7 @@ export function useDecks() {
 }
 
 /** Any write may change counts, statuses and deck contents: refetch the lists. */
-function useInvalidateLibrary() {
+export function useInvalidateLibrary() {
   const queryClient = useQueryClient()
   return () =>
     Promise.all([

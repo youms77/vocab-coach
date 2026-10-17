@@ -10,6 +10,7 @@ import {
   type Deck,
 } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
+import { ExtensionPanel } from './ExtensionPanel'
 
 function NewDeck() {
   const { t } = useTranslation()
@@ -100,6 +101,7 @@ function DeckRow({ deck }: { deck: Deck }) {
             <button type="button" className="button" onClick={() => setEditing(true)}>
               {t('library.decks.rename')}
             </button>
+            <ExtensionPanel deck={deck} />
             {!confirming && (
               <button
                 type="button"
