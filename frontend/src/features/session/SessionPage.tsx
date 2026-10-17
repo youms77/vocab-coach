@@ -11,10 +11,11 @@ import {
 } from '../../api/session'
 import { cancelSpeech } from '../../speech/useSpeech'
 import { DiscoveryFlow } from '../discovery/DiscoveryFlow'
+import { ReviewPlayer } from '../review/ReviewPlayer'
 import { ErrorText } from '../settings/ErrorText'
 import { SessionProgress } from './SessionProgress'
 import { StepHeading } from './StepHeading'
-import { PracticeInfoPanel, ReviewPlaceholder, SessionSummary, WaitPanel } from './StepPanels'
+import { PracticeInfoPanel, SessionSummary, WaitPanel } from './StepPanels'
 
 const isCode = (error: unknown, code: string) => error instanceof ApiError && error.code === code
 
@@ -76,12 +77,18 @@ export function SessionPage() {
   const [practiceSeen, setPracticeSeen] = useState(false)
   const [ended, setEnded] = useState<StudySession | null>(null)
   const [confirming, setConfirming] = useState(false)
+  // A review's `session_closed` / `session_not_found` (POST /reviews), handled like `next`'s.
+  const [playerError, setPlayerError] = useState<unknown>(null)
+  // The latest saved review ("next review on…"), announced politely outside the step card.
+  const [announcement, setAnnouncement] = useState('')
   const next = useNextStep(ended === null ? sessionId : null, practiceSeen)
 
   const openSession = useCallback(() => {
     setSessionId(null)
     setPracticeSeen(false)
     setEnded(null)
+    setPlayerError(null)
+    setAnnouncement('')
     start.reset()
     end.reset()
     start.mutate(undefined, { onSuccess: (session) => setSessionId(session.id) })
@@ -119,7 +126,7 @@ export function SessionPage() {
     }
   }, [step, endSession])
 
-  const notFound = isCode(next.error, 'session_not_found') || isCode(end.error, 'session_not_found')
+  const notFound = [next.error, end.error, playerError].some((e) => isCode(e, 'session_not_found'))
   useEffect(() => {
     if (notFound) navigate('/', { replace: true })
   }, [notFound, navigate])
@@ -128,7 +135,7 @@ export function SessionPage() {
     void next.refetch()
   }, [next])
 
-  const closed = isCode(next.error, 'session_closed') || isCode(end.error, 'session_closed')
+  const closed = [next.error, end.error, playerError].some((e) => isCode(e, 'session_closed'))
   const busy = next.isFetching
 
   let content
@@ -174,8 +181,23 @@ export function SessionPage() {
   } else if (step === undefined) {
     content = <p className="muted">{sessionId === null ? t('session.starting') : t('session.loading')}</p>
   } else if (step.type === 'review') {
+    const review = step.review
     content = (
-      <ReviewPlaceholder count={step.progress.reviews_remaining} onEnd={() => setConfirming(true)} />
+      <ReviewPlayer
+        key={`${review.card_id}:${review.expected_reps}`}
+        sessionId={step.session_id}
+        review={review}
+        onRecorded={(message) => {
+          setAnnouncement(message)
+          advance()
+        }}
+        onCardChanged={() => {
+          setAnnouncement(t('review.cardChanged'))
+          advance()
+        }}
+        onNext={advance}
+        onSessionError={setPlayerError}
+      />
     )
   } else if (step.type === 'new_item') {
     content = (
@@ -214,6 +236,9 @@ export function SessionPage() {
         )}
       </header>
       {step !== undefined && ended === null && !closed && <SessionProgress progress={step.progress} />}
+      <p className="session-announce muted" role="status">
+        {ended === null && !closed ? announcement : ''}
+      </p>
       <section className="card session-step" key={step?.type ?? 'none'}>
         {content}
       </section>

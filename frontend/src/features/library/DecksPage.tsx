@@ -142,8 +142,9 @@ export function DecksPage() {
 
   return (
     <div className="library-page">
-      <p>
+      <p className="link-row">
         <Link to="/library">{t('library.back')}</Link>
+        <Link to="/queue">{t('queue.manageLink')}</Link>
       </p>
       <section className="hero">
         <h1>{t('library.decks.title')}</h1>

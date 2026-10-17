@@ -816,11 +816,6 @@
       "later": "Ces exercices seront disponibles dans une prochaine version de l'application.",
       "continue": "Continuer"
     },
-    "reviewPlaceholder": {
-      "text_one": "{{count}} révision est due.",
-      "text_other": "{{count}} révisions sont dues.",
-      "later": "Provisoire (M4.b) : le lecteur de révisions arrive avec la prochaine version de l'application. Vous pouvez terminer la séance pour l'instant."
-    },
     "summary": {
       "title": "Résumé de la séance",
       "reviews": "Révisions",
@@ -923,5 +918,153 @@
     "diff": "Votre réponse comparée à la réponse attendue :",
     "removed": "en trop",
     "added": "manquant"
+  },
+  "review": {
+    "types": {
+      "recognition_in_sentence": "Reconnaître le terme dans une phrase",
+      "listening_comprehension": "Écouter et comprendre",
+      "typed_recall": "Retrouver le terme anglais",
+      "gap_fill": "Compléter la phrase",
+      "sentence_production": "Écrire une phrase",
+      "spoken_answer": "Répondre à voix haute",
+      "self_assessment": "Vous en souvenez-vous ?"
+    },
+    "receptive": "Carte réceptive : de l'anglais vers le sens.",
+    "productive": "Carte productive : du sens vers l'anglais.",
+    "prompt": {
+      "recognition": "Que signifie « {{term}} » dans cette phrase ?",
+      "recognitionNoTerm": "Que signifie le terme surligné dans cette phrase ?",
+      "listening": "Écoutez la phrase, puis choisissez le sens de son terme clé. La phrase s'affiche après votre réponse.",
+      "typedRecall": "Tapez le terme anglais.",
+      "gapFill": "Tapez le ou les mots manquants.",
+      "sentenceProduction": "Écrivez une phrase pour cette situation, avec le terme que vous révisez.",
+      "selfGradedLater": "Seule la présence du terme est vérifiée ; la correction par l'IA arrive dans une prochaine version. Vous vous notez vous-même.",
+      "spokenAnswer": "Répondez à voix haute à cette question, avec le terme que vous révisez.",
+      "recordingLater": "Rien n'est encore enregistré : l'enregistrement de votre voix arrive dans une prochaine version. Répondez à voix haute, puis comparez avec un exemple.",
+      "selfReceptive": "Dites-vous ce que signifie ce terme, puis vérifiez.",
+      "selfProductive": "Retrouvez le terme anglais, puis vérifiez."
+    },
+    "cueFr": "En français : {{cue}}",
+    "cueDefinition": "Définition : {{cue}}",
+    "noCue": "Cette carte n'a rien pour retrouver le terme (ni traduction, ni définition, ni phrase). Complétez sa fiche d'usage.",
+    "sentenceLabel": "la phrase",
+    "termLabel": "le terme",
+    "options": {
+      "label": "Choisissez le sens :",
+      "dontKnow": "Je ne sais pas",
+      "correct": "Bonne réponse",
+      "yourChoice": "Votre choix"
+    },
+    "answer": {
+      "termLabel": "Le terme anglais",
+      "gapLabel": "Le ou les mots manquants",
+      "sentenceLabel": "Votre phrase",
+      "hint": "Appuyez sur Entrée pour vérifier. Une réponse vide affiche la solution.",
+      "sentenceHint": "Entrée vérifie ; Maj+Entrée passe à la ligne."
+    },
+    "check": "Vérifier",
+    "checking": "Vérification…",
+    "showAnswer": "Montrer la réponse",
+    "showExample": "Montrer un exemple de réponse",
+    "result": {
+      "label": "Correction",
+      "meaning": "Sens : {{meaning}}",
+      "sentence": "La phrase :",
+      "heard": "La phrase entendue :",
+      "example": "Exemple de réponse (une possibilité parmi d'autres) :",
+      "exampleLabel": "l'exemple de réponse",
+      "noSentence": "Vous n'avez pas écrit de phrase.",
+      "term_missing": "Votre phrase ne contient pas le terme.",
+      "compare": "Comparez avec votre propre réponse, puis notez-vous.",
+      "answerIs": "Le terme :"
+    },
+    "summary": {
+      "label": "À propos de « {{term}} »",
+      "stress": "Accent : {{syllable}}",
+      "fullSheet": "Ouvrir la fiche d'usage complète (nouvel onglet)"
+    },
+    "rate": {
+      "title": "Vous en êtes-vous bien souvenu ?",
+      "again": "À revoir",
+      "hard": "Difficile",
+      "good": "Bien",
+      "easy": "Facile",
+      "suggested": "Suggérée",
+      "proposed": "Note suggérée : {{rating}}. Vous pouvez en choisir une autre.",
+      "selfGraded": "Notez-vous : aucune note n'est suggérée pour cet exercice.",
+      "choose": "Choisissez votre note."
+    },
+    "saving": "Enregistrement…",
+    "saved": {
+      "today": "Enregistré : la carte précédente revient aujourd'hui à {{time}}.",
+      "later": "Enregistré : la carte précédente revient le {{date}}.",
+      "status": "« {{term}} » est maintenant {{status}}.",
+      "statusNoTerm": "Ce terme est maintenant {{status}}."
+    },
+    "cardChanged": "Cette carte a déjà été notée ailleurs (un autre onglet ?) : voici l'étape suivante.",
+    "keys": {
+      "label": "Raccourcis clavier",
+      "choose": "choisir",
+      "show": "montrer la réponse",
+      "check": "vérifier",
+      "newLine": "nouvelle ligne",
+      "rate": "noter",
+      "accept": "valider la note suggérée",
+      "replay": "réécouter",
+      "replaySlow": "écouter lentement",
+      "space": "Espace",
+      "enter": "Entrée",
+      "shift": "Maj"
+    }
+  },
+  "queue": {
+    "title": "File des paquets",
+    "intro": "Les nouveaux termes viennent de vos paquets dans cet ordre, dans la limite du quota quotidien. Les révisions dues passent toujours en premier.",
+    "orderHelp": "Les paquets dont l'échéance est à venir sont placés en premier, par date, et ne se déplacent pas à la main. Montez ou descendez les autres paquets pour choisir celui qui fournit les prochains nouveaux termes.",
+    "pauseNote": "Mettre un paquet en pause ou le marquer comme terminé n'arrête que ses nouveaux termes : les cartes déjà créées continuent d'être révisées.",
+    "backHome": "Retour à aujourd'hui",
+    "decksLink": "Gérer les paquets",
+    "manageLink": "Gérer la file",
+    "loading": "Chargement des paquets…",
+    "empty": "Aucun paquet pour l'instant.",
+    "allDone": "Tous les paquets sont terminés. Rouvrez-en un ci-dessous, ou importez une nouvelle liste.",
+    "listTitle": "Dans la file",
+    "doneTitle_one": "Terminés ({{count}} paquet)",
+    "doneTitle_other": "Terminés ({{count}} paquets)",
+    "byDate": "Placé selon son échéance.",
+    "deadline": "Échéance : {{date}}.",
+    "pace_one": "{{remaining}} termes à découvrir en {{days}} jours : il faut {{count}} nouveau terme par jour.",
+    "pace_other": "{{remaining}} termes à découvrir en {{days}} jours : il faut {{count}} nouveaux termes par jour.",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "moveUpNamed": "Monter « {{deck}} »",
+    "moveDownNamed": "Descendre « {{deck}} »",
+    "status": {
+      "queued": "En file",
+      "active": "Actif",
+      "paused": "En pause",
+      "done": "Terminé"
+    },
+    "actions": {
+      "activate": "Activer",
+      "pause": "Mettre en pause",
+      "resume": "Reprendre",
+      "finish": "Marquer comme terminé",
+      "reopen": "Rouvrir"
+    },
+    "actionsNamed": {
+      "activate": "Activer « {{deck}} »",
+      "pause": "Mettre « {{deck}} » en pause",
+      "resume": "Reprendre « {{deck}} »",
+      "finish": "Marquer « {{deck}} » comme terminé",
+      "reopen": "Rouvrir « {{deck}} »"
+    },
+    "announce": {
+      "status": "« {{deck}} » est maintenant {{status}}.",
+      "movedUp": "« {{deck}} » est monté : il est maintenant numéro {{position}}.",
+      "movedDown": "« {{deck}} » est descendu : il est maintenant numéro {{position}}."
+    },
+    "reloaded": "Rien n'a été modifié ; la liste a été rechargée.",
+    "statusCount": "{{status}} : {{count}}"
   }
 }

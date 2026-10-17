@@ -4,15 +4,100 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M4.b — today's screen, the session player, discovery (module B) and speech
-  synthesis, frontend only, on branch `feat/m4b-today-discovery` (not merged). M4.a (M4.a1 + M4.a2) is
-  complete and merged (PR #12). M1.a to M3.c3 are merged in `main`.
-- **Next milestone**: M4.c (review player replacing the provisional review panel, keyboard shortcuts, deck
-  queue and status), after the owner has reviewed and merged M4.b.
+- **Last milestone completed**: M4.c — review player, keyboard shortcuts, deck queue page (frontend only), on
+  branch `feat/m4c-review-player`, started from `feat/m4b-today-discovery` because M4.b is not merged yet.
+  M4.b is on `feat/m4b-today-discovery` (not merged); M4.a is merged (PR #12); M1.a to M3.c3 are in `main`.
+- **Next milestone**: M5 (errors and writing), after the owner has reviewed and merged M4.b then M4.c.
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
   M3.c3 below. M4.a makes no AI call.
 - The local `main` of the owner's checkout was still at M2.c1 at the start of M4.a1 (`origin/main` had M3.c3):
   run `git switch main` then `git pull` before starting a branch from it.
+
+## M4.c — Review player, keyboard shortcuts, deck queue (frontend)
+
+Branch `feat/m4c-review-player`, from `feat/m4b-today-discovery` (`32f0af0`; M4.b is not merged in `main`).
+Two parts, two commits: **M4.c1** (review player and shortcuts) and **M4.c2** (`/queue`). No backend change
+(`git diff --stat main -- backend` is empty), no migration, no new dependency, SPEC.md unchanged.
+
+### Done
+
+- **API layer**: `api/reviews.ts` gains `useRevealReview`, `useRecordReview` (refetches the Today card), the
+  `Solution`, `SheetSummary`, `RecordBody`, `RecordResult` types and `EXERCISE_TYPES`; `api/library.ts`: `Deck`
+  gains `pace`, `warnings` and a typed `status`, `useDeckStatus`, `useReorderQueue` (decks, term lists and Today
+  card refetched after success or failure). Shapes read in `app/api/reviews.py`, `review_flow.py`,
+  `review_steps.py`, `library.py`: they match the M4.a1 reference; one difference noted: `GET /api/decks`
+  answers in id order, not the queue order (D-124).
+- **Review player** (`features/review/`, D-120 to D-123): every exercise type of D-100/D-101 (recognition,
+  listening, typed recall, gap-fill, sentence production, spoken answer, self-assessment receptive and
+  productive); prompt only before the attempt, `grade` (typed or chosen, even empty; "I don't know" for choices)
+  or `reveal` (no input), then the outcome with a sign and a text, the diff for a typo, the solution by type
+  ("example answer" for productions), `term_missing`, the sheet summary with audio and a link to the full sheet;
+  the proposed rating marked "Suggested" (text), four neutral buttons for self-graded types; one
+  `POST /api/reviews` per card with `expected_reps` and no `auto_rating`; the next due date and a status change
+  announced politely; focus on the card title, then on the correction.
+- **Shortcuts** (`useReviewShortcuts`, D-122): 1–4 choose / rate, Enter checks or accepts the proposed rating,
+  Space / Enter show the answer, R / Shift+R replay; ignored with modifiers, auto-repeat and in fields;
+  AZERTY digit row without Shift; a `kbd` hint per phase. The triage guard moved to `components/keyboard.ts`.
+- **Session** (`SessionPage`): the review step replaces `ReviewPlaceholder` (removed with
+  `session.reviewPlaceholder.*`); `card_changed`, `not_due`, `review_not_allowed`, `exercise_mismatch`,
+  `session_closed`, `session_not_found` handled (D-120).
+- **`/queue`** (`features/queue/`, D-124, D-125): decks in D-027 order (pure `queueOrder.ts`), status badge,
+  counts by status, deadline and pace, the deck's warnings through the shared `PlanWarnings`, Move up / Move
+  down in the manual group only (full `PUT`), the D-026 transitions only, done decks folded, results announced,
+  focus restored. Linked from the Today card and `/library/decks`.
+- **i18n** (EN + FR, same keys): `review.*`, `queue.*`.
+- **CSS**: options, rating group (2 × 2 on phones), suggested badge, `kbd`, correction, sheet summary, queue
+  cards; tokens only, dark mode.
+- **Tests**: 194 in total (133 before M4.c). `useReviewShortcuts.test.tsx` (13: every key, modifiers, repeat,
+  fields, buttons, latest handlers; the reducer), `ReviewPlayer.test.tsx` (31: the full walk for each of the 8
+  cases with calls in order and exact bodies, no solution in `document.body.innerHTML` before the attempt,
+  listening sentence spoken and absent, production example and `term_missing`, rating marks, announcements,
+  keys per phase, R / Shift+R, double press, response time on fake timers, the error codes, a failed grade
+  keeping the answer, a closed session, French), `SessionPage.test.tsx` (a session of three reviews → `wait` →
+  `done` → summary; "End the session" during a review), `queueOrder.test.ts` (7, hand-built cases),
+  `QueuePage.test.tsx` (9: order, warnings with data and links, done section, transitions per status,
+  pause / resume, move with the full `PUT` and focus, dated decks fixed, 422 / 409 reloads, links, French).
+- **Breaking checks**: a hidden copy of the listening sentence in the prompt makes two tests fail; removing the
+  `event.repeat` guard makes the shortcut test fail; disabling the ref guard of the player sends two `grade`
+  requests and fails the double-press test. All restored.
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm run check` and `npm --prefix frontend run build` (same "chunk larger than 500 kB" warning): see the
+  session report. `git diff --stat main -- backend` empty.
+- **Manual scenario in the in-app browser** (Chromium, French UI, dark theme), on demo databases seeded in
+  temporary folders in the session's scratchpad (backend on port 8011; `data/` and `.env` untouched; the
+  repository has no `.env`):
+  1. Start → gap-fill card: "drill down inot" → "Almost: a small typo", diff, Hard suggested; key 3 → next card,
+     next date announced.
+  2. Recognition card: R and Shift+R spoke the sentence (Microsoft Mark, `en-US`, rate 1 then 0.7); key 2 →
+     right answer marked, Good suggested; key 3 → next card. A productive card offered no R. Enter accepted a
+     proposed rating. A receptive self-assessment: Space → four buttons without suggestion → key 4.
+  3. Listening card: the sentence was not in the page's HTML before the answer, the autoplay spoke it, key 2
+     → "The sentence you heard" shown.
+  4. "End the session" → confirmation → summary with 13 reviews and 1 failed (11 of them answered through the
+     API by a scratch script to reach a listening and a self-graded card faster).
+  5. `/queue`: order of D-027, "Presenting results" moved up (announced, focus kept on its button), "Causal
+     inference reading" paused then resumed; after a reload the order was kept; the Today card showed the
+     updated plan.
+  6. 375 px, dark: `/session` (prompt and correction with the 2 × 2 rating buttons) and `/queue` without
+     horizontal scroll.
+- Fixed after the browser check: the French counts lacked the space before ":"; the announcement said "this
+  card" while the next card was already shown; a receptive self-assessment repeated the term and sentence.
+
+### Left / notes
+
+- **Not checked in the browser**: the English UI (covered by the tests), a typed sentence production and a
+  spoken answer on the demo (few mature cards with these templates today; covered by tests), the 409 / 422
+  paths of `/queue` and the review error codes (covered by tests), light theme at 375 px.
+- Backend need noticed, not implemented: "skip this term" after `sheet_required` (M4.b note) still needs a
+  backend change; to decide.
+- `reviews_over_budget` is never attached to a deck by the backend (no `deck_id`): shown on the Today card only.
+- Error events from reviews (lexical confusions) and AI correction of sentences: M5. Recording: M6.
+
+### Known issues
+
+- None known.
 
 ## M4.b — Today's screen, session player, discovery, speech synthesis (frontend)
 
@@ -1239,11 +1324,11 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: review M4.b, then M4.c
+## Next step: review M4.b and M4.c, then M5
 
-- Review and merge `feat/m4b-today-discovery` (M4.b1 + M4.b2) once `npm run check` passes in CI.
-- M4.c: review player (replaces the provisional panel), keyboard shortcuts, deck queue and status, using the
-  M4.a1 API reference.
+- Review and merge `feat/m4b-today-discovery` (M4.b1 + M4.b2), then `feat/m4c-review-player` (M4.c1 + M4.c2,
+  stacked on it), once `npm run check` passes in CI.
+- M5: errors and writing (module E), including error events from reviews and AI correction of sentences.
 - Before or alongside: the owner's real calls (M2.c2 and M3.c3 scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 

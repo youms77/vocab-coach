@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next'
-import type { ReactNode } from 'react'
+import { type ReactNode, useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
@@ -101,10 +101,12 @@ export function PlanWarnings({
   paces: DeadlinePace[]
 }) {
   const { t } = useTranslation()
+  // Several lists on one page (one per deck on /queue): ids must stay unique.
+  const titleId = useId()
   if (warnings.length === 0) return null
   return (
-    <section className="plan-warnings" aria-labelledby="plan-warnings-title">
-      <h3 id="plan-warnings-title">{t('plan.warningsTitle')}</h3>
+    <section className="plan-warnings" aria-labelledby={titleId}>
+      <h3 id={titleId}>{t('plan.warningsTitle')}</h3>
       <ul>
         {warnings.map((warning, i) => (
           <li key={`${warning.code}-${i}`} className="form-message form-message--warn">

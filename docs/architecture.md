@@ -205,13 +205,15 @@ http.py      urllib client: error status = a normal answer, network failure = Pr
 |---|---|
 | `main.tsx` | bootstraps i18n, theme, TanStack Query client, router |
 | `routes.tsx` | route table (one entry per feature) |
-| `components/` | `Layout` (top bar, skip link, "Demo data" badge, outlet), `AiBanner` (degraded mode, every page), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage` |
+| `components/` | `Layout` (top bar, skip link, "Demo data" badge, outlet), `AiBanner` (degraded mode, every page), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage`, `keyboard.ts` (shortcut guard shared by triage and reviews, M4.c) |
 | `features/home/` | home screen: the Today card (from `features/session/`) and backend status |
-| `features/session/` | `TodayCard` and `PlanWarnings` (today's plan and its translated warnings), `/session` (`SessionPage`: start, next steps, end with confirmation, summary; `StepPanels`: `wait` timer, practice info, provisional review panel, summary), `SessionProgress`, `StepHeading` (focus on each step), `format.ts` (M4.b) |
+| `features/session/` | `TodayCard` and `PlanWarnings` (today's plan and its translated warnings), `/session` (`SessionPage`: start, next steps, review player, end with confirmation, summary, saved-review announcement; `StepPanels`: `wait` timer, practice info, summary), `SessionProgress`, `StepHeading` (focus on each step), `format.ts` (M4.b, M4.c) |
+| `features/review/` | module C in the session (M4.c1): `ReviewPlayer` (calls, focus, autoplay, errors), `reviewMachine.ts` (pure card state machine, D-120), `ReviewPrompt` (prompt by type, before the answer), `ReviewResult` (correction and sheet summary), `RatingButtons`, `useReviewShortcuts` (keys by phase, D-122), `stepText.ts` (replay text, D-123) |
+| `features/queue/` | `/queue` (M4.c2): `QueuePage` (order, status, pace, warnings, moves, status changes), `queueOrder.ts` (D-027 order, groups, moves, D-026 transitions; pure) |
 | `features/discovery/` | module B in the session: `DiscoveryFlow` (start, steps, complete, errors), `ReadAndGuess`, `SheetStep` (reuses `SheetView`), `ExercisesStep` and `GradeResult`, `ProductionSteps` (repetition, personal sentence), `highlight.ts` (M4.b) |
 | `speech/` | browser speech synthesis: `voices.ts` (voice choice, slow rate), `useSpeech.ts` (store, hook, cancel on route change), `SpeakButton` (M4.b, D-112) |
 | `features/settings/` | `/settings`: provider cards (key / address form, connection test), provider order, AI usage, study settings; `errorMessage.ts` maps the API's `detail.code` to i18n keys (M2.c2) |
-| `api/` | `client.ts` (`apiGet`, `apiSend`, `ApiError` with `code`), `health.ts`, `ai.ts`, `settings.ts`, library, import, triage, duplicates and enrichment modules, and (M4.b) `session.ts`, `discovery.ts`, `reviews.ts` (types mirroring the backend contracts, query and mutation hooks) |
+| `api/` | `client.ts` (`apiGet`, `apiSend`, `ApiError` with `code`), `health.ts`, `ai.ts`, `settings.ts`, library, import, triage, duplicates and enrichment modules, and (M4.b, M4.c) `session.ts`, `discovery.ts`, `reviews.ts` (grade, reveal, record; types mirroring the backend contracts, query and mutation hooks) |
 | `i18n/` | i18next setup, `locales/en.json`, `locales/fr.json`, typed keys |
 | `theme.ts`, `styles.css` | theme preference and CSS design tokens (light/dark) |
 | `test/` | Vitest setup, `renderApp()` / `renderWithProviders()` helpers, `mockApi()` (fetch replaced by a small router that records calls), `fixtures.ts`, `fakeSpeech.ts` (fake `speechSynthesis`) |

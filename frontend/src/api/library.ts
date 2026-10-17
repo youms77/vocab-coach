@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { apiGet, apiSend } from './client'
+import { type DeadlinePace, type PlanWarning, todayKey } from './session'
 
 export const ITEM_STATUSES = [
   'draft',
@@ -80,13 +81,17 @@ export interface SourceRef {
   title: string
 }
 
+// D-026: pause and done stop new terms only; reviews of existing cards go on.
+export const DECK_STATUSES = ['queued', 'active', 'paused', 'done'] as const
+export type DeckStatus = (typeof DECK_STATUSES)[number]
+
 export interface Deck {
   id: number
   name: string
   description: string | null
   domain: string | null
   kind: string
-  status: string
+  status: DeckStatus
   deadline: string | null
   priority: number | null
   queue_position: number | null
@@ -95,6 +100,9 @@ export interface Deck {
   updated_at: string
   item_count: number
   items_by_status: Partial<Record<ItemStatus, number>>
+  /** From today's plan (M4.a1): the deadline pace and the plan warnings about this deck. */
+  pace: DeadlinePace | null
+  warnings: PlanWarning[]
 }
 
 export interface ItemFilters {
@@ -287,5 +295,35 @@ export function useDeleteDeck(id: number) {
     mutationFn: () =>
       apiSend<{ deck_id: number; deleted_item_ids: number[] }>('DELETE', `/decks/${id}`),
     onSuccess: invalidate,
+  })
+}
+
+/**
+ * Deck status and queue writes change what today's plan proposes: refetch the decks, the term
+ * lists and the Today card. Refetched after a refusal too (409, 422), so the page shows the truth.
+ */
+function useInvalidateQueue() {
+  const queryClient = useQueryClient()
+  const invalidateLibrary = useInvalidateLibrary()
+  return () =>
+    Promise.all([invalidateLibrary(), queryClient.invalidateQueries({ queryKey: todayKey })])
+}
+
+/** Pause, resume, mark done or reopen a deck (D-026). */
+export function useDeckStatus() {
+  const invalidate = useInvalidateQueue()
+  return useMutation({
+    mutationFn: ({ id, to }: { id: number; to: DeckStatus }) =>
+      apiSend<Deck>('POST', `/decks/${id}/status`, { to }),
+    onSettled: invalidate,
+  })
+}
+
+/** The new manual order: every deck that is not done, exactly once (else 422 `invalid_queue`). */
+export function useReorderQueue() {
+  const invalidate = useInvalidateQueue()
+  return useMutation({
+    mutationFn: (deckIds: number[]) => apiSend<Deck[]>('PUT', '/decks/queue', { deck_ids: deckIds }),
+    onSettled: invalidate,
   })
 }

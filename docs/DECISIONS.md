@@ -1665,3 +1665,101 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   fixes it.
 - At 375 px the top navigation (now four links) goes on its own row with tighter padding, and a long
   `<select>` (voice names) no longer widens the settings page.
+
+## D-120 — The life of a review card (M4.c1, 2026-10-17)
+
+- `features/review/reviewMachine.ts` is a pure reducer: `answering` → `checking` (grade or reveal sent) →
+  `answered` (result shown, rating buttons) → `recording` (`POST /api/reviews` sent) → `recorded` (the page
+  asks `next`). A failed `grade` / `reveal` goes back to `answering` with the typed answer kept; a failed
+  record goes back to `answered` so the user can rate again. An action the phase does not allow returns the
+  same state object.
+- The player keeps the state in a ref as well as in React state and sends a request only when the reducer
+  accepted the action, so two key presses handled before React re-renders send one `grade` and one
+  `POST /reviews` (tested by dispatching two key events in one `act`; the test fails without the ref).
+- The player is keyed by `card_id:expected_reps` in the session page: every card, including a learning card
+  that comes back, starts fresh. `expected_reps` is sent back as received; `auto_rating` is never sent.
+- Choice cards have an "I don't know" button (`choice_index: null`, outcome `empty`, proposed Again), like
+  "I don't know" in discovery: the solution still comes only from `grade`.
+- Errors of `POST /reviews`: `card_changed` asks `next` again with a discreet message (the card was rated
+  elsewhere); `not_due` and `review_not_allowed` hide the rating buttons (rating again would be refused the
+  same way) and offer "Continue the session"; `exercise_mismatch` (from `grade` or the record) offers
+  "Retry", which resets the card and asks `next`; `session_closed` and `session_not_found` are passed to the
+  page and follow D-114; a network error keeps the rating buttons for another try.
+- After a record, the page shows and announces politely, outside the step card: "Saved: the previous card
+  comes back on {date}" (or "today at {time}"), plus "{term} is now {status}" when `item_status_changed`. The
+  next card is fetched at once; the text says "previous card" because the next one is already on screen.
+
+## D-121 — Response time (M4.c1)
+
+- `response_time_ms` runs from the prompt being shown (an effect at mount, `performance.now()`) to the
+  answer: the submission of a typed answer, the choice of an option or the click on "Show". The time spent
+  reading the correction and choosing the rating is not counted, and the same value is sent to `grade` and to
+  `POST /reviews`. The server caps it at 5 minutes (D-106). Tested on fake timers with `performance` faked.
+
+## D-122 — Keyboard shortcuts by phase (M4.c1)
+
+- `useReviewShortcuts` listens on `document` and receives only the handlers the current phase allows:
+  answering a choice → 1–4 choose and check; answering without input → Space or Enter show the answer;
+  answered → 1–4 rate, Enter accepts the proposed rating (when there is one); R / Shift+R replay normally /
+  slowly whenever there is something to hear. A typed answer is checked by Enter in its field (a form
+  submit); in the sentence-production textarea Enter checks and Shift+Enter starts a new line.
+- Ignored: Ctrl, Alt or Meta held, auto-repeated presses (`event.repeat`), and key presses in text fields,
+  textareas, selects and editable content (the triage guard of D-088, moved to `components/keyboard.ts`; it
+  now also reads the `contenteditable` attribute, which jsdom does not reflect in `isContentEditable`). Enter
+  and Space on a focused button, link or summary are left to the browser, which activates the element:
+  acting as well would do it twice.
+- Digits are read from `event.key` **or** from the physical key (`Digit1`–`Digit4`, `Numpad1`–`Numpad4`): on an
+  AZERTY keyboard the digit row gives "&", "é"... without Shift.
+- A visible hint with `kbd` elements lists the keys of the current phase; every action also has a button, and
+  the rating and option buttons show their number.
+
+## D-123 — What is heard and shown before the answer (M4.c1)
+
+- Listening comprehension: the sentence is never written in the DOM before the answer (no text, no hidden
+  element, no attribute; the "Listen" buttons are labelled "the sentence"). The player speaks it as soon as a
+  voice is available and fails silently; "Listen" and "Listen slowly" stay. After the answer the sentence is
+  shown ("The sentence you heard").
+- R replays, before the answer: the sentence of a receptive card (or the term of a receptive self-assessment
+  without a sentence); nothing for a productive card, whose term is the answer. After the answer: the
+  solution's sentence, else the term.
+- A productive card never shows its term before the answer; the card's title is the exercise type, never the
+  term. `sentence_production` shows the backend's `example_answer` as "Example answer (one possibility among
+  others)", never as "the correct answer"; `spoken_answer` says that nothing is recorded yet (M6).
+- A receptive self-assessment's result shows the meaning only (definition, translations): the term and the
+  sentence were already in its prompt. The sheet summary links to the full term page in a new tab, so the
+  session stays open.
+
+## D-124 — The deck queue order is computed in the page (M4.c2)
+
+- `GET /api/decks` answers in id order, so `features/queue/queueOrder.ts` reproduces D-027 as a pure function:
+  decks that are not done, future deadline first (earliest first; "future" is strictly after today, as
+  `has_future_deadline`), then `queue_position` (unset last), then id. "Today" is the plan's `study_day`
+  (`GET /api/session/today`), else the local date. Paused decks keep their place in the list: they are part of
+  the order that `PUT /api/decks/queue` rewrites, although the planner skips them.
+- Two groups: decks with a future deadline (ordered by date, no move buttons, "Placed by its deadline") and the
+  others (Move up / Move down, no drag and drop). A move swaps two neighbours of the manual group and sends
+  **every** deck that is not done, once, in the new order; the backend writes dense positions. A deck whose
+  deadline has passed is back in the manual group, at its position (D-027).
+- A refused write (422 `invalid_queue`, 409 `invalid_transition`) shows the translated error and "Nothing was
+  changed; the list was loaded again": deck writes refetch the decks, the term lists and the Today card on
+  success and on failure.
+
+## D-125 — Deck status changes on `/queue` (M4.c2)
+
+- Only the transitions of D-026 are shown: queued → Activate / Pause / Mark as done; active → Pause / Mark as
+  done; paused → Resume / Mark as done; done → Reopen. "Activate", "Resume" and "Reopen" all send
+  `to: active`. No confirmation (every change can be undone); the result is announced in a polite status
+  region; every button is disabled while a write or the refetch runs, then the focus returns to the button
+  used (or to the deck's title when the deck changed section or the button became disabled).
+- The page says that pause and done stop new terms only: cards already created keep being reviewed (D-026).
+- Done decks are in a folded `<details>` section. Warnings reuse the Today card's `PlanWarnings` (its title id
+  now comes from `useId`, since the page shows one list per deck). `reviews_over_budget` has no `deck_id`, so
+  the backend never attaches it to a deck: it stays on the Today card only.
+- `/queue` is linked from the Today card ("Manage the queue") and from `/library/decks`, not from the top bar.
+
+## D-126 — Small conventions met in M4.c
+
+- French counts use a space before the colon ("En file : 2") through a `queue.statusCount` key instead of a
+  hard-coded ": ".
+- Accessible names: the space between a button's number and its text is its own text node (a leading space
+  inside a `span` is dropped by the name computation, which gave "3 GoodSuggested").
