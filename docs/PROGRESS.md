@@ -4,13 +4,84 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M3.c1 — library pages (frontend), branch `feat/m3c1-library`, stacked on
-  M3.b (`feat/m3b-enrichment`), M3.a (`feat/m3a-library-import`) and `feat/m2c2-settings-page`. M1.a to M2.c1 are merged in `main`.
-- **Next milestone**: **M3.c2** — import, triage and duplicates pages; then **M3.c3** (usage sheets and extension).
-- Merge order: M2.c2's PR, then M3.a's, M3.b's, M3.c1's.
+- **Last milestone completed**: M3.c2 — import, triage and duplicates pages (frontend), branch
+  `feat/m3c2-import-triage`, stacked on M3.c1 (`feat/m3c1-library`), M3.b (`feat/m3b-enrichment`), M3.a
+  (`feat/m3a-library-import`) and `feat/m2c2-settings-page`. M1.a to M2.c1 are merged in `main`.
+- **Next milestone**: **M3.c3** — usage sheet view / edit / versions, exercises, batch enrichment, list extension.
+- Merge order: M2.c2's PR, then M3.a's, M3.b's, M3.c1's, M3.c2's.
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2.
 
-## M3.c1 — Library pages (frontend)
+## M3.c2 — Import, triage and duplicates pages (frontend)
+
+Branch `feat/m3c2-import-triage`, stacked on M3.c1. No backend change, no migration, no new dependency, SPEC.md
+unchanged.
+
+### Done
+
+- **`/import`** (`features/library/ImportPage.tsx`, `ImportRows.tsx`, `importReview.ts`, D-086, D-087): paste or
+  pick a `.md` / `.txt` file (read in the browser, 300 000-character limit checked before sending); "Preview"
+  (`POST /api/import/preview`, nothing written) shows the detected header, the counts, file-level problems with
+  their line, then one row per line: import box, editable term, sentence, type, translated problems, duplicate
+  choice (attach to a candidate / add as new / skip, prefilled from `default_on_duplicate`). Ambiguous rows are
+  unchecked and marked with ⚠ text, a bar and a tint; confirmable ones (`looks_like_definition`,
+  `looks_like_sentence`) offer "Import anyway" (`confirmed: true`), the others say "correct the term"; a
+  `looks_like_definition` suggestion is one click ("Use “nonresponse”"). Target: new deck (named from the header)
+  or existing deck; intake "wait for triage" (default) or "queue". "Import" (`POST /api/import/commit`) then a
+  summary with links to the triage of that deck and to the deck. The text is kept after an error; a
+  `row_rejected` names its line.
+- **`/triage`** (`TriagePage.tsx`, D-088): `GET /api/triage` with a deck filter (`?deck=ID`), one card per term
+  with its sentence and decks (never a usage sheet), three radio choices, keys 1 / 2 / 3 for the focused card or
+  the next undecided one (ignored inside text fields and selects), one `POST /api/triage` for every choice made;
+  a 409 `not_in_triage` saves nothing, reloads the list and keeps the other choices; counts shown after saving.
+- **`/duplicates`** (`DuplicatesPage.tsx`, D-089): groups from `GET /api/duplicates`, the term to keep chosen by
+  radio (default: the one with review cards), "Merge into …" per other term through `useMergeItem`, result
+  message (inversion explained), `merge_conflict` explained, empty state.
+- **Library page**: links "Import a list", "Sort new terms (n to sort)", "Duplicates", "Manage decks".
+- **API layer**: `api/import.ts`, `api/triage.ts`, `api/duplicates.ts`; library writes now also refresh the triage
+  list (`triageKey`).
+- **i18n** (EN + FR, same keys): `import.*` with one message per `ProblemCode` (22) and per severity (4),
+  `triage.*`, `duplicates.*`; six more error codes in `KNOWN_CODES` (`invalid_term`, `row_rejected`,
+  `deck_name_required`, `invalid_attach_target`, `merge_same_item`, `duplicate_decision`).
+- **CSS fixes found in the browser** (D-090), also affecting M3.c1: text inputs without a `type`, search and date
+  inputs and textareas were unstyled; a wide table widened the whole page instead of scrolling in `.table-wrap`.
+- **Tests** (21 new, 71 in total): `ImportPage.test.tsx` (11: preview with header, ambiguous rows left out then
+  confirmed, duplicate choice sent as chosen, default attach, suggestion, existing deck, file read, file too large,
+  422, `row_rejected` line, rejected file, French), `TriagePage.test.tsx` (6: three decisions in one call, keyboard
+  shortcuts and typing guard, 409 `not_in_triage`, deck filter, library count, French),
+  `DuplicatesPage.test.tsx` (4: merge, keep the other term with inversion, `merge_conflict`, empty).
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm run check`: ruff check, ruff format --check, pytest 1190 passed (5 deselected), tsc, oxlint, vitest 71
+  passed. `npm --prefix frontend run build` passes (with Vite's "chunk larger than 500 kB" warning).
+- A test was checked to fail when the behaviour breaks (ambiguous row sent without `confirmed`).
+- **In the in-app browser, on the demo database** (`start.ps1 -Demo`), French UI:
+  - `import-with-header.md` (pasted): header, "12 lines read · 9 ready · 2 ambiguous · 2 with a possible
+    duplicate", L16 / L18 ambiguous, `shed light on` and `as you can see on this slide` found; L18 confirmed →
+    "8 new terms, 2 existing terms added, 2 lines skipped" in a new deck.
+  - `import-without-header.md` in **dark mode**: no header → the deck name is required, L11 (nested) and L13
+    (`a | b | c`) must be corrected, "Use “bias”" applied, queued intake → 4 new, 3 attached.
+  - Triage: 12 waiting, keys 3 / 1 / 2, saved → counts, 9 left. Duplicates: `outlier` / `outliers` (created with a
+    quick add) merged, the group disappeared.
+  - M3.c1 pages checked for the first time: `/library`, `/library/items/1`, `/library/decks` (input styling fixed).
+  - No horizontal page scroll at 375 px on the six pages.
+- **Not checked in the browser**: picking a file (the in-app browser cannot choose local files; covered by a
+  Vitest test), the English UI and the 409 paths (covered by the tests). Screenshots were partial because the
+  browser pane was hidden; text and layout were also checked through the page text and JavaScript.
+
+### Left / notes
+
+- **M3.c3**: usage sheet view / edit / versions, exercises, batch enrichment, list extension (with its triage).
+- The import table scrolls sideways on narrow screens (seven columns); acceptable, could become cards later.
+- A corrected term loses the preview's duplicate choice: the backend applies its default (attach to an exact
+  match, else new); preview again to see the new duplicates.
+- The triage page loads every waiting term at once (no paging); fine with the 1 000-line import limit.
+
+### Known issues
+
+- None known.
+
+## M3.c1 — Library pages (frontend) ✅
 
 Branch `feat/m3c1-library`, stacked on M3.b. M3.c is cut in three (plan approved): **c1** library (this part),
 **c2** import / triage / duplicates, **c3** usage sheets, exercises, batch enrichment, list extension.
@@ -32,7 +103,7 @@ No backend change, no migration, no new dependency, SPEC.md unchanged.
 ### Verified (Windows 11, 2026-10-17)
 
 - `npm run check`: ruff, pytest 1190 passed, tsc, oxlint, vitest 50 passed; `vite build` OK.
-- **Not done**: no visual check in a browser yet (layout, dark mode), no run against the demo database.
+- **Not done** in M3.c1: no visual check in a browser; done in M3.c2 (input styling and table overflow fixed).
 
 ### Left / notes
 

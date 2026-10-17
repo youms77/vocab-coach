@@ -208,7 +208,13 @@
     "deck_has_history": "Des termes de ce paquet ont déjà été étudiés : le paquet ne peut pas être supprimé.",
     "merge_conflict": "Les deux termes ont déjà des cartes de révision : fusion impossible.",
     "not_in_triage": "Certains de ces termes n'attendent plus le tri.",
-    "invalid_transition": "Ce changement de statut n'est pas autorisé."
+    "invalid_transition": "Ce changement de statut n'est pas autorisé.",
+    "invalid_term": "Ce terme n’est pas accepté (vide, plus de 300 caractères ou contenant « | »).",
+    "row_rejected": "Une ligne doit être corrigée ou confirmée avant l’import. Rien n’a été importé.",
+    "deck_name_required": "Donnez un nom au nouveau paquet.",
+    "invalid_attach_target": "Le terme existant choisi n’est pas un doublon de cette ligne. Relancez l’aperçu.",
+    "merge_same_item": "Un terme ne peut pas être fusionné avec lui-même.",
+    "duplicate_decision": "Le même terme a été trié deux fois."
   },
   "home": {
     "title": "Bienvenue",
@@ -340,6 +346,163 @@
       "delete": "Supprimer",
       "deleteConfirm": "Supprimer le paquet « {{name}} » et ses termes ?",
       "deleteYes": "Oui, supprimer"
+    },
+    "importLink": "Importer une liste",
+    "triageLink": "Trier les nouveaux termes",
+    "toSort_one": "{{count}} à trier",
+    "toSort_other": "{{count}} à trier",
+    "duplicatesLink": "Doublons"
+  },
+  "import": {
+    "title": "Importer une liste",
+    "intro": "Collez une liste Markdown ou choisissez un fichier .md ou .txt. Vous verrez chaque ligne avant que quoi que ce soit ne soit enregistré.",
+    "line": "Ligne {{line}}",
+    "selected_one": "{{count}} ligne sera importée.",
+    "selected_other": "{{count}} lignes seront importées.",
+    "submit": "Importer",
+    "importing": "Import en cours…",
+    "input": {
+      "title": "1. Votre liste",
+      "file": "Fichier (.md ou .txt)",
+      "text": "Texte",
+      "hint": "Un terme par ligne, éventuellement « terme | phrase où vous l’avez rencontré ». Jusqu’à {{max}} caractères. Le fichier est lu dans votre navigateur.",
+      "tooLarge": "Ce texte dépasse {{max}} caractères. Découpez-le en plusieurs imports.",
+      "fileError": "Ce fichier n’a pas pu être lu.",
+      "preview": "Aperçu",
+      "previewing": "Lecture…"
+    },
+    "preview": {
+      "title": "2. Ce qui a été trouvé",
+      "counts": "{{lines}} lignes lues · {{importable}} prêtes · {{ambiguous}} ambiguës · {{duplicates}} avec un doublon possible",
+      "rejected": "Ce texte ne peut pas être importé. Corrigez le problème ci-dessus et relancez l’aperçu.",
+      "noRows": "Aucun terme n’a été trouvé dans ce texte."
+    },
+    "header": {
+      "none": "Pas d’en-tête : nommez le paquet plus bas.",
+      "deck": "Paquet",
+      "domain": "Domaine",
+      "source": "Source",
+      "context": "Contexte",
+      "deadline": "Échéance"
+    },
+    "rows": {
+      "title": "3. Vérifiez chaque ligne",
+      "hint": "Les lignes ambiguës (marquées ⚠) sont exclues, sauf si vous corrigez le terme ou cochez « Importer quand même ». Vous pouvez modifier chaque terme.",
+      "caption": "Lignes de la liste",
+      "line": "Ligne",
+      "include": "Importer",
+      "includeLabel": "Importer la ligne {{line}}",
+      "termLabel": "Terme de la ligne {{line}}",
+      "duplicateLabel": "Terme existant pour la ligne {{line}}",
+      "term": "Terme",
+      "sentence": "Phrase",
+      "type": "Type",
+      "problems": "Remarques",
+      "duplicates": "Déjà dans la bibliothèque",
+      "importAnyway": "Importer quand même",
+      "mustCorrect": "Corrigez le terme pour l’importer",
+      "useSuggestion": "Utiliser « {{term}} »",
+      "ok": "OK",
+      "attachTo": "Utiliser « {{term}} » existant ({{match}}, {{status}})",
+      "new": "Ajouter comme nouveau terme",
+      "skip": "Ignorer cette ligne",
+      "checkedAgain": "Revérifié à l’import"
+    },
+    "target": {
+      "title": "4. Où ranger les termes",
+      "deck": "Paquet",
+      "new": "Un nouveau paquet",
+      "newName": "Nom du nouveau paquet",
+      "existing": "Un paquet existant",
+      "pick": "Paquet existant",
+      "choose": "Choisissez un paquet",
+      "missing": "Choisissez un paquet ou donnez un nom au nouveau."
+    },
+    "intake": {
+      "title": "Nouveaux termes",
+      "triage": "Attendent le tri (je dirai lesquels je connais déjà)",
+      "queued": "Vont directement dans la file d’apprentissage"
+    },
+    "summary": {
+      "title": "Import terminé",
+      "imported_one": "{{count}} nouveau terme",
+      "imported_other": "{{count}} nouveaux termes",
+      "attached_one": "{{count}} terme existant ajouté au paquet",
+      "attached_other": "{{count}} termes existants ajoutés au paquet",
+      "skipped_one": "{{count}} ligne ignorée",
+      "skipped_other": "{{count}} lignes ignorées",
+      "ambiguous_one": "{{count}} ligne ambiguë dans la liste (importée seulement si vous l’avez confirmée ou corrigée)",
+      "ambiguous_other": "{{count}} lignes ambiguës dans la liste (importées seulement si vous les avez confirmées ou corrigées)",
+      "createdDeck": "Un nouveau paquet a été créé.",
+      "toTriage": "Trier les nouveaux termes",
+      "toDeck": "Ouvrir le paquet",
+      "again": "Importer une autre liste"
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Attention",
+      "ambiguous": "Ambigu",
+      "error": "Erreur"
+    },
+    "problem": {
+      "too_large": "Le fichier est trop gros (limite : 256 Ko et 1000 lignes).",
+      "not_utf8": "Le fichier n’est pas du texte UTF-8. Enregistrez-le en UTF-8.",
+      "invalid_header": "L’en-tête n’est pas valide ; il a été ignoré et la liste a quand même été lue.",
+      "invalid_header_value": "La valeur de « {{key}} » dans l’en-tête doit être du texte simple ; elle a été ignorée.",
+      "unclosed_header": "L’en-tête n’a pas de « --- » de fin ; le fichier a été lu comme une simple liste.",
+      "unknown_header_key": "Clé d’en-tête inconnue « {{key}} » ; ignorée.",
+      "invalid_deadline": "L’échéance doit être une date au format AAAA-MM-JJ ; elle a été ignorée.",
+      "past_deadline": "L’échéance est déjà passée.",
+      "heading_ignored": "Titre : ce n’est pas un terme, ignoré.",
+      "horizontal_rule": "Ligne de séparation : ignorée.",
+      "multiple_separators": "Plus d’un « | » : seul le premier sépare le terme de sa phrase.",
+      "looks_like_definition": "Ressemble à un terme suivi d’une traduction ou d’une définition.",
+      "looks_like_sentence": "Ressemble à une phrase, pas à un terme. Écrivez « terme | phrase ».",
+      "nested_item": "Sous-élément en retrait : terme à part ou note sur le terme du dessus ?",
+      "empty_term": "Le terme est vide.",
+      "term_too_long": "Le terme dépasse 300 caractères.",
+      "term_not_in_sentence": "Le terme n’a pas été trouvé dans sa phrase.",
+      "duplicate_in_file": "Même terme qu’à la ligne {{kept_line}} ; seule celle-ci est importée.",
+      "duplicate_exact": "Ce terme est déjà dans votre bibliothèque.",
+      "duplicate_possible": "Un terme proche est déjà dans votre bibliothèque.",
+      "already_in_deck": "Ce terme est déjà dans le paquet cible ; il sera ignoré.",
+      "existing_status_kept": "Le terme existant garde son statut."
+    }
+  },
+  "triage": {
+    "title": "Trier les nouveaux termes",
+    "intro": "Pour chaque terme, dites si vous voulez l’apprendre, si vous n’êtes pas sûr ou si vous le connaissez déjà. Les termes connus ne sont pas étudiés.",
+    "listTitle": "En attente de tri",
+    "count_one": "{{count}} terme en attente",
+    "count_other": "{{count}} termes en attente",
+    "empty": "Rien n’attend d’être trié.",
+    "toImport": "Importer une liste",
+    "shortcutHint": "Les touches 1, 2 et 3 choisissent pour ce terme.",
+    "decision": {
+      "learn": "À apprendre",
+      "unsure": "Pas sûr",
+      "known": "Je le connais"
+    },
+    "submit_one": "Enregistrer {{count}} choix",
+    "submit_other": "Enregistrer {{count}} choix",
+    "clear": "Effacer mes choix",
+    "done": "Enregistré. À apprendre : {{learn}} · pas sûr : {{unsure}} · déjà connus : {{known}}.",
+    "reloaded": "Rien n’a été enregistré. La liste a été rechargée : vérifiez vos choix et enregistrez à nouveau."
+  },
+  "duplicates": {
+    "title": "Doublons",
+    "intro": "Des termes qui semblent être le même mot. Choisissez celui à garder et fusionnez-y les autres : paquets, phrases et notes sont conservés.",
+    "empty": "Aucun doublon trouvé.",
+    "conflictHint": "Deux termes qui ont tous deux des cartes de révision ne peuvent pas être fusionnés : archivez plutôt l’un des deux.",
+    "keep": "Terme à garder",
+    "hasCards": "a des cartes de révision",
+    "open": "Ouvrir",
+    "mergeInto": "Fusionner dans « {{term}} »",
+    "merged": "Fusionné : « {{removed}} » fait maintenant partie de « {{kept}} ».",
+    "inverted": "Le terme qui a des cartes de révision a été gardé.",
+    "match": {
+      "exact": "même terme",
+      "possible": "termes proches"
     }
   }
 }

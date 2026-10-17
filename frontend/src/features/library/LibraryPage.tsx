@@ -17,6 +17,7 @@ import {
   type ItemType,
   type SheetState,
 } from '../../api/library'
+import { useTriage } from '../../api/triage'
 import { ErrorText } from '../settings/ErrorText'
 import { QuickAdd } from './QuickAdd'
 
@@ -158,6 +159,8 @@ export function LibraryPage() {
     deckId: Number.isInteger(initialDeck) && initialDeck > 0 ? initialDeck : null,
   })
   const items = useItems(filters)
+  const triage = useTriage()
+  const toSort = triage.data?.length ?? 0
   const total = items.data?.total ?? 0
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -166,7 +169,13 @@ export function LibraryPage() {
       <section className="hero">
         <h1>{t('library.title')}</h1>
         <p className="muted">{t('library.intro')}</p>
-        <p>
+        <p className="link-row">
+          <Link to="/import">{t('library.importLink')}</Link>
+          <Link to="/triage">
+            {t('library.triageLink')}
+            {toSort > 0 && <> ({t('library.toSort', { count: toSort })})</>}
+          </Link>
+          <Link to="/duplicates">{t('library.duplicatesLink')}</Link>
           <Link to="/library/decks">{t('library.decksLink')}</Link>
         </p>
       </section>

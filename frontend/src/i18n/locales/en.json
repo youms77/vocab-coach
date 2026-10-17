@@ -208,7 +208,13 @@
     "deck_has_history": "Some terms of this deck have already been studied, so the deck cannot be deleted.",
     "merge_conflict": "Both terms already have review cards: they cannot be merged.",
     "not_in_triage": "Some of these terms are no longer waiting for triage.",
-    "invalid_transition": "This status change is not allowed."
+    "invalid_transition": "This status change is not allowed.",
+    "invalid_term": "This term is not accepted (empty, longer than 300 characters, or containing “|”).",
+    "row_rejected": "A row must be corrected or confirmed before it can be imported. Nothing was imported.",
+    "deck_name_required": "Give the new deck a name.",
+    "invalid_attach_target": "The chosen existing term is not a duplicate of this row. Preview the text again.",
+    "merge_same_item": "A term cannot be merged into itself.",
+    "duplicate_decision": "The same term was sorted twice."
   },
   "home": {
     "title": "Welcome",
@@ -340,6 +346,163 @@
       "delete": "Delete",
       "deleteConfirm": "Delete the deck “{{name}}” and its terms?",
       "deleteYes": "Yes, delete"
+    },
+    "importLink": "Import a list",
+    "triageLink": "Sort new terms",
+    "toSort_one": "{{count}} to sort",
+    "toSort_other": "{{count}} to sort",
+    "duplicatesLink": "Duplicates"
+  },
+  "import": {
+    "title": "Import a list",
+    "intro": "Paste a Markdown list or pick a .md or .txt file. You will see every line before anything is saved.",
+    "line": "Line {{line}}",
+    "selected_one": "{{count}} row will be imported.",
+    "selected_other": "{{count}} rows will be imported.",
+    "submit": "Import",
+    "importing": "Importing…",
+    "input": {
+      "title": "1. Your list",
+      "file": "File (.md or .txt)",
+      "text": "Text",
+      "hint": "One term per line, optionally “term | sentence where you met it”. Up to {{max}} characters. The file is read in your browser.",
+      "tooLarge": "This text is longer than {{max}} characters. Split it into several imports.",
+      "fileError": "This file could not be read.",
+      "preview": "Preview",
+      "previewing": "Reading…"
+    },
+    "preview": {
+      "title": "2. What was found",
+      "counts": "{{lines}} lines read · {{importable}} ready · {{ambiguous}} ambiguous · {{duplicates}} with a possible duplicate",
+      "rejected": "This text cannot be imported. Fix the problem above and preview again.",
+      "noRows": "No term was found in this text."
+    },
+    "header": {
+      "none": "No header found: name the deck below.",
+      "deck": "Deck",
+      "domain": "Field",
+      "source": "Source",
+      "context": "Context",
+      "deadline": "Deadline"
+    },
+    "rows": {
+      "title": "3. Check each line",
+      "hint": "Ambiguous lines (marked ⚠) are left out unless you correct the term or tick “Import anyway”. You can edit any term.",
+      "caption": "Lines of the list",
+      "line": "Line",
+      "include": "Import",
+      "includeLabel": "Import line {{line}}",
+      "termLabel": "Term of line {{line}}",
+      "duplicateLabel": "Existing term for line {{line}}",
+      "term": "Term",
+      "sentence": "Sentence",
+      "type": "Type",
+      "problems": "Notes",
+      "duplicates": "Already in the library",
+      "importAnyway": "Import anyway",
+      "mustCorrect": "Correct the term to import it",
+      "useSuggestion": "Use “{{term}}”",
+      "ok": "OK",
+      "attachTo": "Use the existing “{{term}}” ({{match}}, {{status}})",
+      "new": "Add as a new term",
+      "skip": "Skip this line",
+      "checkedAgain": "Checked again on import"
+    },
+    "target": {
+      "title": "4. Where to put the terms",
+      "deck": "Deck",
+      "new": "A new deck",
+      "newName": "Name of the new deck",
+      "existing": "An existing deck",
+      "pick": "Existing deck",
+      "choose": "Choose a deck",
+      "missing": "Choose a deck or give the new one a name."
+    },
+    "intake": {
+      "title": "New terms",
+      "triage": "Wait for triage (I will say which ones I already know)",
+      "queued": "Go straight to the learning queue"
+    },
+    "summary": {
+      "title": "Import done",
+      "imported_one": "{{count}} new term",
+      "imported_other": "{{count}} new terms",
+      "attached_one": "{{count}} existing term added to the deck",
+      "attached_other": "{{count}} existing terms added to the deck",
+      "skipped_one": "{{count}} line skipped",
+      "skipped_other": "{{count}} lines skipped",
+      "ambiguous_one": "{{count}} ambiguous line in the list (imported only if you confirmed or corrected it)",
+      "ambiguous_other": "{{count}} ambiguous lines in the list (imported only if you confirmed or corrected them)",
+      "createdDeck": "A new deck was created.",
+      "toTriage": "Sort the new terms",
+      "toDeck": "Open the deck",
+      "again": "Import another list"
+    },
+    "severity": {
+      "info": "Info",
+      "warning": "Warning",
+      "ambiguous": "Ambiguous",
+      "error": "Error"
+    },
+    "problem": {
+      "too_large": "The file is too large (limit: 256 KB and 1000 lines).",
+      "not_utf8": "The file is not UTF-8 text. Save it as UTF-8.",
+      "invalid_header": "The header is not valid; it was ignored and the list was read anyway.",
+      "invalid_header_value": "The header value of “{{key}}” must be plain text; it was ignored.",
+      "unclosed_header": "The header has no closing “---”; the file was read as a plain list.",
+      "unknown_header_key": "Unknown header key “{{key}}”; ignored.",
+      "invalid_deadline": "The deadline must be a date written YYYY-MM-DD; it was ignored.",
+      "past_deadline": "The deadline is in the past.",
+      "heading_ignored": "Heading: not a term, ignored.",
+      "horizontal_rule": "Separator line: ignored.",
+      "multiple_separators": "More than one “|”: only the first one separates the term from its sentence.",
+      "looks_like_definition": "Looks like a term followed by a translation or a definition.",
+      "looks_like_sentence": "Looks like a sentence, not a term. Write “term | sentence”.",
+      "nested_item": "Indented sub-item: is it a separate term or a note on the term above?",
+      "empty_term": "The term is empty.",
+      "term_too_long": "The term is longer than 300 characters.",
+      "term_not_in_sentence": "The term was not found in its sentence.",
+      "duplicate_in_file": "Same term as line {{kept_line}}; only that line is imported.",
+      "duplicate_exact": "This term is already in your library.",
+      "duplicate_possible": "A similar term is already in your library.",
+      "already_in_deck": "This term is already in the target deck; it will be skipped.",
+      "existing_status_kept": "The existing term keeps its status."
+    }
+  },
+  "triage": {
+    "title": "Sort new terms",
+    "intro": "For each term, say whether you want to learn it, are not sure, or already know it. Terms you know are not studied.",
+    "listTitle": "Waiting for triage",
+    "count_one": "{{count}} term waiting",
+    "count_other": "{{count}} terms waiting",
+    "empty": "Nothing is waiting for triage.",
+    "toImport": "Import a list",
+    "shortcutHint": "Keys 1, 2 and 3 choose for this term.",
+    "decision": {
+      "learn": "Learn it",
+      "unsure": "Not sure",
+      "known": "I know it"
+    },
+    "submit_one": "Save {{count}} choice",
+    "submit_other": "Save {{count}} choices",
+    "clear": "Clear my choices",
+    "done": "Saved. To learn: {{learn}} · not sure: {{unsure}} · known: {{known}}.",
+    "reloaded": "Nothing was saved. The list was reloaded: check your choices and save again."
+  },
+  "duplicates": {
+    "title": "Duplicates",
+    "intro": "Terms that look like the same word. Choose the one to keep and merge the others into it: decks, sentences and notes are kept.",
+    "empty": "No duplicates found.",
+    "conflictHint": "Two terms that both have review cards cannot be merged: archive one of them instead.",
+    "keep": "Term to keep",
+    "hasCards": "has review cards",
+    "open": "Open",
+    "mergeInto": "Merge into “{{term}}”",
+    "merged": "Merged: “{{removed}}” is now part of “{{kept}}”.",
+    "inverted": "The term with review cards was kept.",
+    "match": {
+      "exact": "same term",
+      "possible": "similar terms"
     }
   }
 }

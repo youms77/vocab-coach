@@ -138,6 +138,8 @@ export function itemsQuery(filters: ItemFilters): string {
 
 export const itemsKey = ['items'] as const
 export const decksKey = ['decks'] as const
+// Terms waiting for triage (api/triage.ts): status changes and deletions change that list too.
+export const triageKey = ['triage'] as const
 
 export function useItems(filters: ItemFilters) {
   const query = itemsQuery(filters)
@@ -162,13 +164,14 @@ export function useDecks() {
   })
 }
 
-/** Any write may change counts, statuses and deck contents: refetch both lists. */
+/** Any write may change counts, statuses and deck contents: refetch the lists. */
 function useInvalidateLibrary() {
   const queryClient = useQueryClient()
   return () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: itemsKey }),
       queryClient.invalidateQueries({ queryKey: decksKey }),
+      queryClient.invalidateQueries({ queryKey: triageKey }),
     ])
 }
 

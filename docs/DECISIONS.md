@@ -1252,3 +1252,45 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   `attach` (to a candidate) or `new`, as the API contract defines.
 - The deck filter can be preset with `/library?deck=ID`; filter changes reset the page to the first one.
 - Sheet-content search stays out: `q` searches terms only (backend unchanged); to decide with M3.c3.
+
+## D-086 — Import review: local state sent as is (M3.c2)
+
+- The preview is never written: the review table is local state (`importReview.ts`) and the commit sends every
+  row (`include` false for the rows left out), so the backend's `lines_read` and `skipped` match the file.
+- Ambiguous rows start unchecked. Only `looks_like_definition` and `looks_like_sentence` offer "Import anyway"
+  (`confirmed: true`), as the backend accepts nothing else; other ambiguities must be corrected. A corrected term
+  is sent without `confirmed` (the backend checks it again) and without the preview's duplicate choice, since its
+  duplicates may differ (`invalid_attach_target` otherwise); the backend default then applies.
+- The target and intake are chosen after the preview, so the preview is called without `deck_id`; terms already
+  in an existing target deck are skipped by the commit and counted in "skipped".
+- The browser reads the file (`File.text()`, D-061) and checks the 300 000-character limit before sending.
+  Example files stay outside the bundle: the user picks them with the file field.
+- The summary's `ambiguous` count is every row still ambiguous when sent (confirmed or not), so it is worded
+  "ambiguous lines in the list", not "left out".
+
+## D-087 — Problem codes and messages (M3.c2)
+
+- Each `ProblemCode` and severity has an i18n key; an unknown code falls back to the backend's English message.
+  The `suggestion` object fills placeholders (`key`, `kept_line`). Severity is written as text (and ⚠ for
+  ambiguous / error), never shown by colour alone.
+
+## D-088 — Triage page (M3.c2)
+
+- One `POST /api/triage` sends every choice made (terms left undecided stay in triage); the backend is all or
+  nothing, so a 409 `not_in_triage` saves nothing, the list is refetched and the remaining choices are kept.
+- Keys 1 / 2 / 3 choose for the focused card, else the first undecided term; they are ignored with modifiers and
+  inside text inputs, textareas, selects and editable content (radios and checkboxes still work).
+- The card shows the term, its type, sentence and decks only: never a usage sheet (active recall).
+- The "n to sort" count on the Library page reuses `GET /api/triage` (no new endpoint).
+
+## D-089 — Duplicates page (M3.c2)
+
+- The user picks the term to keep (default: the one with review cards, which the backend would keep anyway) and
+  merges each other term into it with the existing `useMergeItem`; the duplicate groups live under the `items`
+  query key so a merge refreshes them. An inverted merge is reported in the message.
+
+## D-090 — CSS fixes from the first browser check (M3.c2)
+
+- Text-like inputs are styled by `input:not([type])`, `search`, `date` and `textarea` too (M3.c1 fields had native
+  styling). `.library-page` and `.import-review` use `grid-template-columns: minmax(0, 1fr)` so a wide table
+  scrolls in its `.table-wrap` instead of widening the page.

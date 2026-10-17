@@ -28,6 +28,12 @@ const KNOWN_CODES = [
   'merge_conflict',
   'not_in_triage',
   'invalid_transition',
+  'invalid_term',
+  'row_rejected',
+  'deck_name_required',
+  'invalid_attach_target',
+  'merge_same_item',
+  'duplicate_decision',
 ] as const
 
 type KnownCode = (typeof KNOWN_CODES)[number]
