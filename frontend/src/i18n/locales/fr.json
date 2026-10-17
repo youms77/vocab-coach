@@ -7,7 +7,8 @@
     "home": "Accueil",
     "settings": "Réglages",
     "skipToContent": "Aller au contenu principal",
-    "library": "Bibliothèque"
+    "library": "Bibliothèque",
+    "label": "Principale"
   },
   "demo": {
     "badge": "Données de démo",
@@ -226,9 +227,10 @@
   },
   "home": {
     "title": "Bienvenue",
-    "intro": "Voici le socle de votre coach de vocabulaire. Votre séance du jour, votre bibliothèque de mots et vos progrès apparaîtront ici au fil du développement.",
+    "intro": "Voici le socle de votre coach de vocabulaire. Votre séance du jour et vos progrès apparaîtront ici au fil du développement.",
     "todayTitle": "Séance du jour",
-    "todayEmpty": "Rien à réviser pour l'instant. Importez une liste de mots pour commencer (bientôt disponible).",
+    "todayEmpty": "Rien à réviser pour l'instant. Commencez par importer une liste de mots ou par ajouter des termes à votre bibliothèque.",
+    "libraryLink": "Ouvrir la bibliothèque",
     "statusTitle": "État du système",
     "apiChecking": "Vérification du serveur local…",
     "apiOk": "Le serveur local fonctionne (version {{version}}).",
@@ -267,6 +269,7 @@
       "search": "Recherche",
       "deck": "Paquet",
       "domain": "Domaine",
+      "source": "Source",
       "type": "Type",
       "status": "Statut",
       "sheet": "Fiche d'usage",

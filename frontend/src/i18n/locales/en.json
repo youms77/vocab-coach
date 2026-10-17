@@ -7,7 +7,8 @@
     "home": "Home",
     "settings": "Settings",
     "skipToContent": "Skip to main content",
-    "library": "Library"
+    "library": "Library",
+    "label": "Main"
   },
   "demo": {
     "badge": "Demo data",
@@ -226,9 +227,10 @@
   },
   "home": {
     "title": "Welcome",
-    "intro": "This is the foundation of your vocabulary coach. Your daily session, your word library and your progress will appear here as the app grows.",
+    "intro": "This is the foundation of your vocabulary coach. Your daily session and your progress will appear here as the app grows.",
     "todayTitle": "Today's session",
-    "todayEmpty": "Nothing to review yet. Import a word list to get started (coming soon).",
+    "todayEmpty": "Nothing to review yet. Start by importing a word list or adding terms to your library.",
+    "libraryLink": "Open the library",
     "statusTitle": "System status",
     "apiChecking": "Checking the local server…",
     "apiOk": "Local server is running (version {{version}}).",
@@ -267,6 +269,7 @@
       "search": "Search",
       "deck": "Deck",
       "domain": "Field",
+      "source": "Source",
       "type": "Type",
       "status": "Status",
       "sheet": "Usage sheet",

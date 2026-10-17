@@ -75,6 +75,11 @@ export interface ItemPage {
   items: Item[]
 }
 
+export interface SourceRef {
+  id: number
+  title: string
+}
+
 export interface Deck {
   id: number
   name: string
@@ -85,7 +90,7 @@ export interface Deck {
   deadline: string | null
   priority: number | null
   queue_position: number | null
-  source: { id: number; title: string } | null
+  source: SourceRef | null
   created_at: string
   updated_at: string
   item_count: number
@@ -96,6 +101,7 @@ export interface ItemFilters {
   q: string
   deckId: number | null
   domain: string
+  sourceId: number | null
   itemType: ItemType | ''
   status: ItemStatus | ''
   sheet: SheetState | ''
@@ -111,6 +117,7 @@ export const emptyFilters: ItemFilters = {
   q: '',
   deckId: null,
   domain: '',
+  sourceId: null,
   itemType: '',
   status: '',
   sheet: '',
@@ -125,6 +132,7 @@ export function itemsQuery(filters: ItemFilters): string {
   if (filters.q.trim() !== '') params.set('q', filters.q.trim())
   if (filters.deckId !== null) params.set('deck_id', String(filters.deckId))
   if (filters.domain.trim() !== '') params.set('domain', filters.domain.trim())
+  if (filters.sourceId !== null) params.set('source_id', String(filters.sourceId))
   if (filters.itemType !== '') params.set('item_type', filters.itemType)
   if (filters.status !== '') params.set('status', filters.status)
   if (filters.sheet !== '') params.set('sheet', filters.sheet)
@@ -140,6 +148,13 @@ export const itemsKey = ['items'] as const
 export const decksKey = ['decks'] as const
 // Terms waiting for triage (api/triage.ts): status changes and deletions change that list too.
 export const triageKey = ['triage'] as const
+
+/** The sources of the decks, once each, by title: a term has no source of its own (D-073). */
+export function sourcesOf(decks: Deck[]): SourceRef[] {
+  const byId = new Map<number, SourceRef>()
+  for (const deck of decks) if (deck.source !== null) byId.set(deck.source.id, deck.source)
+  return [...byId.values()].sort((a, b) => a.title.localeCompare(b.title))
+}
 
 export function useItems(filters: ItemFilters) {
   const query = itemsQuery(filters)

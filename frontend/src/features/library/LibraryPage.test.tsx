@@ -81,6 +81,34 @@ describe('library page', () => {
     })
   })
 
+  it('filters by source: each deck source listed once, sent as source_id', async () => {
+    const book = { id: 7, title: 'Mostly Harmless Econometrics' }
+    const calls = mockApi({
+      'GET /items': { total: 0, items: [] },
+      'GET /decks': [
+        { ...deck(1, 'Chapter 3'), source: book },
+        { ...deck(2, 'Chapter 4'), source: book },
+        { ...deck(3, 'Survey course'), source: { id: 9, title: 'Lecture notes' } },
+        deck(4, 'Quick adds'),
+      ],
+    })
+    renderApp('/library')
+    await screen.findByText(/No term matches/)
+    const select = screen.getByLabelText('Source')
+    await waitFor(() =>
+      expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual([
+        'Any',
+        'Lecture notes',
+        'Mostly Harmless Econometrics',
+      ]),
+    )
+    await userEvent.selectOptions(select, '7')
+    await waitFor(() => {
+      const last = calls.filter((c) => c.path.startsWith('/items?')).at(-1)!
+      expect(last.path).toContain('source_id=7')
+    })
+  })
+
   it('starts on the deck given in the URL', async () => {
     const calls = mockApi({ 'GET /items': { total: 0, items: [] }, 'GET /decks': decks })
     renderApp('/library?deck=1')

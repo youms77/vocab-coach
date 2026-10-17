@@ -22,7 +22,7 @@ export function Layout() {
           </span>
           {t('app.name')}
         </NavLink>
-        <nav aria-label="Main" className="topbar__nav">
+        <nav aria-label={t('nav.label')} className="topbar__nav">
           <NavLink to="/" end>
             {t('nav.home')}
           </NavLink>

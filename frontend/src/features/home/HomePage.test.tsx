@@ -23,6 +23,18 @@ describe('HomePage', () => {
     expect(document.documentElement.lang).toBe('en')
   })
 
+  it('points to the import and the library while there is nothing to review', () => {
+    mockFetch(Response.json({ status: 'ok', version: '0.1.0' }))
+    renderApp('/')
+
+    expect(screen.getByRole('link', { name: 'Import a list' })).toHaveAttribute('href', '/import')
+    expect(screen.getByRole('link', { name: 'Open the library' })).toHaveAttribute(
+      'href',
+      '/library',
+    )
+    expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
+  })
+
   it('says so when the backend is unreachable', async () => {
     mockFetch(new TypeError('Failed to fetch'))
     renderApp('/')

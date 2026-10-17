@@ -9,6 +9,7 @@ import {
   PAGE_SIZE,
   SHEET_STATES,
   emptyFilters,
+  sourcesOf,
   useDecks,
   useItems,
   type ItemFilters,
@@ -68,6 +69,21 @@ function Filters({
           value={filters.domain}
           onChange={(e) => set({ domain: e.target.value })}
         />
+      </div>
+      <div className="field">
+        <label htmlFor={`${id}-source`}>{t('library.filters.source')}</label>
+        <select
+          id={`${id}-source`}
+          value={filters.sourceId ?? ''}
+          onChange={(e) => set({ sourceId: e.target.value === '' ? null : Number(e.target.value) })}
+        >
+          <option value="">{t('library.filters.any')}</option>
+          {sourcesOf(decks.data ?? []).map((source) => (
+            <option key={source.id} value={source.id}>
+              {source.title}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="field">
         <label htmlFor={`${id}-type`}>{t('library.filters.type')}</label>
