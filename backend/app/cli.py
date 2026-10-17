@@ -4,7 +4,7 @@ builds the fictional demo database; `python -m app ai simulate` shows the AI gat
 offline; `python -m app ai status | test | usage` look at the real AI providers;
 `python -m app library import <file>` previews (or, with `--commit`, imports) a Markdown list;
 `library enrich` writes usage sheets through the AI and `library extend <deck_id>` asks for related
-terms.
+terms. `python -m app errors list | show | add | categories` reads and edits the error log.
 `--demo` (before the command) works on the demo database."""
 
 import argparse
@@ -23,6 +23,7 @@ from app.config import Settings, get_settings
 from app.db import migrate
 from app.db.engine import create_db_engine, sqlite_file
 from app.db.taxonomy import SyncResult, sync_taxonomy
+from app.domain.enums import ErrorSource
 from app.domain.settings_defaults import KNOWN_AI_PROVIDERS
 
 SQLITE_SIDE_FILES = ("-wal", "-shm")
@@ -187,7 +188,41 @@ def _build_parser() -> argparse.ArgumentParser:
     extend.add_argument(
         "--count", type=_count, default=20, help="how many suggestions (10-30, default 20)"
     )
+
+    errors = commands.add_parser("errors", help="error log (module E)")
+    errors_commands = errors.add_subparsers(dest="errors_command", required=True)
+    listing = errors_commands.add_parser("list", help="your errors, newest first")
+    listing.add_argument("--category", help="a code prefix, e.g. grammar.preposition")
+    listing.add_argument("--source", choices=[source.value for source in ErrorSource])
+    listing.add_argument("--item-id", type=int, help="errors linked to this term")
+    listing.add_argument("--text", help="search the sentence, wrong form, correction, rule")
+    listing.add_argument("--page", type=_positive, default=1)
+    listing.add_argument("--page-size", type=_positive, default=20, help="1 to 100")
+    show = errors_commands.add_parser("show", help="one error in full")
+    show.add_argument("error_id", type=int)
+    add = errors_commands.add_parser("add", help="record an error by hand (source manual)")
+    add.add_argument("--wrong", required=True, help="the wrong form")
+    add.add_argument("--correction", required=True)
+    add.add_argument("--category", required=True, help="an active code, see `errors categories`")
+    add.add_argument("--original", help="the whole sentence (must contain the wrong form)")
+    add.add_argument("--alt", action="append", default=[], help="a natural alternative (at most 2)")
+    add.add_argument("--explanation", default="", help="the rule in one sentence")
+    add.add_argument("--item-id", type=int, help="link the error to this term")
+    categories = errors_commands.add_parser("categories", help="the error taxonomy with counts")
+    categories.add_argument(
+        "--proposed", action="store_true", help="only the categories the AI proposed"
+    )
     return parser
+
+
+def _positive(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a number") from None
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be 1 or more")
+    return number
 
 
 def _count(value: str) -> int:
@@ -252,6 +287,35 @@ def _ai(args: argparse.Namespace, settings: Settings) -> int:
         return cli_ai.EXIT_FAILED
 
 
+def _errors(args: argparse.Namespace, url: str) -> int:
+    from app import cli_errors
+
+    if args.errors_command == "list":
+        return cli_errors.run_errors_list(
+            url,
+            category=args.category,
+            source=ErrorSource(args.source) if args.source else None,
+            item_id=args.item_id,
+            text=args.text,
+            page=args.page,
+            page_size=args.page_size,
+        )
+    if args.errors_command == "show":
+        return cli_errors.run_errors_show(url, args.error_id)
+    if args.errors_command == "add":
+        return cli_errors.run_errors_add(
+            url,
+            wrong=args.wrong,
+            correction=args.correction,
+            category=args.category,
+            original=args.original,
+            alternatives=args.alt,
+            explanation=args.explanation,
+            item_id=args.item_id,
+        )
+    return cli_errors.run_errors_categories(url, proposed_only=args.proposed)
+
+
 def _demo_seed(args: argparse.Namespace, demo_file: Path) -> int:
     # Imported here: the simulation pulls in every service, which other commands do not need.
     from app.demo.seed import DemoSeedError, check_target, is_seeded, render_summary, seed_demo
@@ -312,6 +376,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return cli_library.run_library_import(
             url, args.file, deck_id=args.deck_id, no_triage=args.no_triage, commit=args.commit
         )
+    if args.command == "errors":
+        return _errors(args, url)
     if args.command == "plan":
         try:
             plan = build_today_plan(url, args.at)
