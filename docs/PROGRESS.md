@@ -5,15 +5,52 @@ Updated at the end of every milestone session. Paste this file into the next pla
 ## Current state
 
 - **Last milestone completed**: M3.c3 — usage sheets, exercises, batch enrichment and list extension pages
-  (frontend), branch `feat/m3c3-sheets`, stacked on M3.c2 (`feat/m3c2-import-triage`), M3.c1
-  (`feat/m3c1-library`), M3.b (`feat/m3b-enrichment`), M3.a (`feat/m3a-library-import`) and
-  `feat/m2c2-settings-page`. M1.a to M2.c1 are merged in `main`. **M3 is complete** (module A).
-- **Next milestone**: **M4** — discovery and reviews (modules B and C, today's session).
-- Merge order: M2.c2's PR, then M3.a's, M3.b's, M3.c1's, M3.c2's, M3.c3's.
+  (frontend). **M3 is complete** (module A). M1.a to M3.c3 are merged in `main`: the stacked branches
+  `feat/m2c2-settings-page`, `feat/m3a-library-import`, `feat/m3b-enrichment`, `feat/m3c1-library`,
+  `feat/m3c2-import-triage` and `feat/m3c3-sheets` went in together through the pull request of the tip, after
+  the pre-merge verification below.
+- **Next milestone**: **M4** — discovery and reviews (modules B and C, today's session). Start its branch from
+  `main`.
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
   M3.c3 below.
 - Fixed on top of M3.c3: `test_usage_lists_every_day_today_first` no longer depends on the date
   (`GET /api/ai/usage` takes its clock from a dependency, D-097). See M3.c3 "Known issues".
+
+## Pre-merge verification of M2.c2 to M3.c3 (2026-10-17)
+
+The six stacked branches had never been checked together on a clean state. Done on the tip
+(`feat/m3c3-sheets`) before merging.
+
+### Checked (Windows 11)
+
+- `npm run check`: ruff check, ruff format --check, pytest 1190 passed (5 deselected: live tests), tsc, oxlint,
+  vitest 93 passed before the fixes, 95 after. `npm --prefix frontend run build` passes (same "chunk larger than
+  500 kB" warning).
+- CI steps run locally: `alembic upgrade head` then `alembic check` on an empty file ("No new upgrade operations
+  detected"); full demo seed `--anchor 2026-09-01` on an empty data folder, then `--demo plan today`;
+  `scripts/check-env.ps1`; no tracked data, `.env`, database or audio file; `.ps1` files are ASCII; `en.json`
+  and `fr.json` have the same 567 keys (570 after the fixes) and no empty value.
+- No migration since M1.a: the owner's database (revision `0001`) needs no upgrade for this merge.
+- Invariants read in the code: no AI SDK or HTTP client outside `app/ai/`; enrichment and extension call the
+  gateway outside any write transaction and write in one short transaction afterwards (D-038).
+- **First run on an empty database** in the in-app browser (never done before; earlier checks used the demo
+  database), French UI: home, library empty state, quick add (creates "Quick adds"), import of the SPEC sample
+  with a header (7 lines, a duplicate of the quick-added term attached, new deck with its source), triage list,
+  term page with the sheet hidden and the pre-discovery warning, decks, enrichment page without a key,
+  duplicates, settings. No console error.
+
+### Fixed (D-098)
+
+- `/library` had no **source** filter although SPEC module A requires one (the API supported `source_id`).
+- The home page still said importing was "coming soon"; it now links to the import and the library.
+- The main navigation's `aria-label` was hard-coded English.
+
+### Notes
+
+- Duplicates inside one imported file are caught on the normalised form only, not on the lemma: `outlier` and
+  `outliers` in the same file are both imported, then shown by `/duplicates`.
+- The quick-add deck menu shows "No deck (Quick adds)" and, once it exists, the "Quick adds" deck itself; both
+  lead to the same deck.
 
 ## M3.c3 — Usage sheets, exercises, batch enrichment, list extension (frontend)
 

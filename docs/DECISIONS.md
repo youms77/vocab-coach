@@ -1356,3 +1356,16 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   gateway and the route's "today" always agree; the test passed only on 2026-10-16 before.
 - Other routes still call `utcnow()` directly; a route whose result depends on "today" in a test should use
   `NowDep` rather than freezing time globally.
+
+## D-098 — Fixes from the pre-merge verification of M2.c2 to M3.c3
+
+- **Source filter on `/library`** (SPEC module A lists deck, field, source, type and status filters; the API had
+  `source_id` since M3.a but the page did not offer it). There is no `/api/sources` route: the choices are the
+  sources of the decks (`sourcesOf` in `api/library.ts`), once each, sorted by title. A source no deck uses
+  cannot hold terms (a term reaches a source only through a deck, D-073), so nothing is missing from the list.
+  No backend change.
+- **Home page**: the "Import a word list (coming soon)" text was left from M0; it now links to the import and
+  the library until today's session arrives in M4.
+- **i18n**: the main navigation's `aria-label` was hard-coded ("Main"); it is now `nav.label`.
+- Merged as one pull request (the tip, `feat/m3c3-sheets`) rather than one per milestone: the intermediate
+  branches contain the date-dependent test fixed by D-097, so their own checks fail on any day but 2026-10-16.
