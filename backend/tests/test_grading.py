@@ -15,6 +15,7 @@ from app.domain.grading import (
     grade_choice,
     grade_typed,
     normalize_answer,
+    production_rating,
     typo_tolerance,
 )
 from app.domain.srs import Rating
@@ -267,3 +268,38 @@ def test_production_is_self_graded_and_checks_the_term() -> None:
     assert missing.warnings == ["term_missing"]
     assert missing.proposed_rating is None
     assert check_production("rule out", "").warnings == []
+
+
+# --- Rating of an AI-checked sentence production (D-128) -----------------------------------------
+
+
+def _feedback(*, used: bool, correct: bool | None, errors: list[dict] | None = None) -> dict:
+    return {
+        "format": "correction-1",
+        "targets": [{"ref": 0, "lexical_item_id": 7, "used": used, "used_correctly": correct}],
+        "output": {"errors": errors or []},
+    }
+
+
+@pytest.mark.parametrize(
+    ("feedback", "expected"),
+    [
+        (_feedback(used=True, correct=True), Rating.GOOD),
+        (_feedback(used=True, correct=True, errors=[{"target_ref": None}]), Rating.GOOD),
+        (_feedback(used=True, correct=True, errors=[{"target_ref": 0}]), Rating.AGAIN),
+        (_feedback(used=True, correct=False), Rating.AGAIN),
+        (_feedback(used=False, correct=False), Rating.AGAIN),
+        (_feedback(used=False, correct=True), Rating.AGAIN),
+        (_feedback(used=True, correct=None), None),
+        (None, None),
+        ({}, None),
+        ({"format": "other"}, None),
+        ({"format": "correction-1", "targets": []}, None),
+    ],
+)
+def test_production_rating(feedback: dict | None, expected: Rating | None) -> None:
+    assert production_rating(feedback, 7) == expected
+
+
+def test_production_rating_ignores_the_checks_of_other_terms() -> None:
+    assert production_rating(_feedback(used=True, correct=True), 8) is None

@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.gateway import Gateway
@@ -36,10 +37,10 @@ from app.ai.tasks import correction_output_budget
 from app.ai.types import AiStatus, UnavailableReason
 from app.db.base import utcnow
 from app.db.event_log import record_event
-from app.db.models import ErrorCategory, ProductionAttempt
+from app.db.models import ErrorCategory, EventLog, ProductionAttempt
 from app.domain import exercises as ex
 from app.domain.enums import ErrorSource, Modality
-from app.domain.events import ProductionCorrected
+from app.domain.events import EventType, ProductionCorrected, ProductionOrigin
 from app.domain.sentences import Sentence, TextTooLong, find_fragment, split_sentences
 from app.domain.study_day import as_utc
 from app.domain.usage_sheet import read_sheet
@@ -82,6 +83,7 @@ class Prepared:
     attempt_id: int
     text: str
     prompt: str
+    source: ErrorSource
     sentences: list[Sentence]
     targets: list[Target]
     taxonomy: dict[str, str]  # active code -> one-line description
@@ -90,6 +92,23 @@ class Prepared:
 def _one_line(text: str, limit: int) -> str:
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def source_of(session: Session, attempt_id: int) -> ErrorSource:
+    """Where the errors of a production come from, which follows its context: `review` for a
+    sentence production checked in a review (`production.recorded` has `origin: review`), else
+    `writing` (free writing, and the personal sentence of a discovery: `ErrorSource` has no
+    separate value for it)."""
+    payload = session.scalar(
+        select(EventLog.payload).where(
+            EventLog.event_type == EventType.PRODUCTION_RECORDED.value,
+            EventLog.entity_type == "production_attempt",
+            EventLog.entity_id == attempt_id,
+        )
+    )
+    if payload is not None and payload.get("origin") == ProductionOrigin.REVIEW.value:
+        return ErrorSource.REVIEW
+    return ErrorSource.WRITING
 
 
 def prepare(session: Session, attempt_id: int) -> Prepared:
@@ -123,6 +142,7 @@ def prepare(session: Session, attempt_id: int) -> Prepared:
         attempt_id=attempt.id,
         text=attempt.text,
         prompt=_one_line(attempt.prompt_text or "", PROMPT_MAX_CHARS),
+        source=source_of(session, attempt.id),
         sentences=sentences,
         targets=targets,
         taxonomy=taxonomy,
@@ -331,7 +351,7 @@ def correct_production(
     gateway: Gateway,
     attempt_id: int,
     *,
-    source: ErrorSource = ErrorSource.WRITING,
+    source: ErrorSource | None = None,
     mode: Mode | None = None,
     clock: Callable[[], datetime] = utcnow,
 ) -> CorrectionResult:
@@ -361,7 +381,7 @@ def correct_production(
         session_factory,
         prepared,
         result.data,
-        source=source,
+        source=source or prepared.source,
         provenance=(result.provider, result.model, result.prompt_version),
         ai_call_id=result.call_id,
         at=as_utc(clock()),

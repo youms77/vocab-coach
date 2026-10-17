@@ -17,6 +17,7 @@ import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 from app.domain import exercises as ex
 from app.domain.normalize import stem_token
@@ -264,3 +265,26 @@ def check_production(term: str, text: str | None, forms: Sequence[str] = ()) -> 
     if text and text.strip() and not ex.contains_term(term, text, forms):
         warnings.append(GradeWarning.TERM_MISSING.value)
     return GradeResult(outcome=None, proposed_rating=None, expected=None, warnings=warnings)
+
+
+def production_rating(feedback: Mapping[str, Any] | None, lexical_item_id: int) -> Rating | None:
+    """The rating proposed for a `sentence_production` checked by the AI, from the stored
+    `correction-1` feedback (D-128): Good when the term was used correctly and no error concerns
+    it, Again when it is absent, misused or has an error. None when the check is missing or
+    unusable (the review is then self-graded). Easy and Hard are never proposed."""
+    if not feedback or feedback.get("format") != "correction-1":
+        return None
+    check = next(
+        (t for t in feedback.get("targets") or [] if t.get("lexical_item_id") == lexical_item_id),
+        None,
+    )
+    if check is None:
+        return None
+    if not check.get("used"):
+        return Rating.AGAIN
+    errors = (feedback.get("output") or {}).get("errors") or []
+    if any(error.get("target_ref") == check.get("ref") for error in errors):
+        return Rating.AGAIN
+    if check.get("used_correctly") is None:
+        return None
+    return Rating.GOOD if check["used_correctly"] else Rating.AGAIN

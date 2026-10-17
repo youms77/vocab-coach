@@ -18,7 +18,16 @@ from pydantic import BaseModel
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Card, Enrichment, ErrorEvent, ExerciseTemplate, LexicalItem
+from app.db.models import (
+    Card,
+    Enrichment,
+    ErrorEvent,
+    ExerciseTemplate,
+    LexicalItem,
+    ProductionAttempt,
+    ProductionTarget,
+    ReviewLog,
+)
 from app.db.settings_store import get_setting
 from app.domain import exercises as ex
 from app.domain.durations import DurationClass, DurationEstimates, duration_class
@@ -35,6 +44,7 @@ from app.domain.grading import (
     grade_choice,
     grade_typed,
     normalize_answer,
+    production_rating,
 )
 from app.domain.item_status import REVIEWABLE_STATUSES
 from app.domain.normalize import normalize_term
@@ -79,6 +89,13 @@ class NotDue(LibraryError):
 
 class ExerciseMismatch(LibraryError):
     status, code = 422, "exercise_mismatch"
+
+
+class ProductionMismatch(LibraryError):
+    """The production sent with a review is not the one checked for this term in this session,
+    or another review already used it."""
+
+    code = "production_mismatch"
 
 
 # --- Context -------------------------------------------------------------------------------------
@@ -386,6 +403,11 @@ def _solution(ctx: ExerciseContext) -> dict[str, Any]:
     )
 
 
+def solution_and_summary(ctx: ExerciseContext) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """The solution and the sheet summary, to give once the user has made an attempt (D-103)."""
+    return _solution(ctx), sheet_summary(ctx.item.term, ctx.sheet)
+
+
 def reveal(ctx: ExerciseContext) -> tuple[dict[str, Any], dict[str, Any] | None]:
     """Solution and sheet summary of a self-graded exercise. Writes nothing."""
     if ctx.exercise_type not in ex.SELF_GRADED_TYPES:
@@ -420,9 +442,11 @@ def record(
     expected_reps: int,
     study_session_id: int,
     now: datetime,
+    production_attempt_id: int | None = None,
     engine_factory: EngineFactory = default_engine_factory,
 ) -> Recorded:
-    """Record the user's final rating. The proposed rating is computed again here."""
+    """Record the user's final rating. The proposed rating is computed again here; for a
+    `sentence_production` it comes from the AI check of `production_attempt_id` (D-128)."""
     now = as_utc(now)
     card, item = ctx.card, ctx.item
     assert card is not None  # noqa: S101 (a review is always of a card)
@@ -448,6 +472,10 @@ def record(
         response_time_ms=response_time_ms,
         now=now,
     )
+    auto_rating = graded.result.proposed_rating
+    if production_attempt_id is not None:
+        attempt = _checked_production(session, ctx, production_attempt_id, study_session_id)
+        auto_rating = production_rating(attempt.ai_feedback, item.id)
     status_before = ItemStatus(item.status)
     try:
         log = record_review(
@@ -458,9 +486,10 @@ def record(
             response_time_ms,
             ctx.exercise_type,
             answer=graded.answer_text,
-            auto_rating=graded.result.proposed_rating,
+            auto_rating=auto_rating,
             study_session_id=study_session_id,
             exercise_template_id=ctx.template.id if ctx.template is not None else None,
+            production_attempt_id=production_attempt_id,
             engine_factory=engine_factory,
         )
     except ReviewNotAllowed as exc:
@@ -472,9 +501,37 @@ def record(
         state_after=SrsState(log.state_after),
         item_status=ItemStatus(item.status),
         item_status_changed=ItemStatus(item.status) != status_before,
-        auto_rating=graded.result.proposed_rating,
+        auto_rating=auto_rating,
         error_event_id=error.id if error is not None else None,
     )
+
+
+def _checked_production(
+    session: Session, ctx: ExerciseContext, production_attempt_id: int, study_session_id: int
+) -> ProductionAttempt:
+    """The production a review rated: it must be the one checked for this term, in this session,
+    and not already used by another review. Raises ExerciseMismatch, ProductionMismatch."""
+    if ctx.exercise_type != ex.SENTENCE_PRODUCTION:
+        raise ExerciseMismatch("`production_attempt_id` only goes with a sentence production.")
+    attempt = session.get(ProductionAttempt, production_attempt_id)
+    if attempt is None:
+        raise ProductionMismatch(f"There is no production {production_attempt_id}.")
+    if attempt.study_session_id != study_session_id:
+        raise ProductionMismatch("This production was written in another study session.")
+    is_target = session.scalar(
+        select(
+            exists().where(
+                ProductionTarget.production_attempt_id == attempt.id,
+                ProductionTarget.lexical_item_id == ctx.item.id,
+            )
+        )
+    )
+    if not is_target:
+        raise ProductionMismatch("This production was not written for this term.")
+    already = session.scalar(select(exists().where(ReviewLog.production_attempt_id == attempt.id)))
+    if already:
+        raise ProductionMismatch("This production was already used by another review.")
+    return attempt
 
 
 # --- Errors from reviews -------------------------------------------------------------------------

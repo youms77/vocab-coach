@@ -22,7 +22,7 @@ from app.api.error_log import ErrorOut, errors_out
 from app.api.errors import require_database
 from app.db.engine import get_engine, get_session
 from app.db.models import ErrorCategory, ErrorEvent, ProductionAttempt
-from app.domain.enums import ErrorSource, Modality, ProductionKind
+from app.domain.enums import Modality, ProductionKind
 from app.domain.events import ProductionOrigin
 from app.services import corrections, productions
 
@@ -222,7 +222,6 @@ def correct(
         _factory(engine),
         gateway,
         production_id,
-        source=ErrorSource.WRITING,
         clock=lambda: now,
     )
     with Session(engine) as session:
