@@ -50,7 +50,13 @@ class EventType(StrEnum):
     CARD_CREATED = "card.created"
     CARD_REVIEWED = "card.reviewed"
     PRODUCTION_RECORDED = "production.recorded"
+    PRODUCTION_CORRECTED = "production.corrected"
     ERROR_RECORDED = "error.recorded"
+    ERROR_UPDATED = "error.updated"
+    ERROR_DELETED = "error.deleted"
+    ERROR_CATEGORY_CREATED = "error_category.created"
+    ERROR_CATEGORY_PROPOSED = "error_category.proposed"
+    ERROR_CATEGORY_RESOLVED = "error_category.resolved"
     SESSION_STARTED = "session.started"
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
@@ -346,8 +352,19 @@ class CardReviewed(Event):
     response_time_ms: Annotated[int, Field(ge=0)] | None = None
 
 
+class ProductionOrigin(StrEnum):
+    """Where a written production comes from; it decides the source of its errors (M5)."""
+
+    WRITING = "writing"  # free writing (module E)
+    DISCOVERY = "discovery"  # the personal sentence of a discovery (module B)
+    REVIEW = "review"  # a `sentence_production` review checked by the AI (module C)
+
+
 class ProductionRecorded(Event):
+    """Version 2 (M5) adds `origin`, optional so version 1 payloads still read."""
+
     event_type = EventType.PRODUCTION_RECORDED
+    payload_version = 2
     entity_type = "production_attempt"
     entity_id_field = "production_attempt_id"
 
@@ -356,6 +373,27 @@ class ProductionRecorded(Event):
     modality: Modality
     word_count: Annotated[int, Field(ge=0)]
     audio_seconds: Annotated[float, Field(ge=0)] | None = None
+    origin: ProductionOrigin | None = None
+
+
+class ProductionCorrected(Event):
+    """A production corrected by the AI (written once: a second correction is refused)."""
+
+    event_type = EventType.PRODUCTION_CORRECTED
+    entity_type = "production_attempt"
+    entity_id_field = "production_attempt_id"
+
+    production_attempt_id: Id
+    word_count: Annotated[int, Field(ge=0)]
+    sentence_count: Annotated[int, Field(ge=0)]
+    error_count: Annotated[int, Field(ge=0)]
+    naturalness_note_count: Annotated[int, Field(ge=0)]
+    targets: Annotated[int, Field(ge=0)]
+    targets_used_correctly: Annotated[int, Field(ge=0)]
+    provider: Annotated[str, Field(max_length=50)]
+    model: Annotated[str, Field(max_length=200)]
+    prompt_version: Annotated[str, Field(max_length=100)]
+    ai_call_id: Id | None = None
 
 
 class ErrorRecorded(Event):
@@ -367,6 +405,75 @@ class ErrorRecorded(Event):
     category_code: str
     source: ErrorSource
     lexical_item_id: Id | None = None
+
+
+class ErrorUpdated(Event):
+    """An error edited by the user, or moved to its parent category when a proposed category is
+    rejected. The old and new codes are always given, so the history of each error's category
+    can be rebuilt (M9)."""
+
+    event_type = EventType.ERROR_UPDATED
+    entity_type = "error_event"
+    entity_id_field = "error_event_id"
+
+    error_event_id: Id
+    source: ErrorSource
+    changed: Annotated[list[str], Field(min_length=1)]
+    old_category_code: str
+    new_category_code: str
+    old_lexical_item_id: Id | None = None
+    new_lexical_item_id: Id | None = None
+    reason: Literal["edit", "category_rejected"] = "edit"
+
+
+class ErrorDeleted(Event):
+    event_type = EventType.ERROR_DELETED
+    entity_type = "error_event"
+    entity_id_field = "error_event_id"
+
+    error_event_id: Id
+    category_code: str
+    source: ErrorSource
+
+
+class ErrorCategoryCreated(Event):
+    """A category added by the user (the taxonomy is extensible); it is active at once."""
+
+    event_type = EventType.ERROR_CATEGORY_CREATED
+    entity_type = "error_category"
+    entity_id_field = "error_category_id"
+
+    error_category_id: Id
+    code: str
+    parent_code: str | None
+
+
+class ErrorCategoryProposed(Event):
+    """A subcategory proposed by the AI while correcting a production; it waits for the user."""
+
+    event_type = EventType.ERROR_CATEGORY_PROPOSED
+    entity_type = "error_category"
+    entity_id_field = "error_category_id"
+
+    error_category_id: Id
+    code: str
+    parent_code: str
+    production_attempt_id: Id | None = None
+
+
+class ErrorCategoryResolved(Event):
+    """The user accepted or rejected a proposed category; a rejection moves its errors to the
+    parent (one `error.updated` each)."""
+
+    event_type = EventType.ERROR_CATEGORY_RESOLVED
+    entity_type = "error_category"
+    entity_id_field = "error_category_id"
+
+    error_category_id: Id
+    code: str
+    parent_code: str
+    decision: Literal["accept", "reject"]
+    reassigned_errors: Annotated[int, Field(ge=0)]
 
 
 # --- Sessions and settings ---------------------------------------------------------------------
