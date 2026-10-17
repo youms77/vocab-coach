@@ -4,13 +4,50 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M3.a — Markdown import, library, duplicates and intake triage, backend only
-  (2026-10-16), branch `feat/m3a-library-import`, **stacked on `feat/m2c2-settings-page`** (M2.c2, not merged yet).
-  M1.a to M2.c1 are merged in `main`.
-- **Next milestone**: **M3.b** — usage sheets (batch enrichment through the gateway) and list extension; then
-  **M3.c** — the library, import, triage and duplicates pages, on top of the API reference below.
-- Merge order: M2.c2's PR first, then M3.a's.
+- **Last milestone completed**: M3.b — usage sheets (batch enrichment) and list extension, backend only
+  (2026-10-17), branch `feat/m3b-enrichment`, stacked on M3.a (`feat/m3a-library-import`) itself stacked on
+  `feat/m2c2-settings-page`. M1.a to M2.c1 are merged in `main`.
+- **Next milestone**: **M3.c** — the library, import, triage, duplicates and usage-sheet pages, on top of the API
+  references below.
+- Merge order: M2.c2's PR, then M3.a's, then M3.b's.
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2.
+
+## M3.b — Usage sheets and list extension (backend) ✅
+
+Branch `feat/m3b-enrichment`, stacked on M3.a. No migration, no frontend change, SPEC.md unchanged.
+
+### Done
+
+- **Gateway** (D-079, D-080): `validation_context` and a per-call `max_output_tokens`.
+- **Prompts and schemas**: `enrichment.v1`, `list_extension.v1`; business rules in `app/domain/exercises.py` and
+  `usage_sheet.py`.
+- **Services**: `enrichment.py` (batches, split, skeleton sheets, lock, editing, versions, exercises; D-081 to
+  D-083), `extension.py` (D-084); `sheet_status` on items and a `sheet` filter on `GET /api/items`.
+- **API** (`app/api/enrichment.py`): `GET /enrichment/pending`, `POST /enrichment/run`,
+  `GET|PUT /items/{id}/sheet`, `GET /items/{id}/sheet/versions`, `POST /items/{id}/sheet/regenerate`,
+  `GET /items/{id}/exercises`, `PATCH /exercises/{id}`, `POST /decks/{id}/extension`. New error codes:
+  `enrichment_running`, `sheet_edited`, `sheet_changed`, `sheet_not_found`, `exercise_not_found`, `item_archived`,
+  `invalid_exercise`. AI failures are 200 with `status` / `reason`.
+- **CLI**: `library enrich [--deck-id] [--item-id N] [--include-incomplete] [--dry-run]`,
+  `library extend <deck_id> [--count 10-30]`; `ai usage --demo` now allowed.
+- **Tests**: service, schema, API, gateway-context tests, CLI tests (`tests/ai/test_cli_enrichment.py`) and a live
+  test (`tests/live/test_live_enrichment.py`, skipped unless `VOCAB_RUN_LIVE=1`).
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm run check` passes: ruff, pytest 1190 passed (5 deselected), tsc, oxlint, vitest 35 passed; `alembic check` clean.
+- The live enrichment test was **not run** (no key used in this session).
+
+### Left / notes
+
+- Search inside sheet content (SPEC module A) is not implemented: only the `sheet` status filter exists. Decide
+  in M3.c whether `q` should also search sheet text.
+- Token budgets (D-080) and batch size 5 are estimates: tune after the owner's first real calls.
+- **M3.c**: pages for library, import, triage, duplicates, sheet review/edit, exercises, i18n of the new codes.
+
+### Known issues
+
+- None known.
 
 ## M3.a — Markdown import, library, duplicates, intake triage (backend) ✅
 
@@ -703,13 +740,10 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M3.b (usage sheets and list extension)
+## Next step: M3.c (library interface)
 
-- **M3.b** (SPEC module A): batch enrichment through the gateway (5 to 10 terms per call; call the AI first, then
-  write in a short transaction, D-038), `incomplete` / `unavailable` handled (degraded mode: manual sheet entry),
-  review and editing (an edited sheet is never regenerated without consent), exercise sentences stored with the sheet,
-  list extension (10 to 30 suggestions sorted with the same triage), search in sheet content.
-- **M3.c**: the interface for M3.a and M3.b (`frontend/src/features/library/`), every code above as an i18n key.
+- **M3.c**: the interface for M3.a and M3.b (`frontend/src/features/library/`), every code above as an i18n key,
+  and the decision on searching inside sheet content.
 - Before or alongside: the owner's real calls (M2.c2 scenario) to close M2 and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 

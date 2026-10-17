@@ -1192,3 +1192,52 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   counts, payloads) and every status are the same. The determinism tests compare two runs, so they still pass.
 - Library writes are allowed on the demo database (a throwaway sandbox); only AI keys and provider order are
   protected there (D-064).
+
+## D-079 — Validation context for the gateway (M3.b)
+
+- `Gateway.generate_json(..., validation_context=...)` passes a context to Pydantic validation. The enrichment
+  schema reads `{"terms": {ref: term}}` from it, so the business rules of `app/domain/exercises.py` (term present in
+  every example, gap-fill answer matches the term, ...) run inside the validator. A broken rule is a validation
+  error: the gateway asks for one repair, then answers `incomplete`. No second validation layer in the service.
+
+## D-080 — Output budget per call (M3.b)
+
+- `generate_json(..., max_output_tokens=...)` overrides the task's ceiling for one call. A term of the `enrichment`
+  task costs about 1 500 output tokens (sheet about 900, exercises about 450), so a batch asks for
+  `ENRICHMENT_TOKENS_PER_TERM x terms`. A suggestion of `list_extension` costs about 50 tokens
+  (`EXTENSION_TOKENS_PER_SUGGESTION` x count). These are estimates to tune after the owner's first real calls.
+
+## D-081 — One enrichment run is one batch (M3.b)
+
+- Batches of 5 terms (`ENRICHMENT_BATCH_SIZE`, SPEC: 5 to 10, lower end because of the free-tier output limits).
+  The AI is called with no session open (D-038); results are written in one short transaction after checking each
+  term again (still there, same spelling, no new current sheet).
+- `incomplete`, or `all_failed` on several terms: the terms are retried one by one under a time cap; a term that
+  still fails alone gets a skeleton sheet (`needs_completion`, no exercise) the user completes by hand. Any other
+  `unavailable` reason writes nothing: terms stay pending (degraded mode).
+- A process-wide lock refuses a second run (`enrichment_running`, 409); a run from another process (the CLI) is
+  caught by the re-check before writing. An AI failure is HTTP 200 with `status` and `reason`, not an error.
+- CLI `library enrich` loops over batches until nothing is left or the AI is unavailable (exit 1);
+  `--dry-run` lists the waiting terms; `library extend <deck_id> --count 10..30`.
+
+## D-082 — Typed recall follows the user's sheet (M3.b)
+
+- When the user saves a sheet, the "French / definition to English" typed-recall template is refreshed from the
+  new translations and definition, so the exercise never contradicts the sheet.
+
+## D-083 — Editing, versions and consent (M3.b)
+
+- A sheet edit creates a new version (`origin = user`); old versions are kept and listed. `base_enrichment_id`
+  protects against a stale editor (409 `sheet_changed`). An edited sheet is never regenerated without
+  `confirm_overwrite` (409 `sheet_edited`). Regeneration keeps templates the user edited or reviewed. A term
+  without a sheet accepts a hand-typed one (manual entry).
+- Exercise templates are edited one by one (`PATCH /api/exercises/{id}`), validated by the same rules (422
+  `invalid_exercise`), and logged.
+
+## D-084 — Extension suggestions and the deck (M3.b)
+
+- Suggestions are created in triage with origin `extension`, linked to the deck with their example sentence as
+  context. Exact duplicates of the library and repeats are dropped; possible duplicates are kept and reported.
+- Per SPEC only retained terms stay in the deck: an extension suggestion triaged as `known` leaves the deck
+  (`deck_item.removed` event) but stays in the library as `known`, so it is never suggested again. Imported terms
+  keep their deck links whatever the decision (D-075).
