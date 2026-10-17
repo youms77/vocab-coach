@@ -11,6 +11,7 @@ from app.ai.schemas.connection_test import ConnectionTestOutput
 from app.ai.schemas.enrichment import ENRICHMENT_BATCH_SIZE, EnrichmentBatchOutput
 from app.ai.schemas.list_extension import MAX_COUNT, ListExtensionOutput
 from app.ai.schemas.production_correction import ProductionCorrectionOutput
+from app.ai.schemas.transcript_analysis import TranscriptAnalysisOutput
 
 TRANSCRIPTION_TASK = "transcription"  # task name in `ai_call_log` for speech-to-text
 
@@ -54,6 +55,25 @@ def correction_output_budget(sentence_count: int) -> int:
     return min(wanted, CORRECTION_MAX_OUTPUT_TOKENS)
 
 
+# `transcript_analysis` (D-134), one call per chunk of at most 2 500 characters and 20 units
+# (`app/domain/transcript_import.py`). Input: the units as JSON lines (2 500 + 20 x about 30), the
+# context before each unit that opens a turn (20 x (300 + about 30)), and about 33 taxonomy lines
+# (spelling and pronunciation left out) of at most about 230 characters: about 17 300 at most.
+TRANSCRIPT_MAX_INPUT_CHARS = 20000
+# Output: a long unit (600 characters) needs about 150 tokens for its corrected text and up to 4
+# errors of about 170 tokens, so a call asks for a base plus a share per unit. The ceiling covers
+# 40 errors (6 800 tokens) and the corrected units of a full chunk.
+TRANSCRIPT_MAX_OUTPUT_TOKENS = 8000
+TRANSCRIPT_BASE_TOKENS = 800
+TRANSCRIPT_TOKENS_PER_UNIT = 450
+
+
+def transcript_output_budget(unit_count: int) -> int:
+    """Output tokens to ask for when checking `unit_count` units (at most the ceiling)."""
+    wanted = TRANSCRIPT_BASE_TOKENS + TRANSCRIPT_TOKENS_PER_UNIT * unit_count
+    return min(wanted, TRANSCRIPT_MAX_OUTPUT_TOKENS)
+
+
 TASKS: dict[str, TaskSpec] = {
     spec.name: spec
     for spec in (
@@ -91,6 +111,14 @@ TASKS: dict[str, TaskSpec] = {
             output_schema=ProductionCorrectionOutput,
             max_input_chars=CORRECTION_MAX_INPUT_CHARS,
             max_output_tokens=CORRECTION_MAX_OUTPUT_TOKENS,
+            timeout_s=60.0,
+        ),
+        TaskSpec(
+            name="transcript_analysis",
+            prompt_version=1,
+            output_schema=TranscriptAnalysisOutput,
+            max_input_chars=TRANSCRIPT_MAX_INPUT_CHARS,
+            max_output_tokens=TRANSCRIPT_MAX_OUTPUT_TOKENS,
             timeout_s=60.0,
         ),
     )

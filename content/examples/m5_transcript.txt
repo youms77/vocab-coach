@@ -1,0 +1,8 @@
+[00:00] ChatGPT: Hi! Let's practise a little. Where do you live at the moment?
+[00:05] You: Uh, I live in campus, in a small room near the library.
+[00:11] ChatGPT: Nice. Just a small note: we say "on campus", not "in campus". So, you live on campus. How long have you been a student there?
+[00:20] You: Um, I study here since two years. I'm doing a master's in statistics.
+[00:28] ChatGPT: That sounds interesting! What did you do yesterday?
+[00:33] You: Yesterday I have finished my report, and then I, uh, I went— I watched a film with my friends.
+[00:41] ChatGPT: Well done on finishing your report. What was the film about?
+[00:45] You: It was about a young economist who, um, who travels to Douala for her research.

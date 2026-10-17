@@ -5,7 +5,8 @@ offline; `python -m app ai status | test | usage` look at the real AI providers;
 `python -m app library import <file>` previews (or, with `--commit`, imports) a Markdown list;
 `library enrich` writes usage sheets through the AI and `library extend <deck_id>` asks for related
 terms. `python -m app errors list | show | add | categories` reads and edits the error log and
-`write correct --file <txt>` has the AI correct a text.
+`write correct --file <txt>` has the AI correct a text; `transcript analyse --file <txt>` finds
+your errors in a conversation transcript.
 `--demo` (before the command) works on the demo database."""
 
 import argparse
@@ -220,6 +221,22 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     correct.add_argument("--file", type=Path, required=True, help="a UTF-8 text file")
     correct.add_argument("--prompt", help="the task or topic the text answers (500 characters)")
+    transcript = commands.add_parser("transcript", help="conversation transcripts (module E)")
+    transcript_commands = transcript.add_subparsers(dest="transcript_command", required=True)
+    analyse = transcript_commands.add_parser(
+        "analyse", help="record your turns of a transcript and have the AI find your errors"
+    )
+    analyse.add_argument("--file", type=Path, required=True, help="a UTF-8 text file")
+    who = analyse.add_mutually_exclusive_group()
+    who.add_argument("--speaker", help="the label of your turns (default: the suggested one)")
+    who.add_argument(
+        "--mode",
+        choices=["alternating-user-first", "alternating-user-second", "all-mine"],
+        help="which turns are yours when there are no labels",
+    )
+    analyse.add_argument(
+        "--preview", action="store_true", help="show the turns and problems, write nothing"
+    )
     return parser
 
 
@@ -390,6 +407,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         from app import cli_write
 
         return cli_write.run_write_correct(url, settings, args.file, prompt=args.prompt)
+    if args.command == "transcript":
+        from app import cli_transcript
+
+        return cli_transcript.run_transcript_analyse(
+            url,
+            settings,
+            args.file,
+            speaker=args.speaker,
+            mode=args.mode,
+            preview=args.preview,
+        )
     if args.command == "plan":
         try:
             plan = build_today_plan(url, args.at)

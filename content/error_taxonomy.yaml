@@ -8,7 +8,7 @@
 # code prefix, and an error may point at any node (e.g. `grammar.article`, which has no children).
 # Bump `version` whenever this file changes.
 
-version: 2
+version: 3
 
 categories:
   - code: grammar
@@ -66,8 +66,8 @@ categories:
           - code: grammar.preposition.by_for_since
             label_en: "by / for / since"
             label_fr: "by / for / since"
-            description_en: "Deadlines (by), durations (for) and starting points (since)."
-            description_fr: "Échéance (by), durée (for) et point de départ (since)."
+            description_en: "Deadlines (by), durations (for) and starting points (since). A duration said with since, as in French depuis (I study here since two years), is one error of this category, even when the verb tense changes too."
+            description_fr: "Échéance (by), durée (for) et point de départ (since). Une durée introduite par since, calquée sur « depuis » (I study here since two years), est une seule erreur de cette catégorie, même si le temps du verbe change aussi."
             examples:
               - { wrong: "I have lived here since three years.", correct: "I have lived here for three years." }
       - code: grammar.tense
@@ -92,7 +92,7 @@ categories:
             description_en: Habits and facts (simple) versus actions in progress (continuous).
             description_fr: Habitudes et faits (simple) ou action en cours (continu).
             examples:
-              - { wrong: "I am working here since 2024.", correct: "I have been working here since 2024." }
+              - { wrong: "Listen, she sings now.", correct: "Listen, she is singing now." }
               - { wrong: "Look, it rains.", correct: "Look, it's raining." }
           - code: grammar.tense.future_forms
             label_en: Future forms

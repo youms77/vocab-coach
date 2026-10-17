@@ -1,0 +1,11 @@
+Hi! What are you studying this year?
+
+I study economics and data science at the university.
+
+That's a great mix. What do you like most?
+
+I like the statistics courses, because we work with real data from the city.
+
+Do you have a project at the moment?
+
+Yes, I'm building a small model to predict the price of rice at the market.
