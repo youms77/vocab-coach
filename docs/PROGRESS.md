@@ -5,8 +5,8 @@ Updated at the end of every milestone session. Paste this file into the next pla
 ## Current state
 
 - **Last milestone completed**: M4.a2 — the planner's usable-sheet filter and the demo (sheets, simulation
-  through the session service and the exercise choice). M4.a (M4.a1 + M4.a2) is complete on branch
-  `feat/m4a-session-backend`, not merged. M1.a to M3.c3 are merged in `main`.
+  through the session service and the exercise choice). M4.a (M4.a1 + M4.a2) is complete and merged
+  (PR #12). M1.a to M3.c3 are merged in `main`.
 - **Next milestone**: merge `feat/m4a-session-backend` once the owner has reviewed it, then M4.b (today's
   screen, discovery, speech synthesis) and M4.c (review player, shortcuts, deck queue).
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
