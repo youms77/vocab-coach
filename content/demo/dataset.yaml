@@ -17,7 +17,7 @@
 #   fate: draft | triage | known | archived | active -> final status the simulation guarantees
 #   confusion -> a lexical error the learner makes when a productive review of the term fails
 
-dataset_version: 1
+dataset_version: 2
 
 decks:
   - key: causal

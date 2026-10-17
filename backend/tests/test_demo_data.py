@@ -18,9 +18,11 @@ from app.db.models import (
     Card,
     Deck,
     DeckItem,
+    Enrichment,
     ErrorCategory,
     ErrorEvent,
     EventLog,
+    ExerciseTemplate,
     LexicalItem,
     ProductionAttempt,
     ReviewLog,
@@ -31,20 +33,32 @@ from app.demo.dataset import load_dataset
 from app.demo.seed import seed_demo, sqlite_url
 from app.domain.enums import (
     CardDirection,
+    ContentOrigin,
     DeckStatus,
     ErrorSource,
     ItemStatus,
     SrsState,
 )
 from app.domain.events import EventType
+from app.domain.exercise_choice import TemplateRef, choose_exercise
+from app.domain.exercises import (
+    GAP_FILL,
+    RECOGNITION,
+    SELF_ASSESSMENT,
+    SELF_GRADED_TYPES,
+    TYPED_RECALL,
+)
 from app.domain.planner import BlockKind
 from app.domain.study_day import study_day_bounds
+from app.domain.usage_sheet import is_usable
 from app.services.planning import plan_today
+from app.services.study_sessions import SESSION_FORMAT, compute_summary
 from tests.demo_support import DEMO_ANCHOR, DEMO_SEED
 
 DOUALA = ZoneInfo("Africa/Douala")
 ANCHOR_START, _ = study_day_bounds(DEMO_ANCHOR, DOUALA, 4)
 PRODUCTION_SOURCES = (ErrorSource.WRITING, ErrorSource.SPEAKING, ErrorSource.TRANSCRIPT)
+WAITING_STATUSES = (ItemStatus.QUEUED, ItemStatus.TRIAGE, ItemStatus.DISCOVERING)
 
 
 @pytest.fixture(scope="module")
@@ -113,10 +127,26 @@ def test_terms_shared_between_decks(db: Session) -> None:
     assert 2 <= len(shared) <= 3
 
 
-def test_one_interrupted_discovery_and_one_discovery_without_ratings(db: Session) -> None:
+def test_one_interrupted_discovery_and_new_cards_from_the_last_session_only(db: Session) -> None:
+    """Discoveries create cards without initial ratings (D-104): the only `new` cards left are
+    those of the terms discovered in the last session, due the next study day."""
     assert db.scalar(select(func.count()).where(LexicalItem.status == ItemStatus.DISCOVERING)) == 1
+    last = db.scalars(select(StudySession).order_by(StudySession.started_at.desc())).first()
+    assert last is not None
+    discovered_last = {
+        event.entity_id
+        for event in _events(db, EventType.DISCOVERY_COMPLETED)
+        if event.study_session_id == last.id
+    }
     new_cards = db.scalars(select(Card).where(Card.srs_state == SrsState.NEW)).all()
-    assert len(new_cards) == 2 and len({card.lexical_item_id for card in new_cards}) == 1
+    assert len(discovered_last) >= 2
+    assert {card.lexical_item_id for card in new_cards} == discovered_last
+    assert len(new_cards) == 2 * len(discovered_last)
+    assert all(card.due >= ANCHOR_START for card in new_cards)
+    first_reviews = db.scalar(
+        select(func.count()).select_from(ReviewLog).where(ReviewLog.exercise_type == "discovery")
+    )
+    assert first_reviews == 0
 
 
 def test_at_least_ten_error_codes_with_prepositions_and_tenses_on_top(db: Session) -> None:
@@ -176,6 +206,67 @@ def test_most_causal_inference_productive_cards_are_stable(db: Session) -> None:
     ).all()
     assert len(stabilities) >= 25
     assert sum((s or 0) >= 7 for s in stabilities) / len(stabilities) >= 0.8
+
+
+def test_sessions_use_the_session_service_format_and_summary(db: Session) -> None:
+    for study in db.scalars(select(StudySession)):
+        assert study.planned["format"] == SESSION_FORMAT
+        assert study.summary == compute_summary(db, study, study.ended_at)
+
+
+def test_review_exercise_types_follow_the_exercise_choice(db: Session) -> None:
+    templates: dict[int, list[TemplateRef]] = defaultdict(list)
+    for template_id, item_id, kind in db.execute(
+        select(
+            ExerciseTemplate.id, ExerciseTemplate.lexical_item_id, ExerciseTemplate.exercise_type
+        )
+    ):
+        templates[item_id].append(TemplateRef(template_id, kind))
+    reps: Counter[int] = Counter()
+    used: Counter[str] = Counter()
+    for log, card in db.execute(
+        select(ReviewLog, Card).join(Card, Card.id == ReviewLog.card_id).order_by(ReviewLog.id)
+    ):
+        choice = choose_exercise(
+            CardDirection(card.direction),
+            SrsState(log.state_before),
+            log.stability_before,
+            reps[card.id],
+            templates[card.lexical_item_id],
+        )
+        assert (log.exercise_type, log.exercise_template_id) == (
+            choice.exercise_type,
+            choice.template_id,
+        )
+        assert (log.auto_rating is None) == (log.exercise_type in SELF_GRADED_TYPES)
+        reps[card.id] += 1
+        used[log.exercise_type] += 1
+    assert {SELF_ASSESSMENT, TYPED_RECALL, GAP_FILL, RECOGNITION} <= set(used)
+
+
+def test_full_sheets_cover_the_terms_still_to_learn(db: Session) -> None:
+    full = set(
+        db.scalars(
+            select(ExerciseTemplate.lexical_item_id).where(
+                ExerciseTemplate.exercise_type == GAP_FILL
+            )
+        )
+    )
+    statuses = {i: s for i, s in db.execute(select(LexicalItem.id, LexicalItem.status))}
+    waiting = [i for i, s in statuses.items() if s in WAITING_STATUSES]
+    assert waiting and all(item_id in full for item_id in waiting)
+    learned = [
+        i for i, s in statuses.items() if s in (ItemStatus.LEARNING, ItemStatus.CONSOLIDATED)
+    ]
+    assert sum(item_id in full for item_id in learned) >= 25
+    sheets = db.scalars(select(Enrichment).where(Enrichment.is_current)).all()
+    assert {sheet.provider for sheet in sheets} == {"demo"}
+    for sheet in sheets:
+        assert is_usable(sheet.status, dict(sheet.content))
+    assert set(db.scalars(select(ExerciseTemplate.origin).distinct())) == {
+        ContentOrigin.DEMO,
+        ContentOrigin.USER,  # typed recall derived from the hand-typed sheet (D-082)
+    }
 
 
 def test_sessions_follow_the_calendar(db: Session) -> None:
@@ -281,4 +372,6 @@ def test_plan_at_the_anchor_has_reviews_new_terms_and_the_deadline_pace(db: Sess
     assert new_items is not None and new_items.entries
     interview_id = db.scalar(select(Deck.id).where(Deck.name == "ML interview prep"))
     assert [pace.deck_id for pace in plan.deadline_paces] == [interview_id]
-    assert "deadline_triage_pending" in {warning.code for warning in plan.warnings}
+    codes = {warning.code for warning in plan.warnings}
+    assert "deadline_triage_pending" in codes
+    assert "items_without_sheet" not in codes

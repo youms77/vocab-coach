@@ -3,7 +3,8 @@
 p(success) = retrievability x term factor x direction factor, bounded. A failure is Again; a
 success is Hard, Good or Easy with weights that depend on retrievability. About 5 % of proposed
 ratings are changed by one step by the "user". Response times are log-normal around the default
-durations of D-028, slower after a failure.
+durations of D-028, slower after a failure. The exercise type is chosen by the app
+(`app.domain.exercise_choice`); self-graded types get no proposed rating, like in the app.
 """
 
 import math
@@ -18,21 +19,8 @@ from app.domain.durations import (
     RECEPTIVE_CARD_SECONDS,
 )
 from app.domain.enums import CardDirection, SrsState
+from app.domain.exercises import SELF_GRADED_TYPES
 from app.domain.srs import Rating
-
-# Provisional exercise types (SPEC module C), by direction and card maturity. M4 owns the real
-# list; this is the only place the demo names them.
-DEMO_EXERCISE_TYPES: dict[CardDirection, dict[str, tuple[str, ...]]] = {
-    CardDirection.RECEPTIVE: {
-        "young": ("recognition_in_sentence",),
-        "mature": ("recognition_in_sentence", "listening_comprehension"),
-    },
-    CardDirection.PRODUCTIVE: {
-        "young": ("typed_recall", "gap_fill"),
-        "mature": ("sentence_production", "spoken_answer"),
-    },
-}
-MATURE_STABILITY_DAYS = 21.0
 
 # Productive recall is harder than recognition.
 DIRECTION_FACTOR = {CardDirection.RECEPTIVE: 1.0, CardDirection.PRODUCTIVE: 0.96}
@@ -49,7 +37,7 @@ FAILURE_SLOWDOWN = 1.6
 @dataclass(frozen=True)
 class ReviewOutcome:
     final_rating: Rating
-    auto_rating: Rating
+    auto_rating: Rating | None  # None for self-graded exercise types
     response_time_ms: int
     exercise_type: str
 
@@ -82,32 +70,24 @@ class Learner:
         p = base * self.term_factor(item_id) * DIRECTION_FACTOR[direction]
         return min(P_MAX, max(P_MIN, p))
 
-    def exercise_type(self, direction: CardDirection, stability: float | None) -> str:
-        mature = stability is not None and stability >= MATURE_STABILITY_DAYS
-        return self._rng.choice(DEMO_EXERCISE_TYPES[direction]["mature" if mature else "young"])
-
     def review(
         self,
         item_id: int,
         direction: CardDirection,
         state: SrsState,
-        stability: float | None,
         retrievability: float | None,
+        exercise_type: str,
     ) -> ReviewOutcome:
-        exercise = self.exercise_type(direction, stability)
         p = self.success_probability(item_id, direction, state, retrievability)
         rating = self._success_rating(retrievability) if self._rng.random() < p else Rating.AGAIN
+        # Drawn for every type, so the generator's sequence does not depend on the templates.
+        proposed = self._proposed_rating(rating)
         return ReviewOutcome(
             final_rating=rating,
-            auto_rating=self._proposed_rating(rating),
-            response_time_ms=self._response_ms(direction, exercise, rating == Rating.AGAIN),
-            exercise_type=exercise,
+            auto_rating=None if exercise_type in SELF_GRADED_TYPES else proposed,
+            response_time_ms=self._response_ms(direction, exercise_type, rating == Rating.AGAIN),
+            exercise_type=exercise_type,
         )
-
-    def initial_rating(self, item_id: int, direction: CardDirection) -> Rating:
-        """Rating given at the end of a discovery (the first look at the card)."""
-        p = self.success_probability(item_id, direction, SrsState.NEW, None)
-        return self._success_rating(None) if self._rng.random() < p else Rating.AGAIN
 
     def discovery_ms(self) -> int:
         return self._lognormal_ms(DISCOVERY_SECONDS)

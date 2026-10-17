@@ -10,7 +10,7 @@
 # `rates` gives, per code, the simulated number of errors per 100 words at the start and at the
 # end of the history (linear in between). Codes without a rate use `default_rate`.
 
-dataset_version: 1
+dataset_version: 2
 
 default_rate: 0.08
 

@@ -9,6 +9,11 @@ Calendar: study days anchor - days ... anchor - 1. About 85 % of days are worked
 3-day break around day -25 (to build a review backlog). Sessions run mostly between 18:30 and
 23:30 in the `timezone` setting, some in the morning, and about 10 % after midnight (they belong
 to the previous study day, D-014). Nothing happens after the start of the anchor study day.
+
+The learner goes through the app's own paths (D-111): sessions from `study_sessions`
+(`session-1`, the plan frozen at the start, the summary computed from the logs), exercise types
+from `exercise_choice`, discoveries through `begin_discovery` / `finish_discovery` (no initial
+ratings, D-104). Each term gets its demo sheet (`content/demo/sheets.yaml`) when it is created.
 """
 
 import random
@@ -20,21 +25,24 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Card, Deck, LexicalItem
+from app.db.models import Card, Deck, ExerciseTemplate, LexicalItem
 from app.db.settings_store import get_setting
 from app.demo import direct_writes as writes
 from app.demo.dataset import (
     Confusion,
     DemoDataset,
     DemoDeck,
+    DemoSheet,
     DemoTerm,
     DemoTermRef,
     ErrorTemplate,
     Fate,
 )
 from app.demo.learner import Learner, poisson
+from app.domain import exercises as ex
 from app.domain.enums import (
     CardDirection,
+    ContentOrigin,
     DeckStatus,
     ErrorSource,
     ItemStatus,
@@ -42,6 +50,7 @@ from app.domain.enums import (
     SrsState,
 )
 from app.domain.events import ItemOrigin, TriageDecision
+from app.domain.exercise_choice import TemplateRef, choose_exercise
 from app.domain.fsrs_engine import FsrsEngine
 from app.domain.item_status import REVIEWABLE_STATUSES
 from app.domain.planner import BlockKind, NewItemEntry, ReviewEntry, SessionPlan
@@ -49,10 +58,11 @@ from app.domain.srs import Rating, SrsEngine
 from app.domain.study_day import study_day_bounds
 from app.services import library
 from app.services.decks import change_deck_status, reorder_queue
-from app.services.discovery import complete_discovery, start_discovery
+from app.services.discovery import begin_discovery, finish_discovery
+from app.services.enrichment import Provenance, add_templates, save_sheet
 from app.services.items import mark_active, transition_item
-from app.services.planning import plan_today
 from app.services.reviews import card_state, record_review
+from app.services.study_sessions import end_session, frozen_plan, start_session
 from app.services.triage import apply_triage
 
 # Length of history the dataset's day offsets are written for; shorter runs scale them.
@@ -93,6 +103,8 @@ MAX_REVIEW_ERRORS = 10
 MAX_REVIEW_ERRORS_PER_TERM = 2
 # Activities stop this long before the end of the study day.
 DAY_END_MARGIN = timedelta(minutes=30)
+# Provenance of the hand-typed demo sheets and of their exercise templates.
+DEMO_SHEET_PROVENANCE = Provenance("demo", None, "demo-sheets-v1")
 
 
 @dataclass(frozen=True)
@@ -103,26 +115,12 @@ class SimulationConfig:
 
 
 @dataclass
-class _SessionCounts:
-    reviews: int = 0
-    failed_reviews: int = 0
-    discoveries_started: int = 0
-    discoveries_completed: int = 0
-    productions: int = 0
-    errors: int = 0
-    words: int = 0
-    stopped_at_budget: bool = False
-
-    def as_dict(self) -> dict[str, int | bool]:
-        return dict(self.__dict__)
-
-
-@dataclass
 class _State:
     decks: dict[str, Deck] = field(default_factory=dict)
     items: dict[str, LexicalItem] = field(default_factory=dict)  # lowercased term -> item
     terms: dict[int, DemoTerm] = field(default_factory=dict)  # item id -> dataset entry
     review_errors: Counter[int] = field(default_factory=Counter)
+    templates: dict[int, list[TemplateRef]] = field(default_factory=dict)  # item id -> templates
     next_production_day: int = 0
 
 
@@ -279,10 +277,55 @@ class Simulation:
             self.state.items[entry.term.lower()] = item
             self.state.terms[item.id] = entry
             library.add_item_to_deck(self.session, deck, item, at, position=position)
+            demo_sheet = self.dataset.sheet_of(entry.term)
+            if demo_sheet is not None:
+                self._add_sheet(item, entry, demo_sheet, at)
             if entry.fate == Fate.DRAFT:
                 continue
             target = ItemStatus.TRIAGE if spec.intake == "triage" else ItemStatus.QUEUED
             transition_item(self.session, item, target, at)
+
+    def _add_sheet(self, item: LexicalItem, term: DemoTerm, demo: DemoSheet, at: datetime) -> None:
+        """The demo sheet, typed by hand, and its templates (gap-fill first, so that the typed
+        recall derived by `save_sheet` gets the accepted forms)."""
+        version = DEMO_SHEET_PROVENANCE.prompt_version
+        exercises = demo.exercises
+        if exercises is not None:
+            add_templates(
+                self.session,
+                item.id,
+                [(ex.GAP_FILL, exercises.gap_fill.model_dump())],
+                at,
+                origin=ContentOrigin.DEMO,
+                prompt_version=version,
+            )
+        sheet = demo.sheet
+        if sheet.part_of_speech is None and term.pos is not None:
+            sheet = sheet.model_copy(update={"part_of_speech": term.pos})
+        save_sheet(self.session, item.id, sheet, at, provenance=DEMO_SHEET_PROVENANCE)
+        if exercises is not None:
+            recognition = exercises.recognition_in_sentence.model_dump()
+            add_templates(
+                self.session,
+                item.id,
+                [
+                    (ex.RECOGNITION, recognition),
+                    (ex.LISTENING, recognition),
+                    (ex.SENTENCE_PRODUCTION, exercises.sentence_production.model_dump()),
+                    (ex.SPOKEN_ANSWER, exercises.spoken_answer.model_dump()),
+                ],
+                at,
+                origin=ContentOrigin.DEMO,
+                prompt_version=version,
+            )
+        self.state.templates[item.id] = [
+            TemplateRef(template_id, kind)
+            for template_id, kind in self.session.execute(
+                select(ExerciseTemplate.id, ExerciseTemplate.exercise_type)
+                .where(ExerciseTemplate.lexical_item_id == item.id)
+                .order_by(ExerciseTemplate.id)
+            )
+        ]
 
     def _triage_batch(self, spec: DemoDeck, count: int, *, first: bool, at: datetime) -> None:
         pending = [
@@ -306,27 +349,25 @@ class Simulation:
     # --- sessions ------------------------------------------------------------------------------
 
     def _run_session(self, offset: int, start: datetime, stop: datetime, *, final: bool) -> None:
-        plan = plan_today(self.session, start, self.engine_factory)
-        study = writes.start_study_session(self.session, start, plan.model_dump(mode="json"))
-        counts = _SessionCounts()
-        t = start
-        t = self._reviews(plan, study.id, t, stop, counts)
+        study, created = start_session(self.session, start, self.engine_factory)
+        plan = frozen_plan(study)
+        if not created or plan is None:
+            raise RuntimeError(f"day {offset}: expected a new study session at {start}")
+        t = self._reviews(plan, study.id, start, stop)
         if final:
-            t = self._ensure_relearning(study.id, t, counts)
+            t = self._ensure_relearning(study.id, t)
         if final or self._choices.random() >= NO_NEW_TERMS_SHARE:
-            t = self._new_terms(offset, plan, study.id, t, stop, counts, final=final)
+            t = self._new_terms(offset, plan, study.id, t, stop, final=final)
         if offset >= self.state.next_production_day and t < stop:
-            t = self._production(offset, study.id, t, counts)
+            t = self._production(offset, study.id, t)
             self.state.next_production_day = offset + self._writing.randint(*PRODUCTION_EVERY_DAYS)
-        writes.end_study_session(self.session, study, t, counts.as_dict())
+        end_session(self.session, study, t)
         self.session.flush()
 
     def _pause(self, t: datetime) -> datetime:
         return t + timedelta(seconds=self._choices.uniform(2, 8))
 
-    def _reviews(
-        self, plan: SessionPlan, study_id: int, t: datetime, stop: datetime, counts: _SessionCounts
-    ) -> datetime:
+    def _reviews(self, plan: SessionPlan, study_id: int, t: datetime, stop: datetime) -> datetime:
         block = plan.block(BlockKind.REVIEWS)
         if block is None:
             return t
@@ -335,10 +376,9 @@ class Simulation:
             if not isinstance(entry, ReviewEntry):
                 continue
             if (stop_at_budget and entry.overflow) or t >= stop:
-                counts.stopped_at_budget = stop_at_budget and entry.overflow
                 break
             card = self.session.get_one(Card, entry.card_id)
-            t = self._review(card, study_id, t, counts)
+            t = self._review(card, study_id, t)
         return t
 
     def _review(
@@ -346,7 +386,6 @@ class Simulation:
         card: Card,
         study_id: int,
         t: datetime,
-        counts: _SessionCounts,
         *,
         force_again: bool = False,
     ) -> datetime:
@@ -356,11 +395,20 @@ class Simulation:
         direction = CardDirection(card.direction)
         state = card_state(card)
         engine = self.engine_factory(get_setting(self.session, "target_retention"))
+        choice = choose_exercise(
+            direction,
+            state.state,
+            state.stability,
+            card.reps or 0,
+            self.state.templates.get(item.id, []),
+        )
         outcome = self.learner.review(
-            item.id, direction, state.state, state.stability, engine.retrievability(state, t)
+            item.id, direction, state.state, engine.retrievability(state, t), choice.exercise_type
         )
         final = Rating.AGAIN if force_again else outcome.final_rating
-        auto = Rating.AGAIN if force_again else outcome.auto_rating
+        auto = outcome.auto_rating
+        if force_again and auto is not None:
+            auto = Rating.AGAIN
         confusion = self._confusion_for(item, direction) if final == Rating.AGAIN else None
         log = record_review(
             self.session,
@@ -372,10 +420,9 @@ class Simulation:
             answer=confusion.wrong if confusion else None,
             auto_rating=auto,
             study_session_id=study_id,
+            exercise_template_id=choice.template_id,
             engine_factory=self.engine_factory,
         )
-        counts.reviews += 1
-        counts.failed_reviews += final == Rating.AGAIN
         if confusion is not None:
             term = self.state.terms[item.id]
             writes.record_error(
@@ -394,7 +441,6 @@ class Simulation:
                 study_session_id=study_id,
             )
             self.state.review_errors[item.id] += 1
-            counts.errors += 1
         return self._pause(t + timedelta(milliseconds=outcome.response_time_ms))
 
     def _confusion_for(self, item: LexicalItem, direction: CardDirection) -> Confusion | None:
@@ -409,7 +455,7 @@ class Simulation:
             return None
         return term.confusion
 
-    def _ensure_relearning(self, study_id: int, t: datetime, counts: _SessionCounts) -> datetime:
+    def _ensure_relearning(self, study_id: int, t: datetime) -> datetime:
         """The last session leaves at least one card in Relearning (a lapse just before the end)."""
         relearning = self.session.scalar(
             select(exists().where(Card.srs_state == SrsState.RELEARNING))
@@ -429,7 +475,7 @@ class Simulation:
         ).first()
         if card is None:
             return t
-        return self._review(card, study_id, t, counts, force_again=True)
+        return self._review(card, study_id, t, force_again=True)
 
     # --- new terms -----------------------------------------------------------------------------
 
@@ -479,7 +525,6 @@ class Simulation:
         study_id: int,
         t: datetime,
         stop: datetime,
-        counts: _SessionCounts,
         *,
         final: bool,
     ) -> datetime:
@@ -489,31 +534,24 @@ class Simulation:
                 break
             item = self.session.get_one(LexicalItem, entry.lexical_item_id)
             deck = self.session.get(Deck, entry.deck_id) if entry.deck_id is not None else None
-            if item.status == ItemStatus.QUEUED:
-                start_discovery(self.session, item, deck, t, study_session_id=study_id)
-                counts.discoveries_started += 1
-            # Last session: the last term is interrupted, the one before ends without ratings.
+            begin_discovery(self.session, item, deck, t, study_session_id=study_id)
+            # Last session: the last term is interrupted (left `discovering`).
             if final and index == len(entries) - 1:
                 t = self._pause(t + timedelta(seconds=40))
                 continue
             duration_ms = self.learner.discovery_ms()
             t += timedelta(milliseconds=duration_ms)
-            ratings = None
-            if not (final and index == len(entries) - 2):
-                ratings = {
-                    direction: self.learner.initial_rating(item.id, direction)
-                    for direction in (CardDirection.RECEPTIVE, CardDirection.PRODUCTIVE)
-                }
-            complete_discovery(
+            finish_discovery(
                 self.session,
                 item,
                 t,
-                ratings,
-                duration_ms,
                 study_session_id=study_id,
+                duration_ms=duration_ms,
+                guess=None,
+                exercise_results=(),
+                personal_sentence=None,
                 engine_factory=self.engine_factory,
             )
-            counts.discoveries_completed += 1
             t = self._pause(t)
         return t
 
@@ -525,9 +563,7 @@ class Simulation:
         )
         return start + (end - start) * progress
 
-    def _production(
-        self, offset: int, study_id: int, t: datetime, counts: _SessionCounts
-    ) -> datetime:
+    def _production(self, offset: int, study_id: int, t: datetime) -> datetime:
         rng = self._writing
         kinds, weights = PRODUCTION_KINDS
         kind = rng.choices(kinds, weights=weights)[0]
@@ -567,9 +603,6 @@ class Simulation:
             writes.record_template_error(
                 self.session, self.categories, template, ERROR_SOURCE[kind], t, attempt.id, study_id
             )
-        counts.productions += 1
-        counts.errors += len(made)
-        counts.words += attempt.word_count
         if oral:
             duration = timedelta(seconds=(audio_seconds or 0) * 2.5)
         else:

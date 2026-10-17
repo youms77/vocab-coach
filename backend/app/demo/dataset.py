@@ -11,6 +11,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.config import REPO_ROOT
 from app.domain.enums import DeckStatus, ItemType, ProductionKind
+from app.domain.exercises import (
+    GapFillContent,
+    RecognitionContent,
+    SentenceProductionContent,
+    SpokenAnswerContent,
+)
+from app.domain.usage_sheet import UsageSheet
 
 DEMO_CONTENT_DIR = REPO_ROOT / "content" / "demo"
 
@@ -103,6 +110,28 @@ class ProductionPrompt(_Strict):
     text: str
 
 
+class DemoExercises(_Strict):
+    """The exercise templates of a full demo sheet (one of each type; listening reuses the
+    recognition sentence, typed recall is derived from the sheet)."""
+
+    gap_fill: GapFillContent
+    recognition_in_sentence: RecognitionContent
+    sentence_production: SentenceProductionContent
+    spoken_answer: SpokenAnswerContent
+
+
+class DemoSheet(_Strict):
+    """A hand-typed usage sheet: full (with exercises) or minimal (French translation only)."""
+
+    term: str
+    sheet: UsageSheet
+    exercises: DemoExercises | None = None
+
+    @property
+    def full(self) -> bool:
+        return self.exercises is not None
+
+
 class DemoDataset(_Strict):
     dataset_version: int
     decks: list[DemoDeck]
@@ -111,6 +140,7 @@ class DemoDataset(_Strict):
     default_error_rate: float
     prompts: list[ProductionPrompt]
     fillers: list[str]
+    sheets: list[DemoSheet] = []
 
     @model_validator(mode="after")
     def check_consistency(self) -> "DemoDataset":
@@ -130,6 +160,12 @@ class DemoDataset(_Strict):
                     raise ValueError(f"deck {deck.key}: {name!r} is defined twice; use `ref`")
                 else:
                     defined.add(key)
+        sheet_terms = [sheet.term.lower() for sheet in self.sheets]
+        if len(sheet_terms) != len(set(sheet_terms)):
+            raise ValueError("sheets.yaml: a term has two sheets")
+        unknown = sorted(set(sheet_terms) - defined)
+        if unknown:
+            raise ValueError(f"sheets.yaml: terms not in the dataset: {', '.join(unknown)}")
         days = [deck.created_day for deck in self.decks]
         if days != sorted(days):
             raise ValueError("decks must be listed in creation order")
@@ -140,6 +176,9 @@ class DemoDataset(_Strict):
         codes = {t.code for t in self.error_templates} | set(self.error_rates)
         codes |= {term.confusion.code for term in self.all_terms() if term.confusion}
         return sorted(codes)
+
+    def sheet_of(self, term: str) -> DemoSheet | None:
+        return next((s for s in self.sheets if s.term.lower() == term.lower()), None)
 
     def all_terms(self) -> Iterable[DemoTerm]:
         for deck in self.decks:
@@ -158,11 +197,17 @@ def _read(path: Path) -> dict:
 
 
 def load_dataset(directory: Path = DEMO_CONTENT_DIR) -> DemoDataset:
-    """Read the three demo files; they must share the same `dataset_version`."""
+    """Read the four demo files; they must share the same `dataset_version`."""
     decks = _read(directory / "dataset.yaml")
     errors = _read(directory / "errors.yaml")
     prompts = _read(directory / "prompts.yaml")
-    versions = {decks["dataset_version"], errors["dataset_version"], prompts["dataset_version"]}
+    sheets = _read(directory / "sheets.yaml")
+    versions = {
+        decks["dataset_version"],
+        errors["dataset_version"],
+        prompts["dataset_version"],
+        sheets["dataset_version"],
+    }
     if len(versions) != 1:
         raise ValueError(f"content/demo files disagree on dataset_version: {sorted(versions)}")
     return DemoDataset(
@@ -173,6 +218,7 @@ def load_dataset(directory: Path = DEMO_CONTENT_DIR) -> DemoDataset:
         default_error_rate=errors["default_rate"],
         prompts=prompts["prompts"],
         fillers=prompts["fillers"],
+        sheets=sheets["sheets"],
     )
 
 
