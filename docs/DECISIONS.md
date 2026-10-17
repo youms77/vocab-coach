@@ -1568,3 +1568,100 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - Test fix on the way: the M4.a1 anti-leak walk (`test_review_steps_never_carry_a_solution`) seeds the
   production FSRS fuzz generator. Unseeded, its cards sometimes stayed below the maturity threshold and the
   mature exercise types were not reached, so the test failed now and then.
+
+## D-112 — Speech synthesis module in `frontend/src/speech/` (M4.b, 2026-10-17)
+
+- Speech synthesis is neither a feature nor a plain UI component: it adapts a browser API, like `api/` adapts
+  HTTP, and discovery (M4.b), reviews (M4.c) and speaking (M6) share it. It lives in its own top-level folder,
+  mirroring the SPEC's backend `speech/`: `voices.ts` (pure rules, unit-tested), `useSpeech.ts` (a small store
+  over `window.speechSynthesis` with `useSyncExternalStore`, the `useSpeech()` hook, `cancelSpeech()` and
+  `useCancelSpeechOnLeave()`), `SpeakButton.tsx`.
+- `window.speechSynthesis` is read on every call, never cached: without it (jsdom, an old browser) the page
+  says so and the buttons are disabled. Voices arrive asynchronously (`voiceschanged`), so the first render can
+  have an empty list.
+- One utterance at a time: `cancel()` before every `speak()`; `cancel()` when the route changes (in the
+  layout) and when the session player unmounts. Each utterance carries a token, so the "interrupted" error of
+  a cancelled one does not clear the state of the next.
+- Tests use `src/test/fakeSpeech.ts` (configurable voices, `voiceschanged` fired by the test, every utterance
+  and `cancel()` recorded); `setup.ts` removes it after each test.
+
+## D-113 — Voice choice, fallback and slow speed (M4.b)
+
+- Voice: the one named by `tts_voice` when this browser has it; else the first `en-US` voice; else the first
+  `en-*` voice, with the mention "non-American voice"; else none (buttons disabled, "no English voice").
+  `utterance.lang` is always `en-US`. Language tags are compared case-insensitively, `en_US` included.
+- Speed: normal = `tts_rate`; slow = `tts_rate × SLOW_FACTOR` (0.7), never below `MIN_RATE` (0.5).
+- Settings: a separate "Voice" form under Audio, because `""` (automatic) is a valid value that the generic
+  group form refuses. The list comes from the browser (the server has none, D-108): "Automatic (first en-US
+  voice)", then English voices, en-US first, with their language. A saved voice that this browser lacks stays
+  listed as "(not available here)", with a note that the automatic choice applies. "Test" speaks a fixed
+  sentence with the voice selected in the form, before saving.
+- Observed in the owner's in-app browser (Chromium 152, Windows 11): Microsoft Mark, Zira and David, all
+  `en-US`, local (SPEC assumption B.11).
+
+## D-114 — Today card and session player (M4.b)
+
+- The home card reads `GET /api/session/today`: due reviews, new terms per deck (names from `GET /api/decks`),
+  minutes against the budget, targeted practice and consolidation for information. The five plan warnings are
+  translated with their data: `items_without_sheet` links each deck (`/library?deck=ID`) and `/enrichment`;
+  `deadline_triage_pending` links `/triage?deck=ID` (its deadline comes from the plan's paces). The error
+  category of targeted practice is shown as its code: no route gives the taxonomy labels yet.
+- `/session` calls `start` once per visit (a ref guards React's development double effect; the route is
+  idempotent anyway), then `next`. `next` is a query (`staleTime: Infinity`, no refetch on focus) fetched
+  again only when the page asks; `practice_seen` is part of its key. `done` ends the session by itself, once,
+  and shows the summary. "End the session" is always visible behind an inline confirmation whose focus goes
+  to "Keep going". `session_closed` offers a new session; `session_not_found` goes home; other failures show
+  the translated error and "Retry".
+- Every new step's title takes the focus (`tabIndex={-1}`); progress is announced politely.
+
+## D-115 — The `wait` timer (M4.b)
+
+- `wait {until}` shows a countdown (minutes, then seconds) and the local time, and checks `next` again at
+  `until` plus a one-second margin (so the backend sees the card as due), with the delay capped to what
+  `setTimeout` accepts. The timer is armed once per `until`: if the check answers the same `until` (clock skew
+  between browser and server), it does not loop; "Check now" stays available. Both timers are cleared when
+  the panel goes away.
+
+## D-116 — Provisional review panel (M4.b, replaced in M4.c)
+
+- A `review` step shows only the number of due reviews, "the review player comes with the next version" and
+  "End the session": never the term, the prompt or the options (active recall). Its strings
+  (`session.reviewPlaceholder.*`) say "Provisional (M4.b)"; M4.c removes them with the panel.
+
+## D-117 — Discovery flow (M4.b)
+
+- `features/discovery/DiscoveryFlow.tsx` keyed by the term id, so a `next` that answers the same term does not
+  reset it. Steps 1 and 2 share one screen (the sentence stays visible while guessing); then the sheet, the
+  immediate exercises (typed recall, then gap-fill, each skipped silently when absent), the spoken repetition,
+  the optional personal sentence, then `complete` and the first review date (the earliest `cards[].due`,
+  local time).
+- Active recall: the sheet query is mounted only after the guess (a test checks that no `/sheet` request goes
+  out before, and fails when the sheet is loaded earlier); an exercise component never receives the sheet or
+  the solution, which comes only from the `grade` answer (sent even with an empty field, `answer: null`); the
+  sheet can be reopened after the answer and folds again at the next exercise; during the exercises no title
+  shows the term, since it is the answer.
+- `duration_ms` runs from the moment step 1 is shown (the `start` answer) to the sending of `complete`.
+  "Finish" and "Skip" are disabled while `complete` is pending.
+- A resumed discovery (`resumed: true`) says so and starts again from step 1 (owner's choice in the
+  milestone).
+- Errors: `already_discovered` (start or complete) asks for `next` without a message; `sheet_required` links
+  to the term page and says the other new terms wait (`next` returns the first pending term of the frozen
+  plan, so the same term comes back until its sheet is written: a server-side "skip this term" would need a
+  backend change, noted for M4.c); `discovery_not_allowed`, `invalid_transition` and other refusals show the
+  translated message and "Continue the session".
+
+## D-118 — `SheetView` reused read-only (M4.b)
+
+- Step 3 shows the library's `SheetView` with a new optional `audio` prop (default false) that adds "Listen"
+  buttons to the examples. The term and its audio sit above it; the pronunciation (IPA, stress) is the
+  sheet's own entry. `SheetPanel` is unchanged.
+
+## D-119 — Small fixes and conventions met on the way (M4.b)
+
+- French strings use "vous" and "paquet", like the existing translation (the milestone text used "tu"); the
+  English ones follow the existing tone.
+- A bigger `en.json` pushed the typed `t()` past TypeScript's instantiation depth in `ImportRows.tsx` (a `t`
+  parameter typed as `ReturnType<typeof useTranslation>['t']`); typing it `TFunction`, like the other files,
+  fixes it.
+- At 375 px the top navigation (now four links) goes on its own row with tighter padding, and a long
+  `<select>` (voice names) no longer widens the settings page.

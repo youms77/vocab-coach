@@ -4,15 +4,107 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M4.a2 — the planner's usable-sheet filter and the demo (sheets, simulation
-  through the session service and the exercise choice). M4.a (M4.a1 + M4.a2) is complete and merged
-  (PR #12). M1.a to M3.c3 are merged in `main`.
-- **Next milestone**: merge `feat/m4a-session-backend` once the owner has reviewed it, then M4.b (today's
-  screen, discovery, speech synthesis) and M4.c (review player, shortcuts, deck queue).
+- **Last milestone completed**: M4.b — today's screen, the session player, discovery (module B) and speech
+  synthesis, frontend only, on branch `feat/m4b-today-discovery` (not merged). M4.a (M4.a1 + M4.a2) is
+  complete and merged (PR #12). M1.a to M3.c3 are merged in `main`.
+- **Next milestone**: M4.c (review player replacing the provisional review panel, keyboard shortcuts, deck
+  queue and status), after the owner has reviewed and merged M4.b.
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
   M3.c3 below. M4.a makes no AI call.
 - The local `main` of the owner's checkout was still at M2.c1 at the start of M4.a1 (`origin/main` had M3.c3):
   run `git switch main` then `git pull` before starting a branch from it.
+
+## M4.b — Today's screen, session player, discovery, speech synthesis (frontend)
+
+Branch `feat/m4b-today-discovery`, from `main` at `1c96c7a`. Cut in two parts on the same branch (the plan
+exceeded 15 files): **M4.b1** (API layer, speech synthesis, voice setting, Today card, session player) and
+**M4.b2** (discovery). No backend change (`git diff --stat main -- backend` is empty), no migration, no new
+dependency, SPEC.md unchanged.
+
+### Done
+
+- **API layer**: `api/session.ts` (`SessionPlan`, plan entries and the five warnings as discriminated unions,
+  `StudySession`, `SessionSummary`, `Progress`, `Step`, `ReviewStep`; hooks for today, start, next, end),
+  `api/discovery.ts` (start, exercises, complete), `api/reviews.ts` (`grade` only).
+- **Speech synthesis** (`src/speech/`, D-112, D-113): voice from `tts_voice`, else the first en-US voice, else
+  the first English one with a "non-American voice" mention; `lang = 'en-US'`; slow = `tts_rate × 0.7`, at
+  least 0.5; one utterance at a time; cancel on route change and when the player unmounts. `SpeakButton`
+  (Listen / Listen slowly, accessible names saying what is read, speaking state, disabled with the reason when
+  there is no synthesis or no English voice). **Voice setting** under Audio: browser voices (en-US first),
+  automatic choice, a saved voice missing here marked "not available here", "Test".
+- **Home**: the Today card (reviews due, new terms per deck, minutes against the budget, targeted practice and
+  consolidation for information, the five warnings translated with their data and links, Start / Resume,
+  empty plan with links to the import and the library). A "Today" link in the top bar.
+- **`/session`** (D-114 to D-116): start (201 or 200), next steps, progress announced politely, focus on each
+  step's title, "End the session" always visible behind a confirmation, `done` → end → summary; `wait`
+  countdown with a check at `until` (D-115); `practice_info` then `next?practice_seen=true`; provisional
+  `review` panel (count only, no term or prompt); `session_closed`, `session_not_found` and network errors.
+- **Discovery** (`features/discovery/`, D-117, D-118): sentence with the term highlighted and audio; guess (or
+  "I don't know"); the sheet only after the guess, read-only through `SheetView` (new `audio` prop) with the
+  guess recalled, IPA, stress and audio; typed recall then gap-fill graded by `grade` with `item_id` (outcome,
+  expected answer, variants, character diff for a typo, audio), sheet folded until the answer; spoken
+  repetition (normal then slow, "recording comes later"); optional personal sentence; `complete` with `guess`,
+  `exercise_results`, `personal_sentence`, `duration_ms`; first review date; `term_missing` translated;
+  `sheet_required`, `already_discovered`, `discovery_not_allowed` handled; resumed discovery mentioned and
+  restarted at step 1.
+- **i18n** (EN + FR, same keys): `today.*`, `plan.*`, `session.*`, `steps.*`, `discovery.*`, `grading.*`,
+  `speech.*`, `sheet.exampleLabel`; 11 M4.a1 error codes added to `KNOWN_CODES`. French uses "vous" and
+  "paquet", like the existing translation (D-119).
+- **CSS**: tokens only, dark mode, 375 px: Today card, warnings (a sign and a border, not colour alone),
+  progress, steps, sentence, grade result (sign + text), diff, audio buttons; top navigation on its own row on
+  phones; a long `<select>` no longer widens the settings page.
+- **Tests**: 133 in total (95 before): `speech.test.tsx` (voice rules, slow rate, `en-US`, `cancel()` before
+  each utterance, late voices, non-American mention, no synthesis), voice setting (3, in
+  `SettingsPage.test.tsx`), `TodayCard.test.tsx` (5: plan, resume, empty plan, the five warnings with links,
+  French), `SessionPage.test.tsx` (10: start 201 → `wait` refetched at `until` on fake timers →
+  `practice_info` → `done` → summary, `practice_seen=true`, start 200 with the review panel and no term or
+  prompt, end confirmation, check now, `session_closed`, `session_not_found`, network retry, speech cancelled
+  when leaving, French), `DiscoveryFlow.test.tsx` (11: the full walk with no `/sheet` request before the guess
+  and no solution before `grade`, "I don't know" + missing exercise + empty answer, no exercise at all, double
+  `complete` prevented, resumed, no sentence, `sheet_required`, `already_discovered`,
+  `discovery_not_allowed`, French; `highlightTerm`).
+- **Breaking checks**: loading the sheet before the guess makes two discovery tests fail; removing the `wait`
+  timer makes the session walk fail. Both restored.
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm run check` green (ruff, pytest, tsc, oxlint, vitest 133); `npm --prefix frontend run build` passes
+  (same "chunk larger than 500 kB" warning); `git diff --stat main -- backend` empty.
+- **Manual scenario in the in-app browser** (Chromium 152), on a temporary data folder in the session's
+  scratchpad (backend on port 8011, no AI key; `data/` untouched; the repository has no `.env`): `db upgrade`;
+  import of 2 terms ("to account for" with its sentence, "shed light on") straight into the queue; a sheet
+  written by hand for "to account for"; home → 1 new term and the `items_without_sheet` warning for the other
+  term (deck link, `/enrichment` link); Start → step 1 (sentence, term highlighted, "Listen" spoke the sentence
+  with Microsoft Mark, en-US, rate 1; no `/api/items/1/sheet` request before the guess); guess → sheet with
+  IPA, stress and audio; typed recall "acount for" → `typo`, diff showing the missing "c"; gap-fill absent
+  (hand-typed sheet) → skipped silently; repetition (slow = rate 0.7 on the real utterance); a sentence
+  without the term → `term_missing` and the first review date; Continue → `done` → summary with 1 discovery
+  started and completed. Then the **demo** (seeded in another temporary folder): French UI, dark theme,
+  375 px: Today card with 17 reviews, 12 new terms and `deadline_triage_pending`; Start → provisional review
+  panel (count only); End → confirmation → summary. No horizontal scroll at 375 px on home, settings and
+  session after the two CSS fixes (D-119).
+- **en-US voices seen** (SPEC assumption B.11): Microsoft Mark, Microsoft Zira, Microsoft David (local Windows
+  voices); no other English voice in this browser.
+
+### Left / notes
+
+- **M4.c** replaces the provisional review panel (`session.reviewPlaceholder.*`, `ReviewPlaceholder`) with the
+  review player, adds the keyboard shortcuts (reveal, rate 1–4, replay audio) and the deck queue and status.
+  `api/reviews.ts` has `grade` only; M4.c adds `POST /reviews` and `reveal`.
+- After `sheet_required`, `next` returns the same term until its sheet is written, so the other new terms of
+  the day wait (D-117). Rare (the planner already skips terms without a usable sheet when the plan is
+  frozen); a server-side "skip this term" would be a small backend change for M4.c if wanted.
+- The error category of targeted practice is shown as its code (no taxonomy route yet).
+- The discovery screens were checked in the browser at desktop width only; at 375 px through their CSS
+  (wrapping rules), like the session's other screens that were checked.
+- Progress counts change when `next` is asked again: the "Into spaced repetition" screen still counts the
+  term as left until "Continue".
+
+### Known issues
+
+- One `npm run check` run made while the scenario's dev servers and demo backend were running reported
+  "4 unhandled errors" in Vitest and only 115 tests; the runs before and after passed 133 with no error.
+  Probably load-related; watch for it.
 
 ## M4.a2 — Planner usable-sheet filter and the demo (part 2 of M4.a)
 
@@ -1147,10 +1239,11 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: merge M4.a, then M4.b
+## Next step: review M4.b, then M4.c
 
-- Review and merge `feat/m4a-session-backend` (M4.a1 + M4.a2). Then M4.b and M4.c consume the M4.a1 API
-  reference without backend change.
+- Review and merge `feat/m4b-today-discovery` (M4.b1 + M4.b2) once `npm run check` passes in CI.
+- M4.c: review player (replaces the provisional panel), keyboard shortcuts, deck queue and status, using the
+  M4.a1 API reference.
 - Before or alongside: the owner's real calls (M2.c2 and M3.c3 scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
