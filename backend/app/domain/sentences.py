@@ -122,8 +122,9 @@ def _split_line(line: str) -> list[tuple[int, int]]:
     return bounds
 
 
-def split_sentences(text: str) -> list[Sentence]:
-    """Split `text` into numbered sentences (see the module docstring). Raises TextTooLong."""
+def split_sentences(text: str, *, max_sentences: int | None = MAX_SENTENCES) -> list[Sentence]:
+    """Split `text` into numbered sentences (see the module docstring). Raises TextTooLong when
+    there are more than `max_sentences` (None: no limit, used to cut a long transcript turn)."""
     sentences: list[Sentence] = []
     offset = 0
     for line in text.splitlines(keepends=True):
@@ -137,9 +138,9 @@ def split_sentences(text: str) -> list[Sentence]:
                     Sentence(len(sentences) + 1, stripped, first, first + len(stripped))
                 )
         offset += len(line)
-    if len(sentences) > MAX_SENTENCES:
+    if max_sentences is not None and len(sentences) > max_sentences:
         raise TextTooLong(
-            f"The text has {len(sentences)} sentences; at most {MAX_SENTENCES} are corrected at "
+            f"The text has {len(sentences)} sentences; at most {max_sentences} are corrected at "
             "once."
         )
     return sentences
