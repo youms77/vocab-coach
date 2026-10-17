@@ -23,6 +23,7 @@ from app.domain.enums import (
     CardDirection,
     ConsolidationTaskStatus,
     DeckStatus,
+    ErrorSource,
     ItemStatus,
     SrsState,
 )
@@ -130,6 +131,8 @@ def build_plan_inputs(
             .where(
                 ErrorEvent.occurred_at > now - TARGETED_PRACTICE_WINDOW,
                 ErrorEvent.occurred_at <= now,
+                # Errors made in a drill do not choose the next drill (D-029 as amended, D-136).
+                ErrorEvent.source != ErrorSource.DRILL,
             )
         )
     ]
