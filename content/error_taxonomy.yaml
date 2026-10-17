@@ -8,7 +8,7 @@
 # code prefix, and an error may point at any node (e.g. `grammar.article`, which has no children).
 # Bump `version` whenever this file changes.
 
-version: 1
+version: 2
 
 categories:
   - code: grammar
@@ -36,7 +36,7 @@ categories:
           - code: grammar.preposition.place
             label_en: Place
             label_fr: Lieu
-            description_en: "at / on / in for positions and places."
+            description_en: "at / on / in for where something or someone is, when it is not a set phrase."
             description_fr: "at / on / in pour les positions et les lieux."
             examples:
               - { wrong: "She works in the reception desk.", correct: "She works at the reception desk." }
@@ -58,7 +58,7 @@ categories:
           - code: grammar.preposition.fixed_expression
             label_en: Fixed expression
             label_fr: Expression figée
-            description_en: A set phrase that always takes the same preposition.
+            description_en: "A set phrase that always takes the same preposition (on campus, at university, in fact, by car, in the end)."
             description_fr: Une expression figée qui prend toujours la même préposition.
             examples:
               - { wrong: "I study in university.", correct: "I study at university." }
@@ -234,8 +234,8 @@ categories:
       - code: discourse.cohesion
         label_en: Cohesion
         label_fr: Cohésion
-        description_en: Unclear references, repetition, or ideas that do not follow.
-        description_fr: Références ambiguës, répétitions ou idées qui ne s'enchaînent pas.
+        description_en: "An unclear reference (an ambiguous it or this) or ideas that do not follow. Repeating a noun that is still clear is style, not an error."
+        description_fr: "Une référence ambiguë (un it ou un this peu clair) ou des idées qui ne s'enchaînent pas. Répéter un nom resté clair relève du style, pas de l'erreur."
         examples:
           - { wrong: "The model and the data are good. It shows...", correct: "The model fits the data well. It shows..." }
 
