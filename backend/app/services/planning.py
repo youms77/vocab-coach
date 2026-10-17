@@ -44,13 +44,14 @@ from app.services.reviews import card_state
 PENDING_CONSOLIDATION = (ConsolidationTaskStatus.PROPOSED, ConsolidationTaskStatus.ACCEPTED)
 
 
-def build_plan_inputs(
+def card_snapshots(
     session: Session, now: datetime, engine_factory: EngineFactory = default_engine_factory
-) -> PlanInputs:
+) -> list[CardSnapshot]:
+    """Cards that may be reviewed (reviewable term, not suspended), with their retrievability at
+    `now`. Ordered by id."""
     now = as_utc(now)
     engine = engine_factory(get_setting(session, "target_retention"))
-
-    cards = [
+    return [
         CardSnapshot(
             card_id=card.id,
             lexical_item_id=card.lexical_item_id,
@@ -65,8 +66,16 @@ def build_plan_inputs(
             select(Card, LexicalItem.status)
             .join(LexicalItem, LexicalItem.id == Card.lexical_item_id)
             .where(LexicalItem.status.in_(REVIEWABLE_STATUSES), Card.suspended.is_(False))
+            .order_by(Card.id)
         )
     ]
+
+
+def build_plan_inputs(
+    session: Session, now: datetime, engine_factory: EngineFactory = default_engine_factory
+) -> PlanInputs:
+    now = as_utc(now)
+    cards = card_snapshots(session, now, engine_factory)
 
     refs: dict[int, list[DeckItemRef]] = defaultdict(list)
     for deck_id, item_id, item_status, position in session.execute(

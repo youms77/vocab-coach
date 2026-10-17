@@ -1,0 +1,244 @@
+"""Automatic grading of review answers (docs/SPEC.md module C). Pure Python, no dependency.
+
+Typed answers (`typed_recall`, `gap_fill`) are compared with the template's `answer` and
+`accepted` forms after normalisation; small typos are tolerated, but a word the user may have
+confused with the term (another library term, a word of the sheet's "confusables" or "pitfalls")
+is wrong, not a typo. Choice answers (recognition, listening) are right or wrong. Self-graded
+types (`self_assessment`, `sentence_production`, `spoken_answer`) get no proposed rating; a typed
+production is only checked for the term.
+
+Proposed rating: exact or form -> Good (Hard when slower than twice the estimate of its duration
+class, D-028); typo -> Hard; wrong or empty -> Again. Easy is never proposed (the user may pick it).
+"""
+
+import difflib
+import re
+import unicodedata
+from collections.abc import Collection, Sequence
+from dataclasses import dataclass, field
+from enum import StrEnum
+
+from app.domain import exercises as ex
+from app.domain.normalize import stem_token
+from app.domain.srs import Rating
+
+# A correct answer slower than this many times the duration estimate is proposed Hard.
+SLOW_FACTOR = 2.0
+
+_APOSTROPHES = str.maketrans(dict.fromkeys("‘’‚‛′ʼ´`", "'"))
+_PLACEHOLDERS = frozenset({"sb", "sth", "one's", "sb's", "someone", "something"})
+
+
+class Outcome(StrEnum):
+    EXACT = "exact"
+    FORM = "form"  # a regular inflection of the answer (typed recall only)
+    TYPO = "typo"
+    WRONG = "wrong"
+    EMPTY = "empty"
+
+
+class GradeWarning(StrEnum):
+    TERM_MISSING = "term_missing"
+
+
+@dataclass(frozen=True)
+class DiffPart:
+    """One run of a character diff: `equal`, `replace`, `insert` (missing from the answer) or
+    `delete` (extra in the answer)."""
+
+    op: str
+    given: str
+    expected: str
+
+
+@dataclass(frozen=True)
+class GradeResult:
+    outcome: Outcome | None  # None for self-graded types
+    proposed_rating: Rating | None
+    expected: str | None
+    accepted: list[str] = field(default_factory=list)
+    diff: list[DiffPart] | None = None
+    warnings: list[str] = field(default_factory=list)
+
+
+# --- Normalisation and distance ------------------------------------------------------------------
+
+
+def _is_punctuation(char: str) -> bool:
+    return unicodedata.category(char).startswith("P")
+
+
+def normalize_answer(text: str) -> str:
+    """NFKC, typographic apostrophes, lower case, single spaces, no punctuation at either end."""
+    text = unicodedata.normalize("NFKC", text).translate(_APOSTROPHES).casefold()
+    text = " ".join(text.split())
+    start, end = 0, len(text)
+    while start < end and (_is_punctuation(text[start]) or text[start].isspace()):
+        start += 1
+    while end > start and (_is_punctuation(text[end - 1]) or text[end - 1].isspace()):
+        end -= 1
+    return text[start:end]
+
+
+def _without_to(text: str) -> str:
+    return text[3:].lstrip() if text.startswith("to ") else text
+
+
+def is_to_verb(term: str) -> bool:
+    return normalize_answer(term).startswith("to ")
+
+
+def comparable(text: str, term: str) -> str:
+    """The normalised form compared with the expected ones; "to" is optional for a to-verb."""
+    normalized = normalize_answer(text)
+    return _without_to(normalized) if is_to_verb(term) else normalized
+
+
+def damerau_levenshtein(a: str, b: str) -> int:
+    """Edit distance counting insertions, deletions, substitutions and transpositions of two
+    adjacent characters (the "optimal string alignment" variant: no substring is edited twice)."""
+    if a == b:
+        return 0
+    rows = len(a) + 1
+    cols = len(b) + 1
+    d = [[0] * cols for _ in range(rows)]
+    for i in range(rows):
+        d[i][0] = i
+    for j in range(cols):
+        d[0][j] = j
+    for i in range(1, rows):
+        for j in range(1, cols):
+            cost = 0 if a[i - 1] == b[j - 1] else 1
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[-1][-1]
+
+
+def typo_tolerance(expected_length: int) -> int:
+    """Edits allowed for a typo: none up to 3 characters, 1 up to 8, then 2."""
+    if expected_length <= 3:
+        return 0
+    if expected_length <= 8:
+        return 1
+    return 2
+
+
+def char_diff(given: str, expected: str) -> list[DiffPart]:
+    matcher = difflib.SequenceMatcher(None, given, expected, autojunk=False)
+    return [
+        DiffPart(op, given[i1:i2], expected[j1:j2]) for op, i1, i2, j1, j2 in matcher.get_opcodes()
+    ]
+
+
+def _words(text: str) -> list[str]:
+    return [w for w in re.findall(r"[\w']+", text) if w not in _PLACEHOLDERS]
+
+
+def _inflected(word: str, form: str) -> bool:
+    """`form` is `word` itself or a longer regular inflection of it (same stem). A shorter form
+    is a truncation, not an inflection: the stemmer gives "rul" for both "rule" and "rul"."""
+    return form == word or (len(form) > len(word) and stem_token(form) == stem_token(word))
+
+
+def is_regular_form(expected: str, given: str) -> bool:
+    """Same words up to regular inflections ("accounted for" for "account for").
+
+    Stricter than `exercises.is_form_of`, which also accepts any word with the same first letter
+    (for irregular forms such as drew/draw) and would grade "cat" as a form of "confounder".
+    Irregular forms are accepted when the template lists them (`accepted`).
+    """
+    a, b = _words(expected), _words(given)
+    return bool(a) and len(a) == len(b) and all(_inflected(x, y) for x, y in zip(a, b, strict=True))
+
+
+# --- Grading -------------------------------------------------------------------------------------
+
+
+def propose_rating(
+    outcome: Outcome, response_time_ms: int | None, estimate_seconds: float
+) -> Rating:
+    if outcome in (Outcome.EXACT, Outcome.FORM):
+        slow = (
+            response_time_ms is not None
+            and response_time_ms > SLOW_FACTOR * estimate_seconds * 1000
+        )
+        return Rating.HARD if slow else Rating.GOOD
+    if outcome == Outcome.TYPO:
+        return Rating.HARD
+    return Rating.AGAIN
+
+
+def grade_typed(
+    *,
+    exercise_type: str,
+    term: str,
+    answer: str,
+    accepted: Sequence[str],
+    given: str | None,
+    confusions: Collection[str] = (),
+    response_time_ms: int | None = None,
+    estimate_seconds: float,
+) -> GradeResult:
+    """Grade a typed answer. `confusions` are words the user may have confused with the term,
+    already normalised with `comparable`."""
+    forms: list[str] = []
+    for form in (answer, *accepted):
+        key = comparable(form, term)
+        if key and key not in forms:
+            forms.append(key)
+    guess = comparable(given or "", term)
+
+    diff: list[DiffPart] | None = None
+    if not guess:
+        outcome = Outcome.EMPTY
+    elif guess in forms:
+        outcome = Outcome.EXACT
+    elif guess in confusions:
+        outcome = Outcome.WRONG
+    elif exercise_type == ex.TYPED_RECALL and any(is_regular_form(f, guess) for f in forms):
+        outcome = Outcome.FORM
+    elif not forms:
+        outcome = Outcome.WRONG
+    else:
+        nearest = min(forms, key=lambda f: (damerau_levenshtein(guess, f), forms.index(f)))
+        if damerau_levenshtein(guess, nearest) <= typo_tolerance(len(nearest)):
+            outcome = Outcome.TYPO
+            diff = char_diff(guess, nearest)
+        else:
+            outcome = Outcome.WRONG
+    return GradeResult(
+        outcome=outcome,
+        proposed_rating=propose_rating(outcome, response_time_ms, estimate_seconds),
+        expected=answer,
+        accepted=list(accepted),
+        diff=diff,
+    )
+
+
+def grade_choice(
+    *,
+    options: Sequence[str],
+    correct_index: int,
+    chosen_index: int | None,
+    response_time_ms: int | None = None,
+    estimate_seconds: float,
+) -> GradeResult:
+    """A multiple-choice answer: right or wrong (no choice at all is `empty`)."""
+    if chosen_index is None:
+        outcome = Outcome.EMPTY
+    else:
+        outcome = Outcome.EXACT if chosen_index == correct_index else Outcome.WRONG
+    return GradeResult(
+        outcome=outcome,
+        proposed_rating=propose_rating(outcome, response_time_ms, estimate_seconds),
+        expected=options[correct_index],
+    )
+
+
+def check_production(term: str, text: str | None, forms: Sequence[str] = ()) -> GradeResult:
+    """A typed production is self-graded; it only warns when the term is missing."""
+    warnings = []
+    if text and text.strip() and not ex.contains_term(term, text, forms):
+        warnings.append(GradeWarning.TERM_MISSING.value)
+    return GradeResult(outcome=None, proposed_rating=None, expected=None, warnings=warnings)

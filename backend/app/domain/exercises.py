@@ -15,7 +15,9 @@ and sent back to the model), which makes the gateway ask for a repair (D-039).
 | `sentence_production` | productive | `{situation, example_answer}` |
 | `spoken_answer` | productive | `{question, example_answer}` |
 
-The type names are those of `app/demo/learner.py`; M4 may add others.
+`self_assessment` (M4, both directions) has no stored template: it is the degraded mode used when a
+term has no template of its direction (`app/domain/exercise_choice.py`). The prompt comes from the
+sheet or the original sentence, and the user grades themselves after the reveal.
 """
 
 import re
@@ -80,6 +82,12 @@ RECOGNITION = "recognition_in_sentence"
 LISTENING = "listening_comprehension"
 SENTENCE_PRODUCTION = "sentence_production"
 SPOKEN_ANSWER = "spoken_answer"
+SELF_ASSESSMENT = "self_assessment"
+
+# How each type is answered (M4). Self-graded types get no proposed rating.
+CHOICE_TYPES = frozenset({RECOGNITION, LISTENING})
+TYPED_TYPES = frozenset({TYPED_RECALL, GAP_FILL})
+SELF_GRADED_TYPES = frozenset({SELF_ASSESSMENT, SENTENCE_PRODUCTION, SPOKEN_ANSWER})
 
 EXERCISE_TYPES: dict[str, tuple[CardDirection, type[_Content]]] = {
     GAP_FILL: (CardDirection.PRODUCTIVE, GapFillContent),
