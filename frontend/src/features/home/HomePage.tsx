@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 
 import { useHealth } from '../../api/health'
 
@@ -31,6 +32,10 @@ export function HomePage() {
       <section className="card" aria-labelledby="today-title">
         <h2 id="today-title">{t('home.todayTitle')}</h2>
         <p className="muted">{t('home.todayEmpty')}</p>
+        <p className="link-row">
+          <Link to="/import">{t('library.importLink')}</Link>
+          <Link to="/library">{t('home.libraryLink')}</Link>
+        </p>
       </section>
 
       <section className="card" aria-labelledby="status-title" aria-live="polite">

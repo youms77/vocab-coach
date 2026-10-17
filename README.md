@@ -104,9 +104,11 @@ Copy `.env.example` to `.env` (same folder) and fill in what you need. `.env` is
 keys never reach the repository. Every variable is optional: without any key the app still starts and
 runs in a degraded mode (no AI features).
 
-The AI keys can also be added, replaced and removed from the application itself: the API that the
-settings page uses (milestone M2.c2) writes the three AI variables into `.env` for you and keeps your
-comments and other lines. Editing `.env` by hand stays possible. If one of these variables is **also set
+The AI keys can also be added, replaced and removed from the application itself: open **Settings** in the
+top bar. The page writes the three AI variables into `.env` for you (it keeps your comments and other
+lines), never shows a saved key again, and has a **Test connection** button per provider (one real request,
+up to about a minute and a half). The same page sets the provider order, shows today's AI calls and holds
+the study settings (time budget, new terms per day, target retention, study day, audio speed). Editing `.env` by hand stays possible. If one of these variables is **also set
 as an environment variable**, the environment wins and the application will not edit that key (remove the
 environment variable first).
 
@@ -201,7 +203,20 @@ provider cannot be reached (for Ollama: is it running, and is the address right?
 
 ## Daily use
 
-Coming with milestones M3–M4 (import a word list, discover new terms, review).
+The pages come with milestones M3–M4 (discover new terms, review). Importing a word list already works from the
+command line (run from the `backend` folder):
+
+```powershell
+uv run python -m app library import ..\content\examples\import-with-header.md            # preview, writes nothing
+uv run python -m app library import ..\content\examples\import-with-header.md --commit   # import the clear lines
+```
+
+One line = one term, optionally followed by `|` and the sentence you met it in; an optional YAML header
+(`deck`, `domain`, `source`, `context`, `deadline`) describes the deck. See the two files in `content/examples/`.
+Ambiguous lines (a translation after `=`, a whole sentence, a sub-item...) are reported and left out; terms
+already in your library are added to the new deck instead of being duplicated. Options: `--deck-id N` (add to an
+existing deck), `--no-triage` (queue the terms directly instead of the "I know it / not sure / to learn" triage),
+and `--demo` before `library` to try it on the demo database.
 
 ## Backup
 

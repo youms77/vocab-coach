@@ -493,7 +493,7 @@ def test_main_test_without_configuration_exits_2(
     assert "Nothing is configured" in captured.err and captured.out == ""
 
 
-def test_main_refuses_demo_for_test_and_usage(
+def test_main_refuses_demo_for_test_but_not_usage(
     cli_env: str,
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -503,9 +503,11 @@ def test_main_refuses_demo_for_test_and_usage(
     monkeypatch.delenv("VOCAB_DATABASE_URL")
     monkeypatch.setenv("VOCAB_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("VOCAB_DEMO", "0")  # `--demo` sets it to 1: this makes the test undo it
-    for command in ("test", "usage"):
-        assert main(["--demo", "ai", command]) == 2
-        assert "personal database" in capsys.readouterr().err
+    assert main(["--demo", "ai", "test"]) == 2
+    assert "personal database" in capsys.readouterr().err
+    # No demo database yet: `usage` explains it like on the personal database (exit 2).
+    assert main(["--demo", "ai", "usage"]) == 2
+    assert "personal database" not in capsys.readouterr().err
     get_settings.cache_clear()
 
 

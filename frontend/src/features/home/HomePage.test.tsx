@@ -8,7 +8,8 @@ function mockFetch(response: Response | Error) {
   return vi
     .spyOn(globalThis, 'fetch')
     .mockImplementation(() =>
-      response instanceof Error ? Promise.reject(response) : Promise.resolve(response),
+      // A body can be read once: every request (health, AI status) gets its own copy.
+      response instanceof Error ? Promise.reject(response) : Promise.resolve(response.clone()),
     )
 }
 
@@ -20,6 +21,18 @@ describe('HomePage', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Welcome' })).toBeInTheDocument()
     expect(await screen.findByText('Local server is running (version 0.1.0).')).toBeInTheDocument()
     expect(document.documentElement.lang).toBe('en')
+  })
+
+  it('points to the import and the library while there is nothing to review', () => {
+    mockFetch(Response.json({ status: 'ok', version: '0.1.0' }))
+    renderApp('/')
+
+    expect(screen.getByRole('link', { name: 'Import a list' })).toHaveAttribute('href', '/import')
+    expect(screen.getByRole('link', { name: 'Open the library' })).toHaveAttribute(
+      'href',
+      '/library',
+    )
+    expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument()
   })
 
   it('says so when the backend is unreachable', async () => {

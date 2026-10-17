@@ -997,3 +997,375 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   (`ai test`, including the audio check) and `POST /api/ai/test` both use it; the CLI tests passed unchanged.
 - A lock per provider (`acquire(blocking=False)`) raises `TestInProgress`: a double click would spend the free
   quota twice. The lock is per process, which is enough for one local backend.
+
+## D-066 — What the settings page shows, and where (M2.c2)
+
+- **One page, `/settings`** (`frontend/src/features/settings/`), in this order: AI providers (one card each), provider
+  order, AI usage, study settings. A "Settings" link in the top bar. The language and theme switches stay in the top
+  bar.
+- **Study settings are built from `GET /api/settings`** (type, bounds, default): the page only decides the groups
+  (daily study, study day, consolidation, audio), the labels / hints (i18n, per key) and the spin-button steps of the
+  float settings. Each group is its own form and sends only the keys that changed, in one `PATCH`. Bounds and number
+  shape are checked before sending; the backend stays the authority (a 422 `invalid_setting` is shown on the field
+  its `key` names, with the English reason).
+- **`ui_language` is not on the page.** The interface language is the top bar's choice, stored in the browser
+  (M0, never derived from the browser language). Showing the backend setting too would give two sources that can
+  disagree. Syncing them (so that, e.g., exports or AI prompts know the language) is left for the milestone that
+  needs it.
+- **`tts_rate` is shown** although speech synthesis comes with M4: SPEC module J lists "audio speed", and the value
+  is stored now.
+- **Degraded-mode banner on every page** (`components/AiBanner.tsx`) when `GET /api/ai/status` says `degraded`, with
+  calmer wording when the owner turned AI off (`ai_off`), and a link to `/settings` (not shown on that page). Nothing
+  while loading or when the backend is down (the home page already says so). The status is refetched every 30 s so a
+  cooldown that ends clears the banner.
+
+## D-067 — Keys and addresses on the page (M2.c2)
+
+- The key field is `type="password"`, `autocomplete="off"`, no spell check; it is **never pre-filled** (the API
+  never returns a key) and is **cleared as soon as the backend accepted it**; on failure the value stays so it can be
+  corrected. The Ollama address is `type="url"` (not secret, D-062) but is not returned by the API either, so the
+  page says "configured", never the address.
+- Empty or blank values are refused on the page, without a request.
+- **Remove asks for confirmation inline** (two buttons, no browser `confirm()` dialog): removing a key the owner may
+  not have kept elsewhere is the only destructive action here.
+- `credential_source: "environment"`: field, Save and Remove disabled, with the variable name and where to change it;
+  the connection test stays possible (the key exists).
+- **Demo database** (`demo: true`): keys, test and order are disabled with an explanation; study settings stay
+  editable (D-064).
+
+## D-068 — Errors on the page (M2.c2)
+
+- `ApiError` (`api/client.ts`) now carries `code` and the whole `detail` (D-063), and `apiSend()` sends JSON bodies
+  with `Content-Type: application/json` (the guard refuses anything else, D-061).
+- `features/settings/errorMessage.ts` maps the 14 known codes to `errors.<code>` i18n keys; an unknown code gets
+  "Unexpected error (HTTP n)"; a failed `fetch` and a 502 / 504 from the Vite proxy mean "cannot reach the local
+  server". The English `message` is shown under the translated sentence only for `invalid_credential` and
+  `invalid_setting` (it says *why*, never the value); the provider's own message after a failed test is behind a
+  "Provider message (English)" disclosure.
+- `last_error` kinds and test `reason` values have their own i18n keys (`settings.errorKinds.*`,
+  `settings.test.reasons.*`).
+
+## D-069 — The connection test on the page (M2.c2)
+
+- A TanStack Query mutation per provider; the button is disabled while it runs and shows "Testing… n s" (seconds
+  counted from the mutation's `submittedAt`, ticking every second) with a hint that it can take up to ~90 s. The
+  result (status, model, time, tokens, translated reason, HTTP status) is announced in an `aria-live` region.
+- A double click cannot send a second request (disabled button); a test started elsewhere gives 409
+  `test_in_progress`, shown as a message.
+- After a test, the AI status and usage are refetched (the test changes health and adds call-log rows). Leaving the
+  page during a test does not cancel the request; the result is not shown when coming back, but the refreshed status
+  reflects it. Accepted for a tool the owner opens rarely.
+
+## D-070 — Frontend tests with a small API router (M2.c2)
+
+- `src/test/mockApi.ts` replaces `fetch` with a router keyed by `"METHOD /path"` (without `/api` and the query),
+  records every call (method, path, headers, parsed JSON body) and answers 404 to an unknown route, so a missing mock
+  fails visibly. `apiErrorResponse()` builds the backend's error format.
+- A `Response` body can be read once: the home page test's single shared response now returns a clone per request
+  (the layout makes two requests since the banner exists).
+
+## D-071 — Markdown import parser (M3.a, 2026-10-16)
+
+- `app/domain/markdown_import.py`, pure, no clock (`today` is a parameter: the caller's study day). It never raises
+  on user input: everything odd is an `ImportProblem {line, severity: info|warning|ambiguous|error, code, message
+  (EN), suggestion?}` with a **stable code** (M3.c turns codes into i18n keys). Line numbers are the file's, 1-based,
+  header included. `\r\n`, `\r` and `\n` all end a line (not `str.splitlines`, which also splits on Unicode line
+  separators and form feeds and would shift the numbers); a UTF-8 BOM is removed.
+- **Header**: only when the first non-blank line is `---` and a later `---` closes it (else `unclosed_header` and the
+  file is read as a plain list). Loaded with a subclass of `yaml.SafeLoader` that keeps timestamps as text: PyYAML's
+  own date constructor raises `ValueError` on `2026-13-01`, which would break the "never raises" rule and turn a bad
+  deadline into `invalid_header`. The deadline must match `YYYY-MM-DD` and be a real date (`invalid_deadline`,
+  ignored); a past one is kept with `past_deadline`. Unknown key → `unknown_header_key`; a list or mapping as a value
+  → `invalid_header_value`; invalid YAML or a non-mapping → `invalid_header` (warning), header empty, body still read.
+- **Body**: bullets `-` `*` `+`, `1.` `1)`, checkboxes, plain lines; `**` `__` `*` `_` and backticks around the term
+  are removed. Headings (`#` + space) and horizontal rules are `info` and skipped. The first `|` separates the
+  sentence.
+  - **Ambiguous** (returned with `include: false`): `multiple_separators`; `looks_like_definition` (` = `, ` : `,
+    `word: x`, ` -> `, ` – `, ` - ` without `|`; suggestion `{term, note}`); `looks_like_sentence` (more than 8
+    words or 80 characters without `|`); `nested_item` (a bullet indented 2+ columns more than the first item, so a
+    uniformly indented list is not "nested"); `empty_term`; `term_too_long` (more than 300, the column size).
+  - **Warnings**, imported anyway: `term_not_in_sentence`; `duplicate_in_file` (the kept line is a clear one with a
+    sentence, else the first clear one).
+- **Limits**: 256 KB (UTF-8 bytes) and 1 000 non-blank body lines, else `too_large` (error) and no rows. The CLI also
+  reports `not_utf8`.
+- **Type guess**: 1 word → `word`; 2–4 words, or 5 starting with "to" → `collocation`; longer → `phrase`.
+  `spoken_formula` is never guessed.
+- `check_term()` is shared by the parser and the commit, so the server re-validates rows with the same rules.
+
+## D-072 — Normalised form and naive lemma (M3.a)
+
+- `normalize_term` (`app/domain/normalize.py`): NFKC, casefold, typographic apostrophes / quotes / dashes to ASCII,
+  spaces collapsed, final `.,;:!?` and enclosing quotes removed (repeatedly), initial `to ` removed, placeholders
+  unified with or without parentheses (`someone`/`somebody`/`sb` → `sb`, `something`/`sth` → `sth`, `one's`,
+  `someone's` → `sb's`). `lexical_item.term` keeps the user's spelling. Known limit: `to a large extent` becomes
+  `a large extent` (the rule cannot tell an infinitive from a preposition); harmless, since a match is only a proposal.
+- `naive_lemma`: **single-word terms only** (None otherwise, so expressions never get "possible" matches). It is a
+  *stem*, not a dictionary form: plural `-ies/-es/-s`, `-ed`, `-ing`, undoubled consonant, then a final `-e` dropped and
+  `-y` → `-i`, so `study/studies/studied/studying` and `estimate/estimated` meet. Words under 4 letters, words with a
+  non-letter, and an exception list (news, series, species, analysis, data, physics, statistics, bias, thing, need...)
+  are left alone. No new dependency.
+- **Matching**: same normalised form = `exact`; same lemma, different form = `possible`. Compared with every term,
+  archived and known included, and answered with the existing term's status and decks. **Nothing is ever merged
+  automatically**: the normalised form is not unique in the database (homographs), on purpose.
+- `term_in_sentence`: each word of the term (placeholders left out) must appear in order in the sentence, by equal
+  stem or as a prefix (4+ letters); irregular forms (`drew` for `draw`) give the warning.
+
+## D-073 — Library services and their errors (M3.a)
+
+- `app/services/library.py`, `importing.py`, `triage.py`, `duplicates.py`, in the caller's transaction (D-023).
+  User refusals are `LibraryError` subclasses with `status` and `code`; `app/api/errors.py` turns them (and
+  `InvalidItemTransition`, 409 `invalid_transition`) into the D-063 format with their extra fields.
+- `create_item` writes the term in `draft` with `item.created`, then moves it to `triage` or `queued` through
+  `set_item_status` (D-025 table and events). `add_item_to_deck` writes `deck.item_added` and refuses a second link to
+  the same deck. New decks go to the end of the queue (`queued`, D-026).
+- **Quick add** goes to `queued` directly (the user typed the term because they want to learn it) and, without a deck,
+  to a deck named "Quick adds" created the first time. A duplicate without `on_duplicate` is a 409 `duplicate_term`
+  with the candidates; `attach` links the existing term (status untouched), `new` creates another one.
+- Editing a term's spelling recomputes `normalized_form` and `lemma` and returns the duplicates without blocking.
+- **Search**: `q` matches `lower(term)`, `normalized_form` (with the normalised query) and `lower(origin_sentence)`
+  with escaped `LIKE` (`%`, `_`, `\`). SQLite's `lower()` only folds ASCII; the normalised-form branch covers accented
+  terms. Deck, domain and source filters go through `deck_item` (a term has no source of its own); archived terms are
+  excluded unless asked for.
+
+## D-074 — Import preview and commit (M3.a)
+
+- `preview()` writes nothing (the CLI also sets `PRAGMA query_only`). It adds library problems to each row:
+  `duplicate_exact` (info), `duplicate_possible` (warning), `already_in_deck` (info, when a target deck is given),
+  `existing_status_kept` (info: attaching a `known` or `archived` term does not change its status).
+- `commit()` receives the rows **as validated by the user** (`term, sentence, item_type, include, confirmed,
+  on_duplicate: attach|new|skip, attach_to`) and re-checks each. An included row that is still ambiguous needs
+  `confirmed: true`, and only `looks_like_definition` / `looks_like_sentence` can be confirmed (an empty or over-long
+  term or a stray `|` must be corrected); otherwise 422 `row_rejected` with the row index, line and codes. All rows
+  are checked before anything is written.
+- **Defaults**: exact duplicate → `attach` (the row's sentence goes to `deck_item.context_sentence`), possible
+  duplicate → `new`, a term already in the target deck → skipped, the same term twice in the rows → the first wins.
+- **Header mapping**: `source` → `source.title` (+ `context` → `source.context`); without `source`, `context` →
+  `deck.description`; `domain` → `deck.domain` and `source.domain`; `deadline` → `deck.deadline`. A new deck takes
+  `target.new_deck_name`, else the header's `deck`, else 422 `deck_name_required` (the CLI uses the file name). An
+  existing target deck keeps its own fields: the header is ignored.
+- One transaction; tested by injecting a failure in the middle (no row, no event left).
+
+## D-075 — Triage semantics (M3.a)
+
+- `learn` and `unsure` → `queued`, `known` → `known`; one `item.triaged` per term (the decision itself is kept, so
+  statistics can tell `unsure` from `learn`). **Why `unsure` is queued**: discovery starts with the meaning hidden
+  (module B), so an unsure term costs one short discovery at most, and leaving it in limbo would hide it from the
+  planner.
+- All or nothing: unknown id → 404 `item_not_found`; a term not in `triage` → 409 `not_in_triage` with the ids; the
+  same id twice → 422 `duplicate_decision`.
+- The triage list shows the term, its type, its decks and a sentence (the deck's context sentence, else the origin
+  sentence), **never a usage sheet**, so the self-assessment is not biased.
+
+## D-076 — Deletion rules (M3.a)
+
+- A term with **history** (a card, hence reviews; an error event; a production target; a consolidation target)
+  cannot be deleted: 409 `item_has_history` with `suggestion: "archive"`. Otherwise `item.deleted`, then the row
+  (deck links follow by cascade).
+- A deck cannot be deleted when one of its terms has started discovery (`discovered_at`) or has history, **even
+  through another deck** (strict reading, approved with the plan): 409 `deck_has_history` (pause it or mark it done
+  instead, M4). Otherwise the terms that belong to no other deck are deleted (`item.deleted` each), then
+  `deck.deleted {deck_id, deleted_item_ids}`.
+
+## D-077 — Merge rules (M3.a)
+
+- `merge(source, target)` folds the source into the target and deletes it. Both have cards → 409 `merge_conflict`;
+  only the source has cards → the direction is inverted (the term with the review history is kept, `inverted: true`);
+  same id → 422 `merge_same_item`.
+- Moved to the target: deck links (when both are in the same deck, the target's empty context sentence is filled and
+  the source's link dropped); `origin_sentence`, `notes`, `part_of_speech`, `origin_error_event_id` when the target
+  has none; error events; production and consolidation targets (a duplicate row for the same attempt or task is
+  dropped); the usage sheets and exercise templates **only when the target has none** (otherwise the source's are
+  deleted with it). The kept term's status is unchanged. `item.merged` is written.
+- Duplicate groups (`GET /duplicates`): exact groups by normalised form, then possible groups by lemma with at least
+  two forms; each item says whether it has cards, so the page can show which merges are possible.
+
+## D-078 — New events and the demo (M3.a)
+
+- New event types (open set, no migration, D-015), payloads in `app/domain/events.py`: `deck.updated {deck_id,
+  fields}` and `item.edited {lexical_item_id, fields}` (field **names** only, never values), `deck.deleted {deck_id,
+  deleted_item_ids}`, `item.deleted {lexical_item_id}`, `import.completed {deck_id, lines_read, imported, attached,
+  skipped, ambiguous}`. `item.merged` and `item.triaged` already existed.
+- The demo creates sources, decks, terms, deck links and triage decisions through the services (`direct_writes.py`
+  keeps productions, errors and sessions until M4/M5). Comparing a 60-day seed (seed 42, anchor 2026-09-01) before
+  and after: **every table is identical except `lexical_item`**, where `normalized_form` changed for 27 of 113 terms
+  (e.g. `to a large extent` → `a large extent`) and `lemma` is now filled for single words. The event log (types,
+  counts, payloads) and every status are the same. The determinism tests compare two runs, so they still pass.
+- Library writes are allowed on the demo database (a throwaway sandbox); only AI keys and provider order are
+  protected there (D-064).
+
+## D-079 — Validation context for the gateway (M3.b)
+
+- `Gateway.generate_json(..., validation_context=...)` passes a context to Pydantic validation. The enrichment
+  schema reads `{"terms": {ref: term}}` from it, so the business rules of `app/domain/exercises.py` (term present in
+  every example, gap-fill answer matches the term, ...) run inside the validator. A broken rule is a validation
+  error: the gateway asks for one repair, then answers `incomplete`. No second validation layer in the service.
+
+## D-080 — Output budget per call (M3.b)
+
+- `generate_json(..., max_output_tokens=...)` overrides the task's ceiling for one call. A term of the `enrichment`
+  task costs about 1 500 output tokens (sheet about 900, exercises about 450), so a batch asks for
+  `ENRICHMENT_TOKENS_PER_TERM x terms`. A suggestion of `list_extension` costs about 50 tokens
+  (`EXTENSION_TOKENS_PER_SUGGESTION` x count). These are estimates to tune after the owner's first real calls.
+
+## D-081 — One enrichment run is one batch (M3.b)
+
+- Batches of 5 terms (`ENRICHMENT_BATCH_SIZE`, SPEC: 5 to 10, lower end because of the free-tier output limits).
+  The AI is called with no session open (D-038); results are written in one short transaction after checking each
+  term again (still there, same spelling, no new current sheet).
+- `incomplete`, or `all_failed` on several terms: the terms are retried one by one under a time cap; a term that
+  still fails alone gets a skeleton sheet (`needs_completion`, no exercise) the user completes by hand. Any other
+  `unavailable` reason writes nothing: terms stay pending (degraded mode).
+- A process-wide lock refuses a second run (`enrichment_running`, 409); a run from another process (the CLI) is
+  caught by the re-check before writing. An AI failure is HTTP 200 with `status` and `reason`, not an error.
+- CLI `library enrich` loops over batches until nothing is left or the AI is unavailable (exit 1);
+  `--dry-run` lists the waiting terms; `library extend <deck_id> --count 10..30`.
+
+## D-082 — Typed recall follows the user's sheet (M3.b)
+
+- When the user saves a sheet, the "French / definition to English" typed-recall template is refreshed from the
+  new translations and definition, so the exercise never contradicts the sheet.
+
+## D-083 — Editing, versions and consent (M3.b)
+
+- A sheet edit creates a new version (`origin = user`); old versions are kept and listed. `base_enrichment_id`
+  protects against a stale editor (409 `sheet_changed`). An edited sheet is never regenerated without
+  `confirm_overwrite` (409 `sheet_edited`). Regeneration keeps templates the user edited or reviewed. A term
+  without a sheet accepts a hand-typed one (manual entry).
+- Exercise templates are edited one by one (`PATCH /api/exercises/{id}`), validated by the same rules (422
+  `invalid_exercise`), and logged.
+
+## D-084 — Extension suggestions and the deck (M3.b)
+
+- Suggestions are created in triage with origin `extension`, linked to the deck with their example sentence as
+  context. Exact duplicates of the library and repeats are dropped; possible duplicates are kept and reported.
+- Per SPEC only retained terms stay in the deck: an extension suggestion triaged as `known` leaves the deck
+  (`deck_item.removed` event) but stays in the library as `known`, so it is never suggested again. Imported terms
+  keep their deck links whatever the decision (D-075).
+
+## D-085 — Library pages: scope and conventions (M3.c1)
+
+- M3.c is delivered in three stacked branches (c1 library, c2 import / triage / duplicates, c3 sheets and
+  extension) to keep each review small. No component library: plain components and the existing CSS tokens.
+- Library error codes share `describeError` (`features/settings/errorMessage.ts`); a code unknown to the front end
+  falls back to the generic message. `apiSend` returns `undefined` for 204 answers (DELETE routes).
+- A possible duplicate on quick add is never blocking: the 409 `candidates` are shown and the user chooses
+  `attach` (to a candidate) or `new`, as the API contract defines.
+- The deck filter can be preset with `/library?deck=ID`; filter changes reset the page to the first one.
+- Sheet-content search stays out: `q` searches terms only (backend unchanged); to decide with M3.c3.
+
+## D-086 — Import review: local state sent as is (M3.c2)
+
+- The preview is never written: the review table is local state (`importReview.ts`) and the commit sends every
+  row (`include` false for the rows left out), so the backend's `lines_read` and `skipped` match the file.
+- Ambiguous rows start unchecked. Only `looks_like_definition` and `looks_like_sentence` offer "Import anyway"
+  (`confirmed: true`), as the backend accepts nothing else; other ambiguities must be corrected. A corrected term
+  is sent without `confirmed` (the backend checks it again) and without the preview's duplicate choice, since its
+  duplicates may differ (`invalid_attach_target` otherwise); the backend default then applies.
+- The target and intake are chosen after the preview, so the preview is called without `deck_id`; terms already
+  in an existing target deck are skipped by the commit and counted in "skipped".
+- The browser reads the file (`File.text()`, D-061) and checks the 300 000-character limit before sending.
+  Example files stay outside the bundle: the user picks them with the file field.
+- The summary's `ambiguous` count is every row still ambiguous when sent (confirmed or not), so it is worded
+  "ambiguous lines in the list", not "left out".
+
+## D-087 — Problem codes and messages (M3.c2)
+
+- Each `ProblemCode` and severity has an i18n key; an unknown code falls back to the backend's English message.
+  The `suggestion` object fills placeholders (`key`, `kept_line`). Severity is written as text (and ⚠ for
+  ambiguous / error), never shown by colour alone.
+
+## D-088 — Triage page (M3.c2)
+
+- One `POST /api/triage` sends every choice made (terms left undecided stay in triage); the backend is all or
+  nothing, so a 409 `not_in_triage` saves nothing, the list is refetched and the remaining choices are kept.
+- Keys 1 / 2 / 3 choose for the focused card, else the first undecided term; they are ignored with modifiers and
+  inside text inputs, textareas, selects and editable content (radios and checkboxes still work).
+- The card shows the term, its type, sentence and decks only: never a usage sheet (active recall).
+- The "n to sort" count on the Library page reuses `GET /api/triage` (no new endpoint).
+
+## D-089 — Duplicates page (M3.c2)
+
+- The user picks the term to keep (default: the one with review cards, which the backend would keep anyway) and
+  merges each other term into it with the existing `useMergeItem`; the duplicate groups live under the `items`
+  query key so a merge refreshes them. An inverted merge is reported in the message.
+
+## D-090 — CSS fixes from the first browser check (M3.c2)
+
+- Text-like inputs are styled by `input:not([type])`, `search`, `date` and `textarea` too (M3.c1 fields had native
+  styling). `.library-page` and `.import-review` use `grid-template-columns: minmax(0, 1fr)` so a wide table
+  scrolls in its `.table-wrap` instead of widening the page.
+
+## D-091 — Sheet visibility and search (M3.c3, owner's decisions)
+
+- The library search (`q`) stays on terms only: sheet content is not searched. The sheet-state filter covers the
+  need for now; a content search would be a backend change to plan later. Closes the open point of D-085.
+- On a term's page the usage sheet and its exercises are behind a "Show the usage sheet" button, closed on every
+  visit. Before discovery (`draft`, `triage`, `queued`) a warning says the sheet gives away module B's answer.
+  Nothing is fetched until the user opens it.
+
+## D-092 — Sheet editor and stale versions (M3.c3)
+
+- The editor works on a draft with every text as a string (`sheetForm.ts`); saving trims, turns empty text into
+  `null`, drops rows with an empty required field and sends `schema_version: 1` only with the backend's fields
+  (`extra="forbid"`). The client checks the one content rule (a simple definition or a French translation)
+  before sending; the backend stays the judge.
+- The editor keeps the version it was opened from and sends it as `base_enrichment_id`. On 409 `sheet_changed`
+  the edits stay on screen; "Load the latest version" replaces them only after a confirmation. There is no
+  automatic merge.
+- A term with no sheet gets the same editor with `base_enrichment_id: null` (manual entry, degraded mode).
+
+## D-093 — Regeneration consent (M3.c3)
+
+- "Generate a new version" always sends `confirm_overwrite: false` first. The backend answers 409
+  `sheet_edited` before any AI call when the sheet was edited; the page then asks for consent in an inline
+  alertdialog, and only "Replace my version" resends with `true`. Refusing sends nothing. A failed regeneration
+  (`failed`, `unavailable`) says the existing sheet is kept.
+- A sheet to complete (`needs_completion`) offers "Try the AI again" through `POST /enrichment/run {item_ids}`
+  instead of regeneration, since it was never the user's.
+
+## D-094 — Exercise template editing (M3.c3)
+
+- One form per known type (fields of `app/domain/exercises.py`), lists typed one entry per line; the whole
+  content is sent and validated by the backend (422 `invalid_exercise` shows each field with the backend's English
+  message, like `invalid_request`). An unknown type is shown read-only. Answers are visible here: editing is not
+  a drill, and the panel is behind the sheet's reveal button anyway.
+
+## D-095 — Batch enrichment loop (M3.c3)
+
+- The page calls `POST /enrichment/run` (one batch of at most 5 terms) again with the same scope while terms
+  remain. It stops on: nothing left (`remaining` 0 or an empty batch), any AI failure (`unavailable` or a
+  `reason`, shown with the degraded explanation and links for manual entry), a batch that wrote nothing (avoids a
+  loop when every term changed meanwhile), an error (409 `enrichment_running` included), or the user's "Stop
+  after this batch" (a flag: the running batch always finishes on the server). Leaving the page sets the same
+  flag. No client timeout: a batch may take minutes when it is split.
+- `aiReasons.*` holds the gateway's reasons worded for any AI task; `settings.test.reasons.*` keeps the
+  provider-test wording.
+
+## D-096 — List extension in the decks page (M3.c3)
+
+- "Extend this list" sits on each deck row (number 10 to 30, default 20 as `DEFAULT_COUNT`); the created terms
+  wait in triage and "Sort them now" opens the existing triage page filtered on the deck (`/triage?deck=ID`), so
+  the I know it / not sure / to learn choice and D-084 apply unchanged. Possible duplicates link to the existing
+  terms and to the duplicates page.
+
+## D-097 — Injectable clock for API routes (fix, after M3.c3)
+
+- `GET /api/ai/usage` reads the current time through the `get_now` FastAPI dependency (`app/api/clock.py`,
+  `NowDep`) instead of `datetime.now(UTC)`. Behaviour for the user is unchanged (`get_now` returns `utcnow()`).
+- The API test fixture overrides `get_now` with the same `FakeClock` the gateway uses, so a call logged by the
+  gateway and the route's "today" always agree; the test passed only on 2026-10-16 before.
+- Other routes still call `utcnow()` directly; a route whose result depends on "today" in a test should use
+  `NowDep` rather than freezing time globally.
+
+## D-098 — Fixes from the pre-merge verification of M2.c2 to M3.c3
+
+- **Source filter on `/library`** (SPEC module A lists deck, field, source, type and status filters; the API had
+  `source_id` since M3.a but the page did not offer it). There is no `/api/sources` route: the choices are the
+  sources of the decks (`sourcesOf` in `api/library.ts`), once each, sorted by title. A source no deck uses
+  cannot hold terms (a term reaches a source only through a deck, D-073), so nothing is missing from the list.
+  No backend change.
+- **Home page**: the "Import a word list (coming soon)" text was left from M0; it now links to the import and
+  the library until today's session arrives in M4.
+- **i18n**: the main navigation's `aria-label` was hard-coded ("Main"); it is now `nav.label`.
+- Merged as one pull request (the tip, `feat/m3c3-sheets`) rather than one per milestone: the intermediate
+  branches contain the date-dependent test fixed by D-097, so their own checks fail on any day but 2026-10-16.

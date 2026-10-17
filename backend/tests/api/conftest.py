@@ -25,6 +25,7 @@ from app.ai.providers import Provider
 from app.ai.providers.gemini import GeminiProvider
 from app.ai.providers.groq import GroqProvider
 from app.ai.providers.ollama import OllamaProvider
+from app.api.clock import get_now
 from app.config import Settings, get_settings
 from app.db.engine import get_engine, get_session
 from app.main import create_app
@@ -121,6 +122,7 @@ def env(
     app.dependency_overrides[get_engine] = lambda: engine
     app.dependency_overrides[get_session] = session_override
     app.dependency_overrides[get_gateway] = lambda: gateway
+    app.dependency_overrides[get_now] = clock.now  # routes and gateway share one day
     client = TestClient(app, base_url=f"http://127.0.0.1:{get_settings().port}")
     yield ApiEnv(client, gateway, engine, isolated_settings, servers, clock)
     client.close()

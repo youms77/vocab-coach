@@ -32,12 +32,20 @@ class EventType(StrEnum):
     DECK_STATUS_CHANGED = "deck.status_changed"
     DECK_REORDERED = "deck.reordered"
     DECK_ITEM_ADDED = "deck.item_added"
+    DECK_UPDATED = "deck.updated"
+    DECK_DELETED = "deck.deleted"
+    DECK_ITEM_REMOVED = "deck.item_removed"
     ITEM_CREATED = "item.created"
     ITEM_STATUS_CHANGED = "item.status_changed"
     ITEM_TRIAGED = "item.triaged"
     ITEM_MERGED = "item.merged"
+    ITEM_EDITED = "item.edited"
+    ITEM_DELETED = "item.deleted"
+    IMPORT_COMPLETED = "import.completed"
     ENRICHMENT_GENERATED = "enrichment.generated"
     ENRICHMENT_EDITED = "enrichment.edited"
+    EXERCISE_TEMPLATE_EDITED = "exercise_template.edited"
+    LIST_EXTENSION_GENERATED = "list_extension.generated"
     DISCOVERY_COMPLETED = "discovery.completed"
     CARD_CREATED = "card.created"
     CARD_REVIEWED = "card.reviewed"
@@ -121,6 +129,54 @@ class DeckItemAdded(Event):
     lexical_item_id: Id
 
 
+class DeckItemRemoved(Event):
+    """A term left a deck: a list-extension suggestion triaged as known (D-084)."""
+
+    event_type = EventType.DECK_ITEM_REMOVED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    deck_id: Id
+    lexical_item_id: Id
+
+
+class DeckUpdated(Event):
+    """Deck fields edited by the user (names only, never the values)."""
+
+    event_type = EventType.DECK_UPDATED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    deck_id: Id
+    fields: Annotated[list[str], Field(min_length=1)]
+
+
+class DeckDeleted(Event):
+    """A deck with no history was deleted, with the terms that belonged to no other deck."""
+
+    event_type = EventType.DECK_DELETED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    deck_id: Id
+    deleted_item_ids: list[Id]
+
+
+class ImportCompleted(Event):
+    """A Markdown list was imported into `deck_id` (counts over the rows the user validated)."""
+
+    event_type = EventType.IMPORT_COMPLETED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    deck_id: Id
+    lines_read: Annotated[int, Field(ge=0)]
+    imported: Annotated[int, Field(ge=0)]  # new terms created
+    attached: Annotated[int, Field(ge=0)]  # existing terms linked to the deck
+    skipped: Annotated[int, Field(ge=0)]  # excluded, `skip`, or already in the deck
+    ambiguous: Annotated[int, Field(ge=0)]  # ambiguous in the file (imported only if confirmed)
+
+
 # --- Items -------------------------------------------------------------------------------------
 
 
@@ -164,6 +220,27 @@ class ItemMerged(Event):
     merged_item_id: Id
 
 
+class ItemEdited(Event):
+    """Term fields edited by the user (names only, never the values)."""
+
+    event_type = EventType.ITEM_EDITED
+    entity_type = "lexical_item"
+    entity_id_field = "lexical_item_id"
+
+    lexical_item_id: Id
+    fields: Annotated[list[str], Field(min_length=1)]
+
+
+class ItemDeleted(Event):
+    """A term with no history was deleted (terms with history are archived instead)."""
+
+    event_type = EventType.ITEM_DELETED
+    entity_type = "lexical_item"
+    entity_id_field = "lexical_item_id"
+
+    lexical_item_id: Id
+
+
 # --- Usage sheets and discovery ----------------------------------------------------------------
 
 
@@ -178,15 +255,45 @@ class EnrichmentGenerated(Event):
     provider: str | None = None
     model: str | None = None
     prompt_version: str | None = None
+    # The current sheet this one replaced (a regeneration), if any.
+    replaced_enrichment_id: Id | None = None
 
 
 class EnrichmentEdited(Event):
+    """A sheet saved by the user: an edit of `base_enrichment_id`, or typed by hand (None)."""
+
     event_type = EventType.ENRICHMENT_EDITED
     entity_type = "enrichment"
     entity_id_field = "enrichment_id"
 
     enrichment_id: Id
     lexical_item_id: Id
+    base_enrichment_id: Id | None = None
+
+
+class ExerciseTemplateEdited(Event):
+    event_type = EventType.EXERCISE_TEMPLATE_EDITED
+    entity_type = "exercise_template"
+    entity_id_field = "exercise_template_id"
+
+    exercise_template_id: Id
+    lexical_item_id: Id
+    exercise_type: str
+
+
+class ListExtensionGenerated(Event):
+    """Suggestions of the AI for a deck, after duplicates were dropped (counts only, no text)."""
+
+    event_type = EventType.LIST_EXTENSION_GENERATED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    deck_id: Id
+    requested: Annotated[int, Field(ge=1)]
+    suggested: Annotated[int, Field(ge=0)]  # in the AI's answer
+    created: Annotated[int, Field(ge=0)]  # new terms waiting for triage
+    dropped_existing: Annotated[int, Field(ge=0)]  # exact duplicates of the library
+    dropped_in_batch: Annotated[int, Field(ge=0)]  # repeated in the answer, or beyond `requested`
 
 
 class DiscoveryCompleted(Event):

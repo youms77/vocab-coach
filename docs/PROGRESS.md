@@ -4,11 +4,464 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M2.c1 — AI and settings API, backend only (2026-10-16), branch
-  `feat/m2c1-ai-api`, cut from `main` (M2.a, M2.b1, M2.b2 and M1.a to M1.c are merged).
-- **Next milestone**: **M2.c2** — the settings page and the "test connection" button (frontend), on top of the
-  API reference below.
-- The owner has not yet run anything against the real services: see "Owner's manual scenario" below.
+- **Last milestone completed**: M3.c3 — usage sheets, exercises, batch enrichment and list extension pages
+  (frontend). **M3 is complete** (module A). M1.a to M3.c3 are merged in `main`: the stacked branches
+  `feat/m2c2-settings-page`, `feat/m3a-library-import`, `feat/m3b-enrichment`, `feat/m3c1-library`,
+  `feat/m3c2-import-triage` and `feat/m3c3-sheets` went in together through the pull request of the tip, after
+  the pre-merge verification below.
+- **Next milestone**: **M4** — discovery and reviews (modules B and C, today's session). Start its branch from
+  `main`.
+- The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
+  M3.c3 below.
+- Fixed on top of M3.c3: `test_usage_lists_every_day_today_first` no longer depends on the date
+  (`GET /api/ai/usage` takes its clock from a dependency, D-097). See M3.c3 "Known issues".
+
+## Pre-merge verification of M2.c2 to M3.c3 (2026-10-17)
+
+The six stacked branches had never been checked together on a clean state. Done on the tip
+(`feat/m3c3-sheets`) before merging.
+
+### Checked (Windows 11)
+
+- `npm run check`: ruff check, ruff format --check, pytest 1190 passed (5 deselected: live tests), tsc, oxlint,
+  vitest 93 passed before the fixes, 95 after. `npm --prefix frontend run build` passes (same "chunk larger than
+  500 kB" warning).
+- CI steps run locally: `alembic upgrade head` then `alembic check` on an empty file ("No new upgrade operations
+  detected"); full demo seed `--anchor 2026-09-01` on an empty data folder, then `--demo plan today`;
+  `scripts/check-env.ps1`; no tracked data, `.env`, database or audio file; `.ps1` files are ASCII; `en.json`
+  and `fr.json` have the same 567 keys (570 after the fixes) and no empty value.
+- No migration since M1.a: the owner's database (revision `0001`) needs no upgrade for this merge.
+- Invariants read in the code: no AI SDK or HTTP client outside `app/ai/`; enrichment and extension call the
+  gateway outside any write transaction and write in one short transaction afterwards (D-038).
+- **First run on an empty database** in the in-app browser (never done before; earlier checks used the demo
+  database), French UI: home, library empty state, quick add (creates "Quick adds"), import of the SPEC sample
+  with a header (7 lines, a duplicate of the quick-added term attached, new deck with its source), triage list,
+  term page with the sheet hidden and the pre-discovery warning, decks, enrichment page without a key,
+  duplicates, settings. No console error.
+
+### Fixed (D-098)
+
+- `/library` had no **source** filter although SPEC module A requires one (the API supported `source_id`).
+- The home page still said importing was "coming soon"; it now links to the import and the library.
+- The main navigation's `aria-label` was hard-coded English.
+
+### Notes
+
+- Duplicates inside one imported file are caught on the normalised form only, not on the lemma: `outlier` and
+  `outliers` in the same file are both imported, then shown by `/duplicates`.
+- The quick-add deck menu shows "No deck (Quick adds)" and, once it exists, the "Quick adds" deck itself; both
+  lead to the same deck.
+
+## M3.c3 — Usage sheets, exercises, batch enrichment, list extension (frontend)
+
+Branch `feat/m3c3-sheets`, stacked on M3.c2. No backend change, no migration, no new dependency, SPEC.md
+unchanged. Owner decisions (2026-10-17): library search stays on terms only; the sheet is hidden until opened.
+
+### Done
+
+- **Term page** (`/library/items/:id`, `SheetPanel.tsx`, `SheetView.tsx`, `SheetEditor.tsx`, `sheetForm.ts`,
+  D-091 to D-093): a "Usage sheet and exercises" card, closed by default, with a warning before discovery
+  (`draft`, `triage`, `queued`). Opened: the sheet in SPEC order, its state, provenance (provider, model, prompt
+  version, date), "Edit the sheet" (repeatable rows for every list, register and example kind as selects), saved
+  with `base_enrichment_id`; a 409 `sheet_changed` keeps the edits on screen and offers "Load the latest version"
+  behind a confirmation. No sheet: "Write the sheet by hand" (manual entry, degraded mode) or "Generate with AI".
+  A sheet to complete: "Complete the sheet" or "Try the AI again". "Generate a new version": a 409 `sheet_edited`
+  opens a consent dialog; only "Replace my version" resends with `confirm_overwrite: true`. AI failures say the
+  sheet is kept, with the reason. Versions: list (newest first, by you / by the AI, current), any version opens
+  read-only.
+- **Exercises** (`ExercisesPanel.tsx`, D-094): one block per template (type, direction, "edited by you"), a form
+  per type (gap-fill, typed recall, recognition / listening, sentence production, spoken answer; lists one entry
+  per line), the gap count hint, the whole content sent by `PATCH`; a 422 `invalid_exercise` keeps the form and
+  lists each refused field with the backend's English message (`FieldErrors.tsx`, also used for `invalid_request`).
+- **`/enrichment`** (`features/enrichment/EnrichmentPage.tsx`, D-095): deck filter, "also include the sheets to
+  complete", waiting count and list (links to each term for manual entry); "Generate the sheets" loops on
+  `POST /enrichment/run` until nothing is left, and stops on an AI failure (degraded card with the reason and the
+  settings link), on `enrichment_running`, on a batch that wrote nothing, or after the current batch when the user
+  clicks "Stop after this batch". Progress counts. Linked from the Library page with the waiting count.
+- **List extension** (`ExtensionPanel.tsx`, D-096): "Extend this list" on each deck of `/library/decks`, number
+  10 to 30 (default 20); result: new terms, dropped counts, possible duplicates with links, and "Sort them now"
+  → `/triage?deck=ID`; an AI failure or `not_enough_context` is explained, the deck unchanged.
+- **API layer** `api/enrichment.ts` (types mirroring `usage_sheet.py`, `exercises.py`, `RunReport`, hooks; query
+  keys under `items` so every library write refreshes them); `useInvalidateLibrary` exported.
+- **i18n** (EN + FR, same keys): `sheet.*`, `exercises.*`, `enrichment.*`, `extension.*`, `aiReasons.*` (gateway
+  reasons), 8 more error codes in `KNOWN_CODES` (`enrichment_running`, `sheet_edited`, `sheet_changed`,
+  `sheet_not_found`, `exercise_not_found`, `item_archived`, `invalid_exercise`, `not_enough_context`).
+- **CSS**: badge, sheet view, editor rows, versions, exercises, field errors (tokens only, dark mode included).
+- **Tests** (22 new, 93 in total): `SheetPanel.test.tsx` (9: hidden until opened with the warning and no request,
+  edit saved with `base_enrichment_id`, `sheet_changed` keeps edits and reloads on confirmation, regeneration only
+  after consent, manual entry with the meaning check, generation failure, versions, exercise edit, 422
+  `invalid_exercise`), `EnrichmentPage.test.tsx` (6: loop to the end, degraded stop, running lock, stop after the
+  batch, include-incomplete query and French, library link), `ExtensionPanel.test.tsx` (4: created + triage link,
+  AI failure, count bounds, `not_enough_context`), `sheetForm.test.ts` (3); shared fixtures in `test/fixtures.ts`.
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm --prefix frontend run check`: tsc, oxlint, vitest 93 passed. `npm --prefix frontend run build` passes (same
+  "chunk larger than 500 kB" warning). Backend: ruff check and ruff format pass; pytest **1 failed**, 1189 passed
+  (the pre-existing date-dependent test below; no backend file changed).
+- A test was checked to fail when the behaviour breaks (regeneration sent with `confirm_overwrite: true` first).
+- **In the in-app browser, on the demo database** (no AI key, French UI): term "be swamped" (queued) shows the
+  warning; "Generate with AI" → "no AI provider is set up"; a sheet written by hand saved (state "edited", the
+  typed-recall exercise appeared, D-082); "Generate a new version" → real 409 → consent → "Your sheet is kept";
+  an exercise saved with an empty answer → 422 listing `answer`; a second edit → two versions listed.
+  `/enrichment` → degraded card (103 terms waiting). Extension → "No suggestion: no AI provider is set up".
+  Dark mode at 375 px: `/enrichment`, `/library/decks` with the extension form, the sheet editor; no horizontal
+  scroll.
+- **Not checked in the browser**: the AI happy paths (no key in the demo; covered by mocked tests), the 409
+  `sheet_changed` and `enrichment_running` paths (covered by tests).
+
+### Owner's manual scenario (with a key, about 5 minutes)
+
+1. Start on your own database with a provider set up; open "Generate usage sheets", pick a small deck, run it.
+2. Open a term: show the sheet, check the examples and exercises; edit a field and save (version 2, "edited").
+3. "Generate a new version": the consent dialog appears; accept, check version 3 and that version 2 is kept.
+4. On "Decks", "Extend this list" with 10 suggestions, then "Sort them now".
+
+### Left / notes
+
+- No "restore this version" button (no such route); copy from an old version into the editor by hand.
+- The terms that got a sheet to complete are not named after a batch: tick "also include the sheets to complete"
+  to list them.
+- A long batch keeps the request open (up to a few minutes on splits); the Vite proxy has no timeout set.
+
+### Known issues
+
+- **Pre-existing (M2.c1), not caused by M3.c3**: `test_usage_lists_every_day_today_first` logs its call with the
+  fake clock (2026-10-16 12:00 UTC) but `GET /api/ai/usage` reads the real clock (`datetime.now(UTC)` in
+  `app/api/ai.py`), so the call lands on "today" only on 2026-10-16. Fix in its own change (inject the clock into
+  the route, or freeze it in the test); left out of this frontend milestone.
+  **Fixed (2026-10-17)**: the route takes "now" from the `get_now` dependency (`app/api/clock.py`), which the
+  API test fixture overrides with the gateway's fake clock (D-097). Full pytest passes on any date.
+
+## M3.c2 — Import, triage and duplicates pages (frontend)
+
+Branch `feat/m3c2-import-triage`, stacked on M3.c1. No backend change, no migration, no new dependency, SPEC.md
+unchanged.
+
+### Done
+
+- **`/import`** (`features/library/ImportPage.tsx`, `ImportRows.tsx`, `importReview.ts`, D-086, D-087): paste or
+  pick a `.md` / `.txt` file (read in the browser, 300 000-character limit checked before sending); "Preview"
+  (`POST /api/import/preview`, nothing written) shows the detected header, the counts, file-level problems with
+  their line, then one row per line: import box, editable term, sentence, type, translated problems, duplicate
+  choice (attach to a candidate / add as new / skip, prefilled from `default_on_duplicate`). Ambiguous rows are
+  unchecked and marked with ⚠ text, a bar and a tint; confirmable ones (`looks_like_definition`,
+  `looks_like_sentence`) offer "Import anyway" (`confirmed: true`), the others say "correct the term"; a
+  `looks_like_definition` suggestion is one click ("Use “nonresponse”"). Target: new deck (named from the header)
+  or existing deck; intake "wait for triage" (default) or "queue". "Import" (`POST /api/import/commit`) then a
+  summary with links to the triage of that deck and to the deck. The text is kept after an error; a
+  `row_rejected` names its line.
+- **`/triage`** (`TriagePage.tsx`, D-088): `GET /api/triage` with a deck filter (`?deck=ID`), one card per term
+  with its sentence and decks (never a usage sheet), three radio choices, keys 1 / 2 / 3 for the focused card or
+  the next undecided one (ignored inside text fields and selects), one `POST /api/triage` for every choice made;
+  a 409 `not_in_triage` saves nothing, reloads the list and keeps the other choices; counts shown after saving.
+- **`/duplicates`** (`DuplicatesPage.tsx`, D-089): groups from `GET /api/duplicates`, the term to keep chosen by
+  radio (default: the one with review cards), "Merge into …" per other term through `useMergeItem`, result
+  message (inversion explained), `merge_conflict` explained, empty state.
+- **Library page**: links "Import a list", "Sort new terms (n to sort)", "Duplicates", "Manage decks".
+- **API layer**: `api/import.ts`, `api/triage.ts`, `api/duplicates.ts`; library writes now also refresh the triage
+  list (`triageKey`).
+- **i18n** (EN + FR, same keys): `import.*` with one message per `ProblemCode` (22) and per severity (4),
+  `triage.*`, `duplicates.*`; six more error codes in `KNOWN_CODES` (`invalid_term`, `row_rejected`,
+  `deck_name_required`, `invalid_attach_target`, `merge_same_item`, `duplicate_decision`).
+- **CSS fixes found in the browser** (D-090), also affecting M3.c1: text inputs without a `type`, search and date
+  inputs and textareas were unstyled; a wide table widened the whole page instead of scrolling in `.table-wrap`.
+- **Tests** (21 new, 71 in total): `ImportPage.test.tsx` (11: preview with header, ambiguous rows left out then
+  confirmed, duplicate choice sent as chosen, default attach, suggestion, existing deck, file read, file too large,
+  422, `row_rejected` line, rejected file, French), `TriagePage.test.tsx` (6: three decisions in one call, keyboard
+  shortcuts and typing guard, 409 `not_in_triage`, deck filter, library count, French),
+  `DuplicatesPage.test.tsx` (4: merge, keep the other term with inversion, `merge_conflict`, empty).
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm run check`: ruff check, ruff format --check, pytest 1190 passed (5 deselected), tsc, oxlint, vitest 71
+  passed. `npm --prefix frontend run build` passes (with Vite's "chunk larger than 500 kB" warning).
+- A test was checked to fail when the behaviour breaks (ambiguous row sent without `confirmed`).
+- **In the in-app browser, on the demo database** (`start.ps1 -Demo`), French UI:
+  - `import-with-header.md` (pasted): header, "12 lines read · 9 ready · 2 ambiguous · 2 with a possible
+    duplicate", L16 / L18 ambiguous, `shed light on` and `as you can see on this slide` found; L18 confirmed →
+    "8 new terms, 2 existing terms added, 2 lines skipped" in a new deck.
+  - `import-without-header.md` in **dark mode**: no header → the deck name is required, L11 (nested) and L13
+    (`a | b | c`) must be corrected, "Use “bias”" applied, queued intake → 4 new, 3 attached.
+  - Triage: 12 waiting, keys 3 / 1 / 2, saved → counts, 9 left. Duplicates: `outlier` / `outliers` (created with a
+    quick add) merged, the group disappeared.
+  - M3.c1 pages checked for the first time: `/library`, `/library/items/1`, `/library/decks` (input styling fixed).
+  - No horizontal page scroll at 375 px on the six pages.
+- **Not checked in the browser**: picking a file (the in-app browser cannot choose local files; covered by a
+  Vitest test), the English UI and the 409 paths (covered by the tests). Screenshots were partial because the
+  browser pane was hidden; text and layout were also checked through the page text and JavaScript.
+
+### Left / notes
+
+- **M3.c3**: usage sheet view / edit / versions, exercises, batch enrichment, list extension (with its triage).
+- The import table scrolls sideways on narrow screens (seven columns); acceptable, could become cards later.
+- A corrected term loses the preview's duplicate choice: the backend applies its default (attach to an exact
+  match, else new); preview again to see the new duplicates.
+- The triage page loads every waiting term at once (no paging); fine with the 1 000-line import limit.
+
+### Known issues
+
+- None known.
+
+## M3.c1 — Library pages (frontend) ✅
+
+Branch `feat/m3c1-library`, stacked on M3.b. M3.c is cut in three (plan approved): **c1** library (this part),
+**c2** import / triage / duplicates, **c3** usage sheets, exercises, batch enrichment, list extension.
+No backend change, no migration, no new dependency, SPEC.md unchanged.
+
+### Done
+
+- **Pages** (`frontend/src/features/library/`): `/library` (search, filters deck / field / type / status /
+  sheet state, sort, paging of 50, archived toggle, `?deck=ID` preset, quick add with the duplicate choice
+  attach / add as new), `/library/items/:id` (edit, archive / restore, delete with confirmation, similar terms
+  with merge, deck links), `/library/decks` (create, rename, delete with confirmation).
+- **API layer** `api/library.ts` (hooks, types, query building); `apiSend` now accepts 204 answers.
+- **Errors**: the 10 library codes (D-063) have messages in `errors.*` (EN + FR).
+- **i18n**: `library.*` keys in `en.json` and `fr.json`; nav link "Library".
+- **Tests**: `LibraryPage.test.tsx`, 15 tests (list, filters sent to the API, deck preset, quick add, duplicate
+  flow, error, French, item edit / delete / history refusal / merge conflict / archive, decks create / rename /
+  history refusal).
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm run check`: ruff, pytest 1190 passed, tsc, oxlint, vitest 50 passed; `vite build` OK.
+- **Not done** in M3.c1: no visual check in a browser; done in M3.c2 (input styling and table overflow fixed).
+
+### Left / notes
+
+- Unarchive offers `queued` only (the API also allows `learning` when cards exist).
+- Deck status, queue order and deadlines are M4. Search inside sheet content: still undecided (M3.b note).
+- **c2**: import page (paste or file, preview, per-row duplicate choice, commit), triage, duplicates.
+  **c3**: sheet view / edit / versions, exercises, batch enrichment, list extension.
+
+### Known issues
+
+- None known.
+
+## M3.b — Usage sheets and list extension (backend) ✅
+
+Branch `feat/m3b-enrichment`, stacked on M3.a. No migration, no frontend change, SPEC.md unchanged.
+
+### Done
+
+- **Gateway** (D-079, D-080): `validation_context` and a per-call `max_output_tokens`.
+- **Prompts and schemas**: `enrichment.v1`, `list_extension.v1`; business rules in `app/domain/exercises.py` and
+  `usage_sheet.py`.
+- **Services**: `enrichment.py` (batches, split, skeleton sheets, lock, editing, versions, exercises; D-081 to
+  D-083), `extension.py` (D-084); `sheet_status` on items and a `sheet` filter on `GET /api/items`.
+- **API** (`app/api/enrichment.py`): `GET /enrichment/pending`, `POST /enrichment/run`,
+  `GET|PUT /items/{id}/sheet`, `GET /items/{id}/sheet/versions`, `POST /items/{id}/sheet/regenerate`,
+  `GET /items/{id}/exercises`, `PATCH /exercises/{id}`, `POST /decks/{id}/extension`. New error codes:
+  `enrichment_running`, `sheet_edited`, `sheet_changed`, `sheet_not_found`, `exercise_not_found`, `item_archived`,
+  `invalid_exercise`. AI failures are 200 with `status` / `reason`.
+- **CLI**: `library enrich [--deck-id] [--item-id N] [--include-incomplete] [--dry-run]`,
+  `library extend <deck_id> [--count 10-30]`; `ai usage --demo` now allowed.
+- **Tests**: service, schema, API, gateway-context tests, CLI tests (`tests/ai/test_cli_enrichment.py`) and a live
+  test (`tests/live/test_live_enrichment.py`, skipped unless `VOCAB_RUN_LIVE=1`).
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm run check` passes: ruff, pytest 1190 passed (5 deselected), tsc, oxlint, vitest 35 passed; `alembic check` clean.
+- The live enrichment test was **not run** (no key used in this session).
+
+### Left / notes
+
+- Search inside sheet content (SPEC module A) is not implemented: only the `sheet` status filter exists. Decide
+  in M3.c whether `q` should also search sheet text.
+- Token budgets (D-080) and batch size 5 are estimates: tune after the owner's first real calls.
+- **M3.c**: pages for library, import, triage, duplicates, sheet review/edit, exercises, i18n of the new codes.
+
+### Known issues
+
+- None known.
+
+## M3.a — Markdown import, library, duplicates, intake triage (backend) ✅
+
+M3 is cut in three: **M3.a** (this part: backend, no AI call), **M3.b** (usage sheets and list extension, AI),
+**M3.c** (interface). Branch `feat/m3a-library-import`, **stacked on `feat/m2c2-settings-page`** (the M2.c2 session
+worked in the same folder and its first commit landed on this branch; with the owner's approval the M3.a commits were
+replayed on top of M2.c2's two commits). Merge the M2.c2 PR first, then this one.
+
+### Done
+
+- **Parser** (`app/domain/markdown_import.py`, D-071): header, bullets, checkboxes, wrappers, `|`, ambiguous lines
+  reported and not included, warnings, limits, type guess; never raises on user input.
+- **Normalisation and lemma** (`app/domain/normalize.py`, D-072): normalised form, cautious single-word stem with
+  exceptions, `exact` / `possible` matching, term-in-sentence check. No new dependency.
+- **Services** (D-073 to D-077): `library.py` (sources, decks, terms, deck links, search, quick add, deletion
+  rules), `importing.py` (read-only preview, atomic commit of the validated rows), `triage.py` (all or nothing,
+  `unsure` → queued), `duplicates.py` (groups, merge with inversion and `merge_conflict`).
+- **Events** (D-078): `deck.updated`, `deck.deleted`, `item.edited`, `item.deleted`, `import.completed`.
+- **API** (`app/api/library.py`): 16 routes, reference below. Library errors use the D-063 format.
+- **CLI**: `python -m app [--demo] library import <file> [--deck-id N] [--no-triage] [--commit]`.
+- **Examples**: `content/examples/import-with-header.md`, `import-without-header.md` (fictional).
+- **Demo**: decks, terms, links and triage go through the services; only `lexical_item.normalized_form` / `lemma`
+  differ from before (D-078).
+- **No migration, no frontend change, SPEC.md unchanged.**
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes: ruff check, ruff format --check, pytest **1072 passed, 4 deselected** (856 on `main` before
+  M3.a), tsc, oxlint, vitest 35 passed (M2.c2's tests included). `alembic check`: "No new upgrade operations
+  detected".
+- `demo seed --reset` rebuilt the demo database without error (5 decks, 113 terms, 2 068 events).
+- **Tests cover**: the parser (table-driven: every bullet style, checkbox, wrappers, heading, blank lines, `|`
+  repeated, `term = translation`, sentence-like line, sub-item, invalid YAML, unknown key, past and invalid deadlines,
+  empty file, header only, BOM + CRLF, old Mac endings, size and line limits, odd inputs); both example files give
+  exactly the expected problems at the expected lines (LF and CRLF + BOM); normalisation and lemma (news, series,
+  data, analysis... left alone); services (atomic import with an injected failure, attach / new / skip, term already
+  in the deck, triage or queued intake, all-or-nothing triage with `unsure`, merge with inversion and refusal,
+  `item_has_history`, `deck_has_history`, every new event validated); every API route with filters, paging, 409
+  `duplicate_term`, 422 without the received value, 415 for a non-JSON body (multipart included); the CLI (preview
+  writes nothing, `--commit`, exit codes 0 / 1 / 2, `--demo`).
+- **Manual scenario on the demo database**: the preview printed the header, 12 lines, two ambiguous lines (L16
+  definition, L18 sentence), one in-file duplicate (L17), one `term_not_in_sentence` (L19) and two exact duplicates
+  found in the demo decks (`shed light on`, `as you can see on this slide`); nothing written. With `--commit`: "7 new
+  (waiting for triage), 2 existing added, 3 skipped (2 ambiguous left out)". Through the API (started with `--demo`):
+  `GET /items?deck_id=6` (9 terms), `POST /triage` on two terms (`{"known":1,"unsure":0,"learn":1}`), 5 left in
+  `GET /triage`, `GET /duplicates` (no group in the demo), a `text/plain` POST → 415, a foreign `Origin` → 403.
+
+### API reference for M3.c
+
+Every error is `{"detail": {"code", "message", ...}}` (D-063); writes need `Content-Type: application/json`.
+Ids are integers. `DeckRef = {id, name}`. `Candidate = {id, term, normalized_form, status, match: "exact"|"possible",
+decks: [DeckRef]}`. `Problem = {line: int|null, severity: "info"|"warning"|"ambiguous"|"error", code, message,
+suggestion: object|null}`.
+
+| Route | Request | Success |
+|---|---|---|
+| `POST /api/import/preview` | `{text (≤ 300 000 chars), deck_id?}` | 200 `{header: {deck, domain, source, context, deadline}, rows: [Row], problems: [Problem], rejected, lines_read, importable, ambiguous, with_duplicates}`; `Row = {line, raw, term, sentence, item_type, normalized_form, include, ambiguous, problems: [Problem], duplicates: [Candidate], in_target_deck, default_on_duplicate: "attach"|"new"|null}` |
+| `POST /api/import/commit` | `{header, rows: [{line?, term, sentence?, item_type?, include=true, confirmed=false, on_duplicate?: "attach"|"new"|"skip", attach_to?}] (≤ 1000), target: {deck_id?} or {new_deck_name?}, intake: "triage"|"queued" (default triage)}` | 200 `{deck_id, created_deck, lines_read, imported, attached, skipped, ambiguous, item_ids}` |
+| `GET /api/items` | `q, deck_id, domain, source_id, item_type, status (repeatable), include_archived=false, sort: created_at\|term\|updated_at\|status\|status_changed_at\|id, order: asc\|desc, limit 1–200 (50), offset` | 200 `{total, items: [Item]}`; `Item = {id, term, normalized_form, lemma, item_type, part_of_speech, origin_sentence, notes, status, status_changed_at, discovered_at, created_at, updated_at, decks: [DeckRef]}` |
+| `POST /api/items` (quick add) | `{term, sentence?, deck_id?, item_type?, on_duplicate?: "attach"|"new", attach_to?}` | 201 `{item: Item, deck_id, attached, duplicates: [Candidate]}`; no deck → "Quick adds"; new terms are `queued` |
+| `GET /api/items/{id}` | – | 200 `Item + {deck_links: [{deck_id, deck_name, position, context_sentence, added_at}], has_history, duplicates}` |
+| `PATCH /api/items/{id}` | any of `{term, origin_sentence, item_type, part_of_speech, notes}` | 200 same as GET (duplicates of the new spelling, never blocking) |
+| `DELETE /api/items/{id}` | – | 204 |
+| `POST /api/items/{id}/status` | `{to}` | 200 `Item`; manual D-025 transitions; from `archived`, `to` must be `queued` (no cards) or `learning` (cards) |
+| `POST /api/items/{id}/merge` | `{into}` | 200 `{kept_id, removed_id, inverted}` |
+| `GET /api/decks` | – | 200 `[Deck]`; `Deck = {id, name, description, domain, kind, status, deadline, priority, queue_position, source: {id, title}\|null, created_at, updated_at, item_count, items_by_status: {status: n}}` |
+| `POST /api/decks` | `{name, description?, domain?, deadline?, source_id?}` | 201 `Deck` (`queued`, end of the queue) |
+| `GET /api/decks/{id}` | – | 200 `Deck` |
+| `PATCH /api/decks/{id}` | any of `{name, description, domain, deadline, priority}` | 200 `Deck` (status changes are M4) |
+| `DELETE /api/decks/{id}` | – | 200 `{deck_id, deleted_item_ids}` |
+| `GET /api/triage?deck_id=` | – | 200 `[{item_id, term, item_type, sentence, decks}]` (no usage sheet, on purpose) |
+| `POST /api/triage` | `{decisions: [{item_id, decision: "learn"|"unsure"|"known"}]}` (1–1000) | 200 `{learn, unsure, known}` counts |
+| `GET /api/duplicates` | – | 200 `[{match, key, items: [{id, term, normalized_form, status, has_cards, decks}]}]` |
+
+| Status | `code` | When |
+|---|---|---|
+| 404 | `item_not_found`, `deck_not_found`, `source_not_found` | unknown id |
+| 409 | `duplicate_term` (+ `candidates`) | quick add of a term that may exist, without `on_duplicate` |
+| 409 | `already_in_deck` | quick add `attach` to a deck that already holds the term |
+| 409 | `item_has_history` (+ `suggestion: "archive"`) | delete a term with cards, errors or productions |
+| 409 | `deck_has_history` | delete a deck whose terms started discovery |
+| 409 | `merge_conflict` (+ `item_ids`) | both terms have cards |
+| 409 | `not_in_triage` (+ `item_ids`) | a decision for a term not in triage (nothing applied) |
+| 409 | `invalid_transition` (+ `from_status`, `to_status`) | status change not allowed by D-025 |
+| 422 | `invalid_request` (+ `errors`) | wrong shape, unknown field, bad query value |
+| 422 | `invalid_term` | empty, longer than 300 characters, contains `\|`; `name` / `term` / `item_type` / `priority` set to null |
+| 422 | `row_rejected` (+ `row`, `line`, `problems`) | ambiguous row not confirmed, or invalid row |
+| 422 | `deck_name_required` | new deck without `new_deck_name` nor header `deck` |
+| 422 | `invalid_attach_target` | `attach_to` is not one of the row's duplicates |
+| 422 | `merge_same_item`, `duplicate_decision` | merge into itself, same term twice in a triage |
+| 415 | `unsupported_media_type` | write body that is not JSON (read the file in the browser, send the text) |
+| 503 | `database_unavailable` | no database file |
+
+**Problem codes** (i18n keys for M3.c): parser `too_large`, `not_utf8` (CLI), `invalid_header`,
+`invalid_header_value`, `unclosed_header`, `unknown_header_key`, `invalid_deadline`, `past_deadline`,
+`heading_ignored`, `horizontal_rule`, `multiple_separators`, `looks_like_definition`, `looks_like_sentence`,
+`nested_item`, `empty_term`, `term_too_long`, `term_not_in_sentence`, `duplicate_in_file`; preview `duplicate_exact`,
+`duplicate_possible`, `already_in_deck`, `existing_status_kept`. Suggestions: `looks_like_definition` →
+`{term, note}`, `duplicate_in_file` → `{kept_line}`, duplicates → `{item_id}`, unknown key / bad value → `{key}`.
+
+Notes for the page: a row the user corrects is sent with its new `term` (no `confirmed` needed if it is now clear);
+`confirmed: true` only works for `looks_like_definition` and `looks_like_sentence`. The commit counts every row sent
+in `lines_read`. Time stamps are UTC ISO strings.
+
+### Left / notes
+
+- **M3.b**: usage sheets (batch enrichment through the gateway, call first then write), review and editing (never
+  regenerate an edited sheet), list extension with the same triage, search in sheet content. **M3.c**: the library,
+  import (file read in the browser), triage and duplicates pages, i18n of every code above.
+- Deck pause / resume / done / reorder through the API is M4 (module D).
+- `normalize_term` strips any initial "to " (`to a large extent`); the lemma is a stem and only for single words.
+  Both only *propose* matches.
+- SQLite `lower()` is ASCII-only: `q` with accented capitals may miss the term column, though the normalised-form
+  branch still finds the term itself.
+- The M3.a branch is stacked on M2.c2: if M2.c2 changes before merging, rebase this branch on it (or on `main`
+  once M2.c2 is merged).
+
+### Known issues
+
+- None known.
+
+## M2.c2 — Settings page (frontend) ✅
+
+### Done
+
+- **`/settings`** (`frontend/src/features/settings/`, D-066), with a "Settings" link in the top bar:
+  - **one card per provider**: state (ready, not configured, turned off, key refused, paused until hh:mm), last
+    error, models, key or address form (password field, never pre-filled, cleared once saved, D-067), removal
+    confirmed inline, `credential_source: "environment"` disables the field and names the variable;
+  - **"Test connection"** per provider: disabled while running, "Testing… n s", result with model, time, tokens,
+    translated reason, HTTP status and the provider's English message in a disclosure (D-069);
+  - **provider order**: up / down buttons and an on / off checkbox per provider, one `PATCH`, a warning when every
+    provider is off;
+  - **AI usage**: today per provider and model (requests, successes, errors, tokens, average time) and the last 7
+    days (the daily counter of SPEC §7);
+  - **study settings** built from `GET /api/settings` in four groups (daily study, study day, consolidation, audio),
+    bounds checked before sending, a refused value shown on its field. `ui_language` is left out on purpose (D-066).
+- **Demo database**: keys, test and order disabled with an explanation; study settings editable.
+- **Degraded-mode banner** on every page (`components/AiBanner.tsx`), separate wording when AI is turned off.
+- **API layer**: `apiSend()` (JSON writes), `ApiError` with `code` and `detail`, hooks in `api/ai.ts` and
+  `api/settings.ts`; the 14 error codes, `last_error` kinds and test reasons have i18n keys (D-068).
+- **i18n**: every new string in `en.json` and `fr.json` (same keys, checked by the existing test).
+- **Tests** (D-070): `test/mockApi.ts` (fetch router recording calls); `SettingsPage.test.tsx` (20 tests: cards,
+  save / empty / refused / locked / unreachable, removal, environment, demo, test waiting state and single request,
+  failed test, 409, order, usage, bounds, server-refused value, no language field, French); `AiBanner.test.tsx` (4).
+  The home page test's fetch mock now returns a fresh response per request.
+- **No backend change, no migration, no new dependency, SPEC.md unchanged.** README (Configuration),
+  `docs/architecture.md`, D-066 to D-070.
+
+### Verified (Windows 11, 2026-10-16)
+
+- `npm run check` passes **on the commit, in a clean temporary worktree**: ruff check, ruff format --check (145 files),
+  pytest **856 passed, 4 deselected**, tsc, oxlint, vitest **35 passed** (11 before). `npm --prefix frontend run
+  build` passes. (In the shared checkout, `ruff check` fails on `backend/app/services/importing.py`, an
+  uncommitted M3 file that is not part of this milestone.)
+- A test was checked to fail when the behaviour breaks (not clearing the key after saving).
+- **Manual scenario** in the in-app browser, through the real Vite proxy, on a **temporary data folder and a
+  temporary `.env`** (never the repository's): banner on the home page and its link; invented Gemini key saved (the
+  temporary `.env` got the line, the field was emptied, the key was nowhere in the page's HTML, the banner went away);
+  Ollama address `http://127.0.0.1:9` (nothing listening) saved then tested → "could not be reached" with the last
+  error "network problem"; order changed (Groq first, Ollama off) and confirmed by `GET /api/ai/status`; unknown time
+  zone refused next to its field with the backend's reason; French; light theme; phone width (375 px) after a fix
+  (wide usage tables made the page scroll sideways).
+- **No real AI request** was made: the invented Gemini key was never tested.
+
+### Owner's manual scenario (about 3 minutes)
+
+1. `start.cmd`, then **Settings** in the top bar. Without keys: the banner says the app runs without AI.
+2. Paste your Gemini key, **Save**: "Saved", the field empties, the card says "Ready", the banner disappears.
+3. **Test connection**: "It works: gemini-3.5-flash-lite answered in … s" — this is M2's last acceptance criterion
+   and the first real use of the `responseFormat` field (D-056). If it fails, send the sentence and the provider
+   message.
+4. Same for Groq (and Ollama if installed: `http://127.0.0.1:11434`).
+5. AI usage shows the test calls; change the order and check `uv run python -m app ai status` (from `backend/`).
+6. `start.cmd -Demo`: the AI controls are disabled with an explanation.
+
+### Left / notes
+
+- **Still to confirm with real calls** (unchanged, D-056): `responseFormat`, upper-case `thinkingLevel`, real
+  `retryDelay` values, free tier from Cameroon.
+- Leaving the page during a test: the request continues and the status is refreshed, but the result is not shown on
+  return (D-069).
+- `ui_language` (backend setting) and the browser-stored language are not synchronised (D-066).
+- The frontend has no formatter (no Prettier in the project); code follows the existing style by hand.
+
+### Known issues
+
+- None known.
 
 ## M2.c1 — AI and settings API (backend) ✅
 
@@ -513,13 +966,11 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M2.c2 (settings page)
+## Next step: M4 (discovery and reviews)
 
-- **M2.c2**: the settings page in `frontend/src/features/settings/` (route in `src/routes.tsx`, TanStack Query hooks
-  in `api/`): provider cards (configured, available, cooldown, last error, model), key / address form, remove, order
-  (up / down and enable), "test connection" with a waiting state, today's usage, the other settings from
-  `GET /api/settings`. Every string through i18n (en / fr), error `code` -> i18n key. See the API reference in the
-  M2.c1 section. Settle first the owner's findings from the real Gemini / Groq / Ollama calls (D-056 "to confirm").
+- **M3.c** is done (c1, c2, c3); sheet-content search was decided against for now (D-091).
+- **M4**: modules B and C, today's session (module D interface), speech synthesis, keyboard shortcuts.
+- Before or alongside: the owner's real calls (M2.c2 and M3.c3 scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅
