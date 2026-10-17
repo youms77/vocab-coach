@@ -291,7 +291,13 @@ export function ReviewPlayer({
       {state.phase === 'answering' && state.error !== null && !blocked && <ErrorText error={state.error} />}
 
       {state.result !== null && (
-        <div ref={resultRef} tabIndex={-1} className="review-result" aria-label={t('review.result.label')} role="region">
+        <div
+          ref={resultRef}
+          tabIndex={-1}
+          className="review-result"
+          role="region"
+          aria-label={t('review.result.label')}
+        >
           <ReviewResult review={review} result={state.result} answer={state.answer} />
         </div>
       )}

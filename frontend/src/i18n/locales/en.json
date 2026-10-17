@@ -996,8 +996,8 @@
     },
     "saving": "Saving…",
     "saved": {
-      "today": "Saved. This card comes back today at {{time}}.",
-      "later": "Saved. Next review of this card: {{date}}.",
+      "today": "Saved: the previous card comes back today at {{time}}.",
+      "later": "Saved: the previous card comes back on {{date}}.",
       "status": "“{{term}}” is now {{status}}.",
       "statusNoTerm": "This term is now {{status}}."
     },
@@ -1016,5 +1016,55 @@
       "enter": "Enter",
       "shift": "Shift"
     }
+  },
+  "queue": {
+    "title": "Deck queue",
+    "intro": "New terms come from your decks in this order, within the daily quota. Due reviews always come first.",
+    "orderHelp": "Decks with a deadline to come are placed first, by date, and cannot be moved by hand. Move the other decks up or down to choose which one supplies new terms next.",
+    "pauseNote": "Pausing a deck or marking it done stops its new terms only: the cards already created keep being reviewed.",
+    "backHome": "Back to today",
+    "decksLink": "Manage decks",
+    "manageLink": "Manage the queue",
+    "loading": "Loading the decks…",
+    "empty": "No deck yet.",
+    "allDone": "Every deck is done. Reopen one below, or import a new list.",
+    "listTitle": "In the queue",
+    "doneTitle_one": "Done ({{count}} deck)",
+    "doneTitle_other": "Done ({{count}} decks)",
+    "byDate": "Placed by its deadline.",
+    "deadline": "Deadline: {{date}}.",
+    "pace_one": "{{remaining}} terms left to discover in {{days}} days: {{count}} new term a day is needed.",
+    "pace_other": "{{remaining}} terms left to discover in {{days}} days: {{count}} new terms a day are needed.",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "moveUpNamed": "Move “{{deck}}” up",
+    "moveDownNamed": "Move “{{deck}}” down",
+    "status": {
+      "queued": "Queued",
+      "active": "Active",
+      "paused": "Paused",
+      "done": "Done"
+    },
+    "actions": {
+      "activate": "Activate",
+      "pause": "Pause",
+      "resume": "Resume",
+      "finish": "Mark as done",
+      "reopen": "Reopen"
+    },
+    "actionsNamed": {
+      "activate": "Activate “{{deck}}”",
+      "pause": "Pause “{{deck}}”",
+      "resume": "Resume “{{deck}}”",
+      "finish": "Mark “{{deck}}” as done",
+      "reopen": "Reopen “{{deck}}”"
+    },
+    "announce": {
+      "status": "“{{deck}}” is now {{status}}.",
+      "movedUp": "“{{deck}}” moved up: it is now number {{position}}.",
+      "movedDown": "“{{deck}}” moved down: it is now number {{position}}."
+    },
+    "reloaded": "Nothing was changed; the list was loaded again.",
+    "statusCount": "{{status}}: {{count}}"
   }
 }

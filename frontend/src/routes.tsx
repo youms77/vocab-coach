@@ -10,6 +10,7 @@ import { ImportPage } from './features/library/ImportPage'
 import { ItemDetailPage } from './features/library/ItemDetailPage'
 import { LibraryPage } from './features/library/LibraryPage'
 import { TriagePage } from './features/library/TriagePage'
+import { QueuePage } from './features/queue/QueuePage'
 import { SessionPage } from './features/session/SessionPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 
@@ -21,6 +22,7 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: 'session', element: <SessionPage /> },
+      { path: 'queue', element: <QueuePage /> },
       { path: 'library', element: <LibraryPage /> },
       { path: 'library/decks', element: <DecksPage /> },
       { path: 'library/items/:id', element: <ItemDetailPage /> },

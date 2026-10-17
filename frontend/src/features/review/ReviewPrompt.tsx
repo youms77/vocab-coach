@@ -11,7 +11,9 @@ function Sentence({ sentence, term }: { sentence: string; term: string | null })
   const parts = term !== null ? highlightTerm(sentence, term) : [{ text: sentence, match: false }]
   return (
     <p className="review-sentence" lang="en">
-      {parts.map((part, i) => (part.match ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>))}
+      {parts.map((part, i) =>
+        part.match ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>,
+      )}
     </p>
   )
 }
@@ -154,7 +156,15 @@ function TypedAnswer({
   )
 }
 
-function RevealButton({ state, onReveal, label }: { state: ReviewState; onReveal: () => void; label: string }) {
+function RevealButton({
+  state,
+  onReveal,
+  label,
+}: {
+  state: ReviewState
+  onReveal: () => void
+  label: string
+}) {
   const { t } = useTranslation()
   if (state.phase !== 'answering' && state.phase !== 'checking') return null
   return (
@@ -199,7 +209,11 @@ export function ReviewPrompt({
     case 'recognition_in_sentence':
       return (
         <>
-          <p>{term !== null ? t('review.prompt.recognition', { term }) : t('review.prompt.recognitionNoTerm')}</p>
+          <p>
+            {term !== null
+              ? t('review.prompt.recognition', { term })
+              : t('review.prompt.recognitionNoTerm')}
+          </p>
           {sentence !== null && (
             <>
               <Sentence sentence={sentence} term={term} />
@@ -265,7 +279,8 @@ export function ReviewPrompt({
             <p>{t('review.prompt.selfReceptive')}</p>
             {shownTerm !== null && (
               <p className="review-term">
-                <strong lang="en">{shownTerm}</strong> <SpeakButton text={shownTerm} label={t('review.termLabel')} />
+                <strong lang="en">{shownTerm}</strong>{' '}
+                <SpeakButton text={shownTerm} label={t('review.termLabel')} />
               </p>
             )}
             {sentence !== null && <Sentence sentence={sentence} term={shownTerm} />}

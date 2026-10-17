@@ -996,8 +996,8 @@
     },
     "saving": "Enregistrement…",
     "saved": {
-      "today": "Enregistré. Cette carte revient aujourd'hui à {{time}}.",
-      "later": "Enregistré. Prochaine révision de cette carte : {{date}}.",
+      "today": "Enregistré : la carte précédente revient aujourd'hui à {{time}}.",
+      "later": "Enregistré : la carte précédente revient le {{date}}.",
       "status": "« {{term}} » est maintenant {{status}}.",
       "statusNoTerm": "Ce terme est maintenant {{status}}."
     },
@@ -1016,5 +1016,55 @@
       "enter": "Entrée",
       "shift": "Maj"
     }
+  },
+  "queue": {
+    "title": "File des paquets",
+    "intro": "Les nouveaux termes viennent de vos paquets dans cet ordre, dans la limite du quota quotidien. Les révisions dues passent toujours en premier.",
+    "orderHelp": "Les paquets dont l'échéance est à venir sont placés en premier, par date, et ne se déplacent pas à la main. Montez ou descendez les autres paquets pour choisir celui qui fournit les prochains nouveaux termes.",
+    "pauseNote": "Mettre un paquet en pause ou le marquer comme terminé n'arrête que ses nouveaux termes : les cartes déjà créées continuent d'être révisées.",
+    "backHome": "Retour à aujourd'hui",
+    "decksLink": "Gérer les paquets",
+    "manageLink": "Gérer la file",
+    "loading": "Chargement des paquets…",
+    "empty": "Aucun paquet pour l'instant.",
+    "allDone": "Tous les paquets sont terminés. Rouvrez-en un ci-dessous, ou importez une nouvelle liste.",
+    "listTitle": "Dans la file",
+    "doneTitle_one": "Terminés ({{count}} paquet)",
+    "doneTitle_other": "Terminés ({{count}} paquets)",
+    "byDate": "Placé selon son échéance.",
+    "deadline": "Échéance : {{date}}.",
+    "pace_one": "{{remaining}} termes à découvrir en {{days}} jours : il faut {{count}} nouveau terme par jour.",
+    "pace_other": "{{remaining}} termes à découvrir en {{days}} jours : il faut {{count}} nouveaux termes par jour.",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "moveUpNamed": "Monter « {{deck}} »",
+    "moveDownNamed": "Descendre « {{deck}} »",
+    "status": {
+      "queued": "En file",
+      "active": "Actif",
+      "paused": "En pause",
+      "done": "Terminé"
+    },
+    "actions": {
+      "activate": "Activer",
+      "pause": "Mettre en pause",
+      "resume": "Reprendre",
+      "finish": "Marquer comme terminé",
+      "reopen": "Rouvrir"
+    },
+    "actionsNamed": {
+      "activate": "Activer « {{deck}} »",
+      "pause": "Mettre « {{deck}} » en pause",
+      "resume": "Reprendre « {{deck}} »",
+      "finish": "Marquer « {{deck}} » comme terminé",
+      "reopen": "Rouvrir « {{deck}} »"
+    },
+    "announce": {
+      "status": "« {{deck}} » est maintenant {{status}}.",
+      "movedUp": "« {{deck}} » est monté : il est maintenant numéro {{position}}.",
+      "movedDown": "« {{deck}} » est descendu : il est maintenant numéro {{position}}."
+    },
+    "reloaded": "Rien n'a été modifié ; la liste a été rechargée.",
+    "statusCount": "{{status}} : {{count}}"
   }
 }

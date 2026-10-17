@@ -53,6 +53,8 @@ export function deck(id: number, name: string, overrides: Partial<Deck> = {}): D
     updated_at: '2026-10-16T10:00:00Z',
     item_count: 2,
     items_by_status: { queued: 2 },
+    pace: null,
+    warnings: [],
     ...overrides,
   }
 }

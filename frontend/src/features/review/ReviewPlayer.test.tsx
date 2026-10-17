@@ -288,7 +288,7 @@ describe('Review player: rating', () => {
     await user.type(screen.getByRole('textbox'), 'drill down into{Enter}')
     await screen.findByRole('group', { name: 'How well did you remember?' })
     await user.keyboard('3')
-    const status = await screen.findByText(/Saved\. Next review of this card: November 3, 2026\./)
+    const status = await screen.findByText(/Saved: the previous card comes back on November 3, 2026\./)
     expect(status).toHaveAttribute('role', 'status')
     expect(status).toHaveTextContent('“drill down into” is now consolidated.')
     // The next card is a fresh one: empty field, no result.

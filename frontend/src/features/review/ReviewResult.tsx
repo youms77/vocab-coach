@@ -69,13 +69,17 @@ export function ReviewResult({
     body = (
       <>
         <GradeResult result={{ ...result, expected: null }} />
-        {text(solution.meaning) !== null && <p>{t('review.result.meaning', { meaning: solution.meaning })}</p>}
+        {text(solution.meaning) !== null && (
+          <p>{t('review.result.meaning', { meaning: solution.meaning })}</p>
+        )}
         {text(solution.meaning_fr) !== null && (
           <p lang="fr">{t('review.cueFr', { cue: solution.meaning_fr })}</p>
         )}
         {sentence !== null && (
           <p>
-            {type === 'listening_comprehension' ? t('review.result.heard') : t('review.result.sentence')}{' '}
+            {type === 'listening_comprehension'
+              ? t('review.result.heard')
+              : t('review.result.sentence')}{' '}
             <span lang="en" className="review-sentence-inline">
               {sentence}
             </span>{' '}
@@ -122,8 +126,10 @@ export function ReviewResult({
       </div>
     )
   } else {
-    // self_assessment: the term, its meaning and the sentence.
-    const term = text(solution.term)
+    // self_assessment: the meaning; a productive card also reveals the term and the full
+    // sentence (a receptive one already showed both in its prompt).
+    const productive = review.direction === 'productive'
+    const term = productive ? text(solution.term) : null
     body = (
       <div className="grade-result" role="status">
         {term !== null && (
@@ -136,7 +142,7 @@ export function ReviewResult({
         {(solution.translation_fr ?? []).length > 0 && (
           <p lang="fr">{t('review.cueFr', { cue: (solution.translation_fr ?? []).join(', ') })}</p>
         )}
-        {sentence !== null && (
+        {productive && sentence !== null && (
           <p>
             <span lang="en" className="review-sentence-inline">
               {sentence}

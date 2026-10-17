@@ -185,7 +185,7 @@ describe('Session page', () => {
     await screen.findByRole('group', { name: 'How well did you remember?' })
     await user.keyboard('3')
     await screen.findByRole('heading', { name: 'Recognise the term in a sentence' })
-    expect(screen.getByText(/Saved\. Next review of this card/)).toBeInTheDocument()
+    expect(screen.getByText(/Saved: the previous card comes back/)).toBeInTheDocument()
     await user.keyboard('2')
     await screen.findByRole('region', { name: 'Correction' })
     await user.keyboard('3')
