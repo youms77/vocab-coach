@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.clock import NowDep
 from app.api.errors import require_database
 from app.db.base import utcnow
 from app.db.engine import get_session
@@ -24,9 +25,12 @@ from app.domain.enums import DeckKind, DeckStatus, ItemStatus, ItemType
 from app.domain.events import TriageDecision
 from app.domain.item_status import InvalidItemTransition, TransitionKind, unarchive_target
 from app.domain.markdown_import import MAX_BODY_LINES, ImportHeader
+from app.domain.planner import DeadlinePace, PlanWarning, SessionPlan
 from app.domain.study_day import study_day_of
+from app.services import decks as deck_service
 from app.services import duplicates, enrichment, importing, library, triage
 from app.services.items import transition_item, unarchive_item
+from app.services.planning import plan_today
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
@@ -102,6 +106,9 @@ class DeckOut(BaseModel):
     updated_at: datetime
     item_count: int
     items_by_status: dict[str, int]
+    # From today's plan (M4): the deadline pace and the plan warnings about this deck.
+    pace: DeadlinePace | None
+    warnings: list[PlanWarning]
 
 
 def items_out(session: Session, items: list[LexicalItem]) -> list[ItemOut]:
@@ -155,7 +162,19 @@ def _item_detail(
     )
 
 
-def _decks_out(session: Session, decks: list[Deck]) -> list[DeckOut]:
+def _deck_warnings(plan: SessionPlan, deck_id: int) -> list[PlanWarning]:
+    return [
+        warning
+        for warning in plan.warnings
+        if warning.params.get("deck_id") == deck_id
+        or deck_id in (warning.params.get("deck_ids") or [])
+    ]
+
+
+def _decks_out(session: Session, decks: list[Deck], now: datetime) -> list[DeckOut]:
+    """Decks with their counts, and the pace and warnings of today's plan (read-only)."""
+    plan = plan_today(session, now)
+    paces = {pace.deck_id: pace for pace in plan.deadline_paces}
     counts = library.deck_counts(session, (deck.id for deck in decks))
     source_ids = {deck.source_id for deck in decks if deck.source_id is not None}
     sources = {
@@ -178,6 +197,8 @@ def _decks_out(session: Session, decks: list[Deck]) -> list[DeckOut]:
             updated_at=deck.updated_at,
             item_count=counts[deck.id].total,
             items_by_status=counts[deck.id].by_status,
+            pace=paces.get(deck.id),
+            warnings=_deck_warnings(plan, deck.id),
         )
         for deck in decks
     ]
@@ -372,8 +393,8 @@ def merge_item(item_id: int, body: MergeRequest, session: SessionDep) -> duplica
 
 
 @router.get("/decks", tags=["decks"])
-def list_decks(session: SessionDep) -> list[DeckOut]:
-    return _decks_out(session, library.list_decks(session))
+def list_decks(session: SessionDep, now: NowDep) -> list[DeckOut]:
+    return _decks_out(session, library.list_decks(session), now)
 
 
 class DeckCreate(BaseModel):
@@ -387,7 +408,7 @@ class DeckCreate(BaseModel):
 
 
 @router.post("/decks", status_code=201, tags=["decks"])
-def create_deck(body: DeckCreate, session: SessionDep) -> DeckOut:
+def create_deck(body: DeckCreate, session: SessionDep, now: NowDep) -> DeckOut:
     if body.source_id is not None and session.get(Source, body.source_id) is None:
         raise library.SourceNotFound(f"There is no source {body.source_id}.")
     deck = library.create_deck(
@@ -397,15 +418,15 @@ def create_deck(body: DeckCreate, session: SessionDep) -> DeckOut:
         domain=body.domain,
         deadline=body.deadline,
         source_id=body.source_id,
-        at=utcnow(),
+        at=now,
     )
     session.commit()
-    return _decks_out(session, [deck])[0]
+    return _decks_out(session, [deck], now)[0]
 
 
 @router.get("/decks/{deck_id}", tags=["decks"])
-def get_deck(deck_id: int, session: SessionDep) -> DeckOut:
-    return _decks_out(session, [library.get_deck(session, deck_id)])[0]
+def get_deck(deck_id: int, session: SessionDep, now: NowDep) -> DeckOut:
+    return _decks_out(session, [library.get_deck(session, deck_id)], now)[0]
 
 
 class DeckPatch(BaseModel):
@@ -419,15 +440,53 @@ class DeckPatch(BaseModel):
 
 
 @router.patch("/decks/{deck_id}", tags=["decks"])
-def update_deck(deck_id: int, body: DeckPatch, session: SessionDep) -> DeckOut:
+def update_deck(deck_id: int, body: DeckPatch, session: SessionDep, now: NowDep) -> DeckOut:
     deck = library.get_deck(session, deck_id)
     changes = body.model_dump(exclude_unset=True)
     for required in ("name", "priority"):
         if required in changes and changes[required] is None:
             raise library.InvalidTerm(f"`{required}` cannot be empty.")
-    library.update_deck(session, deck, changes, utcnow())
+    library.update_deck(session, deck, changes, now)
     session.commit()
-    return _decks_out(session, [deck])[0]
+    return _decks_out(session, [deck], now)[0]
+
+
+class DeckStatusRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    to: DeckStatus
+
+
+@router.post("/decks/{deck_id}/status", tags=["decks"])
+def change_deck_status(
+    deck_id: int, body: DeckStatusRequest, session: SessionDep, now: NowDep
+) -> DeckOut:
+    """Pause, resume, mark done or reopen a deck (D-026). Reviews of its cards never stop."""
+    deck = library.get_deck(session, deck_id)
+    deck_service.change_deck_status(session, deck, body.to, now)
+    session.commit()
+    return _decks_out(session, [deck], now)[0]
+
+
+class QueueRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    deck_ids: list[int] = Field(max_length=1000)
+
+
+class InvalidQueue(library.LibraryError):
+    status, code = 422, "invalid_queue"
+
+
+@router.put("/decks/queue", tags=["decks"])
+def reorder_queue(body: QueueRequest, session: SessionDep, now: NowDep) -> list[DeckOut]:
+    """New manual order of the queue: every deck that is not done, exactly once (D-027)."""
+    try:
+        deck_service.reorder_queue(session, body.deck_ids, now)
+    except ValueError as exc:
+        raise InvalidQueue(str(exc)) from exc
+    session.commit()
+    return _decks_out(session, library.list_decks(session), now)
 
 
 class DeckDeleted(BaseModel):

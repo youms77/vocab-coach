@@ -136,6 +136,15 @@ def skeleton_sheet(part_of_speech: str | None = None) -> dict[str, Any]:
     return sheet.model_dump(mode="json")
 
 
+def is_usable(status: str, content: dict[str, Any]) -> bool:
+    """Can the term be discovered with this sheet? A complete sheet (AI or the user's) with a
+    simple definition or a French translation; a `needs_completion` skeleton is not usable."""
+    if status != "complete":
+        return False
+    sheet = read_sheet(content)
+    return _filled(sheet.definition_simple) or any(map(_filled, sheet.translation_fr))
+
+
 def read_sheet(content: dict[str, Any]) -> UsageSheet:
     """A stored sheet, skeletons included (the content was validated when it was written)."""
     return UsageSheet.model_validate(content, context={"skeleton": True})

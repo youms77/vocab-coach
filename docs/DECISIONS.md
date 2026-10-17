@@ -1369,3 +1369,202 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - **i18n**: the main navigation's `aria-label` was hard-coded ("Main"); it is now `nav.label`.
 - Merged as one pull request (the tip, `feat/m3c3-sheets`) rather than one per milestone: the intermediate
   branches contain the date-dependent test fixed by D-097, so their own checks fail on any day but 2026-10-16.
+
+## D-099 — M4.a split in two, owner's choices for the demo (M4.a, 2026-10-17)
+
+- The M4.a plan touched about 24 significant files, so it is cut in two on the same branch
+  `feat/m4a-session-backend` (started from `origin/main`, which holds M3.c3 and D-097; the local `main` was
+  behind): **M4.a1** (domain, services, every route, tests, this documentation) and **M4.a2** (the planner's
+  "usable sheet" filter, the demo sheets, the simulation through the real session service and exercise choice).
+  The filter goes with the demo because the current demo has no sheet: with the filter alone, the simulated
+  learner could never discover a term.
+- **Owner's choices for M4.a2** (plan approval):
+  - terms without a full demo sheet get a **minimal hand-typed sheet** (French translation only, no exercise
+    template). They can be discovered and still go through `self_assessment` in review. A term with no sheet
+    at all could never reach `learning` once the planner skips it, so "no sheet" in the milestone text becomes
+    "no template";
+  - the simulation completes discoveries **without initial ratings**, like the app (D-104).
+- **Note (M4.a2, owner's choice at the plan)**: a minimal sheet saved through `save_sheet` gets the
+  `typed_recall` template that the service derives from the French translation (D-082), like any sheet typed
+  in the app. So minimal terms use `self_assessment` for their receptive card only; their young productive
+  cards use typed recall.
+
+## D-100 — Exercise choice and the maturity threshold (M4.a1)
+
+- `app/domain/exercise_choice.py` replaces `DEMO_EXERCISE_TYPES` (the demo moves to it in M4.a2). A card is
+  **mature** when it is in Review state with a stability of at least `MATURE_STABILITY_DAYS = 21` days (the
+  demo's threshold, D-034); new, learning and relearning cards are young whatever their stability.
+- Receptive: young -> `recognition_in_sentence`; mature -> `listening_comprehension` (even `reps`) /
+  `recognition_in_sentence` (odd). Productive: young -> `typed_recall` (even) / `gap_fill` (odd); mature ->
+  `sentence_production` (even) / `spoken_answer` (odd). Deterministic, so tests and the demo are reproducible.
+- Fallback: the other type of the pair, then any other template of the same direction (in the order of
+  `EXERCISE_TYPES`), then `self_assessment` (D-101).
+- Several templates of one type: index `(reps // 2) % n` in id order. `reps % n` would always pick the same
+  one, because the type itself alternates on the parity of `reps`.
+- The client may send another consistent type than the one proposed (for example a self-assessment instead of
+  a spoken answer): the server checks the direction and the template, not the choice.
+
+## D-101 — `self_assessment`, the degraded review (M4.a1)
+
+- A new exercise type with no stored template, used when a term has no template of the card's direction (AI
+  unavailable, sheet typed by hand). Receptive prompt: the term and its context sentence (the original one,
+  else the sheet's first example); the user recalls the meaning. Productive prompt: the sheet's first French
+  translation and simple definition, and the context sentence with the term replaced by `___`; the user recalls
+  the term. The reveal (`POST /api/reviews/reveal`) gives the term, definition, translations and sentence.
+- It is self-graded: no proposed rating (`auto_rating` null), four buttons as SPEC module C says. A productive
+  prompt with nothing to show (no sheet, no sentence) carries the warning `no_cue`.
+- `sentence_production` and `spoken_answer` are self-graded too until AI correction (M5) and recording (M6):
+  a typed sentence is only checked for the term (`term_missing`).
+
+## D-102 — Grading rules (M4.a1)
+
+- **Normalisation**: NFKC, typographic apostrophes to `'`, case folding, single spaces, punctuation removed at
+  both ends. For a term that starts with "to", an initial "to" is optional on both sides. Expected forms are
+  the template's `answer` and `accepted`.
+- **Outcomes**: `exact`; `form` (typed recall only); `typo`; `wrong`; `empty`. Order of the checks: empty,
+  exact, confusion (-> wrong), form, typo, wrong.
+- **Typo**: Damerau-Levenshtein in its "optimal string alignment" variant (insertions, deletions,
+  substitutions, transpositions of two adjacent letters; no substring edited twice), written by hand. The
+  threshold depends on the length of the nearest expected form: 0 up to 3 characters, 1 from 4 to 8, 2 beyond.
+  The diff shown for a typo is `difflib` on characters (standard library).
+- **Confusion**: a typed answer that is, once normalised, another term of the library or a word of the sheet's
+  `confusables` or `french_speaker_pitfalls.wrong` is `wrong`, never `typo` ("affect" for "effect"): a
+  confusion is not a slip of the finger, and M5 will log it as an error.
+- **Form**: the milestone said "per `is_form_of`", but that function (written to check AI output) accepts any
+  word with the same first letter as an irregular form, so "cat" would be a form of "confounder". Grading
+  accepts **regular inflections only**: same stem, and the given word is longer than the expected one (the
+  stemmer maps both "rule" and the typo "rul" to "rul"). Irregular forms count when the template lists them
+  in `accepted`. Departure from the milestone text, reported to the owner.
+- **Proposed rating**: exact or form -> Good, or Hard when the answer took more than 2 x the estimate of its
+  duration class (D-028, observed medians when available); typo -> Hard; wrong or empty -> Again. Easy is never
+  proposed. Choice exercises: right -> Good (Hard when slow), wrong -> Again, no choice -> `empty` (Again).
+
+## D-103 — Active recall in the API (M4.a1)
+
+- A review step (`GET /api/session/{id}/next`) carries the prompt only: never `answer`, `accepted`,
+  `example_answer`, `meaning`, `meaning_fr`, `distractors` or the index of the right option, and a productive
+  card never carries the term. `app/domain/review_steps.py` lists these keys (`SOLUTION_KEYS`). A domain test
+  checks every type and direction; an API test walks every step of several months of reviews (every exercise
+  type reached) and of discoveries, and fails if one of these keys appears.
+- Choice options are shuffled by the server with `random.Random("card:<id>:reps:<reps>")`: the step and the
+  grading see the same order without storing it, and the order changes between reviews.
+- **Exception**: `listening_comprehension` sends its sentence, because speech synthesis runs in the browser.
+  The interface must hide it until the answer (M4.c).
+- The solution and the sheet summary are returned only after an attempt: by `POST /api/reviews/grade` (any
+  answer, even empty) or `POST /api/reviews/reveal` (self-graded types only; 422 `exercise_mismatch` for a
+  graded type). Both write nothing (tested by counting the rows of every table).
+- Discovery's immediate exercises are read with `GET /api/discovery/{item_id}/exercises` (prompts only; the
+  term must be `discovering`). Added because the existing `/items/{id}/exercises` returns full templates.
+
+## D-104 — Discovery creates the cards without initial ratings (M4.a1)
+
+- `POST /api/discovery/{id}/complete` calls `complete_discovery` without initial ratings: both cards stay `new`,
+  due at the start of the next study day (D-025). Discovery is a presentation (the sheet was just read), not a
+  retrieval from memory; rating it would schedule the first real review from an answer given with the solution
+  in view. The first real review is the next study day.
+- `discovery.completed` goes to `payload_version` 2 with `guess` (step 2) and `exercise_results`
+  (`[{exercise_type, outcome}]`, step 4). Both fields are optional, so version 1 rows still validate.
+- The personal sentence becomes a `production_attempt` (`writing`, `written`, prompt "discovery sentence", the
+  term in `production_target` with `used` from `contains_term`, `ai_feedback` null) and `production.recorded`,
+  through `app/services/productions.py`, which M5 extends. `term_missing` is returned when the term is absent.
+- Start and complete each run in one short transaction. A second `complete` (or a `start`) after success gets
+  409 `already_discovered`; `complete` before `start` gets 409 `invalid_transition`.
+
+## D-105 — Usable sheet (M4.a1; planner part in M4.a2)
+
+- A sheet is usable when it is the current one, its status is `complete` (AI or the user's) and it has a simple
+  definition or a French translation (the D-092 content rule). A `needs_completion` skeleton is not usable.
+  `usage_sheet.is_usable()` is the single rule.
+- `POST /api/discovery/{id}/start` on a term without a usable sheet answers 409 `sheet_required` and writes
+  nothing. The planner's exclusion and its `items_without_sheet` warning came with M4.a2 (D-109).
+
+## D-106 — Response time capped at 5 minutes (M4.a1)
+
+- `response_time_ms` must be >= 0 (422 otherwise) and is stored as at most 300 000 ms. A coffee break in the
+  middle of a card must not move the medians that estimate session length (D-028). The proposed rating uses the
+  capped value.
+
+## D-107 — Study session `session-1` and the live next step (M4.a1)
+
+- `study_session.planned = {format: "session-1", plan: SessionPlan}`; `summary = {format, reviews,
+  failed_reviews, discoveries_started, discoveries_completed, productions, words, duration_ms,
+  planned_minutes}`, counted from `review_log` (by `study_session_id`) and `event_log` (`item.status_changed`
+  to `discovering`, `discovery.completed`, `production.recorded` and its `word_count`), never from counters.
+  The demo moves from `demo-provisional-1` to this format in M4.a2.
+- `start` is idempotent within a study day (200 with the open session, 201 for a new one). A session left open
+  on an earlier study day is closed first, at its last event (`ended_at`, summary, and `session.ended` dated
+  at that instant).
+- `next` is computed live, not from the frozen order: a card is due **now** when its due time has passed, or
+  when it is a `new` or `review` card due later in the current study day (whole-day intervals, which the
+  planner already counts for today). A learning or relearning card due later today gives `wait {until}`. New
+  terms come from the frozen plan, interrupted discoveries first, skipping a queued term whose deck stopped
+  supplying (paused or done).
+- `practice_info` is shown when the frozen plan has targeted practice or consolidation, until the client asks
+  `next?practice_seen=true`; then `done`. This keeps `next` stateless. Targeted practice and consolidation are
+  information only in M4.
+- A review is refused with 409 `not_due` only when the card's due date is after the current study day.
+
+## D-108 — Codes, decks and voice (M4.a1)
+
+- **Error codes** (D-063 format): those of the milestone (`card_changed`, `review_not_allowed`,
+  `sheet_required`, `already_discovered`, `session_not_found`, `session_closed`, `not_due`) and four more:
+  `card_not_found` (404), `exercise_mismatch` (422: type not of the card's direction, template of another term
+  or type, missing template, choice index out of range, reveal of a graded type), `discovery_not_allowed`
+  (409, from `DiscoveryError`: paused or done deck, term not in the deck given) and `invalid_queue` (422). Deck
+  transitions reuse `invalid_transition` (409, with `from_status` and `to_status`).
+- **Decks**: `POST /api/decks/{id}/status` and `PUT /api/decks/queue` wrap the M1.b services. Every deck
+  answer now carries `pace` and `warnings` taken from `plan_today` (no second computation; one plan per
+  request).
+- **`tts_voice`**: a string setting, default `""` (the first en-US voice), at most 200 characters, no list on
+  the server (voices depend on the browser). `SettingSpec` gains `max_length`. No migration (`setting` table).
+
+## D-109 — The planner skips terms without a usable sheet (M4.a2)
+
+- `PlanInputs.items_without_sheet` (frozenset, default empty, so pure tests need no sheet) holds the queued
+  terms whose current sheet is missing or not usable (`usage_sheet.is_usable`, D-105).
+  `planning.items_without_sheet()` computes it in one query. `plan_session` leaves these terms out of the new
+  terms (pace and queue phases) and adds the warning `items_without_sheet {count, deck_ids}`: the number of
+  distinct terms left out, and the decks that would have supplied them, in queue order. `GET /api/decks`
+  shows the warning on each deck of `deck_ids` (the M4.a1 filter already read `deck_ids`).
+- Deadline paces still count these terms in `remaining`: a missing sheet does not move the deadline, and the
+  warning tells the user why the pace may not be reached. `decks_to_activate` follows the filtered selection,
+  so a queued deck with no usable term is not activated.
+- An interrupted discovery (`discovering`) stays proposed whatever its sheet: the term was already started.
+- Existing database tests that plan queued terms now give them a hand-typed sheet (`tests/factories.add_sheet`).
+
+## D-110 — Demo sheets (M4.a2)
+
+- `content/demo/sheets.yaml` (fictional, English; `dataset_version` 2 for the four demo files): 68 **full**
+  sheets (simple definition, French translation, one academic and one spoken example, pronunciation, a
+  confusable or a French-speaker pitfall when relevant, and one template each of gap-fill, recognition with
+  three distractors, sentence production and spoken answer) and 41 **minimal** ones (French translation
+  only). With seed 42, full sheets cover the 42 terms that end queued, in triage or discovering, and 26
+  learning or consolidated terms. Draft and known terms have none.
+- Inserted when the simulation creates the term, through the services:
+  `enrichment.save_sheet(..., provenance=Provenance("demo", None, "demo-sheets-v1"))` (new keyword; by default
+  the provenance is still copied from the edited version) and the new `enrichment.add_templates()` (content
+  validated by `validate_content`, nothing deleted, origin `demo`). The gap-fill template is added before the
+  sheet so the derived typed recall gets its accepted forms; listening reuses the recognition sentence, like
+  the AI path. A demo sheet is a hand-typed sheet: `edited_by_user` and `enrichment.edited`, like a sheet typed
+  in the app.
+- `tests/test_demo_sheets.py` applies the generated-content rules of `app/domain/exercises.py` (the same checks
+  as `EnrichmentEntry.problems`) to every full sheet.
+
+## D-111 — The demo goes through the session service and the exercise choice (M4.a2)
+
+- Sessions: `study_sessions.start_session` / `end_session` (format `session-1`, plan frozen at the start,
+  summary computed from the logs). `direct_writes.start_study_session` / `end_study_session` and
+  `demo-provisional-1` are removed; `direct_writes` keeps productions and errors (M5).
+- Reviews: the type and the template come from `choose_exercise` (templates read once per term, after its
+  sheet). `DEMO_EXERCISE_TYPES` and the learner's own maturity threshold are removed. Self-graded types store
+  `auto_rating` null. The learner draws its "changed rating" step for every review, so the generator sequence
+  does not depend on the templates.
+- Discoveries: `begin_discovery` / `finish_discovery` without initial ratings (D-104). The last session still
+  leaves one term `discovering`; the only `new` cards left are those of the terms discovered in the last
+  session.
+- Seed 42 stays reproducible (fingerprint test). Seed time for 60 days: 5.6 s on the owner's machine (5.1 s
+  before; the extra time goes to the sheets and the session summaries). The 5 s target is missed by about
+  0.6 s; accepted and reported to the owner.
+- Test fix on the way: the M4.a1 anti-leak walk (`test_review_steps_never_carry_a_solution`) seeds the
+  production FSRS fuzz generator. Unseeded, its cards sometimes stayed below the maturity threshold and the
+  mature exercise types were not reached, so the test failed now and then.

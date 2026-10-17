@@ -16,7 +16,9 @@ from sqlalchemy import Engine
 from app.ai.redact import mask_secrets
 from app.config import get_settings
 from app.db.engine import get_engine, sqlite_file
+from app.domain.deck_queue import InvalidDeckTransition
 from app.domain.item_status import InvalidItemTransition
+from app.services.discovery import DiscoveryError
 from app.services.library import LibraryError
 
 
@@ -68,7 +70,26 @@ async def _invalid_transition(_request: Request, exc: Exception) -> JSONResponse
     )
 
 
+async def _invalid_deck_transition(_request: Request, exc: Exception) -> JSONResponse:
+    assert isinstance(exc, InvalidDeckTransition)  # noqa: S101 (narrowing)
+    return _error_response(
+        409,
+        "invalid_transition",
+        f"A deck cannot go from {exc.from_status.value} to {exc.to_status.value}.",
+        from_status=exc.from_status.value,
+        to_status=exc.to_status.value,
+    )
+
+
+async def _discovery_error(_request: Request, exc: Exception) -> JSONResponse:
+    """A paused or done deck, or a term that is not in the deck given (D-025)."""
+    assert isinstance(exc, DiscoveryError)  # noqa: S101 (narrowing)
+    return _error_response(409, "discovery_not_allowed", str(exc))
+
+
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(LibraryError, _library_error)
     app.add_exception_handler(InvalidItemTransition, _invalid_transition)
+    app.add_exception_handler(InvalidDeckTransition, _invalid_deck_transition)
+    app.add_exception_handler(DiscoveryError, _discovery_error)

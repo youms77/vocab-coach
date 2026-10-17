@@ -12,6 +12,7 @@ from app.db.models import (
     ConsolidationTask,
     Deck,
     DeckItem,
+    Enrichment,
     ErrorCategory,
     ErrorEvent,
     LexicalItem,
@@ -38,19 +39,21 @@ from app.domain.planner import (
 )
 from app.domain.srs import EngineFactory
 from app.domain.study_day import as_utc
+from app.domain.usage_sheet import is_usable
 from app.services.durations import observed_estimates
 from app.services.reviews import card_state
 
 PENDING_CONSOLIDATION = (ConsolidationTaskStatus.PROPOSED, ConsolidationTaskStatus.ACCEPTED)
 
 
-def build_plan_inputs(
+def card_snapshots(
     session: Session, now: datetime, engine_factory: EngineFactory = default_engine_factory
-) -> PlanInputs:
+) -> list[CardSnapshot]:
+    """Cards that may be reviewed (reviewable term, not suspended), with their retrievability at
+    `now`. Ordered by id."""
     now = as_utc(now)
     engine = engine_factory(get_setting(session, "target_retention"))
-
-    cards = [
+    return [
         CardSnapshot(
             card_id=card.id,
             lexical_item_id=card.lexical_item_id,
@@ -65,8 +68,33 @@ def build_plan_inputs(
             select(Card, LexicalItem.status)
             .join(LexicalItem, LexicalItem.id == Card.lexical_item_id)
             .where(LexicalItem.status.in_(REVIEWABLE_STATUSES), Card.suspended.is_(False))
+            .order_by(Card.id)
         )
     ]
+
+
+def items_without_sheet(session: Session) -> frozenset[int]:
+    """Queued terms whose current sheet is missing or not usable (D-105)."""
+    rows = session.execute(
+        select(LexicalItem.id, Enrichment.status, Enrichment.content)
+        .outerjoin(
+            Enrichment,
+            (Enrichment.lexical_item_id == LexicalItem.id) & Enrichment.is_current,
+        )
+        .where(LexicalItem.status == ItemStatus.QUEUED)
+    )
+    return frozenset(
+        item_id
+        for item_id, status, content in rows
+        if status is None or not is_usable(status, dict(content))
+    )
+
+
+def build_plan_inputs(
+    session: Session, now: datetime, engine_factory: EngineFactory = default_engine_factory
+) -> PlanInputs:
+    now = as_utc(now)
+    cards = card_snapshots(session, now, engine_factory)
 
     refs: dict[int, list[DeckItemRef]] = defaultdict(list)
     for deck_id, item_id, item_status, position in session.execute(
@@ -125,6 +153,7 @@ def build_plan_inputs(
         discovering=discovering,
         recent_errors=errors,
         pending_consolidation_task_ids=consolidation_ids,
+        items_without_sheet=items_without_sheet(session),
     )
 
 

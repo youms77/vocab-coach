@@ -296,3 +296,50 @@ def test_planner_durations_default_then_observed_medians() -> None:
     with_data = plan(cards=cards, durations=observed)
     assert with_data.block(BlockKind.REVIEWS).estimated_seconds == 120  # type: ignore[union-attr]
     assert with_data.observed_durations == ["productive_typed"]
+
+
+# --- usable sheet (D-105) ----------------------------------------------------------------------
+
+
+def test_planner_term_without_sheet_is_not_proposed_and_warns() -> None:
+    first, second = deck(1, queued=3, position=0), deck(2, queued=2, position=1)
+    result = plan(decks=[first, second], items_without_sheet=frozenset({100, 201}))
+    assert [e.lexical_item_id for e in new_items(result)] == [101, 102, 200]
+    [warning] = [w for w in result.warnings if w.code == WarningCode.ITEMS_WITHOUT_SHEET]
+    assert warning.params == {"count": 2, "deck_ids": [1, 2]}
+    assert result.caps.available == 3
+
+
+def test_planner_no_sheet_warning_when_every_term_has_a_sheet() -> None:
+    result = plan(decks=[deck(1, queued=3)], items_without_sheet=frozenset({999}))
+    assert WarningCode.ITEMS_WITHOUT_SHEET not in codes(result)
+
+
+def test_planner_terms_without_sheet_still_count_in_the_deadline_pace() -> None:
+    talk = deck(1, queued=30, deadline=TODAY + timedelta(days=10))
+    result = plan(decks=[talk], new_items_per_day=2, items_without_sheet=frozenset({100, 101, 102}))
+    [pace] = result.deadline_paces
+    assert (pace.remaining, pace.required_per_day) == (30, 3)
+    assert [e.lexical_item_id for e in new_items(result)] == [103, 104, 105]
+    [warning] = [w for w in result.warnings if w.code == WarningCode.ITEMS_WITHOUT_SHEET]
+    assert warning.params == {"count": 3, "deck_ids": [1]}
+
+
+def test_planner_queued_deck_without_usable_term_is_not_activated() -> None:
+    waiting = deck(1, queued=2, status=DeckStatus.QUEUED)
+    result = plan(decks=[waiting], items_without_sheet=frozenset({100, 101}))
+    assert new_items(result) == [] and result.decks_to_activate == []
+    assert result.limit == PlanLimit.NOTHING_TO_LEARN
+
+
+def test_planner_interrupted_discovery_without_sheet_stays_proposed() -> None:
+    started = DeckItemRef(500, ItemStatus.DISCOVERING, 9)
+    result = plan(
+        decks=[deck(1, queued=1, extra=(started,))],
+        discovering=[DiscoveringItem(500, NOW - timedelta(days=1))],
+        items_without_sheet=frozenset({500}),
+    )
+    assert [(e.lexical_item_id, e.resumed) for e in new_items(result)] == [
+        (500, True),
+        (100, False),
+    ]

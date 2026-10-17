@@ -366,6 +366,18 @@ def _replace_templates(
     for old in _replaceable(session, item_id, only_types):
         session.delete(old)
     session.flush()
+    _insert_templates(session, item_id, rows, origin=origin, prompt_version=prompt_version, at=at)
+
+
+def _insert_templates(
+    session: Session,
+    item_id: int,
+    rows: Sequence[tuple[str, dict[str, Any]]],
+    *,
+    origin: ContentOrigin,
+    prompt_version: str | None,
+    at: datetime,
+) -> None:
     for kind, content in rows:
         session.add(
             ExerciseTemplate(
@@ -720,9 +732,11 @@ def save_sheet(
     at: datetime,
     *,
     base_enrichment_id: int | None = None,
+    provenance: Provenance | None = None,
 ) -> SheetVersion:
     """Save the user's sheet as a new current version (edit, or manual entry when the term has
-    none). Provenance is copied from the edited version. Raises ItemNotFound, SheetChanged."""
+    none). Provenance is copied from the edited version unless `provenance` is given (the demo's
+    hand-typed sheets, provider "demo"). Raises ItemNotFound, SheetChanged."""
     at = as_utc(at)
     item = get_item(session, item_id)
     base = current_sheet(session, item.id)
@@ -731,11 +745,12 @@ def save_sheet(
             "The sheet changed since you opened it; reload it before saving.",
             current_enrichment_id=base.id if base is not None else None,
         )
-    provenance = (
-        Provenance(base.provider, base.model, base.prompt_version)
-        if base is not None
-        else Provenance(None, None, None)
-    )
+    if provenance is None:
+        provenance = (
+            Provenance(base.provider, base.model, base.prompt_version)
+            if base is not None
+            else Provenance(None, None, None)
+        )
     new, _ = _new_version(
         session,
         item.id,
@@ -757,6 +772,25 @@ def save_sheet(
     )
     session.flush()
     return get_sheet(session, item.id)
+
+
+def add_templates(
+    session: Session,
+    item_id: int,
+    rows: Sequence[tuple[str, dict[str, Any]]],
+    at: datetime,
+    *,
+    origin: ContentOrigin,
+    prompt_version: str | None = None,
+) -> None:
+    """Add exercise templates to a term (content validated for its type); nothing is deleted.
+    Used by the demo (origin `demo`). Raises ValueError / ValidationError on invalid content."""
+    at = as_utc(at)
+    get_item(session, item_id)
+    validated = [(kind, ex.validate_content(kind, content)) for kind, content in rows]
+    _insert_templates(
+        session, item_id, validated, origin=origin, prompt_version=prompt_version, at=at
+    )
 
 
 def _refresh_typed_recall(

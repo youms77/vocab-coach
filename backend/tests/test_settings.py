@@ -60,3 +60,15 @@ def test_unknown_key_is_refused(session: Session) -> None:
 
 def test_integer_is_accepted_for_float_setting() -> None:
     assert spec_for("tts_rate").validate(1) == 1.0
+
+
+def test_tts_voice_is_a_free_string() -> None:
+    spec = spec_for("tts_voice")
+    assert spec.default_value() == ""
+    assert spec.validate("Microsoft Aria Online (Natural) - English (United States)").startswith(
+        "Microsoft"
+    )
+    with pytest.raises(SettingError):
+        spec.validate("x" * 201)
+    with pytest.raises(SettingError):
+        spec.validate(3)

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api import ai, enrichment, health, library
+from app.api import ai, discovery, enrichment, health, library, reviews, session
 from app.api import settings as settings_api
 from app.api.errors import register_error_handlers
 from app.api.guard import ApiGuard
@@ -26,6 +26,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(settings_api.router, prefix="/api")
     app.include_router(library.router, prefix="/api")
     app.include_router(enrichment.router, prefix="/api")
+    app.include_router(session.router, prefix="/api")
+    app.include_router(reviews.router, prefix="/api")
+    app.include_router(discovery.router, prefix="/api")
     register_error_handlers(app)
     # Added last, so it is the outermost layer: even a CORS preflight goes through the Host check.
     app.add_middleware(ApiGuard, port=settings.port, allowed_origins=settings.cors_origins)

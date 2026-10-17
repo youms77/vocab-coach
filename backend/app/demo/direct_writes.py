@@ -1,13 +1,12 @@
 """Demo-only direct writes: rows that no service creates yet (D-035, provisional).
 
-Productions and errors belong to module E (M5); study sessions to module D's interface (M4). Until
-those services exist, the demo writes the rows here, always with the matching event and a
-backdated `occurred_at`. Decks, terms, deck links and triage decisions moved to the library
-services in M3.a (`app/services/library.py`, `triage.py`).
+Productions and errors belong to module E (M5). Until that service exists, the demo writes the
+rows here, always with the matching event and a backdated `occurred_at`. Decks, terms, deck links
+and triage decisions moved to the library services in M3.a (`app/services/library.py`,
+`triage.py`); study sessions to `app/services/study_sessions.py` in M4.a2.
 """
 
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,7 +16,6 @@ from app.db.models import (
     ErrorCategory,
     ErrorEvent,
     ProductionAttempt,
-    StudySession,
 )
 from app.demo.dataset import ErrorTemplate
 from app.domain.enums import (
@@ -28,46 +26,7 @@ from app.domain.enums import (
 from app.domain.events import (
     ErrorRecorded,
     ProductionRecorded,
-    SessionEnded,
-    SessionStarted,
 )
-
-# Format of `study_session.planned` / `summary` written by the demo; M4 owns the real format.
-DEMO_SESSION_FORMAT = "demo-provisional-1"
-
-
-def start_study_session(session: Session, at: datetime, planned: dict[str, Any]) -> StudySession:
-    study = StudySession(
-        started_at=at,
-        planned={"format": DEMO_SESSION_FORMAT, "plan": planned},
-        created_at=at,
-        updated_at=at,
-    )
-    session.add(study)
-    session.flush()
-    record_event(
-        session,
-        SessionStarted(study_session_id=study.id),
-        occurred_at=at,
-        study_session_id=study.id,
-    )
-    return study
-
-
-def end_study_session(
-    session: Session, study: StudySession, at: datetime, summary: dict[str, Any]
-) -> None:
-    study.ended_at = at
-    study.summary = {"format": DEMO_SESSION_FORMAT, **summary}
-    record_event(
-        session,
-        SessionEnded(
-            study_session_id=study.id,
-            duration_seconds=(at - study.started_at).total_seconds(),
-        ),
-        occurred_at=at,
-        study_session_id=study.id,
-    )
 
 
 def record_production(

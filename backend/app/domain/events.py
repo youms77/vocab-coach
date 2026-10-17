@@ -296,13 +296,26 @@ class ListExtensionGenerated(Event):
     dropped_in_batch: Annotated[int, Field(ge=0)]  # repeated in the answer, or beyond `requested`
 
 
+class DiscoveryExerciseResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    exercise_type: Annotated[str, Field(min_length=1, max_length=64)]
+    outcome: Literal["exact", "form", "typo", "wrong", "empty"]
+
+
 class DiscoveryCompleted(Event):
+    """Version 2 (M4) adds the user's guess (step 2) and the results of the immediate exercises
+    (step 4). Both are optional, so version 1 payloads still read."""
+
     event_type = EventType.DISCOVERY_COMPLETED
+    payload_version = 2
     entity_type = "lexical_item"
     entity_id_field = "lexical_item_id"
 
     lexical_item_id: Id
     duration_ms: Annotated[int, Field(ge=0)] | None = None
+    guess: Annotated[str, Field(max_length=1000)] | None = None
+    exercise_results: Annotated[list[DiscoveryExerciseResult], Field(max_length=10)] = []
 
 
 # --- Reviews, productions, errors --------------------------------------------------------------

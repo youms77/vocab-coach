@@ -15,7 +15,7 @@ from app.db.base import Base
 from app.db.engine import create_db_engine
 from app.domain.enums import CardDirection, ItemStatus
 from tests.conftest import sqlite_url
-from tests.factories import add_card, add_deck, add_item, link
+from tests.factories import add_card, add_deck, add_item, add_sheet, link
 
 
 @pytest.fixture
@@ -46,7 +46,9 @@ def _fill(url: str) -> None:
         with Session(engine) as session:
             waiting = add_deck(session, "Fictional talk deck")
             for i in range(3):
-                link(session, waiting, add_item(session, f"term {i}", status=ItemStatus.QUEUED))
+                term = add_item(session, f"term {i}", status=ItemStatus.QUEUED)
+                link(session, waiting, term)
+                add_sheet(session, term)
             learning = add_item(session, "draw a conclusion", status=ItemStatus.LEARNING)
             add_card(session, learning, CardDirection.RECEPTIVE)
             session.commit()

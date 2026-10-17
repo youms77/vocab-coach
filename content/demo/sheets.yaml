@@ -1,0 +1,1372 @@
+# Fictional usage sheets for the demo (milestone M4.a2, docs/DECISIONS.md D-099 and D-110).
+#
+# Written by hand for the demo: no excerpt from a book, an article or an AI answer.
+# Each entry is saved through the sheet service as a hand-typed sheet (provider "demo") when the
+# simulation creates the term.
+#
+#   sheet: the stored usage sheet (schema version 1, `app/domain/usage_sheet.py`). A *minimal*
+#          sheet has the French translation only: the term can be discovered and its receptive
+#          card is reviewed through `self_assessment` (its productive card gets the typed recall
+#          that the sheet service derives from the translation).
+#   exercises: present on *full* sheets only. One template of each type; the listening template
+#          reuses the recognition sentence. Rules checked by backend/tests/test_demo_sheets.py
+#          (the same rules as generated sheets, `app/domain/exercises.py`).
+#
+# Full sheets cover every term that ends queued, in triage or discovering with seed 42, and at
+# least 25 learning or consolidated terms. Draft and known terms have no sheet.
+
+dataset_version: 2
+
+sheets:
+  # --- Causal inference reading ------------------------------------------------------------
+  - term: confounder
+    sheet: {translation_fr: [facteur de confusion]}
+  - term: omitted variable bias
+    sheet: {translation_fr: [biais de variable omise]}
+  - term: instrumental variable
+    sheet:
+      definition_simple: A variable that changes the treatment but affects the outcome only through the treatment.
+      translation_fr: [variable instrumentale]
+      register_level: academic
+      examples:
+        - {sentence: "The authors use rainfall as an instrumental variable for farm income.", kind: academic}
+        - {sentence: "Honestly, finding a good instrumental variable is the hardest part of the project.", kind: spoken}
+      pronunciation: {ipa_us: "ˌɪnstrəˈmɛntəl ˈvɛriəbəl", stressed_syllable: "MEN"}
+      confusables:
+        - {term: control variable, difference: "A control variable is added to the regression; an instrument replaces the variation of the treatment."}
+    exercises:
+      gap_fill: {sentence: "Lottery wins work as an ___ for household wealth in this study.", answer: instrumental variable, accepted: [instrumental variables]}
+      recognition_in_sentence:
+        sentence: "Without a credible instrumental variable, the causal claim is weak."
+        meaning: a variable that moves the treatment and reaches the outcome only through it
+        meaning_fr: une variable instrumentale
+        distractors: [a variable measured with a lot of error, the main outcome of the study, a variable added only to improve the fit]
+      sentence_production: {situation: "Explain to a classmate how distance to a school can help estimate the effect of schooling on wages.", example_answer: "Distance to school can serve as an instrumental variable, because it changes schooling but should not affect wages directly."}
+      spoken_answer: {question: "What makes an instrument valid in a regression?", example_answer: "A valid instrumental variable is relevant for the treatment and has no direct effect on the outcome."}
+  - term: rule out
+    sheet: {translation_fr: [exclure, écarter]}
+  - term: counterfactual
+    sheet: {translation_fr: [contrefactuel]}
+  - term: treatment effect
+    sheet:
+      definition_simple: The change in an outcome that is caused by a programme or an intervention.
+      translation_fr: [effet du traitement]
+      register_level: academic
+      examples:
+        - {sentence: "The estimated treatment effect is larger for girls than for boys.", kind: academic}
+        - {sentence: "So the treatment effect is basically zero after two years, right?", kind: spoken}
+      pronunciation: {ipa_us: "ˈtritmənt ɪˈfɛkt", stressed_syllable: "TREAT"}
+      french_speaker_pitfalls:
+        - {wrong: "treatment affect", right: "treatment effect", explanation: "'Effect' is the noun; 'affect' is usually the verb."}
+    exercises:
+      gap_fill: {sentence: "The average ___ of the tutoring programme was about a tenth of a standard deviation.", answer: treatment effect, accepted: [treatment effects]}
+      recognition_in_sentence:
+        sentence: "The treatment effect disappears once we control for prior grades."
+        meaning: the change in the outcome caused by the intervention
+        meaning_fr: l'effet causé par l'intervention
+        distractors: [the side effects of a medicine, the cost of running the programme, the number of people who received the programme]
+      sentence_production: {situation: "Write one sentence reporting that a cash transfer raised school attendance by five points.", example_answer: "The cash transfer had a treatment effect of five percentage points on school attendance."}
+      spoken_answer: {question: "How would you describe the main result of a randomised trial to your supervisor?", example_answer: "The treatment effect is positive and significant, about three points on the test."}
+  - term: selection bias
+    sheet:
+      definition_simple: A bias that appears when the people compared were not chosen at random.
+      translation_fr: [biais de sélection]
+      register_level: academic
+      examples:
+        - {sentence: "Comparing volunteers with non-volunteers introduces selection bias.", kind: academic}
+        - {sentence: "I think there's some selection bias here, only motivated people answered.", kind: spoken}
+      pronunciation: {ipa_us: "sɪˈlɛkʃən ˈbaɪəs", stressed_syllable: "LEC"}
+      confusables:
+        - {term: sampling error, difference: "Sampling error is random noise; selection bias is a systematic distortion."}
+    exercises:
+      gap_fill: {sentence: "Because only successful firms reported their data, the sample suffers from ___.", answer: selection bias}
+      recognition_in_sentence:
+        sentence: "Random assignment protects the trial against selection bias."
+        meaning: a distortion caused by how the compared groups were formed
+        meaning_fr: un biais lié à la façon dont les groupes ont été formés
+        distractors: [an error in the computer code, a preference of the researcher for one result, a lack of statistical power]
+      sentence_production: {situation: "Warn a classmate that students who chose online classes may differ from the others.", example_answer: "Be careful, comparing students who chose online classes with the rest may suffer from selection bias."}
+      spoken_answer: {question: "Why can't we simply compare people who joined a training programme with those who didn't?", example_answer: "Because of selection bias: the people who joined were probably more motivated in the first place."}
+  - term: identification strategy
+    sheet: {translation_fr: [stratégie d'identification]}
+  - term: robustness check
+    sheet: {translation_fr: [test de robustesse]}
+  - term: parallel trends assumption
+    sheet: {translation_fr: [hypothèse de tendances parallèles]}
+  - term: spillover
+    sheet:
+      definition_simple: An effect of a programme on people or places that did not receive it.
+      translation_fr: [effet de débordement, retombée]
+      examples:
+        - {sentence: "Spillovers to neighbouring schools would bias the estimate towards zero.", kind: academic}
+        - {sentence: "There's probably a spillover, kids talk to their friends in other classes.", kind: spoken}
+      pronunciation: {ipa_us: "ˈspɪlˌoʊvər", stressed_syllable: "SPILL"}
+    exercises:
+      gap_fill: {sentence: "Farmers in control villages copied the new technique, a clear ___ from the treated villages.", answer: spillover, accepted: [spillovers]}
+      recognition_in_sentence:
+        sentence: "The design leaves a buffer zone to limit spillovers between groups."
+        meaning: an effect that reaches people who were not treated
+        meaning_fr: un effet qui atteint des personnes non traitées
+        distractors: [a liquid that falls out of a container, money left over at the end of a project, a delay in data collection]
+      sentence_production: {situation: "Explain why treated and untreated students in the same school may not be a clean comparison.", example_answer: "Students in the same school share ideas, so there may be a spillover from treated to untreated students."}
+      spoken_answer: {question: "Why do some trials randomise whole villages rather than individuals?", example_answer: "To avoid spillovers: neighbours in the same village would otherwise affect each other."}
+  - term: attrition
+    sheet:
+      definition_simple: The loss of participants from a study over time.
+      translation_fr: [attrition, perte de participants]
+      register_level: academic
+      examples:
+        - {sentence: "Attrition reached twenty percent by the third survey wave.", kind: academic}
+        - {sentence: "We lost a lot of people between rounds, attrition was really bad.", kind: spoken}
+      pronunciation: {ipa_us: "əˈtrɪʃən", stressed_syllable: "TRI"}
+      french_speaker_pitfalls:
+        - {wrong: "the attritions", right: "attrition", explanation: "In this sense 'attrition' is usually uncountable."}
+    exercises:
+      gap_fill: {sentence: "Differential ___ between the two arms can break the randomisation.", answer: attrition}
+      recognition_in_sentence:
+        sentence: "Attrition was concentrated among the poorest households."
+        meaning: participants dropping out of the study
+        meaning_fr: des participants qui quittent l'étude
+        distractors: [a slow increase in prices, a disagreement between referees, a missing variable in the data]
+      sentence_production: {situation: "Report that many respondents could not be found for the follow-up survey.", example_answer: "Attrition was high, since many respondents could not be found for the follow-up survey."}
+      spoken_answer: {question: "What problem appears when participants leave a panel study?", example_answer: "Attrition, and if the people who leave are different, the results become biased."}
+  - term: plausibly exogenous
+    sheet: {translation_fr: [vraisemblablement exogène]}
+  - term: shed light on
+    sheet:
+      definition_simple: To help explain something or make it easier to understand.
+      translation_fr: [éclairer, faire la lumière sur]
+      register_level: academic
+      examples:
+        - {sentence: "These interviews shed light on why so few farmers adopted the seeds.", kind: academic}
+        - {sentence: "Maybe the qualitative data can shed light on that weird result.", kind: spoken}
+      pronunciation: {ipa_us: "ʃɛd ˈlaɪt ɑn", stressed_syllable: "LIGHT"}
+      french_speaker_pitfalls:
+        - {wrong: "shed light about", right: "shed light on", explanation: "The preposition is always 'on'."}
+    exercises:
+      gap_fill: {sentence: "The survey may ___ the reasons behind the drop in enrolment.", answer: shed light on, accepted: [sheds light on]}
+      recognition_in_sentence:
+        sentence: "Administrative records shed light on the timing of the reform."
+        meaning: help to explain or clarify
+        meaning_fr: aider à comprendre, éclairer
+        distractors: [hide or make less visible, turn on the lights in a room, reduce the cost of]
+      sentence_production: {situation: "Say that your new dataset helps explain how families choose schools.", example_answer: "Our new dataset sheds light on how families choose schools."}
+      spoken_answer: {question: "Why did you add interviews to your quantitative study?", example_answer: "Because the interviews shed light on the mechanisms behind the numbers."}
+  - term: hold constant
+    sheet:
+      definition_simple: To keep a factor fixed so that its effect does not change the comparison.
+      translation_fr: [maintenir constant, contrôler]
+      register_level: academic
+      examples:
+        - {sentence: "The model estimates the effect of age while it holds constant education and income.", kind: academic}
+        - {sentence: "If we hold constant the region, the gap almost disappears.", kind: spoken}
+      pronunciation: {ipa_us: "hoʊld ˈkɑnstənt", stressed_syllable: "CON"}
+    exercises:
+      gap_fill: {sentence: "The regression tries to ___ every factor except class size.", answer: hold constant}
+      recognition_in_sentence:
+        sentence: "Holding constant parental income, the effect of school type is small."
+        meaning: keeping a factor fixed in the comparison
+        meaning_fr: en maintenant un facteur fixe
+        distractors: [measuring a factor more often, ignoring a factor completely, increasing a factor step by step]
+      sentence_production: {situation: "Explain that you compared wages of people with the same experience.", example_answer: "We hold constant experience, so the wage comparison is between similar workers."}
+      spoken_answer: {question: "What does a control variable do in a regression?", example_answer: "It lets us hold constant one factor while we look at the effect of another."}
+  - term: drive the results
+    sheet: {translation_fr: [déterminer les résultats, être à l'origine des résultats]}
+  - term: hinge on
+    sheet:
+      definition_simple: To depend completely on something.
+      translation_fr: [dépendre entièrement de, reposer sur]
+      examples:
+        - {sentence: "The validity of the design hinges on the timing of the policy.", kind: academic}
+        - {sentence: "Well, it all hinges on whether the data arrive this month.", kind: spoken}
+      pronunciation: {ipa_us: "ˈhɪndʒ ɑn", stressed_syllable: "HINGE"}
+      french_speaker_pitfalls:
+        - {wrong: "hinge of", right: "hinge on", explanation: "The verb takes 'on' (or 'upon'), never 'of'."}
+    exercises:
+      gap_fill: {sentence: "Our conclusion would ___ a single outlier, which is not reassuring.", answer: hinge on, accepted: [hinges on]}
+      recognition_in_sentence:
+        sentence: "The whole estimate hinges on the exclusion restriction."
+        meaning: depends completely on
+        meaning_fr: dépend entièrement de
+        distractors: [is opposed to, is written next to, is less important than]
+      sentence_production: {situation: "Say that the success of your project depends entirely on access to tax records.", example_answer: "The success of the project hinges on access to tax records."}
+      spoken_answer: {question: "What is the weak point of your identification?", example_answer: "It hinges on the assumption that the two regions followed parallel trends."}
+  - term: caveat
+    sheet:
+      definition_simple: A warning that a statement or result has a limit.
+      translation_fr: [réserve, mise en garde]
+      examples:
+        - {sentence: "An important caveat is that the sample excludes informal workers.", kind: academic}
+        - {sentence: "Just one caveat before I show the chart: the last month is incomplete.", kind: spoken}
+      pronunciation: {ipa_us: "ˈkæviˌæt", stressed_syllable: "CAV"}
+      confusables:
+        - {term: limitation, difference: "A limitation is a weakness of the study; a caveat is the warning you give about it."}
+    exercises:
+      gap_fill: {sentence: "With the ___ that prices are self-reported, the trend looks clear.", answer: caveat, accepted: [caveats]}
+      recognition_in_sentence:
+        sentence: "The report adds a caveat about the small number of rural schools."
+        meaning: a warning about a limit of the result
+        meaning_fr: une mise en garde, une réserve
+        distractors: [a summary of the main findings, a list of references, a thank-you note to the funders]
+      sentence_production: {situation: "Before presenting your result, warn the audience that it covers only one city.", example_answer: "One caveat: these results cover only one city."}
+      spoken_answer: {question: "Is your result valid for the whole country?", example_answer: "With a caveat: the survey only covers urban areas, so I would be careful."}
+  - term: to a large extent
+    sheet: {translation_fr: [dans une large mesure]}
+  - term: bear out
+    sheet:
+      definition_simple: To show that something is true.
+      translation_fr: [confirmer, corroborer]
+      register_level: academic
+      examples:
+        - {sentence: "The new data bear out the earlier estimates.", kind: academic}
+        - {sentence: "I hope the second survey will bear out what we saw in the first one.", kind: spoken}
+      pronunciation: {ipa_us: "bɛr ˈaʊt", stressed_syllable: "OUT"}
+      french_speaker_pitfalls:
+        - {wrong: "bear the results", right: "bear out the results", explanation: "Without 'out' the verb means 'carry' or 'tolerate'."}
+    exercises:
+      gap_fill: {sentence: "Later studies did not ___ the claim that homework improves grades.", answer: bear out, accepted: [bears out, bore out, borne out]}
+      recognition_in_sentence:
+        sentence: "The field visits bear out the patterns in the survey."
+        meaning: confirm, show to be true
+        meaning_fr: confirmer
+        distractors: [contradict, carry outside, make more complicated]
+      sentence_production: {situation: "Say that the second experiment confirms the result of the first.", example_answer: "The second experiment bears out the result of the first."}
+      spoken_answer: {question: "Did the follow-up data support your hypothesis?", example_answer: "Yes, the follow-up data bear out the hypothesis quite clearly."}
+  - term: back-of-the-envelope
+    sheet: {translation_fr: [approximatif, fait sur un coin de table]}
+  - term: cherry-pick
+    sheet: {translation_fr: [sélectionner à sa convenance, trier sur le volet]}
+  - term: tease out
+    sheet:
+      definition_simple: To separate one effect or piece of information from others with effort.
+      translation_fr: [démêler, isoler]
+      examples:
+        - {sentence: "The design helps tease out the effect of price from the effect of quality.", kind: academic}
+        - {sentence: "It's tricky to tease out what's really going on here.", kind: spoken}
+      pronunciation: {ipa_us: "tiz ˈaʊt", stressed_syllable: "OUT"}
+    exercises:
+      gap_fill: {sentence: "We need more variation to ___ the role of peers.", answer: tease out}
+      recognition_in_sentence:
+        sentence: "Panel data let us tease out short-term and long-term effects."
+        meaning: separate and identify with effort
+        meaning_fr: démêler, isoler
+        distractors: [make fun of, publish quickly, remove from the sample]
+      sentence_production: {situation: "Say that it is hard to separate the effect of the teacher from the effect of the school.", example_answer: "It is hard to tease out the effect of the teacher from the effect of the school."}
+      spoken_answer: {question: "Why did you collect data on both parents?", example_answer: "To tease out the role of the mother's education from the father's."}
+  - term: noisy estimate
+    sheet: {translation_fr: [estimation bruitée, estimation imprécise]}
+  - term: take into account
+    sheet:
+      definition_simple: To consider something when you make a decision or a calculation.
+      translation_fr: [prendre en compte]
+      examples:
+        - {sentence: "The weights take into account the unequal probability of selection.", kind: academic}
+        - {sentence: "Did you take into account the holidays when you counted the days?", kind: spoken}
+      pronunciation: {ipa_us: "teɪk ˈɪntu əˈkaʊnt", stressed_syllable: "COUNT"}
+      french_speaker_pitfalls:
+        - {wrong: "take in account", right: "take into account", explanation: "The preposition is 'into', not 'in'."}
+    exercises:
+      gap_fill: {sentence: "The forecast does not ___ the new tax rules.", answer: take into account, accepted: [takes into account, took into account]}
+      recognition_in_sentence:
+        sentence: "The final grade takes into account attendance as well as exams."
+        meaning: considers, includes in the calculation
+        meaning_fr: prend en compte
+        distractors: [opens a bank account, ignores on purpose, pays back]
+      sentence_production: {situation: "Tell your supervisor that your model now includes seasonal effects.", example_answer: "The model now takes into account seasonal effects."}
+      spoken_answer: {question: "How did you deal with inflation in your comparison of wages?", example_answer: "I took into account inflation by using real wages."}
+  - term: underpowered
+    sheet: {translation_fr: [de puissance insuffisante]}
+  - term: run a regression
+    sheet: {translation_fr: [faire une régression, estimer une régression]}
+  - term: point estimate
+    sheet: {translation_fr: [estimation ponctuelle]}
+  - term: downward biased
+    sheet: {translation_fr: [biaisé vers le bas, sous-estimé]}
+  - term: overstate
+    sheet:
+      definition_simple: To describe something as larger or more important than it really is.
+      translation_fr: [surestimer, exagérer]
+      examples:
+        - {sentence: "Survey answers tend to overstate the time spent on homework.", kind: academic}
+        - {sentence: "I don't want to overstate it, but the effect is pretty big.", kind: spoken}
+      pronunciation: {ipa_us: "ˌoʊvərˈsteɪt", stressed_syllable: "STATE"}
+      confusables:
+        - {term: overestimate, difference: "'Overestimate' is about a number or a guess; 'overstate' is about how something is described."}
+    exercises:
+      gap_fill: {sentence: "Press releases often ___ the importance of a single study.", answer: overstate, accepted: [overstates, overstated]}
+      recognition_in_sentence:
+        sentence: "Self-reported income may overstate real earnings."
+        meaning: present as bigger than it really is
+        meaning_fr: exagérer, surestimer
+        distractors: [state again in other words, understate, explain in great detail]
+      sentence_production: {situation: "Warn a journalist not to present your small result as a revolution.", example_answer: "Please don't overstate the result: it is a small effect in one region."}
+      spoken_answer: {question: "Are the effects in your paper as large as the headline suggests?", example_answer: "No, the headline overstates them quite a lot."}
+
+  # --- Campus life -----------------------------------------------------------------------------
+  - term: on campus
+    sheet: {translation_fr: [sur le campus]}
+  - term: dorm
+    sheet: {translation_fr: [résidence universitaire]}
+  - term: office hours
+    sheet: {translation_fr: [permanence (d'un enseignant)]}
+  - term: hand in
+    sheet:
+      definition_simple: To give a piece of work to a teacher or an office.
+      translation_fr: [rendre, remettre]
+      register_level: neutral
+      examples:
+        - {sentence: "Candidates must hand in the final version of the thesis by the end of June.", kind: academic}
+        - {sentence: "Did you hand in the problem set already?", kind: spoken}
+      pronunciation: {ipa_us: "hænd ˈɪn", stressed_syllable: "IN"}
+      confusables:
+        - {term: hand out, difference: "You hand out documents to people; you hand in your own work."}
+    exercises:
+      gap_fill: {sentence: "Remember to ___ your lab report before the weekend.", answer: hand in, accepted: [hands in, handed in]}
+      recognition_in_sentence:
+        sentence: "Half the class handed in the essay late."
+        meaning: gave their work to the teacher
+        meaning_fr: ont rendu leur travail
+        distractors: [wrote by hand, distributed to everyone, refused to do]
+      sentence_production: {situation: "Ask your tutor when the essay must be given to the secretary's office.", example_answer: "When do we have to hand in the essay to the secretary's office?"}
+      spoken_answer: {question: "What did you do just before the deadline last night?", example_answer: "I finished my report and handed in the file at eleven fifty."}
+  - term: sign up for
+    sheet:
+      definition_simple: To put your name on a list to take part in something.
+      translation_fr: [s'inscrire à]
+      examples:
+        - {sentence: "Students who sign up for the methods course receive a reading list in advance.", kind: academic}
+        - {sentence: "I'm going to sign up for the coding workshop, want to come?", kind: spoken}
+      pronunciation: {ipa_us: "saɪn ˈʌp fɔr", stressed_syllable: "UP"}
+      french_speaker_pitfalls:
+        - {wrong: "inscribe to a course", right: "sign up for a course", explanation: "'Inscribe' means engrave; use 'sign up for' or 'enrol in'."}
+    exercises:
+      gap_fill: {sentence: "You can ___ the summer school until the end of May.", answer: sign up for, accepted: [signed up for, signs up for]}
+      recognition_in_sentence:
+        sentence: "Forty students signed up for the evening seminar."
+        meaning: registered to take part in
+        meaning_fr: se sont inscrits à
+        distractors: [signed a contract against, cancelled their place in, wrote a review of]
+      sentence_production: {situation: "Tell a friend you registered for the football tournament.", example_answer: "I signed up for the football tournament this morning."}
+      spoken_answer: {question: "What activities are you doing this term besides your classes?", example_answer: "I signed up for the debate club and a Spanish class."}
+  - term: catch up on
+    sheet: {translation_fr: [rattraper (son retard sur)]}
+  - term: run late
+    sheet:
+      definition_simple: To be later than planned.
+      translation_fr: [être en retard, prendre du retard]
+      register_level: spoken
+      examples:
+        - {sentence: "Projects that run late are often the ones that were planned too optimistically.", kind: academic}
+        - {sentence: "Sorry, I'm going to run late, start without me.", kind: spoken}
+      pronunciation: {ipa_us: "rʌn ˈleɪt", stressed_syllable: "LATE"}
+      french_speaker_pitfalls:
+        - {wrong: "I am in late", right: "I'm running late", explanation: "Use 'run late' or 'be late'; 'in late' is not used this way."}
+    exercises:
+      gap_fill: {sentence: "The morning lecture tends to ___ when there are many questions.", answer: run late, accepted: [running late, ran late, runs late]}
+      recognition_in_sentence:
+        sentence: "The bus is running late again, so I'll walk."
+        meaning: being later than planned
+        meaning_fr: être en retard
+        distractors: [running very fast, leaving earlier than planned, being cancelled]
+      sentence_production: {situation: "Send a short message to your study partner: you will arrive ten minutes after the agreed time.", example_answer: "I'm running late, I'll be there in ten minutes."}
+      spoken_answer: {question: "Why did the meeting finish after six yesterday?", example_answer: "Because the first speaker ran late and everything was pushed back."}
+  - term: get the hang of
+    sheet:
+      definition_simple: To learn how to do something after some practice.
+      translation_fr: [prendre le coup de main pour]
+      register_level: spoken
+      examples:
+        - {sentence: "Most participants get the hang of the interface after two practice rounds.", kind: academic}
+        - {sentence: "Don't worry, you'll get the hang of it in a few days.", kind: spoken}
+      pronunciation: {ipa_us: "ɡɛt ðə ˈhæŋ əv", stressed_syllable: "HANG"}
+    exercises:
+      gap_fill: {sentence: "It took me a while to ___ the new statistics package.", answer: get the hang of, accepted: [getting the hang of, got the hang of]}
+      recognition_in_sentence:
+        sentence: "I'm finally getting the hang of writing proofs."
+        meaning: learning how to do it with practice
+        meaning_fr: prendre le coup de main
+        distractors: [giving up on, being afraid of, teaching someone else]
+      sentence_production: {situation: "Tell your flatmate that cooking rice is becoming easy for you after a few tries.", example_answer: "I'm getting the hang of cooking rice now."}
+      spoken_answer: {question: "How is your new part-time job going?", example_answer: "It was hard at first, but I'm getting the hang of it."}
+  - term: flatmate
+    sheet:
+      definition_simple: A person who shares a flat with you.
+      translation_fr: [colocataire]
+      register_level: neutral
+      examples:
+        - {sentence: "Respondents living with a flatmate reported lower rent burdens.", kind: academic}
+        - {sentence: "My flatmate is cooking tonight, so I'm free.", kind: spoken}
+      pronunciation: {ipa_us: "ˈflætˌmeɪt", stressed_syllable: "FLAT"}
+      confusables:
+        - {term: roommate, difference: "'Roommate' is the usual American word; British English prefers 'flatmate' for a shared flat."}
+    exercises:
+      gap_fill: {sentence: "My ___ borrowed my laptop charger again.", answer: flatmate, accepted: [flatmates]}
+      recognition_in_sentence:
+        sentence: "Her flatmate works nights, so the kitchen is quiet in the evening."
+        meaning: a person she shares her flat with
+        meaning_fr: sa colocataire
+        distractors: [her classmate, her landlord, her neighbour across the street]
+      sentence_production: {situation: "Explain who Tom is: he lives in the same flat as you.", example_answer: "Tom is my flatmate, we share the flat near the station."}
+      spoken_answer: {question: "Do you live alone this year?", example_answer: "No, I live with two flatmates from my course."}
+  - term: grab a coffee
+    sheet:
+      definition_simple: To have a quick coffee, often with someone.
+      translation_fr: [prendre un café (rapidement)]
+      register_level: informal
+      examples:
+        - {sentence: "Informal meetings, such as when colleagues grab a coffee, support knowledge sharing.", kind: academic}
+        - {sentence: "Want to grab a coffee after the lecture?", kind: spoken}
+      pronunciation: {ipa_us: "ɡræb ə ˈkɑfi", stressed_syllable: "COF"}
+    exercises:
+      gap_fill: {sentence: "Let's ___ and talk about the group project.", answer: grab a coffee}
+      recognition_in_sentence:
+        sentence: "We grabbed a coffee between the two exams."
+        meaning: had a quick coffee
+        meaning_fr: avons pris un café rapidement
+        distractors: [spilled a coffee, bought coffee beans, refused a coffee]
+      sentence_production: {situation: "Invite a new classmate for a short, relaxed drink before class.", example_answer: "Do you want to grab a coffee before class?"}
+      spoken_answer: {question: "What do you usually do during the long break?", example_answer: "I usually grab a coffee with friends from my group."}
+  - term: be swamped
+    sheet:
+      definition_simple: To have too much work to do.
+      translation_fr: [être débordé]
+      register_level: informal
+      examples:
+        - {sentence: "Teaching assistants tend to be swamped during the last week of term.", kind: academic}
+        - {sentence: "I'm going to be swamped next week, can we meet on Monday?", kind: spoken}
+      pronunciation: {ipa_us: "bi ˈswɑmpt", stressed_syllable: "SWAMPED"}
+    exercises:
+      gap_fill: {sentence: "With three deadlines on Friday, I will ___ all week.", answer: be swamped}
+      recognition_in_sentence:
+        sentence: "Sorry for the slow reply, I seem to be swamped at the moment."
+        meaning: have too much work
+        meaning_fr: être débordé
+        distractors: [be on holiday, be ill, be bored]
+      sentence_production: {situation: "Explain to a friend that you cannot help with the move because of all your assignments.", example_answer: "I'd love to help, but I will be swamped with assignments that weekend."}
+      spoken_answer: {question: "Can you review my draft tomorrow?", example_answer: "Not tomorrow, I'll be swamped, but Thursday works."}
+  - term: pull an all-nighter
+    sheet:
+      definition_simple: To stay awake all night to work or study.
+      translation_fr: [faire une nuit blanche (pour travailler)]
+      register_level: informal
+      examples:
+        - {sentence: "Students who pull an all-nighter before an exam tend to perform worse.", kind: academic}
+        - {sentence: "I had to pull an all-nighter to finish the slides.", kind: spoken}
+      pronunciation: {ipa_us: "pʊl ən ˌɔlˈnaɪtər", stressed_syllable: "NIGHT"}
+    exercises:
+      gap_fill: {sentence: "If the code doesn't run by tonight, I'll have to ___.", answer: pull an all-nighter, accepted: [pulled an all-nighter]}
+      recognition_in_sentence:
+        sentence: "He pulled an all-nighter and fell asleep in the morning lecture."
+        meaning: stayed awake all night working
+        meaning_fr: a fait une nuit blanche
+        distractors: [went to a party all night, slept for twelve hours, arrived very early]
+      sentence_production: {situation: "Tell your friend you did not sleep last night because you were finishing your essay.", example_answer: "I pulled an all-nighter to finish my essay."}
+      spoken_answer: {question: "Why do you look so tired today?", example_answer: "I pulled an all-nighter for the statistics exam."}
+  - term: tuition fees
+    sheet:
+      definition_simple: The money students pay to a university for their courses.
+      translation_fr: [frais de scolarité]
+      examples:
+        - {sentence: "Higher tuition fees reduced enrolment among low-income students.", kind: academic}
+        - {sentence: "The tuition fees went up again this year, it's crazy.", kind: spoken}
+      pronunciation: {ipa_us: "tuˈɪʃən fiz", stressed_syllable: "I"}
+      french_speaker_pitfalls:
+        - {wrong: "scolarity fees", right: "tuition fees", explanation: "'Scolarity' does not exist in English."}
+    exercises:
+      gap_fill: {sentence: "International students often pay higher ___.", answer: tuition fees}
+      recognition_in_sentence:
+        sentence: "She works part-time to pay her tuition fees."
+        meaning: the money paid to the university for courses
+        meaning_fr: ses frais de scolarité
+        distractors: [her rent, her bus pass, her phone bill]
+      sentence_production: {situation: "Explain that your scholarship covers the cost of the courses but not your rent.", example_answer: "My scholarship covers the tuition fees, but not the rent."}
+      spoken_answer: {question: "What is the biggest cost of studying abroad?", example_answer: "The tuition fees, then rent in a big city."}
+  - term: deadline extension
+    sheet:
+      definition_simple: Extra time given to finish a piece of work.
+      translation_fr: [report d'échéance, délai supplémentaire]
+      examples:
+        - {sentence: "Requests for a deadline extension must be supported by a medical certificate.", kind: academic}
+        - {sentence: "Do you think she'll give us a deadline extension?", kind: spoken}
+      pronunciation: {ipa_us: "ˈdɛdˌlaɪn ɪkˈstɛnʃən", stressed_syllable: "DEAD"}
+    exercises:
+      gap_fill: {sentence: "I asked for a ___ because of my illness.", answer: deadline extension}
+      recognition_in_sentence:
+        sentence: "The department granted a deadline extension to the whole class."
+        meaning: extra time to submit the work
+        meaning_fr: un délai supplémentaire
+        distractors: [an earlier deadline, a penalty for late work, a longer exam]
+      sentence_production: {situation: "Write to your lecturer asking for two more days for the essay.", example_answer: "Could I please have a deadline extension of two days for the essay?"}
+      spoken_answer: {question: "What can you do if you are ill the week of a deadline?", example_answer: "You can ask for a deadline extension with a doctor's note."}
+  - term: drop a course
+    sheet:
+      definition_simple: To stop taking a course before the end of the term.
+      translation_fr: [abandonner un cours]
+      examples:
+        - {sentence: "Students who drop a course in the first month receive a full refund.", kind: academic}
+        - {sentence: "I might drop a course, I have way too much on.", kind: spoken}
+      pronunciation: {ipa_us: "drɑp ə ˈkɔrs", stressed_syllable: "COURSE"}
+    exercises:
+      gap_fill: {sentence: "You can still ___ without penalty until Friday.", answer: drop a course}
+      recognition_in_sentence:
+        sentence: "She dropped a course to focus on her thesis."
+        meaning: stopped taking a course
+        meaning_fr: a abandonné un cours
+        distractors: [failed an exam, added a new course, taught a course]
+      sentence_production: {situation: "Tell your advisor you want to stop one of your classes this semester.", example_answer: "I would like to drop a course this semester, the workload is too heavy."}
+      spoken_answer: {question: "What would you do if your timetable became impossible?", example_answer: "I would drop a course and take it again next year."}
+  - term: get along with
+    sheet:
+      definition_simple: To have a friendly relationship with someone.
+      translation_fr: [s'entendre avec]
+      examples:
+        - {sentence: "Students who get along with their supervisor report higher satisfaction.", kind: academic}
+        - {sentence: "Do you get along with your new flatmates?", kind: spoken}
+      pronunciation: {ipa_us: "ɡɛt əˈlɔŋ wɪθ", stressed_syllable: "LONG"}
+      french_speaker_pitfalls:
+        - {wrong: "I hear well with him", right: "I get along with him", explanation: "'S'entendre' is not 'hear'; use 'get along with'."}
+    exercises:
+      gap_fill: {sentence: "It is easier to work in a team when you ___ everyone.", answer: get along with}
+      recognition_in_sentence:
+        sentence: "I get along with my lab partner, so the experiments go smoothly."
+        meaning: have a good relationship with
+        meaning_fr: m'entends bien avec
+        distractors: [walk next to, argue with, work faster than]
+      sentence_production: {situation: "Tell your parents that the relationship with your new classmates is good.", example_answer: "I get along with my new classmates really well."}
+      spoken_answer: {question: "How is the atmosphere in your study group?", example_answer: "Very good, we all get along with each other."}
+  - term: make up for
+    sheet:
+      definition_simple: To do something good to replace something bad or missing.
+      translation_fr: [compenser, rattraper]
+      examples:
+        - {sentence: "Extra tutoring did not fully make up for the weeks of lost teaching.", kind: academic}
+        - {sentence: "I'll work on Saturday to make up for the day I missed.", kind: spoken}
+      pronunciation: {ipa_us: "meɪk ˈʌp fɔr", stressed_syllable: "UP"}
+      confusables:
+        - {term: make up, difference: "Without 'for', 'make up' means invent or put on cosmetics."}
+    exercises:
+      gap_fill: {sentence: "A good final exam can ___ a weak midterm.", answer: make up for}
+      recognition_in_sentence:
+        sentence: "The bonus points make up for the cancelled lab session."
+        meaning: compensate for
+        meaning_fr: compensent
+        distractors: [invent a reason for, prepare in advance for, apologise to]
+      sentence_production: {situation: "Promise your study group that you will do more work next week because you were absent.", example_answer: "I'll do more next week to make up for my absence."}
+      spoken_answer: {question: "You missed the last two lectures. What's your plan?", example_answer: "I'll watch the recordings to make up for the lectures I missed."}
+  - term: fill in a form
+    sheet:
+      definition_simple: To write the information asked for in the spaces of a document.
+      translation_fr: [remplir un formulaire]
+      examples:
+        - {sentence: "Participants were asked to fill in a form describing their weekly expenses.", kind: academic}
+        - {sentence: "You just need to fill in a form at the front desk.", kind: spoken}
+      pronunciation: {ipa_us: "fɪl ˈɪn ə fɔrm", stressed_syllable: "IN"}
+      french_speaker_pitfalls:
+        - {wrong: "complete a formular", right: "fill in a form", explanation: "'Formular' is not English; the noun is 'form'."}
+    exercises:
+      gap_fill: {sentence: "To get a library card, you have to ___ and show your student ID.", answer: fill in a form}
+      recognition_in_sentence:
+        sentence: "Every visitor has to fill in a form before entering the lab."
+        meaning: write information in a document
+        meaning_fr: remplir un formulaire
+        distractors: [print a poster, sign a petition, take a photo]
+      sentence_production: {situation: "Explain to a new student how to register for the gym.", example_answer: "You fill in a form online and then pick up your card."}
+      spoken_answer: {question: "How do you apply for housing on campus?", example_answer: "You fill in a form on the housing website before May."}
+  - term: skip a class
+    sheet:
+      definition_simple: To miss a class on purpose.
+      translation_fr: [sécher un cours]
+      register_level: informal
+      examples:
+        - {sentence: "Students who skip a class more than twice a month have lower final grades.", kind: academic}
+        - {sentence: "I'm not going to skip a class the week before the exam.", kind: spoken}
+      pronunciation: {ipa_us: "skɪp ə ˈklæs", stressed_syllable: "CLASS"}
+    exercises:
+      gap_fill: {sentence: "It's tempting to ___ when it starts at eight in the morning.", answer: skip a class}
+      recognition_in_sentence:
+        sentence: "He skipped a class to queue for concert tickets."
+        meaning: missed a class on purpose
+        meaning_fr: a séché un cours
+        distractors: [arrived early to a class, changed classrooms, taught a class]
+      sentence_production: {situation: "Admit to your friend that you did not go to the lecture this morning on purpose.", example_answer: "I skipped a class this morning, I was too tired."}
+      spoken_answer: {question: "Do you ever miss lectures?", example_answer: "I sometimes skip a class, but never before an exam."}
+  - term: show up
+    sheet:
+      definition_simple: To arrive or appear somewhere, often when expected.
+      translation_fr: [venir, se présenter]
+      register_level: spoken
+      examples:
+        - {sentence: "Fewer than half of the invited respondents show up for the second interview.", kind: academic}
+        - {sentence: "If nobody shows up, we'll just cancel the session.", kind: spoken}
+      pronunciation: {ipa_us: "ʃoʊ ˈʌp", stressed_syllable: "UP"}
+      confusables:
+        - {term: show off, difference: "'Show off' means trying to impress people."}
+    exercises:
+      gap_fill: {sentence: "Only three people ___ to the club meeting.", answer: show up, accepted: [showed up, shows up]}
+      recognition_in_sentence:
+        sentence: "The speaker showed up twenty minutes late."
+        meaning: arrived
+        meaning_fr: est arrivé
+        distractors: [left early, spoke loudly, sent a message]
+      sentence_production: {situation: "Complain that your teammate never comes to the group meetings.", example_answer: "My teammate never shows up to our group meetings."}
+      spoken_answer: {question: "How many people came to your presentation?", example_answer: "About thirty people showed up, more than I expected."}
+  - term: figure out
+    sheet:
+      definition_simple: To understand or find the answer to something after thinking.
+      translation_fr: [comprendre, trouver]
+      register_level: spoken
+      examples:
+        - {sentence: "Researchers are still trying to figure out why the effect fades.", kind: academic}
+        - {sentence: "I can't figure out how to install this package.", kind: spoken}
+      pronunciation: {ipa_us: "ˈfɪɡjər ˈaʊt", stressed_syllable: "FIG"}
+    exercises:
+      gap_fill: {sentence: "Give me a minute to ___ where the error comes from.", answer: figure out, accepted: [figured out, figures out]}
+      recognition_in_sentence:
+        sentence: "We finally figured out the cause of the missing values."
+        meaning: understood, found the answer to
+        meaning_fr: avons compris, trouvé
+        distractors: [drew a figure of, forgot about, counted again]
+      sentence_production: {situation: "Tell your teammate that you found the reason the code was slow.", example_answer: "I figured out why the code was so slow."}
+      spoken_answer: {question: "What do you do when your code doesn't work?", example_answer: "I print the variables step by step until I figure out the problem."}
+  - term: student loan
+    sheet:
+      definition_simple: Money borrowed to pay for studies, paid back later.
+      translation_fr: [prêt étudiant]
+      examples:
+        - {sentence: "Access to a student loan raised enrolment in longer programmes.", kind: academic}
+        - {sentence: "I'll be paying off my student loan for years.", kind: spoken}
+      pronunciation: {ipa_us: "ˈstudənt loʊn", stressed_syllable: "STU"}
+      french_speaker_pitfalls:
+        - {wrong: "student credit", right: "student loan", explanation: "A sum you borrow and pay back is a 'loan'."}
+    exercises:
+      gap_fill: {sentence: "He took out a ___ to cover his rent.", answer: student loan, accepted: [student loans]}
+      recognition_in_sentence:
+        sentence: "Her student loan covers tuition but not living costs."
+        meaning: money she borrowed for her studies
+        meaning_fr: son prêt étudiant
+        distractors: [a grant she never pays back, her monthly salary, a discount on books]
+      sentence_production: {situation: "Explain that you borrowed money from the bank to pay for your master's degree.", example_answer: "I took out a student loan to pay for my master's degree."}
+      spoken_answer: {question: "How are you paying for your studies?", example_answer: "Partly with a student loan and partly with a part-time job."}
+  - term: study group
+    sheet:
+      definition_simple: A small group of students who meet to learn together.
+      translation_fr: [groupe de travail, groupe de révision]
+      examples:
+        - {sentence: "Students assigned to a study group passed the course at higher rates.", kind: academic}
+        - {sentence: "Our study group meets on Tuesdays in the library.", kind: spoken}
+      pronunciation: {ipa_us: "ˈstʌdi ɡrup", stressed_syllable: "STU"}
+    exercises:
+      gap_fill: {sentence: "I joined a ___ to prepare for the econometrics exam.", answer: study group, accepted: [study groups]}
+      recognition_in_sentence:
+        sentence: "The study group shares notes after every lecture."
+        meaning: a small group of students who learn together
+        meaning_fr: le groupe de révision
+        distractors: [the people in charge of the course, a research team in a lab, a sports club]
+      sentence_production: {situation: "Invite a classmate to revise with you and three friends every week.", example_answer: "Do you want to join our study group? We meet every week."}
+      spoken_answer: {question: "How do you prepare for difficult exams?", example_answer: "I work with a study group and we explain the hard parts to each other."}
+  - term: lecture hall
+    sheet:
+      definition_simple: A large room where lectures are given.
+      translation_fr: [amphithéâtre]
+      examples:
+        - {sentence: "Attendance in the lecture hall dropped once recordings became available.", kind: academic}
+        - {sentence: "The lecture hall was so cold this morning.", kind: spoken}
+      pronunciation: {ipa_us: "ˈlɛktʃər hɔl", stressed_syllable: "LEC"}
+      french_speaker_pitfalls:
+        - {wrong: "amphitheatre", right: "lecture hall", explanation: "In English an amphitheatre is usually an open-air venue."}
+    exercises:
+      gap_fill: {sentence: "The exam takes place in the main ___ on the ground floor.", answer: lecture hall}
+      recognition_in_sentence:
+        sentence: "The lecture hall holds about four hundred students."
+        meaning: a large room for lectures
+        meaning_fr: l'amphithéâtre
+        distractors: [the university library, the main corridor, the students' cafeteria]
+      sentence_production: {situation: "Tell a new student where the statistics course takes place.", example_answer: "The statistics course is in the big lecture hall next to the library."}
+      spoken_answer: {question: "Where do first-year classes usually happen?", example_answer: "In the large lecture hall, because the groups are huge."}
+
+  # --- Thesis defence --------------------------------------------------------------------------
+  - term: trade-off
+    sheet:
+      definition_simple: A balance between two things you cannot have fully at the same time.
+      translation_fr: [compromis, arbitrage]
+      examples:
+        - {sentence: "The choice of bandwidth involves a trade-off between bias and variance.", kind: academic}
+        - {sentence: "It's a trade-off: faster code, but harder to read.", kind: spoken}
+      pronunciation: {ipa_us: "ˈtreɪdˌɔf", stressed_syllable: "TRADE"}
+      confusables:
+        - {term: compromise, difference: "A compromise is an agreement between people; a trade-off is a balance between two goals."}
+    exercises:
+      gap_fill: {sentence: "There is a clear ___ between sample size and survey cost.", answer: trade-off, accepted: [trade-offs]}
+      recognition_in_sentence:
+        sentence: "Every design choice in the survey was a trade-off."
+        meaning: a balance between two goals that compete
+        meaning_fr: un compromis, un arbitrage
+        distractors: [a mistake, a shared decision by vote, a legal agreement]
+      sentence_production: {situation: "Explain that a bigger model is more accurate but slower.", example_answer: "There is a trade-off: the bigger model is more accurate but much slower."}
+      spoken_answer: {question: "Why didn't you collect more variables in your survey?", example_answer: "It was a trade-off between detail and the response rate."}
+  - term: contribution to the literature
+    sheet:
+      definition_simple: What a study adds to existing research on a topic.
+      translation_fr: [contribution à la littérature]
+      register_level: academic
+      examples:
+        - {sentence: "The main contribution to the literature is a new measure of school quality.", kind: academic}
+        - {sentence: "So what's your contribution to the literature, in one sentence?", kind: spoken}
+      pronunciation: {ipa_us: "ˌkɑntrəˈbjuʃən tu ðə ˈlɪtərətʃər", stressed_syllable: "BU"}
+      french_speaker_pitfalls:
+        - {wrong: "contribution at the literature", right: "contribution to the literature", explanation: "The noun takes 'to'."}
+    exercises:
+      gap_fill: {sentence: "This chapter makes a ___ by using administrative data.", answer: contribution to the literature}
+      recognition_in_sentence:
+        sentence: "Her second contribution to the literature is methodological."
+        meaning: what her research adds to existing studies
+        meaning_fr: son apport à la recherche existante
+        distractors: [a donation to the library, a list of the books she read, a review of a novel]
+      sentence_production: {situation: "State in your introduction what your thesis adds to research on mobile money.", example_answer: "My contribution to the literature is new evidence on mobile money and savings."}
+      spoken_answer: {question: "What is new in your thesis compared to earlier work?", example_answer: "The main contribution to the literature is the use of a natural experiment."}
+  - term: limitation
+    sheet:
+      definition_simple: A weakness or a point that reduces how far a result can be trusted or used.
+      translation_fr: [limite]
+      register_level: academic
+      examples:
+        - {sentence: "One limitation of the study is the short follow-up period.", kind: academic}
+        - {sentence: "The obvious limitation is the sample size, I know.", kind: spoken}
+      pronunciation: {ipa_us: "ˌlɪmɪˈteɪʃən", stressed_syllable: "TA"}
+      french_speaker_pitfalls:
+        - {wrong: "a limit of the study", right: "a limitation of the study", explanation: "For research weaknesses, English says 'limitation'."}
+    exercises:
+      gap_fill: {sentence: "The jury asked about the main ___ of my design.", answer: limitation, accepted: [limitations]}
+      recognition_in_sentence:
+        sentence: "The authors discuss each limitation in a separate section."
+        meaning: weakness of the study
+        meaning_fr: limite de l'étude
+        distractors: [speed restriction, final conclusion, list of sources]
+      sentence_production: {situation: "Admit during your defence that your data come from one region only.", example_answer: "A limitation of my thesis is that the data come from one region only."}
+      spoken_answer: {question: "What would you do differently with more time?", example_answer: "I would address the main limitation, which is the lack of panel data."}
+  - term: address a concern
+    sheet: {translation_fr: [répondre à une préoccupation]}
+  - term: build on
+    sheet:
+      definition_simple: To use earlier work as a base for new work.
+      translation_fr: [s'appuyer sur, prolonger]
+      register_level: academic
+      examples:
+        - {sentence: "This paper builds on recent work on teacher incentives.", kind: academic}
+        - {sentence: "We could build on what the last cohort did.", kind: spoken}
+      pronunciation: {ipa_us: "bɪld ɑn", stressed_syllable: "BUILD"}
+    exercises:
+      gap_fill: {sentence: "The second chapter will ___ the model of the first one.", answer: build on, accepted: [builds on, built on]}
+      recognition_in_sentence:
+        sentence: "Our method builds on an earlier matching approach."
+        meaning: uses as a starting point
+        meaning_fr: s'appuie sur
+        distractors: [rejects completely, copies exactly, destroys]
+      sentence_production: {situation: "Explain that your project extends the survey designed by your supervisor.", example_answer: "My project builds on the survey my supervisor designed."}
+      spoken_answer: {question: "How does your thesis relate to previous studies?", example_answer: "It builds on two earlier studies and adds new data."}
+  - term: set out to
+    sheet: {translation_fr: [se proposer de, entreprendre de]}
+  - term: fall short of
+    sheet: {translation_fr: [être en deçà de, ne pas atteindre]}
+  - term: in line with
+    sheet: {translation_fr: [conforme à, en accord avec]}
+  - term: further research
+    sheet: {translation_fr: [recherches futures, travaux complémentaires]}
+
+  # --- ML interview prep -----------------------------------------------------------------------
+  - term: overfitting
+    sheet: {translation_fr: [surapprentissage, surajustement]}
+  - term: walk someone through
+    sheet: {translation_fr: [expliquer pas à pas à quelqu'un]}
+  - term: regularization
+    sheet: {translation_fr: [régularisation]}
+  - term: feature engineering
+    sheet: {translation_fr: [ingénierie des variables]}
+  - term: data leakage
+    sheet: {translation_fr: [fuite de données]}
+  - term: ground truth
+    sheet: {translation_fr: [vérité terrain]}
+  - term: baseline model
+    sheet: {translation_fr: [modèle de référence]}
+  - term: hyperparameter tuning
+    sheet: {translation_fr: [réglage des hyperparamètres]}
+  - term: cross-validation
+    sheet: {translation_fr: [validation croisée]}
+  - term: imbalanced dataset
+    sheet: {translation_fr: [jeu de données déséquilibré]}
+  - term: edge case
+    sheet: {translation_fr: [cas limite]}
+  - term: scale up
+    sheet: {translation_fr: [passer à l'échelle, augmenter l'échelle]}
+  - term: deploy a model
+    sheet: {translation_fr: [déployer un modèle]}
+  - term: off the top of my head
+    sheet:
+      definition_simple: Without checking or thinking carefully; from memory.
+      translation_fr: [comme ça, de tête, sans vérifier]
+      register_level: spoken
+      examples:
+        - {sentence: "Off the top of my head, the closest study is an older field experiment on fertiliser.", kind: academic}
+        - {sentence: "Off the top of my head, the dataset had about two million rows.", kind: spoken}
+      pronunciation: {ipa_us: "ɔf ðə ˈtɑp əv maɪ ˈhɛd", stressed_syllable: "TOP"}
+    exercises:
+      gap_fill: {sentence: "I don't remember the exact score, but ___ it was around ninety percent.", answer: off the top of my head}
+      recognition_in_sentence:
+        sentence: "Off the top of my head, I'd say the project took three months."
+        meaning: without checking, from memory
+        meaning_fr: de tête, sans vérifier
+        distractors: [after careful calculation, according to my manager, at the highest level]
+      sentence_production: {situation: "An interviewer asks how many users your app had; give a rough number without checking.", example_answer: "Off the top of my head, around five thousand users."}
+      spoken_answer: {question: "How long did training your best model take?", example_answer: "Off the top of my head, about six hours on one GPU."}
+  - term: that's a great question
+    sheet: {translation_fr: [c'est une excellente question]}
+  - term: drill down into
+    sheet:
+      definition_simple: To look at something in more and more detail.
+      translation_fr: [examiner en détail, creuser]
+      examples:
+        - {sentence: "The dashboard lets analysts drill down into results by region.", kind: academic}
+        - {sentence: "Can we drill down into the drop in March?", kind: spoken}
+      pronunciation: {ipa_us: "drɪl ˈdaʊn ˈɪntu", stressed_syllable: "DOWN"}
+    exercises:
+      gap_fill: {sentence: "Let me ___ the errors for the smallest class.", answer: drill down into}
+      recognition_in_sentence:
+        sentence: "We drilled down into the logs to find the failing requests."
+        meaning: looked at in more detail
+        meaning_fr: avons examiné en détail
+        distractors: [deleted, summarised quickly, copied to another server]
+      sentence_production: {situation: "Suggest to your team that you examine customer churn by age group in detail.", example_answer: "Let's drill down into churn by age group."}
+      spoken_answer: {question: "Your overall accuracy is good. What would you check next?", example_answer: "I would drill down into the errors for each class to find weak spots."}
+  - term: roll out
+    sheet:
+      definition_simple: To introduce a new product or system, often step by step.
+      translation_fr: [déployer progressivement, lancer]
+      examples:
+        - {sentence: "The reform was rolled out in three regions before the national launch.", kind: academic}
+        - {sentence: "We'll roll out the new version on Monday.", kind: spoken}
+      pronunciation: {ipa_us: "roʊl ˈaʊt", stressed_syllable: "OUT"}
+    exercises:
+      gap_fill: {sentence: "The company plans to ___ the feature to all users next month.", answer: roll out, accepted: [rolled out, rolls out]}
+      recognition_in_sentence:
+        sentence: "They rolled out the model to a small group of customers first."
+        meaning: introduced it gradually
+        meaning_fr: l'ont déployé progressivement
+        distractors: [removed it, trained it again, sold it]
+      sentence_production: {situation: "Explain that the new recommendation system will reach users in stages.", example_answer: "We will roll out the recommendation system in stages."}
+      spoken_answer: {question: "How did you reduce the risk when you launched your model?", example_answer: "We rolled out the model to ten percent of traffic first."}
+  - term: interpretable
+    sheet:
+      definition_simple: Easy for people to understand and explain.
+      translation_fr: [interprétable]
+      examples:
+        - {sentence: "Interpretable models are preferred in credit scoring.", kind: academic}
+        - {sentence: "The tree is less accurate but way more interpretable.", kind: spoken}
+      pronunciation: {ipa_us: "ɪnˈtɜrprətəbəl", stressed_syllable: "TER"}
+    exercises:
+      gap_fill: {sentence: "Doctors want a model that is accurate and ___.", answer: interpretable}
+      recognition_in_sentence:
+        sentence: "A linear model is interpretable, so we can explain each coefficient."
+        meaning: easy to understand and explain
+        meaning_fr: interprétable
+        distractors: [very fast to train, impossible to change, translated into many languages]
+      sentence_production: {situation: "Explain why a bank prefers a simple scoring model to a deep neural network.", example_answer: "The bank prefers a simple model because it is interpretable."}
+      spoken_answer: {question: "Why would you choose logistic regression over a black box?", example_answer: "Because it is interpretable and the stakeholders can trust it."}
+  - term: tweak
+    sheet: {translation_fr: [ajuster légèrement, peaufiner]}
+  - term: sanity check
+    sheet:
+      definition_simple: A quick test to see if a result makes basic sense.
+      translation_fr: [vérification de cohérence]
+      register_level: spoken
+      examples:
+        - {sentence: "A sanity check against official statistics confirmed the totals.", kind: academic}
+        - {sentence: "Let me do a quick sanity check before I send it.", kind: spoken}
+      pronunciation: {ipa_us: "ˈsænəti tʃɛk", stressed_syllable: "SAN"}
+    exercises:
+      gap_fill: {sentence: "Comparing the totals with last year is a good ___.", answer: sanity check, accepted: [sanity checks]}
+      recognition_in_sentence:
+        sentence: "The sanity check showed that some ages were negative."
+        meaning: a quick test that the result makes sense
+        meaning_fr: une vérification de cohérence
+        distractors: [a medical test, a full audit of the company, a payment made by cheque]
+      sentence_production: {situation: "Tell your colleague you quickly verified that the predictions are between zero and one.", example_answer: "As a sanity check, I verified that all predictions are between zero and one."}
+      spoken_answer: {question: "How do you know your data pipeline works?", example_answer: "I run a sanity check on the row counts after each step."}
+  - term: bottleneck
+    sheet:
+      definition_simple: The part of a process that slows down everything else.
+      translation_fr: [goulot d'étranglement]
+      examples:
+        - {sentence: "Manual labelling remains the main bottleneck in the annotation pipeline.", kind: academic}
+        - {sentence: "The database is the bottleneck, not the model.", kind: spoken}
+      pronunciation: {ipa_us: "ˈbɑtəlˌnɛk", stressed_syllable: "BOT"}
+    exercises:
+      gap_fill: {sentence: "Reading the files from disk was the real ___.", answer: bottleneck, accepted: [bottlenecks]}
+      recognition_in_sentence:
+        sentence: "We found the bottleneck in the data loading step."
+        meaning: the step that slows everything down
+        meaning_fr: le goulot d'étranglement
+        distractors: [the most expensive server, a bug that crashes the program, the final report]
+      sentence_production: {situation: "Explain that your training is slow because images are resized one by one.", example_answer: "The bottleneck is resizing images one by one."}
+      spoken_answer: {question: "How did you make your pipeline faster?", example_answer: "I profiled it, found the bottleneck in the joins and rewrote them."}
+  - term: stakeholder
+    sheet:
+      definition_simple: A person or group with an interest in a project or its results.
+      translation_fr: [partie prenante]
+      examples:
+        - {sentence: "Stakeholders were consulted before the indicators were chosen.", kind: academic}
+        - {sentence: "I had to explain the results to stakeholders with no stats background.", kind: spoken}
+      pronunciation: {ipa_us: "ˈsteɪkˌhoʊldər", stressed_syllable: "STAKE"}
+    exercises:
+      gap_fill: {sentence: "Every ___ received a short summary of the findings.", answer: stakeholder, accepted: [stakeholders]}
+      recognition_in_sentence:
+        sentence: "The main stakeholder in this project is the marketing team."
+        meaning: a group with an interest in the project
+        meaning_fr: la partie prenante
+        distractors: [the person who writes the code, the company's lawyer, an external competitor]
+      sentence_production: {situation: "Explain that you presented your dashboard to the managers who will use it.", example_answer: "I presented the dashboard to the stakeholders who will use it."}
+      spoken_answer: {question: "How do you communicate technical results?", example_answer: "I adapt the message to each stakeholder and avoid jargon."}
+  - term: outperform
+    sheet:
+      definition_simple: To do better than someone or something else.
+      translation_fr: [surpasser, faire mieux que]
+      examples:
+        - {sentence: "Gradient boosting outperformed linear models on every dataset.", kind: academic}
+        - {sentence: "Honestly, the simple model outperforms the fancy one.", kind: spoken}
+      pronunciation: {ipa_us: "ˌaʊtpərˈfɔrm", stressed_syllable: "FORM"}
+      french_speaker_pitfalls:
+        - {wrong: "outperform on the baseline", right: "outperform the baseline", explanation: "The verb takes a direct object, with no preposition."}
+    exercises:
+      gap_fill: {sentence: "Our new features helped the model ___ the baseline by four points.", answer: outperform, accepted: [outperformed, outperforms]}
+      recognition_in_sentence:
+        sentence: "The small model outperforms the large one on short texts."
+        meaning: does better than
+        meaning_fr: fait mieux que
+        distractors: [performs on stage with, is slower than, is copied from]
+      sentence_production: {situation: "Report that your random forest gave better results than the logistic regression.", example_answer: "The random forest outperformed the logistic regression."}
+      spoken_answer: {question: "Which model did you finally choose, and why?", example_answer: "The gradient boosting model, because it outperformed the others on recall."}
+  - term: in hindsight
+    sheet:
+      definition_simple: When you think about a past event with what you know now.
+      translation_fr: [avec le recul]
+      examples:
+        - {sentence: "In hindsight, the sampling frame excluded too many rural households.", kind: academic}
+        - {sentence: "In hindsight, I should have tested it on real data first.", kind: spoken}
+      pronunciation: {ipa_us: "ɪn ˈhaɪndˌsaɪt", stressed_syllable: "HIND"}
+      french_speaker_pitfalls:
+        - {wrong: "with the recoil", right: "in hindsight", explanation: "'Avec le recul' is not translated word for word."}
+    exercises:
+      gap_fill: {sentence: "___, starting with a simpler model would have saved us weeks.", answer: in hindsight}
+      recognition_in_sentence:
+        sentence: "In hindsight, the deadline was far too optimistic."
+        meaning: looking back with what we know now
+        meaning_fr: avec le recul
+        distractors: [at the very beginning, in secret, according to the client]
+      sentence_production: {situation: "Say what you would change about your internship project now that it is finished.", example_answer: "In hindsight, I would have asked for feedback much earlier."}
+      spoken_answer: {question: "What did you learn from a project that failed?", example_answer: "In hindsight, we never checked that the data matched the real users."}
+  - term: iterate on
+    sheet:
+      definition_simple: To improve something step by step through repeated versions.
+      translation_fr: [faire évoluer par itérations]
+      examples:
+        - {sentence: "The team iterated on the questionnaire after each pilot round.", kind: academic}
+        - {sentence: "Let's ship this version and iterate on it next week.", kind: spoken}
+      pronunciation: {ipa_us: "ˈɪtəˌreɪt ɑn", stressed_syllable: "IT"}
+    exercises:
+      gap_fill: {sentence: "We released a first prototype so we could ___ it with user feedback.", answer: iterate on, accepted: [iterated on, iterates on]}
+      recognition_in_sentence:
+        sentence: "She iterated on the design until the users were happy."
+        meaning: improved it through repeated versions
+        meaning_fr: l'a fait évoluer par itérations
+        distractors: [repeated it word for word, abandoned it, explained it once]
+      sentence_production: {situation: "Explain that your dashboard improved over several versions thanks to comments.", example_answer: "I iterated on the dashboard several times using the users' comments."}
+      spoken_answer: {question: "How do you work with a client who is not sure what they want?", example_answer: "I build a quick first version and iterate on it with them."}
+  - term: deal-breaker
+    sheet:
+      definition_simple: A problem serious enough to make you reject an option.
+      translation_fr: [critère rédhibitoire]
+      register_level: informal
+      examples:
+        - {sentence: "For many hospitals, the lack of interpretability was a deal-breaker.", kind: academic}
+        - {sentence: "Long training times aren't a deal-breaker for us.", kind: spoken}
+      pronunciation: {ipa_us: "ˈdilˌbreɪkər", stressed_syllable: "DEAL"}
+    exercises:
+      gap_fill: {sentence: "The licence cost was a ___, so we picked the open-source tool.", answer: deal-breaker, accepted: [deal-breakers]}
+      recognition_in_sentence:
+        sentence: "A three-hour commute would be a deal-breaker for me."
+        meaning: a reason strong enough to refuse
+        meaning_fr: un critère rédhibitoire
+        distractors: [a small advantage, a signed contract, a good bargain]
+      sentence_production: {situation: "Tell a recruiter that working only in the office is not acceptable for you.", example_answer: "Working only in the office would be a deal-breaker for me."}
+      spoken_answer: {question: "Is there anything that would make you turn down a job offer?", example_answer: "No remote work at all would be a deal-breaker."}
+  - term: ballpark figure
+    sheet:
+      definition_simple: A rough number that is close enough to give an idea.
+      translation_fr: [ordre de grandeur, chiffre approximatif]
+      examples:
+        - {sentence: "A ballpark figure for annual costs is reported in the appendix.", kind: academic}
+        - {sentence: "Can you give me a ballpark figure for the budget?", kind: spoken}
+      pronunciation: {ipa_us: "ˈbɔlˌpɑrk ˈfɪɡjər", stressed_syllable: "BALL"}
+    exercises:
+      gap_fill: {sentence: "I don't need the exact cost, just a ___.", answer: ballpark figure, accepted: [ballpark figures]}
+      recognition_in_sentence:
+        sentence: "His ballpark figure was ten thousand euros."
+        meaning: a rough estimate
+        meaning_fr: un ordre de grandeur
+        distractors: [the exact final price, the price of a stadium ticket, a sports score]
+      sentence_production: {situation: "Your manager asks how many hours the project will take; give a rough number.", example_answer: "As a ballpark figure, around two hundred hours."}
+      spoken_answer: {question: "How much data would you need to train this model?", example_answer: "A ballpark figure would be fifty thousand labelled examples."}
+  - term: trade off against
+    sheet:
+      definition_simple: To balance one thing against another when you cannot have both.
+      translation_fr: [mettre en balance avec]
+      examples:
+        - {sentence: "Precision must be traded off against recall when the threshold is chosen.", kind: academic}
+        - {sentence: "Here speed has to be traded off against accuracy, I think.", kind: spoken}
+      pronunciation: {ipa_us: "treɪd ˈɔf əˈɡɛnst", stressed_syllable: "OFF"}
+      confusables:
+        - {term: trade-off, difference: "'Trade-off' is the noun; 'trade off against' is the verb."}
+    exercises:
+      gap_fill: {sentence: "In fraud detection, false alarms are ___ missed fraud.", answer: traded off against, accepted: [trade off against, trades off against]}
+      recognition_in_sentence:
+        sentence: "When choosing the survey size, cost was traded off against coverage."
+        meaning: balanced one goal against another
+        meaning_fr: a mis en balance
+        distractors: [exchanged money for, refused to compare, added together]
+      sentence_production: {situation: "Explain that your choice of model balances interpretability with accuracy.", example_answer: "Interpretability was traded off against accuracy, so we chose a small tree."}
+      spoken_answer: {question: "How did you choose the decision threshold?", example_answer: "Precision was traded off against recall, based on the cost of each error."}
+  - term: false negative
+    sheet:
+      definition_simple: A case where a test says "no" although the true answer is "yes".
+      translation_fr: [faux négatif]
+      register_level: academic
+      examples:
+        - {sentence: "In screening, a false negative can delay treatment for months.", kind: academic}
+        - {sentence: "We really want to avoid a false negative on fraud cases.", kind: spoken}
+      pronunciation: {ipa_us: "fɔls ˈnɛɡətɪv", stressed_syllable: "NEG"}
+      confusables:
+        - {term: false positive, difference: "A false positive says 'yes' when the truth is 'no'."}
+    exercises:
+      gap_fill: {sentence: "The model missed a sick patient: that is a ___.", answer: false negative, accepted: [false negatives]}
+      recognition_in_sentence:
+        sentence: "Each false negative means a fraudulent payment goes through."
+        meaning: a real case the test failed to detect
+        meaning_fr: un faux négatif
+        distractors: [a normal case wrongly flagged, a correct detection, a missing value]
+      sentence_production: {situation: "Explain why recall matters for a cancer screening model.", example_answer: "Recall matters because every false negative is a patient we fail to detect."}
+      spoken_answer: {question: "Which error is worse for a spam filter, and why?", example_answer: "A false positive is usually worse, but a false negative is just an annoying email."}
+
+  # --- Presenting results ----------------------------------------------------------------------
+  - term: as you can see on this slide
+    sheet:
+      definition_simple: A phrase to point the audience to what is shown on the current slide.
+      translation_fr: [comme vous pouvez le voir sur cette diapositive]
+      register_level: spoken
+      examples:
+        - {sentence: "As you can see on this slide, the estimates are stable across specifications.", kind: academic}
+        - {sentence: "As you can see on this slide, sales doubled in two years.", kind: spoken}
+      pronunciation: {ipa_us: "æz ju kæn ˈsi ɑn ðɪs ˈslaɪd", stressed_syllable: "SLIDE"}
+      french_speaker_pitfalls:
+        - {wrong: "as you can see on this diapositive", right: "as you can see on this slide", explanation: "'Diapositive' is 'slide' in English."}
+    exercises:
+      gap_fill: {sentence: "___, the blue line is the treated group.", answer: as you can see on this slide}
+      recognition_in_sentence:
+        sentence: "As you can see on this slide, the error rate falls after training."
+        meaning: look at what the current slide shows
+        meaning_fr: comme vous le voyez sur cette diapositive
+        distractors: [this slide is not important, I will show this later, please ignore the screen]
+      sentence_production: {situation: "Introduce a chart showing that response rates were higher online.", example_answer: "As you can see on this slide, response rates were higher online."}
+      spoken_answer: {question: "How would you introduce the main chart of your talk?", example_answer: "As you can see on this slide, the gap closes after the reform."}
+  - term: to put this into perspective
+    sheet:
+      definition_simple: A phrase that compares a number with something familiar so people understand its size.
+      translation_fr: [pour remettre cela en perspective]
+      register_level: spoken
+      examples:
+        - {sentence: "To put this into perspective, the effect equals one extra month of schooling.", kind: academic}
+        - {sentence: "To put this into perspective, it's the population of a small town.", kind: spoken}
+      pronunciation: {ipa_us: "tu pʊt ðɪs ˈɪntu pərˈspɛktɪv", stressed_syllable: "SPEC"}
+    exercises:
+      gap_fill: {sentence: "We lost two percent of users. To ___, that's about four thousand people.", answer: put this into perspective}
+      recognition_in_sentence:
+        sentence: "To put this into perspective, the whole budget equals one week of advertising."
+        meaning: to compare it with something familiar
+        meaning_fr: pour remettre cela en perspective
+        distractors: [to make it look smaller than it is, to change the topic, to end the presentation]
+      sentence_production: {situation: "Your audience hears that the model saves 500 hours a year; compare it with something familiar.", example_answer: "To put this into perspective, that's three full-time months of work."}
+      spoken_answer: {question: "How would you make a large number meaningful to your audience?", example_answer: "I'd say to put this into perspective and compare it with something they know."}
+  - term: what stands out here is
+    sheet:
+      definition_simple: A phrase to point to the most noticeable result.
+      translation_fr: [ce qui ressort ici, c'est]
+      register_level: spoken
+      examples:
+        - {sentence: "In the third column, what stands out here is the persistence of the effect.", kind: academic}
+        - {sentence: "What stands out here is the big jump in week three.", kind: spoken}
+      pronunciation: {ipa_us: "wʌt stændz ˈaʊt hɪr ɪz", stressed_syllable: "OUT"}
+    exercises:
+      gap_fill: {sentence: "Look at the last column. ___ the very low score for the north.", answer: what stands out here is}
+      recognition_in_sentence:
+        sentence: "What stands out here is how stable the results are."
+        meaning: the most noticeable point is
+        meaning_fr: ce qui ressort ici, c'est
+        distractors: [what is missing here is, what I disagree with is, what comes next is]
+      sentence_production: {situation: "Point the audience to the surprising drop in December on your chart.", example_answer: "What stands out here is the sharp drop in December."}
+      spoken_answer: {question: "How would you highlight the key result on a busy chart?", example_answer: "I'd say what stands out here is the gap between the two groups."}
+  - term: moving on to
+    sheet:
+      definition_simple: A phrase to start the next part of a talk.
+      translation_fr: [passons maintenant à]
+      register_level: spoken
+      examples:
+        - {sentence: "Moving on to the robustness checks, the next table reports alternative specifications.", kind: academic}
+        - {sentence: "Moving on to the results, let's start with the first model.", kind: spoken}
+      pronunciation: {ipa_us: "ˈmuvɪŋ ɑn tu", stressed_syllable: "MOV"}
+    exercises:
+      gap_fill: {sentence: "That's all for the method. ___ the main findings.", answer: moving on to}
+      recognition_in_sentence:
+        sentence: "Moving on to the costs, the picture is less positive."
+        meaning: now starting the next topic
+        meaning_fr: passons maintenant à
+        distractors: [going back to, finishing with, skipping]
+      sentence_production: {situation: "You have finished presenting the data; introduce the part on limitations.", example_answer: "Moving on to the limitations of the study."}
+      spoken_answer: {question: "How do you go from one section of a talk to the next?", example_answer: "I use a short phrase like moving on to the next part."}
+  - term: I'd like to draw your attention to
+    sheet:
+      definition_simple: A polite phrase to ask the audience to look at or think about something.
+      translation_fr: [j'aimerais attirer votre attention sur]
+      register_level: spoken
+      examples:
+        - {sentence: "In this section, I'd like to draw your attention to a less obvious mechanism.", kind: academic}
+        - {sentence: "I'd like to draw your attention to the bottom right corner.", kind: spoken}
+      pronunciation: {ipa_us: "aɪd ˈlaɪk tu ˈdrɔ jʊr əˈtɛnʃən tu", stressed_syllable: "TEN"}
+      french_speaker_pitfalls:
+        - {wrong: "I'd like to attract your attention on", right: "I'd like to draw your attention to", explanation: "English uses 'draw' and the preposition 'to'."}
+    exercises:
+      gap_fill: {sentence: "Before we finish, ___ the second table.", answer: I'd like to draw your attention to}
+      recognition_in_sentence:
+        sentence: "I'd like to draw your attention to the sample size in each group."
+        meaning: please look at or think about
+        meaning_fr: j'aimerais attirer votre attention sur
+        distractors: [please don't worry about, I'd like to draw a picture of, let me apologise for]
+      sentence_production: {situation: "Politely ask the jury to look at a footnote that explains a data choice.", example_answer: "I'd like to draw your attention to the footnote on the data."}
+      spoken_answer: {question: "How would you politely point out an important detail on a slide?", example_answer: "I'd like to draw your attention to the small numbers in the last row."}
+  - term: this brings me to my next point
+    sheet:
+      definition_simple: A phrase that links what you just said to the next idea.
+      translation_fr: [ce qui m'amène à mon point suivant]
+      register_level: spoken
+      examples:
+        - {sentence: "The first mechanism is weak, and this brings me to my next point, the role of prices.", kind: academic}
+        - {sentence: "And this brings me to my next point: the cost.", kind: spoken}
+      pronunciation: {ipa_us: "ðɪs brɪŋz mi tu maɪ ˈnɛkst pɔɪnt", stressed_syllable: "NEXT"}
+    exercises:
+      gap_fill: {sentence: "So the model is accurate, but slow. ___: how can we speed it up?", answer: this brings me to my next point}
+      recognition_in_sentence:
+        sentence: "Users loved the app, and this brings me to my next point."
+        meaning: this leads to the next idea
+        meaning_fr: ce qui m'amène à mon point suivant
+        distractors: [this is my last point, I forgot my next point, this point is not important]
+      sentence_production: {situation: "Link your result on low response rates to your next idea about incentives.", example_answer: "Response rates were low, and this brings me to my next point: incentives."}
+      spoken_answer: {question: "How do you connect two parts of your argument smoothly?", example_answer: "I say this brings me to my next point and then announce it."}
+  - term: bear with me
+    sheet:
+      definition_simple: A polite way to ask people to wait or be patient for a moment.
+      translation_fr: [un instant, s'il vous plaît, soyez patients]
+      register_level: spoken
+      examples:
+        - {sentence: "Bear with me while I present the formal model, which is less intuitive.", kind: academic}
+        - {sentence: "Bear with me, the video is loading.", kind: spoken}
+      pronunciation: {ipa_us: "ˈbɛr wɪð mi", stressed_syllable: "BEAR"}
+      confusables:
+        - {term: bare with me, difference: "'Bare' means naked; the expression is always 'bear with me'."}
+    exercises:
+      gap_fill: {sentence: "___ for a moment while I reconnect the projector.", answer: bear with me}
+      recognition_in_sentence:
+        sentence: "Bear with me, this part is a bit technical."
+        meaning: please be patient with me
+        meaning_fr: soyez patients avec moi
+        distractors: [come with me, agree with me, stop listening to me]
+      sentence_production: {situation: "Your slides don't open; ask the audience to wait a little.", example_answer: "Bear with me, I'm opening the slides again."}
+      spoken_answer: {question: "What do you say when your demo crashes during a talk?", example_answer: "I say bear with me and restart it calmly."}
+  - term: to sum up
+    sheet:
+      definition_simple: A phrase that introduces a short summary.
+      translation_fr: [pour résumer]
+      register_level: spoken
+      examples:
+        - {sentence: "To sum up, the evidence points to a modest effect on enrolment.", kind: academic}
+        - {sentence: "To sum up, the new process saves time and money.", kind: spoken}
+      pronunciation: {ipa_us: "tu ˈsʌm ʌp", stressed_syllable: "SUM"}
+      french_speaker_pitfalls:
+        - {wrong: "to resume", right: "to sum up", explanation: "'Resume' means to start again, not to summarise."}
+    exercises:
+      gap_fill: {sentence: "To ___, our model is faster and just as accurate.", answer: sum up}
+      recognition_in_sentence:
+        sentence: "To sum up, we found no effect on wages."
+        meaning: in summary
+        meaning_fr: pour résumer
+        distractors: [to start again, to add numbers, to be honest]
+      sentence_production: {situation: "Close your talk by repeating your two main findings briefly.", example_answer: "To sum up, attendance rose and grades stayed the same."}
+      spoken_answer: {question: "How do you start the conclusion of a presentation?", example_answer: "I usually say to sum up and give the two key results."}
+  - term: the key takeaway is
+    sheet:
+      definition_simple: A phrase that introduces the most important message to remember.
+      translation_fr: [le message principal à retenir, c'est]
+      register_level: spoken
+      examples:
+        - {sentence: "For policy, the key takeaway is that teacher training matters more than class size.", kind: academic}
+        - {sentence: "The key takeaway is that more data beat a fancier model.", kind: spoken}
+      pronunciation: {ipa_us: "ðə ˈki ˈteɪkəˌweɪ ɪz", stressed_syllable: "TAKE"}
+    exercises:
+      gap_fill: {sentence: "If you remember one thing, ___ that cleaning the data matters most.", answer: the key takeaway is}
+      recognition_in_sentence:
+        sentence: "The key takeaway is that early feedback saved the project."
+        meaning: the most important message is
+        meaning_fr: le message principal à retenir, c'est
+        distractors: [the food we ordered is, the first slide is, the hardest question is]
+      sentence_production: {situation: "Give the one message your audience should remember about your survey.", example_answer: "The key takeaway is that young people mostly use mobile banking."}
+      spoken_answer: {question: "What should people remember from your project?", example_answer: "The key takeaway is that a simple model was enough."}
+  - term: if I could just go back to
+    sheet:
+      definition_simple: A polite phrase to return to an earlier point or slide.
+      translation_fr: [si je peux revenir un instant sur]
+      register_level: spoken
+      examples:
+        - {sentence: "If I could just go back to the identification argument, the timing matters here.", kind: academic}
+        - {sentence: "If I could just go back to the second chart for a moment.", kind: spoken}
+      pronunciation: {ipa_us: "ɪf aɪ kʊd dʒʌst ɡoʊ ˈbæk tu", stressed_syllable: "BACK"}
+    exercises:
+      gap_fill: {sentence: "Sorry, ___ the previous slide, there's one detail I skipped.", answer: if I could just go back to}
+      recognition_in_sentence:
+        sentence: "If I could just go back to your first question, I have a better answer now."
+        meaning: let me return to
+        meaning_fr: si je peux revenir sur
+        distractors: [let me skip, let me finish with, let me go home after]
+      sentence_production: {situation: "During questions, you want to show an earlier table again.", example_answer: "If I could just go back to the table on slide four."}
+      spoken_answer: {question: "How do you return to an earlier slide during questions?", example_answer: "I say if I could just go back to that slide, and I show it again."}
+  - term: that's beyond the scope of this talk
+    sheet:
+      definition_simple: A polite way to say a topic is not covered in your presentation.
+      translation_fr: [cela dépasse le cadre de cet exposé]
+      register_level: spoken
+      examples:
+        - {sentence: "A full welfare analysis? That's beyond the scope of this talk, but the appendix outlines one.", kind: academic}
+        - {sentence: "Good question, but that's beyond the scope of this talk.", kind: spoken}
+      pronunciation: {ipa_us: "ðæts bɪˈjɑnd ðə ˈskoʊp əv ðɪs ˈtɔk", stressed_syllable: "SCOPE"}
+    exercises:
+      gap_fill: {sentence: "The legal side is interesting, but ___.", answer: that's beyond the scope of this talk}
+      recognition_in_sentence:
+        sentence: "The cost analysis is important, but that's beyond the scope of this talk."
+        meaning: this presentation does not cover it
+        meaning_fr: cela dépasse le cadre de cet exposé
+        distractors: [this is the main topic today, I don't believe it, it is too late to start]
+      sentence_production: {situation: "Someone asks about another country's data; politely say you won't cover it today.", example_answer: "That's beyond the scope of this talk, but I'm happy to discuss it later."}
+      spoken_answer: {question: "How do you answer a question that is far from your topic?", example_answer: "I say that's beyond the scope of this talk and offer to talk afterwards."}
+  - term: I'll come back to that
+    sheet:
+      definition_simple: A promise to talk about something later in the presentation.
+      translation_fr: [j'y reviendrai]
+      register_level: spoken
+      examples:
+        - {sentence: "The second test is less standard; I'll come back to that in the discussion.", kind: academic}
+        - {sentence: "Yes, the outliers, I'll come back to that in a minute.", kind: spoken}
+      pronunciation: {ipa_us: "aɪl kʌm ˈbæk tu ðæt", stressed_syllable: "BACK"}
+    exercises:
+      gap_fill: {sentence: "Someone asked about the costs: ___ at the end.", answer: I'll come back to that}
+      recognition_in_sentence:
+        sentence: "Good point about the sample, I'll come back to that after the results."
+        meaning: I will talk about it later
+        meaning_fr: j'y reviendrai
+        distractors: [I will leave now, I disagree with that, I have already answered]
+      sentence_production: {situation: "An early question is about your final slide; promise to answer later.", example_answer: "I'll come back to that on my last slide."}
+      spoken_answer: {question: "What do you say when a question comes too early in your talk?", example_answer: "I say I'll come back to that, and I make sure I do."}
+  - term: correct me if I'm wrong
+    sheet:
+      definition_simple: A polite phrase used before saying something you are not fully sure of.
+      translation_fr: [corrigez-moi si je me trompe]
+      register_level: spoken
+      examples:
+        - {sentence: "Correct me if I'm wrong, but earlier studies used a different poverty line.", kind: academic}
+        - {sentence: "Correct me if I'm wrong, but the sample was smaller last year.", kind: spoken}
+      pronunciation: {ipa_us: "kəˈrɛkt mi ɪf aɪm ˈrɔŋ", stressed_syllable: "WRONG"}
+    exercises:
+      gap_fill: {sentence: "___, but I think the deadline is on Friday, not Monday.", answer: correct me if I'm wrong}
+      recognition_in_sentence:
+        sentence: "Correct me if I'm wrong, but this result contradicts the earlier paper."
+        meaning: I may be mistaken, but
+        meaning_fr: corrigez-moi si je me trompe
+        distractors: [I am absolutely sure that, please stop talking, I have checked everything]
+      sentence_production: {situation: "Politely question a colleague's number that seems too high.", example_answer: "Correct me if I'm wrong, but that number looks too high."}
+      spoken_answer: {question: "How do you disagree politely with a senior colleague?", example_answer: "I start with correct me if I'm wrong and give my reason."}
+  - term: in a nutshell
+    sheet:
+      definition_simple: In a few words; very briefly.
+      translation_fr: [en bref, en un mot]
+      register_level: spoken
+      examples:
+        - {sentence: "Abstracts present the study in a nutshell for busy readers.", kind: academic}
+        - {sentence: "In a nutshell, we need more data.", kind: spoken}
+      pronunciation: {ipa_us: "ɪn ə ˈnʌtˌʃɛl", stressed_syllable: "NUT"}
+    exercises:
+      gap_fill: {sentence: "___, the project failed because nobody owned it.", answer: in a nutshell}
+      recognition_in_sentence:
+        sentence: "In a nutshell, the reform worked for small firms only."
+        meaning: briefly, in a few words
+        meaning_fr: en bref
+        distractors: [in great detail, in secret, in the long run]
+      sentence_production: {situation: "Summarise your three-year thesis for a friend in one short sentence.", example_answer: "In a nutshell, mobile money helps families save."}
+      spoken_answer: {question: "What is your research about, very briefly?", example_answer: "In a nutshell, I study why students drop out."}
+  - term: let's take a closer look at
+    sheet:
+      definition_simple: A phrase that introduces a more detailed view of something.
+      translation_fr: [regardons de plus près]
+      register_level: spoken
+      examples:
+        - {sentence: "Let's take a closer look at the differences by gender in the second panel.", kind: academic}
+        - {sentence: "Let's take a closer look at the last three months.", kind: spoken}
+      pronunciation: {ipa_us: "lɛts teɪk ə ˈkloʊsər ˈlʊk æt", stressed_syllable: "CLOS"}
+    exercises:
+      gap_fill: {sentence: "The total looks fine, but ___ each region.", answer: let's take a closer look at}
+      recognition_in_sentence:
+        sentence: "Let's take a closer look at the students who dropped out."
+        meaning: let us examine in more detail
+        meaning_fr: regardons de plus près
+        distractors: [let's move away from, let's forget about, let's quickly skip]
+      sentence_production: {situation: "Introduce a zoomed chart on the weekend sales.", example_answer: "Let's take a closer look at the weekend sales."}
+      spoken_answer: {question: "How do you introduce a detailed slide after an overview?", example_answer: "I say let's take a closer look at this part and zoom in."}
+  - term: on the one hand
+    sheet:
+      definition_simple: A phrase that introduces the first of two contrasting points.
+      translation_fr: [d'une part]
+      examples:
+        - {sentence: "On the one hand, larger samples reduce noise; on the other hand, they cost more.", kind: academic}
+        - {sentence: "On the one hand it's cheaper, but on the other it's slower.", kind: spoken}
+      pronunciation: {ipa_us: "ɑn ðə ˈwʌn ˈhænd", stressed_syllable: "HAND"}
+      french_speaker_pitfalls:
+        - {wrong: "from one part", right: "on the one hand", explanation: "'D'une part' is 'on the one hand', not a word-for-word translation."}
+    exercises:
+      gap_fill: {sentence: "___, remote work saves time; on the other hand, it can feel isolating.", answer: on the one hand}
+      recognition_in_sentence:
+        sentence: "On the one hand, the model is accurate; on the other, nobody can explain it."
+        meaning: introducing the first of two contrasting points
+        meaning_fr: d'une part
+        distractors: [with one hand only, in the first place only, without any doubt]
+      sentence_production: {situation: "Compare the benefit and the cost of a longer survey.", example_answer: "On the one hand, a longer survey gives more detail; on the other hand, fewer people finish it."}
+      spoken_answer: {question: "Is open-plan office a good idea?", example_answer: "On the one hand it helps communication, on the other it's noisy."}
+  - term: it's worth noting that
+    sheet:
+      definition_simple: A phrase that introduces a point that deserves attention.
+      translation_fr: [il convient de noter que]
+      examples:
+        - {sentence: "It's worth noting that the effect is smaller in rural areas.", kind: academic}
+        - {sentence: "It's worth noting that these are only early numbers.", kind: spoken}
+      pronunciation: {ipa_us: "ɪts ˈwɜrθ ˈnoʊtɪŋ ðæt", stressed_syllable: "WORTH"}
+    exercises:
+      gap_fill: {sentence: "___ the data were collected during the holidays.", answer: it's worth noting that}
+      recognition_in_sentence:
+        sentence: "It's worth noting that the two surveys used different questions."
+        meaning: this point deserves attention
+        meaning_fr: il convient de noter que
+        distractors: [it costs money to say that, it is not true that, nobody cares that]
+      sentence_production: {situation: "Mention that your results come from a small pilot only.", example_answer: "It's worth noting that these results come from a small pilot."}
+      spoken_answer: {question: "How do you add an important detail without stopping the flow of your talk?", example_answer: "I say it's worth noting that, and add the detail in one sentence."}

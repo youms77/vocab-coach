@@ -30,6 +30,8 @@ class SettingSpec:
     # For list settings: the allowed items, and whether an item may appear twice.
     item_choices: tuple[str, ...] | None = None
     unique_items: bool = False
+    # For string settings without choices.
+    max_length: int | None = None
 
     def default_value(self) -> Any:
         """A copy of the default, so a caller can never change the registry through it."""
@@ -50,6 +52,8 @@ class SettingSpec:
             raise SettingError(f"{self.key}: {value} is above the maximum {self.maximum}")
         if self.choices is not None and value not in self.choices:
             raise SettingError(f"{self.key}: {value!r} is not one of {', '.join(self.choices)}")
+        if self.max_length is not None and len(value) > self.max_length:
+            raise SettingError(f"{self.key}: longer than {self.max_length} characters")
         if self.key == "timezone":
             _check_timezone(value)
         return value
@@ -92,6 +96,9 @@ SETTINGS: dict[str, SettingSpec] = {
         SettingSpec("consolidation_min_stability_days", int, 7, minimum=1),
         SettingSpec("ui_language", str, "en", choices=SUPPORTED_UI_LANGUAGES),
         SettingSpec("tts_rate", float, 1.0, minimum=0.5, maximum=2.0),
+        # Name of the browser's speech-synthesis voice; "" = the first en-US voice. No list here:
+        # the voices depend on the browser (M4.b picks one).
+        SettingSpec("tts_voice", str, "", max_length=200),
         # AI providers in order of preference. A name that is absent is disabled; [] turns AI off.
         SettingSpec(
             "ai_provider_order",

@@ -4,8 +4,9 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Card, Deck, DeckItem, ErrorCategory, LexicalItem, ReviewLog
-from app.domain.enums import CardDirection, ItemStatus, SrsState
+from app.db.models import Card, Deck, DeckItem, Enrichment, ErrorCategory, LexicalItem, ReviewLog
+from app.domain.enums import CardDirection, EnrichmentStatus, ItemStatus, SrsState
+from app.domain.usage_sheet import SCHEMA_VERSION, skeleton_sheet
 
 NOW = datetime(2026, 10, 16, 8, 0, tzinfo=UTC)
 
@@ -17,6 +18,26 @@ def add_item(
     session.add(item)
     session.flush()
     return item
+
+
+def add_sheet(
+    session: Session, item: LexicalItem, *, usable: bool = True, is_current: bool = True
+) -> Enrichment:
+    """A hand-typed sheet (French translation only), or a `needs_completion` skeleton."""
+    sheet = Enrichment(
+        lexical_item_id=item.id,
+        content=(
+            {"schema_version": SCHEMA_VERSION, "translation_fr": ["terme fictif"]}
+            if usable
+            else skeleton_sheet()
+        ),
+        schema_version=SCHEMA_VERSION,
+        status=EnrichmentStatus.COMPLETE if usable else EnrichmentStatus.NEEDS_COMPLETION,
+        is_current=is_current,
+    )
+    session.add(sheet)
+    session.flush()
+    return sheet
 
 
 def add_deck(session: Session, name: str = "Causal inference reading") -> Deck:
