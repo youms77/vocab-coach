@@ -1347,3 +1347,12 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   wait in triage and "Sort them now" opens the existing triage page filtered on the deck (`/triage?deck=ID`), so
   the I know it / not sure / to learn choice and D-084 apply unchanged. Possible duplicates link to the existing
   terms and to the duplicates page.
+
+## D-097 — Injectable clock for API routes (fix, after M3.c3)
+
+- `GET /api/ai/usage` reads the current time through the `get_now` FastAPI dependency (`app/api/clock.py`,
+  `NowDep`) instead of `datetime.now(UTC)`. Behaviour for the user is unchanged (`get_now` returns `utcnow()`).
+- The API test fixture overrides `get_now` with the same `FakeClock` the gateway uses, so a call logged by the
+  gateway and the route's "today" always agree; the test passed only on 2026-10-16 before.
+- Other routes still call `utcnow()` directly; a route whose result depends on "today" in a test should use
+  `NowDep` rather than freezing time globally.

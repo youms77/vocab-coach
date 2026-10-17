@@ -12,8 +12,8 @@ Updated at the end of every milestone session. Paste this file into the next pla
 - Merge order: M2.c2's PR, then M3.a's, M3.b's, M3.c1's, M3.c2's, M3.c3's.
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
   M3.c3 below.
-- **Known issue (pre-existing, not M3.c3)**: `tests/api/test_ai_api.py::test_usage_lists_every_day_today_first`
-  fails on any day other than 2026-10-16, so `npm run check` fails at the pytest step. See M3.c3 "Known issues".
+- Fixed on top of M3.c3: `test_usage_lists_every_day_today_first` no longer depends on the date
+  (`GET /api/ai/usage` takes its clock from a dependency, D-097). See M3.c3 "Known issues".
 
 ## M3.c3 — Usage sheets, exercises, batch enrichment, list extension (frontend)
 
@@ -93,6 +93,8 @@ unchanged. Owner decisions (2026-10-17): library search stays on terms only; the
   fake clock (2026-10-16 12:00 UTC) but `GET /api/ai/usage` reads the real clock (`datetime.now(UTC)` in
   `app/api/ai.py`), so the call lands on "today" only on 2026-10-16. Fix in its own change (inject the clock into
   the route, or freeze it in the test); left out of this frontend milestone.
+  **Fixed (2026-10-17)**: the route takes "now" from the `get_now` dependency (`app/api/clock.py`), which the
+  API test fixture overrides with the gateway's fake clock (D-097). Full pytest passes on any date.
 
 ## M3.c2 — Import, triage and duplicates pages (frontend)
 

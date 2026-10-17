@@ -5,7 +5,7 @@ nothing that comes back to the browser contains a key, a fragment of a key or th
 """
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.ai import Gateway, get_gateway
 from app.ai.redact import clean_message
 from app.ai.types import Capability, UnknownProvider
+from app.api.clock import NowDep
 from app.api.errors import api_error, require_database
 from app.config import get_settings
 from app.db.engine import get_engine
@@ -285,11 +286,13 @@ def _test_response(report: ConnectionTestReport) -> TestResponse:
 
 
 @router.get("/usage", response_model=UsageResponse, dependencies=[Depends(require_database)])
-def ai_usage(engine: EngineDep, days: Annotated[int, Query(ge=1, le=90)] = 7) -> UsageResponse:
+def ai_usage(
+    engine: EngineDep, now: NowDep, days: Annotated[int, Query(ge=1, le=90)] = 7
+) -> UsageResponse:
     with Session(engine) as session:
         session.execute(text("PRAGMA query_only = ON"))
         try:
-            usage = ai_usage_last_days(session, datetime.now(UTC), days)
+            usage = ai_usage_last_days(session, now, days)
         finally:
             session.rollback()
             # The connection goes back to the pool: leave it writable for the next request.
