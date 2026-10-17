@@ -58,7 +58,9 @@ class ProductionOut(BaseModel):
     corrected: bool
     # `format: "correction-1"`: `output` (the AI's validated answer), `spans` (position of each
     # `wrong` in `text`, Unicode code points), `error_event_ids` (same order as `output.errors`),
-    # `targets` (checks and disagreements), `prompt_version`, `provider`, `model`.
+    # `targets` (checks and disagreements), `prompt_version`, `provider`, `model`. A transcript
+    # has `format: "transcript-1"` with the same keys (units as `sentences`); a drill has none
+    # here (read it with `/api/drills/{id}`).
     feedback: dict[str, Any] | None
     ai_call_id: int | None
     study_session_id: int | None
@@ -75,8 +77,11 @@ def production_out(session: Session, attempt: ProductionAttempt) -> ProductionOu
         prompt_text=attempt.prompt_text,
         text=attempt.text,
         word_count=attempt.word_count,
-        corrected=attempt.ai_feedback is not None,
-        feedback=dict(attempt.ai_feedback) if attempt.ai_feedback is not None else None,
+        corrected=attempt.ai_feedback is not None and attempt.kind is not ProductionKind.DRILL,
+        # A drill's feedback holds its solutions: it is read through /api/drills (D-103).
+        feedback=dict(attempt.ai_feedback)
+        if attempt.ai_feedback is not None and attempt.kind is not ProductionKind.DRILL
+        else None,
         ai_call_id=attempt.ai_call_id,
         study_session_id=attempt.study_session_id,
         targets=[

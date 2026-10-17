@@ -58,6 +58,9 @@ class EventType(StrEnum):
     ERROR_CATEGORY_CREATED = "error_category.created"
     ERROR_CATEGORY_PROPOSED = "error_category.proposed"
     ERROR_CATEGORY_RESOLVED = "error_category.resolved"
+    DRILL_GENERATED = "drill.generated"
+    DRILL_ITEM_ANSWERED = "drill.item_answered"
+    DRILL_COMPLETED = "drill.completed"
     SESSION_STARTED = "session.started"
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
@@ -402,6 +405,49 @@ class ProductionCorrected(Event):
     model: Annotated[str, Field(max_length=200)]
     prompt_version: Annotated[str, Field(max_length=100)]
     ai_call_id: Id | None = None
+
+
+class DrillGenerated(Event):
+    """A targeted drill written by the AI and stored (M5.a2)."""
+
+    event_type = EventType.DRILL_GENERATED
+    entity_type = "production_attempt"
+    entity_id_field = "drill_id"
+
+    drill_id: Id
+    category_code: Annotated[str, Field(min_length=1, max_length=200)]
+    items: Annotated[int, Field(ge=1)]
+    provider: Annotated[str, Field(max_length=50)]
+    model: Annotated[str, Field(max_length=200)]
+    prompt_version: Annotated[str, Field(max_length=100)]
+    ai_call_id: Id | None = None
+
+
+class DrillItemAnswered(Event):
+    event_type = EventType.DRILL_ITEM_ANSWERED
+    entity_type = "production_attempt"
+    entity_id_field = "drill_id"
+
+    drill_id: Id
+    index: Annotated[int, Field(ge=0)]
+    category_code: Annotated[str, Field(min_length=1, max_length=200)]
+    outcome: Literal["exact", "wrong", "empty"]
+    response_time_ms: Annotated[int, Field(ge=0)]
+
+
+class DrillCompleted(Event):
+    """The last item of a drill was answered."""
+
+    event_type = EventType.DRILL_COMPLETED
+    entity_type = "production_attempt"
+    entity_id_field = "drill_id"
+
+    drill_id: Id
+    category_code: Annotated[str, Field(min_length=1, max_length=200)]
+    items: Annotated[int, Field(ge=1)]
+    correct: Annotated[int, Field(ge=0)]
+    wrong: Annotated[int, Field(ge=0)]
+    empty: Annotated[int, Field(ge=0)]
 
 
 class ErrorRecorded(Event):

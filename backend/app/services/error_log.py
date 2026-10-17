@@ -697,8 +697,8 @@ def terms_of(session: Session, errors: Sequence[ErrorEvent]) -> dict[int, str]:
 
 
 def french_explanations(session: Session, errors: Sequence[ErrorEvent]) -> dict[int, str]:
-    """The AI's French explanation of each error that came from a correction, while the English
-    one is still the AI's (an edited explanation has no translation)."""
+    """The AI's French explanation of each error that came from a correction or a drill, while
+    the English one is still the AI's (an edited explanation has no translation)."""
     ids = {e.production_attempt_id for e in errors if e.production_attempt_id is not None}
     if not ids:
         return {}
@@ -713,6 +713,11 @@ def french_explanations(session: Session, errors: Sequence[ErrorEvent]) -> dict[
         data = feedback.get(error.production_attempt_id) if error.production_attempt_id else None
         if not data:
             continue
+        if data.get("format") == "drill-1":
+            french = _drill_french(data, error)
+            if french:
+                found[error.id] = french
+            continue
         output_errors = (data.get("output") or {}).get("errors") or []
         error_ids = data.get("error_event_ids") or []
         if error.id not in error_ids or error_ids.index(error.id) >= len(output_errors):
@@ -721,3 +726,15 @@ def french_explanations(session: Session, errors: Sequence[ErrorEvent]) -> dict[
         if entry.get("explanation_en") == error.explanation and entry.get("explanation_fr"):
             found[error.id] = entry["explanation_fr"]
     return found
+
+
+def _drill_french(data: dict[str, Any], error: ErrorEvent) -> str | None:
+    """The French explanation of the drill item whose wrong answer gave `error`."""
+    items = data.get("items") or []
+    for answer in data.get("answers") or []:
+        if answer.get("error_event_id") != error.id or not 0 <= answer["index"] < len(items):
+            continue
+        item = items[answer["index"]]
+        if item.get("explanation_en") == error.explanation:
+            return item.get("explanation_fr") or None
+    return None

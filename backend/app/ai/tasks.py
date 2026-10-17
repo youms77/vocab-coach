@@ -11,6 +11,7 @@ from app.ai.schemas.connection_test import ConnectionTestOutput
 from app.ai.schemas.enrichment import ENRICHMENT_BATCH_SIZE, EnrichmentBatchOutput
 from app.ai.schemas.list_extension import MAX_COUNT, ListExtensionOutput
 from app.ai.schemas.production_correction import ProductionCorrectionOutput
+from app.ai.schemas.targeted_drill import TargetedDrillOutput
 from app.ai.schemas.transcript_analysis import TranscriptAnalysisOutput
 
 TRANSCRIPTION_TASK = "transcription"  # task name in `ai_call_log` for speech-to-text
@@ -74,6 +75,23 @@ def transcript_output_budget(unit_count: int) -> int:
     return min(wanted, TRANSCRIPT_MAX_OUTPUT_TOKENS)
 
 
+# `targeted_drill` (D-135). Input: the category and its children (about 8 lines of at most 250
+# characters: 2 000), at most 5 recent errors (wrong form and correction, at most 600 each:
+# 3 000) and the count: about 5 200 characters at most.
+DRILL_MAX_INPUT_CHARS = 6000
+# Output: an item is about 250 tokens (sentence, answer, accepted forms, options, theme and two
+# explanations), the two rules about 160, the JSON frame about 240: `400 + 250 x items`, so 15
+# items need 4 150 tokens.
+DRILL_BASE_TOKENS = 400
+DRILL_TOKENS_PER_ITEM = 250
+DRILL_MAX_OUTPUT_TOKENS = 4200
+
+
+def drill_output_budget(item_count: int) -> int:
+    """Output tokens to ask for when writing `item_count` items (at most the ceiling)."""
+    return min(DRILL_BASE_TOKENS + DRILL_TOKENS_PER_ITEM * item_count, DRILL_MAX_OUTPUT_TOKENS)
+
+
 TASKS: dict[str, TaskSpec] = {
     spec.name: spec
     for spec in (
@@ -120,6 +138,14 @@ TASKS: dict[str, TaskSpec] = {
             max_input_chars=TRANSCRIPT_MAX_INPUT_CHARS,
             max_output_tokens=TRANSCRIPT_MAX_OUTPUT_TOKENS,
             timeout_s=60.0,
+        ),
+        TaskSpec(
+            name="targeted_drill",
+            prompt_version=1,
+            output_schema=TargetedDrillOutput,
+            max_input_chars=DRILL_MAX_INPUT_CHARS,
+            max_output_tokens=DRILL_MAX_OUTPUT_TOKENS,
+            timeout_s=45.0,
         ),
     )
 }

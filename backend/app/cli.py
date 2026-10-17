@@ -6,7 +6,7 @@ offline; `python -m app ai status | test | usage` look at the real AI providers;
 `library enrich` writes usage sheets through the AI and `library extend <deck_id>` asks for related
 terms. `python -m app errors list | show | add | categories` reads and edits the error log and
 `write correct --file <txt>` has the AI correct a text; `transcript analyse --file <txt>` finds
-your errors in a conversation transcript.
+your errors in a conversation transcript; `drill new <code>` and `drill list` are targeted drills.
 `--demo` (before the command) works on the demo database."""
 
 import argparse
@@ -237,6 +237,19 @@ def _build_parser() -> argparse.ArgumentParser:
     analyse.add_argument(
         "--preview", action="store_true", help="show the turns and problems, write nothing"
     )
+    drill = commands.add_parser("drill", help="targeted drills on one error category (module E)")
+    drill_commands = drill.add_subparsers(dest="drill_command", required=True)
+    new = drill_commands.add_parser("new", help="have the AI write a drill (no solutions shown)")
+    new.add_argument("category_code", help="a level-2 code or deeper, see `errors categories`")
+    new.add_argument(
+        "--count",
+        type=int,
+        default=10,
+        choices=range(5, 16),
+        metavar="N",
+        help="number of items, 5 to 15 (default 10)",
+    )
+    drill_commands.add_parser("list", help="your drills, newest first, with their scores")
     return parser
 
 
@@ -407,6 +420,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         from app import cli_write
 
         return cli_write.run_write_correct(url, settings, args.file, prompt=args.prompt)
+    if args.command == "drill":
+        from app import cli_drill
+
+        if args.drill_command == "new":
+            return cli_drill.run_drill_new(url, settings, args.category_code, count=args.count)
+        return cli_drill.run_drill_list(url)
     if args.command == "transcript":
         from app import cli_transcript
 
