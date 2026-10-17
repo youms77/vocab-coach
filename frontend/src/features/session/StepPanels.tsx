@@ -99,24 +99,6 @@ export function PracticeInfoPanel({
   )
 }
 
-/**
- * Provisional (M4.b): the review player comes with M4.c. Shows the number of reviews only, never
- * the card's term or prompt.
- */
-export function ReviewPlaceholder({ count, onEnd }: { count: number; onEnd: () => void }) {
-  const { t } = useTranslation()
-  return (
-    <>
-      <StepHeading>{t('steps.review')}</StepHeading>
-      <p>{t('session.reviewPlaceholder.text', { count })}</p>
-      <p className="muted">{t('session.reviewPlaceholder.later')}</p>
-      <button type="button" className="button button--primary" onClick={onEnd}>
-        {t('session.end')}
-      </button>
-    </>
-  )
-}
-
 /** The session's summary, computed by the backend from the logs (D-107). */
 export function SessionSummary({ summary }: { summary: Summary }) {
   const { t } = useTranslation()

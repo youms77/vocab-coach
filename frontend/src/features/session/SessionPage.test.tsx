@@ -1,9 +1,16 @@
-import { act, screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { SessionSummary, Step } from '../../api/session'
-import { plan, progress, studySession } from '../../test/fixtures'
+import {
+  plan,
+  progress,
+  recordAnswer,
+  type ReviewCase,
+  reviewCases,
+  studySession,
+} from '../../test/fixtures'
 import { installFakeSpeech } from '../../test/fakeSpeech'
 import { apiErrorResponse, mockApi, type RecordedCall } from '../../test/mockApi'
 import { renderApp } from '../../test/renderApp'
@@ -136,51 +143,86 @@ describe('Session page', () => {
     expect(calls.filter((c) => c.path === '/session/7/end')).toHaveLength(1)
   })
 
-  it('resumes the open session (200) and shows the provisional review panel without the card', async () => {
+  it('resumes the open session (200) and walks several reviews → wait → done → summary', async () => {
+    const now = new Date('2026-10-17T10:00:00Z')
+    vi.useFakeTimers({ shouldAdvanceTime: true, now })
+    const until = new Date(now.getTime() + 2 * 60_000).toISOString()
+    const choice = reviewCases.find((c) => c.name === 'recognition_in_sentence') as ReviewCase
+    const self = reviewCases.find((c) => c.name === 'self_assessment (receptive)') as ReviewCase
+    const typed = reviewCases.find((c) => c.name === 'typed_recall') as ReviewCase
+    // Each recorded review moves the session on; then a learning card makes it wait.
+    const steps: Step[] = [
+      step({ type: 'review', review: { ...typed.step, card_id: 1 } }, 9),
+      step({ type: 'review', review: { ...choice.step, card_id: 2 } }, 9),
+      step({ type: 'review', review: { ...self.step, card_id: 3 } }, 9),
+      step({ type: 'wait', wait: { until } }, 9),
+      step({ type: 'done' }, 9),
+    ]
+    let index = 0
+    const calls = mockApi({
+      ...base,
+      'POST /session/start': () => Response.json(studySession(9), { status: 200 }),
+      'GET /session/9/next': () => {
+        // The wait is over once its time has come.
+        if (steps[index].type === 'wait' && Date.now() >= Date.parse(until)) index += 1
+        return Response.json(steps[index])
+      },
+      'POST /reviews/grade': (call) =>
+        Response.json((call.body as { card_id: number }).card_id === 1 ? typed.grade : choice.grade),
+      'POST /reviews/reveal': () => Response.json(self.reveal),
+      'POST /reviews': () => {
+        index += 1
+        return Response.json(recordAnswer())
+      },
+      'POST /session/9/end': () =>
+        Response.json(studySession(9, { summary: { ...summary, reviews: 3 } })),
+    })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderApp('/session')
+
+    await screen.findByRole('heading', { name: 'Recall the English term' })
+    await user.type(screen.getByRole('textbox'), 'drill down inot{Enter}')
+    await screen.findByRole('group', { name: 'How well did you remember?' })
+    await user.keyboard('3')
+    await screen.findByRole('heading', { name: 'Recognise the term in a sentence' })
+    expect(screen.getByText(/Saved\. Next review of this card/)).toBeInTheDocument()
+    await user.keyboard('2')
+    await screen.findByRole('region', { name: 'Correction' })
+    await user.keyboard('3')
+    await screen.findByRole('heading', { name: 'Do you remember?' })
+    await user.keyboard(' ')
+    await screen.findByRole('region', { name: 'Correction' })
+    await user.keyboard('4')
+
+    await screen.findByRole('heading', { name: 'Short break' })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2 * 60_000 + 1_000)
+    })
+    const summaryList = (await screen.findByRole('heading', { name: 'Session summary' }))
+      .nextElementSibling
+    expect(summaryList).toHaveTextContent('Reviews3')
+    expect(
+      calls.filter((c) => c.method === 'POST' && c.path === '/reviews').map((c) => c.body),
+    ).toMatchObject([
+      { card_id: 1, final_rating: 3, answer: 'drill down inot' },
+      { card_id: 2, final_rating: 3, choice_index: 1 },
+      { card_id: 3, final_rating: 4 },
+    ])
+    expect(calls.filter((c) => c.path === '/session/9/end')).toHaveLength(1)
+  })
+
+  it('keeps "End the session" with its confirmation during a review', async () => {
     const calls = mockApi({
       ...base,
       'POST /session/start': () => Response.json(studySession(9), { status: 200 }),
       'GET /session/9/next': () =>
-        Response.json(
-          step(
-            {
-              type: 'review',
-              progress: progress({ reviews_remaining: 6, new_remaining: 0 }),
-              review: {
-                card_id: 3,
-                lexical_item_id: 4,
-                direction: 'receptive',
-                srs_state: 'review',
-                expected_reps: 5,
-                exercise_type: 'recognition_in_sentence',
-                exercise_template_id: 8,
-                input: 'choice',
-                self_graded: false,
-                term: 'heteroskedasticity',
-                prompt: {
-                  sentence: 'The residuals show heteroskedasticity.',
-                  options: ['a', 'b', 'c', 'd'],
-                },
-                warnings: [],
-              },
-            },
-            9,
-          ),
-        ),
+        Response.json(step({ type: 'review', review: reviewCases[0].step }, 9)),
       'POST /session/9/end': () => Response.json(studySession(9, { summary })),
     })
     const user = userEvent.setup()
     renderApp('/session')
-
-    const panel = (await screen.findByRole('heading', { name: 'Reviews' }))
-      .parentElement as HTMLElement
-    expect(within(panel).getByText('6 reviews are due.')).toBeInTheDocument()
-    expect(within(panel).getByText(/review player comes with the next version/)).toBeInTheDocument()
-    expect(screen.queryByText(/heteroskedasticity/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/residuals/)).not.toBeInTheDocument()
-
-    // Ending asks for confirmation first.
-    await user.click(within(panel).getByRole('button', { name: 'End the session' }))
+    await screen.findByRole('heading', { name: 'Recognise the term in a sentence' })
+    await user.click(screen.getByRole('button', { name: 'End the session' }))
     expect(calls.some((c) => c.path === '/session/9/end')).toBe(false)
     expect(screen.getByRole('button', { name: 'Keep going' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
