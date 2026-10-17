@@ -642,7 +642,8 @@
       "current": "current",
       "open": "Open version {{version}}",
       "close": "Close"
-    }
+    },
+    "exampleLabel": "example {{index}}"
   },
   "exercises": {
     "title": "Exercises",
@@ -820,7 +821,6 @@
       "text_other": "{{count}} reviews are due.",
       "later": "Provisional (M4.b): the review player comes with the next version of the app. You can end the session for now."
     },
-    "newItemPlaceholder": "Provisional (M4.b1): the discovery of new terms comes with M4.b2.",
     "summary": {
       "title": "Session summary",
       "reviews": "Reviews",
@@ -836,5 +836,92 @@
     },
     "closed": "This session is already closed.",
     "restart": "Start a new session"
+  },
+  "discovery": {
+    "starting": "Preparing the discovery…",
+    "resumed": "You started this discovery earlier: it starts again from the sentence.",
+    "read": {
+      "title": "1. Read the sentence",
+      "origin": "Your original sentence",
+      "example": "An example sentence",
+      "noSentence": "This term has no sentence yet: here is the term alone.",
+      "sentenceLabel": "the sentence"
+    },
+    "guess": {
+      "title": "2. What do you think it means?",
+      "label": "Your guess, in English or French (optional)",
+      "hint": "Up to 1,000 characters. You will compare it with the sheet yourself.",
+      "submit": "Show the sheet",
+      "dontKnow": "I don't know"
+    },
+    "sheet": {
+      "title": "3. The usage sheet",
+      "yourGuess": "Your guess: “{{guess}}”",
+      "noGuess": "You did not guess: read the sheet carefully.",
+      "compare": "Compare with your guess: nothing is graded here.",
+      "termLabel": "the term",
+      "loading": "Loading the sheet…",
+      "missing": "This term has no sheet to show.",
+      "continue": "Go to the exercises"
+    },
+    "exercises": {
+      "title": "4. Quick exercises",
+      "loading": "Loading the exercises…",
+      "loadError": "The exercises could not be loaded.",
+      "skip": "Skip the exercises",
+      "counter": "Exercise {{index}} of {{total}}",
+      "typed_recall": "Recall the English term",
+      "gap_fill": "Fill the gap",
+      "cueFr": "In French: {{cue}}",
+      "cueDefinition": "Definition: {{cue}}",
+      "answerLabel": "Your answer",
+      "gapLabel": "The missing word or words",
+      "check": "Check",
+      "next": "Next exercise",
+      "done": "Continue",
+      "showSheet": "Show the sheet again",
+      "hideSheet": "Hide the sheet",
+      "answerAudioLabel": "the expected answer"
+    },
+    "repetition": {
+      "title": "Say it aloud",
+      "instructions": "Listen at normal speed, then slowly, and repeat the sentence aloud.",
+      "recordingLater": "Recording your voice comes in a later version.",
+      "done": "Done, I repeated it"
+    },
+    "personal": {
+      "title": "Your own sentence",
+      "label": "Write a sentence of your own with “{{term}}” (optional)",
+      "hint": "Up to 1,000 characters. It is saved; AI feedback comes in a later version.",
+      "finish": "Finish the discovery",
+      "skip": "Skip and finish",
+      "finishing": "Saving…"
+    },
+    "done": {
+      "title": "5. Into spaced repetition",
+      "firstReview": "“{{term}}” enters spaced repetition: first review on {{date}}.",
+      "term_missing": "Your sentence does not contain the term; it is saved anyway.",
+      "continue": "Continue"
+    },
+    "error": {
+      "writeSheet": "Write the sheet of “{{term}}”",
+      "blocked": "The other new terms of today wait until this one can be discovered. Write its sheet, then continue, or end the session.",
+      "continue": "Continue the session",
+      "retry": "Retry"
+    }
+  },
+  "grading": {
+    "outcomes": {
+      "exact": "Correct",
+      "form": "Correct: another form of the term",
+      "typo": "Almost: a small typo",
+      "wrong": "Not this one",
+      "empty": "No answer"
+    },
+    "expected": "Expected answer: {{answer}}",
+    "accepted": "Also accepted: {{list}}",
+    "diff": "Your answer compared with the expected one:",
+    "removed": "extra",
+    "added": "missing"
   }
 }

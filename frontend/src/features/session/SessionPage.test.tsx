@@ -182,6 +182,7 @@ describe('Session page', () => {
     // Ending asks for confirmation first.
     await user.click(within(panel).getByRole('button', { name: 'End the session' }))
     expect(calls.some((c) => c.path === '/session/9/end')).toBe(false)
+    expect(screen.getByRole('button', { name: 'Keep going' })).toHaveFocus()
     await user.click(screen.getByRole('button', { name: 'Yes, end it' }))
     expect(await screen.findByRole('heading', { name: 'Session summary' })).toBeInTheDocument()
     expect(calls.filter((c) => c.path === '/session/9/end')).toHaveLength(1)

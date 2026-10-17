@@ -10,6 +10,7 @@ import {
   useStartSession,
 } from '../../api/session'
 import { cancelSpeech } from '../../speech/useSpeech'
+import { DiscoveryFlow } from '../discovery/DiscoveryFlow'
 import { ErrorText } from '../settings/ErrorText'
 import { SessionProgress } from './SessionProgress'
 import { StepHeading } from './StepHeading'
@@ -30,6 +31,12 @@ function EndControl({
   ending: boolean
 }) {
   const { t } = useTranslation()
+  // The question can be asked from the review panel, far below: bring focus (and the view) to it,
+  // on the choice that changes nothing.
+  const keepGoing = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (confirming) keepGoing.current?.focus()
+  }, [confirming])
   if (!confirming) {
     return (
       <button type="button" className="button" onClick={() => setConfirming(true)}>
@@ -43,7 +50,13 @@ function EndControl({
       <button type="button" className="button button--primary" onClick={onEnd} disabled={ending}>
         {ending ? t('session.ending') : t('session.endYes')}
       </button>
-      <button type="button" className="button" onClick={() => setConfirming(false)} disabled={ending}>
+      <button
+        ref={keepGoing}
+        type="button"
+        className="button"
+        onClick={() => setConfirming(false)}
+        disabled={ending}
+      >
         {t('session.endNo')}
       </button>
     </div>
@@ -166,10 +179,12 @@ export function SessionPage() {
     )
   } else if (step.type === 'new_item') {
     content = (
-      <>
-        <StepHeading>{t('steps.new_item')}</StepHeading>
-        <p className="muted">{t('session.newItemPlaceholder')}</p>
-      </>
+      <DiscoveryFlow
+        key={step.new_item.item_id}
+        sessionId={step.session_id}
+        newItem={step.new_item}
+        onNext={advance}
+      />
     )
   } else if (step.type === 'wait') {
     content = <WaitPanel until={step.wait.until} onCheck={advance} checking={busy} />
