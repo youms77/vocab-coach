@@ -1,12 +1,15 @@
 """Session endpoints: today, start (idempotent, closes stale sessions), next, end."""
 
+import random
 from datetime import timedelta
 
+import pytest
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Card, ErrorEvent, EventLog, StudySession
 from app.domain import exercises as ex
+from app.domain import fsrs_engine
 from app.domain.review_steps import SOLUTION_KEYS
 from tests.api.conftest import ApiEnv
 from tests.api.session_support import (
@@ -214,8 +217,11 @@ def test_new_items_skip_a_paused_deck(env: ApiEnv) -> None:
     assert step["progress"]["new_remaining"] == 0
 
 
-def test_review_steps_never_carry_a_solution(env: ApiEnv) -> None:
+def test_review_steps_never_carry_a_solution(env: ApiEnv, monkeypatch: pytest.MonkeyPatch) -> None:
     """Walk every step of four months with all template types and look for solution keys."""
+    # Seeded fuzz: with the unseeded production generator, the cards sometimes stay below the
+    # maturity threshold and the mature exercise types are not reached (flaky test).
+    monkeypatch.setattr(fsrs_engine, "_PRODUCTION_RNG", random.Random(0))
     item_ids = [quick_add(env.client, term) for term in ("rule out", "shed light on")]
     for item_id in item_ids:
         write_sheet(env.client, item_id)
