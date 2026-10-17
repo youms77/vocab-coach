@@ -4,14 +4,14 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M4.c — review player, keyboard shortcuts, deck queue page (frontend only), on
-  branch `feat/m4c-review-player`, started from `feat/m4b-today-discovery` because M4.b is not merged yet.
-  M4.b is on `feat/m4b-today-discovery` (not merged); M4.a is merged (PR #12); M1.a to M3.c3 are in `main`.
-- **Next milestone**: M5 (errors and writing), after the owner has reviewed and merged M4.b then M4.c.
+- **Last milestone completed**: M4.c — review player, keyboard shortcuts, deck queue page. M1.a to M4.c are
+  all in `main`: M4.b merged as `9476a46`, M4.c as `cbcc304`; CI green on `main` at `cbcc304`.
+- **Current milestone**: M5.a1 — production correction and error log (backend), on branch
+  `feat/m5a-errors-backend` from `origin/main` (`cbcc304`). M5 is cut in four sessions: M5.a1, M5.a2, M5.b,
+  M5.c (see DECISIONS.md).
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
-  M3.c3 below. M4.a makes no AI call.
-- The local `main` of the owner's checkout was still at M2.c1 at the start of M4.a1 (`origin/main` had M3.c3):
-  run `git switch main` then `git pull` before starting a branch from it.
+  M3.c3 below. M4 makes no AI call; M5.a1 is the first milestone that needs a real call to be accepted.
+- Before starting a branch: `git switch main` then `git pull`.
 
 ## M4.c — Review player, keyboard shortcuts, deck queue (frontend)
 
