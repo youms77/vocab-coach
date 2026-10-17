@@ -42,6 +42,17 @@ const KNOWN_CODES = [
   'item_archived',
   'invalid_exercise',
   'not_enough_context',
+  'session_not_found',
+  'session_closed',
+  'card_not_found',
+  'card_changed',
+  'review_not_allowed',
+  'not_due',
+  'sheet_required',
+  'already_discovered',
+  'discovery_not_allowed',
+  'exercise_mismatch',
+  'invalid_queue',
 ] as const
 
 type KnownCode = (typeof KNOWN_CODES)[number]

@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet } from 'react-router'
 
 import { useHealth } from '../api/health'
+import { useCancelSpeechOnLeave } from '../speech/useSpeech'
 import { AiBanner } from './AiBanner'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { ThemeSwitcher } from './ThemeSwitcher'
@@ -9,6 +10,7 @@ import { ThemeSwitcher } from './ThemeSwitcher'
 export function Layout() {
   const { t } = useTranslation()
   const health = useHealth()
+  useCancelSpeechOnLeave()
 
   return (
     <div className="shell">
@@ -26,6 +28,7 @@ export function Layout() {
           <NavLink to="/" end>
             {t('nav.home')}
           </NavLink>
+          <NavLink to="/session">{t('nav.today')}</NavLink>
           <NavLink to="/library">{t('nav.library')}</NavLink>
           <NavLink to="/settings">{t('nav.settings')}</NavLink>
         </nav>
