@@ -316,7 +316,7 @@ Decisions that change `docs/SPEC.md` require the owner's approval and must say s
 - A due card is planned by its direction (receptive or typed productive); the exercise is chosen at review
   time.
 
-## D-029 — Planner formula and constants (M1.b)
+## D-029 — Planner formula and constants (M1.b; block 3 amended by D-137)
 
 - **Blocks**:
   1. due reviews, i.e. due before the end of the study day: new/learning/relearning cards by due date, then
@@ -1845,7 +1845,7 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   when it refuses. `response_time_ms` of `check-production` is validated and not stored (the final call times
   the card).
 
-## D-130 — M5 is cut in four sessions (M5.a1, M5.a2, M5.b, M5.c)
+## D-130 — M5 is cut in four sessions (M5.a1, M5.a2, M5.b, M5.c; revised by D-138)
 
 - M5.a1 (backend): correction of written productions, error log, error categories and proposals, errors from
   reviews, AI-checked sentence production, writing topics, CLI.
@@ -1901,3 +1901,171 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   which pass). Earlier versions of the prompt were worse: 3 of 6 clean on the correct paragraph. A lite model is not
   deterministic: one run in several may still flag style as an error. Nothing is hidden: the user sees and can
   edit or delete any error.
+
+## D-133 — Transcript parser (M5.a2, 2026-10-18)
+
+- `app/domain/transcript_import.py`, pure; it never raises on user input. Problems are `{line, severity: info |
+  warning | error, code, message}` with stable codes: `empty_text`, `too_large`, `no_speaker_labels`,
+  `single_speaker`, `unlabelled_text`, `empty_turn`, `unknown_label`, `no_user_turns`. Line endings and BOM as D-071.
+- **Timestamps** at the start of a line are removed: always when bracketed (`[00:12]`, `(12:03 PM)`); otherwise
+  when they have seconds or AM/PM, when a label follows, or when they are alone on the line. So "10:30 is fine for
+  me" keeps its time. A line that was only a timestamp is dropped and does not separate paragraphs.
+- **Labels**: `Name:` at the start of a line (1 to 3 words, at most 30 characters, starting with a letter, a space
+  or the end of the line after the colon, so `https://` is not a label) opens a turn; the next lines belong to it.
+  Known labels, without case: user `you, user, me, moi, vous`; other `chatgpt, assistant, ai, gpt, tutor`.
+  `suggested_user_label` is the user label when exactly one distinct one is present. **Owner's choice (departure
+  6)**: the rule is left as the prompt wrote it, so a line such as "Note: ..." inside a turn opens a turn "Note";
+  the preview shows it (a label with one turn).
+- **Blank lines inside a turn are dropped**: a turn never contains an empty line, so the stored text (the user's
+  turns joined by `\n\n`) can be split back into turns exactly (`user_turns_of`). Nothing else has to be stored.
+- **Lines before the first label** form a turn without label, never the user's except in `all_mine` mode, with
+  `unlabelled_text` (departure 4, approved).
+- Without any label, turns are paragraphs (`no_speaker_labels`). The user is designated by `{label}` or `{mode:
+  alternating_user_first | alternating_user_second | all_mine}`; without a designation the suggested label is used.
+- **Limits**: more than 60 000 pasted characters gives `too_large` and no turn; more than 6 000 characters of the
+  user's turns gives `too_large` (error). The other speaker's text does not count.
+- **Context of a user turn**: the other speaker's turn just before it, cut to its **last** 300 characters ("…"
+  first when cut), because the question sits at the end of a turn. None when the turn before is the user's.
+- **Units and chunks** (for the AI): each user turn is a unit; a turn of more than 600 characters is cut on sentence
+  ends (`split_sentences`, which gained `max_sentences=None`), whole sentences grouped while they fit, a longer
+  sentence on spaces, a longer word where it must. Chunks of at most 2 500 characters of unit text **and at most 20
+  units** (the second limit is an addition: 30 short turns would bring 30 contexts of 300 characters).
+- `POST /api/transcripts/preview` accepts an optional `user` (departure 3, approved): it shows which turns are the
+  user's and checks the 6 000-character limit with that choice. It opens no database session at all.
+
+## D-134 — The `transcript_analysis` task and its storage (M5.a2)
+
+- **Task** `transcript_analysis` v1: inputs `units` (JSON lines `{index, text}`, `data`), `contexts` (JSON lines
+  `{before_unit, text}` for the units that open a turn, `data`, introduced as "context, never to be corrected") and
+  `taxonomy` (active codes **without `spelling` and `pronunciation.*`**, `plain`). The other speaker's text is sent
+  nowhere else.
+- **Prompt rules**: real errors of the learner only (D-132 rule "error or naturalness"); punctuation, capitals,
+  spelling, hesitations, false starts, self-corrections, contractions and normal spoken style are ignored; a possible
+  speech-recognition homophone is not reported; a form the other speaker quotes or corrects is never reported; the
+  most specific subcategory. Added after the first live run: a duration said with "since" ("I study here since two
+  years", a "depuis" calque) is **one** by/for/since error covering the verb and the time expression (the model had
+  reported it as two errors, tense and preposition).
+- **Validators** (validation context, D-079; one repair, then `incomplete`): unit indices exactly those sent;
+  `wrong` found in its own unit (`find_fragment`, so never in the context); `wrong` differs from `correction`; code
+  allowed (active, not spelling or pronunciation); proposed subcategories as D-128; a unit with an error is not
+  `correct`; notes on known units; at most 40 errors per call and 2 alternatives. Messages name locations only.
+- **Budgets** (`tasks.py`): input 20 000 characters (units 2 500 + JSON 600 + 20 contexts of about 330 + about 33
+  taxonomy lines of at most about 230, about 17 300 at most); output `800 + 450 x units`, ceiling 8 000 (a long
+  unit needs about 150 tokens of corrected text and up to 4 errors of about 170; 40 errors = 6 800); timeout 60 s.
+- **Flow** (`app/services/transcripts.py`, D-038): short read; one call per chunk, in order, with no session open;
+  **all or nothing**: one failed chunk and nothing is written (the calls stay in `ai_call_log`); one write
+  transaction that checks the production is still there and not analysed (409 `already_corrected`).
+- **Storage**: `production_attempt` with `kind = transcript_analysis`, `modality = oral`, `text` = the user's turns
+  joined by `\n\n` (the paste and the other speaker are never stored), `word_count` = the user's words,
+  `prompt_text` = the title. `production.recorded` **version 3**: origin `transcript`, `turns_total`,
+  `turns_user`, `words_user`, `occurred_on` (no text); its `occurred_at` is the start of the conversation's study
+  day when the date is given. A date in the future gives 422 `invalid_transcript` (`codes: ["future_date"]`).
+- **Feedback** `format: "transcript-1"` with the `correction-1` keys (units as `sentences`, errors with
+  `sentence_index`, `targets: []`), so M5.c reuses the highlighted view. Differences: `natural_text` is null (a
+  "native" version of speech is of little use and costs output tokens), `corrected_text` joins the corrected units,
+  and three keys are added: `units [{index, turn, start, end, opens_turn}]`, `context_sent`, `calls [{ai_call_id,
+  provider, model, units: [first, last]}]`. `spans` are Unicode code points into `text`; `ai_call_id` (column) is
+  the last call. `french_explanations` works unchanged.
+- **Errors**: source `transcript`, `production_attempt_id`, `original_text` = the unit, `occurred_at` = the start of
+  the conversation's study day (`occurred_on`), else the time of the analysis.
+- **Interlocutor context at `/correct` (departure 1, approved)**: the analysis is a second request, and the other
+  speaker's turns are not stored. `POST /api/productions/{id}/correct` therefore accepts an optional body
+  `{transcript: {text, user}}`; the server parses it again and requires the same user turns as the stored text
+  (409 `transcript_mismatch` otherwise). Without the body the units are checked without context. The CLI always
+  sends it; M5.c must keep the pasted text in memory. The same body on another kind gives 422 `invalid_production`.
+- `/correct` chooses the task by `kind` (`writing` -> `production_correction`, `transcript_analysis` ->
+  `transcript_analysis`, anything else 422 `not_correctable`); `corrections.prepare` now also checks the kind.
+- **Taxonomy version 3**: `grammar.preposition.by_for_since` describes the "since + duration" calque; the example
+  of `grammar.tense.present_simple_vs_continuous` no longer uses "since" (it pulled answers towards that category).
+- Live results (`gemini-3.5-flash-lite`, 2026-10-18): before the "since" rule, the example gave four errors (the
+  calque split in two); after it, the example gave exactly the three expected codes in 6 of 6 runs and the clean
+  transcript 0 errors in 6 of 6. The two M5.a1 live tests still pass with taxonomy v3.
+
+## D-135 — The `targeted_drill` task and the `drill-1` storage (M5.a2)
+
+- **Drillable categories**: active codes of level 2 or more. Level 1, `pronunciation.*`, `proposed` and `rejected`
+  give 422 `not_drillable` (with `reason`); an unknown code 404 `category_not_found`.
+- **Inputs**: the category and its active descendants (`code: label - description`, `data`, since user categories
+  hold user text), at most 5 recent errors of the user in that prefix **without drill errors** (wrong form and
+  correction, `data`), and the count (5 to 15, default 10). Level B1-B2 and the themes are in the prompt.
+- **Output**: `{rule_en, rule_fr, items: [{kind: gap_fill | choice, sentence, answer, accepted, options, category_code,
+  theme, explanation_en, explanation_fr}]}`. **`theme`** (`campus | data_economics | everyday`) is an addition
+  (departure 2, approved): without it, "at least two themes in a batch" could not be checked.
+- **Validators**: exact item count; exactly one gap, written `___` (a run of underscores of another length is
+  refused); completed sentence of at most 30 words; `answer` not empty and at most 4 words (so are the accepted
+  forms); no duplicate sentence; a choice has 2 to 4 different options containing `answer` exactly once; `accepted`
+  disjoint from the wrong options; a gap-fill has no options; `category_code` is the requested code or an active
+  descendant; explanations not empty; at least two themes; each rule 1 to 3 sentences.
+- **Prompt**: added after the live probes: "each item must have ONE clear answer" (the model sometimes offered "at
+  the end" and "by the end" together, or left "in lectures" for "during lectures").
+- **Budgets**: input 6 000 characters (family about 2 000, 5 errors about 3 000, count); output `400 + 250 x items`,
+  ceiling 4 200 (15 items = 4 150); timeout 45 s.
+- **Storage**: `production_attempt` with `kind = drill`, `modality = written`, `prompt_text` = the code, `text = ""`,
+  `word_count = 0`, `ai_call_id`, and `ai_feedback = {format: "drill-1", prompt_version, provider, model,
+  category_code, rule_en, rule_fr, items (with their solutions), answers: []}`. `drill.generated` is written; no
+  `production.recorded` (a drill is not free production).
+- `POST /api/drills` answers 201 `{status: "ok", reason: null, drill}`; an AI failure is 200 `{status: incomplete
+  | unavailable, reason, drill: null}` and writes nothing.
+- **Options order**: `random.Random("drill:<id>:<index>")`, deterministic and not stored (like D-103); the index of
+  the right option is computed by the server.
+- Live results: with the first prompt, 3 of 3 runs gave a valid 10-item drill at the first call; with the final
+  prompt, 2 of 2 valid (one after a repair), and the live test passes. An item can still be arguable (for example
+  "closed ___ the weekend" expecting the British "at"): the solution shows `expected` and `accepted`, and the user
+  can delete the error.
+
+## D-136 — Exact grading of drill items, their errors and active recall (M5.a2)
+
+- **Grading** (`app/domain/drills.py`): `grade_item` normalises as D-102 (NFKC, apostrophes, case, spaces,
+  punctuation at both ends) and compares with `answer` and `accepted`. **No typo tolerance, no "form", and no
+  optional "to"** (the D-102 rule for to-verbs would turn the preposition "to" into an empty answer). Outcomes
+  `exact`, `wrong`, `empty`; "had been" for "has been" is `wrong`.
+- A choice item is answered with `choice_index` into the shown options (an empty answer when absent); a text
+  answer on a choice, a `choice_index` on a gap-fill, or an index out of range give 422 `exercise_mismatch`.
+  Already answered: 409 `already_answered`; unknown drill (or a production that is not a drill): 404
+  `drill_not_found`; unknown index: 404 `item_not_found`. `response_time_ms` must be >= 0 and is capped at 5
+  minutes (D-106).
+- **One transaction per answer**: the answer is appended to `answers` by reassignment (D-020): `{index, given,
+  choice_index, outcome, response_time_ms, error_event_id, answered_at}`; `drill.item_answered {drill_id, index,
+  category_code, outcome, response_time_ms}`; after the last item, `drill.completed {drill_id, category_code, items,
+  correct, wrong, empty}`.
+- **Errors**: a `wrong` answer gives an error with source `drill`: `erroneous_text` = the sentence completed with the
+  given answer (or chosen option), `correction` = completed with the right answer, `original_text` = the sentence
+  with its gap, `alternatives` = completed with at most 2 accepted forms (an addition), the item's category (the
+  drill's when the item's is no longer active), `explanation` = the item's English explanation,
+  `production_attempt_id`. `empty` creates nothing. `french_explanations` reads the item's French explanation for
+  `drill-1` feedback.
+- **Active recall** (D-103): an unanswered item carries `index, kind, sentence, options` only, never `answer`,
+  `accepted`, `correct_index`, `expected` or the explanations (`SOLUTION_KEYS`; an API test walks every item of
+  drills of 5, 10 and 15 items through `POST`, `GET` and the list). The rule is shown from the start: it is the
+  explanation of the rule SPEC asks for. **`ProductionOut.feedback` is null for a drill** and `corrected` is false
+  (departure 5, approved): `/api/productions` would otherwise return the solutions.
+
+## D-137 — Targeted practice ignores drill errors (amendment of D-029, approved by the owner, M5.a2)
+
+- Block 3 of the planner (the most frequent error code of the last 14 days with at least 2 errors) now counts the
+  errors **without those of source `drill`** (`services/planning.py`). A drill's own mistakes must not keep choosing
+  the same drill. Tested: 5 drill errors on prepositions and 2 writing errors on tenses propose tenses.
+- The demo has no drill error, so its business data are unchanged. Its fingerprint (seed 42, 60 days, anchor
+  2026-09-01) still changes, for two expected reasons only: the descriptions of taxonomy v3 (`error_category`) and
+  the 17 `production.recorded` rows that are now written as payload version 3 with the new fields null. Every
+  other table is identical (checked table by table).
+
+## D-138 — M5 cut revised (amends D-130, M5.a2)
+
+- M5.a2 (this session): transcript analysis and targeted drills.
+- M5.a3: cards made from errors, suggestions for recurring errors, the demo's errors through the services.
+- M5.b and M5.c: the screens (writing, transcripts, drills, error log).
+- The `practice_info` step of the session stays informative; M5.c links it to a drill through `category_code`.
+
+## D-139 — Small conventions met in M5.a2
+
+- **CLI**: `transcript analyse --file <txt> [--speaker LABEL | --mode alternating-user-first |
+  alternating-user-second | all-mine] [--preview]` (the preview needs no database; the title is the file name) and
+  `drill new <code> [--count N]`, `drill list`. Exit codes as D-053 (0, 1 AI failed, 2 usage). `transcript analyse`
+  (without `--preview`) and `drill new` refuse `--demo`, as the prompt asked; note that `write correct` and
+  `library enrich` accept it (M3.b, M5.a1): a later milestone may align them.
+- The API on the demo database behaves as for `/api/productions`: the demo database is a sandbox (D-064), so the
+  routes are not refused there (the plan said they would go through a demo guard; there is none for productions).
+- `corrections.category_for` and `corrections.Written` are public (shared with the transcript service).
+- The live tests of M5.a2 (`test_live_transcript.py`, `test_live_drill.py`) follow D-054: deselected by default,
+  `VOCAB_RUN_LIVE=1` and a configured provider required, a quota is a skip.
