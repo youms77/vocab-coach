@@ -3,6 +3,8 @@
 Blocks, in order: due reviews, new terms, targeted practice, consolidation. The number of new terms
 is the minimum of the quota (raised up to 2x quota by deadline decks), what the day's budget leaves
 after the other blocks, and what next week's forecast load leaves (see D-028 for the formula).
+Queued terms without a usable sheet are left out of new terms (D-105) but still count in deadline
+paces.
 Warnings carry a stable code and parameters; the frontend turns them into text through i18n.
 """
 
@@ -48,6 +50,7 @@ class WarningCode(StrEnum):
     DEADLINE_UNREALISTIC = "deadline_unrealistic"
     DEADLINE_PASSED = "deadline_passed"
     DEADLINE_TRIAGE_PENDING = "deadline_triage_pending"
+    ITEMS_WITHOUT_SHEET = "items_without_sheet"
 
 
 class BlockKind(StrEnum):
@@ -87,6 +90,8 @@ class PlanInputs:
     discovering: Sequence[DiscoveringItem] = ()
     recent_errors: Sequence[ErrorSample] = ()
     pending_consolidation_task_ids: Sequence[int] = ()
+    # Queued terms with no usable sheet (D-105): never proposed for discovery.
+    items_without_sheet: frozenset[int] = frozenset()
 
 
 # --- Output -----------------------------------------------------------------------------------
@@ -346,7 +351,21 @@ def plan_session(inputs: PlanInputs) -> SessionPlan:
         0, math.floor(ANTICIPATION_DAYS * (budget - week_load) / new_item_weekly_seconds)
     )
 
-    candidates = _candidates(inputs, ordered, paces)
+    candidates, without_sheet = _candidates(inputs, ordered, paces)
+    if without_sheet:
+        position = {d.id: i for i, d in enumerate(ordered)}
+        warnings.append(
+            PlanWarning(
+                code=WarningCode.ITEMS_WITHOUT_SHEET,
+                params={
+                    "count": len(without_sheet),
+                    "deck_ids": sorted(
+                        set(without_sheet.values()),
+                        key=lambda d: (position.get(d, len(position)), d),
+                    ),
+                },
+            )
+        )
     allowed = min(cap_quota, cap_budget, cap_anticipation, len(candidates))
     limit = _limit(cap_quota, cap_budget, cap_anticipation, len(candidates))
 
@@ -445,11 +464,25 @@ def plan_session(inputs: PlanInputs) -> SessionPlan:
 
 def _candidates(
     inputs: PlanInputs, ordered: Sequence[DeckSnapshot], paces: Sequence[DeadlinePace]
-) -> list[tuple[int, int | None, bool]]:
-    """(item id, deck id, resumed) in proposal order, each term once."""
+) -> tuple[list[tuple[int, int | None, bool]], dict[int, int]]:
+    """(item id, deck id, resumed) in proposal order, each term once; and the queued terms left
+    out for want of a usable sheet (item id -> the deck that would have supplied it).
+
+    An interrupted discovery stays proposed even without a sheet: the term is already started.
+    """
     result: list[tuple[int, int | None, bool]] = []
     seen: set[int] = set()
     per_deck: Counter[int | None] = Counter()
+    without_sheet: dict[int, int] = {}
+
+    def usable(candidates: list[Candidate]) -> list[Candidate]:
+        kept = []
+        for candidate in candidates:
+            if candidate.lexical_item_id in inputs.items_without_sheet:
+                without_sheet.setdefault(candidate.lexical_item_id, candidate.deck_id)
+            else:
+                kept.append(candidate)
+        return kept
 
     def add(item_id: int, deck_id: int | None, resumed: bool = False) -> None:
         if item_id not in seen:
@@ -468,16 +501,16 @@ def _candidates(
     decks_by_id = {d.id: d for d in ordered}
     for pace in paces:
         wanted = pace.required_per_day - per_deck[pace.deck_id]
-        for candidate in _fresh(queued_candidates([decks_by_id[pace.deck_id]]), seen)[
+        for candidate in usable(_fresh(queued_candidates([decks_by_id[pace.deck_id]]), seen))[
             : max(0, wanted)
         ]:
             add(candidate.lexical_item_id, candidate.deck_id)
     # Then active decks in queue order, then queued decks (automatic activation).
     active = [d for d in ordered if d.status == DeckStatus.ACTIVE]
     waiting = [d for d in ordered if d.status == DeckStatus.QUEUED]
-    for candidate in queued_candidates(active + waiting):
+    for candidate in usable(queued_candidates(active + waiting)):
         add(candidate.lexical_item_id, candidate.deck_id)
-    return result
+    return result, without_sheet
 
 
 def _fresh(candidates: list[Candidate], seen: set[int]) -> list[Candidate]:

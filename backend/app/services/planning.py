@@ -12,6 +12,7 @@ from app.db.models import (
     ConsolidationTask,
     Deck,
     DeckItem,
+    Enrichment,
     ErrorCategory,
     ErrorEvent,
     LexicalItem,
@@ -38,6 +39,7 @@ from app.domain.planner import (
 )
 from app.domain.srs import EngineFactory
 from app.domain.study_day import as_utc
+from app.domain.usage_sheet import is_usable
 from app.services.durations import observed_estimates
 from app.services.reviews import card_state
 
@@ -69,6 +71,23 @@ def card_snapshots(
             .order_by(Card.id)
         )
     ]
+
+
+def items_without_sheet(session: Session) -> frozenset[int]:
+    """Queued terms whose current sheet is missing or not usable (D-105)."""
+    rows = session.execute(
+        select(LexicalItem.id, Enrichment.status, Enrichment.content)
+        .outerjoin(
+            Enrichment,
+            (Enrichment.lexical_item_id == LexicalItem.id) & Enrichment.is_current,
+        )
+        .where(LexicalItem.status == ItemStatus.QUEUED)
+    )
+    return frozenset(
+        item_id
+        for item_id, status, content in rows
+        if status is None or not is_usable(status, dict(content))
+    )
 
 
 def build_plan_inputs(
@@ -134,6 +153,7 @@ def build_plan_inputs(
         discovering=discovering,
         recent_errors=errors,
         pending_consolidation_task_ids=consolidation_ids,
+        items_without_sheet=items_without_sheet(session),
     )
 
 

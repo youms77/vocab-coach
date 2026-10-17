@@ -86,8 +86,10 @@ def test_decks_carry_the_plan_pace_and_warnings(env: ApiEnv) -> None:
         "days_left": 3,
         "required_per_day": 20,
     }
-    assert [w["code"] for w in listed["warnings"]] == ["deadline_unrealistic"]
-    plan = env.client.get("/api/session/today").json()["plan"]
-    assert listed["warnings"] == [
-        w for w in plan["warnings"] if w["code"] == "deadline_unrealistic"
+    # Imported terms have no sheet yet (D-105).
+    assert [w["code"] for w in listed["warnings"]] == [
+        "items_without_sheet",
+        "deadline_unrealistic",
     ]
+    plan = env.client.get("/api/session/today").json()["plan"]
+    assert listed["warnings"] == plan["warnings"]

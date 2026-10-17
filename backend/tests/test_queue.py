@@ -20,7 +20,7 @@ from app.domain.fsrs_engine import FsrsEngine
 from app.domain.planner import BlockKind, NewItemEntry, PlanLimit, SessionPlan
 from app.services.decks import change_deck_status, reorder_queue
 from app.services.planning import plan_today
-from tests.factories import NOW, add_card, add_deck, add_item, link
+from tests.factories import NOW, add_card, add_deck, add_item, add_sheet, link
 
 TODAY = date(2026, 11, 1)
 ALL_PAIRS = [(a, b) for a in DeckStatus for b in DeckStatus]
@@ -144,6 +144,7 @@ def _deck_with_items(
     items = [add_item(session, f"{name} {i}", status=ItemStatus.QUEUED) for i in range(count)]
     for i, item in enumerate(items):
         link(session, deck, item).position = i
+        add_sheet(session, item)
     return deck, items
 
 
@@ -196,3 +197,19 @@ def test_queue_term_already_learning_via_another_deck_is_ignored(session: Sessio
     new_terms, _ = _planned(session)
     assert learned.id not in {item_id for item_id, _ in new_terms}
     assert len(new_terms) == 1
+
+
+def test_queue_terms_without_a_usable_sheet_are_left_out(session: Session) -> None:
+    deck, items = _deck_with_items(session, "Sheets", 0, DeckStatus.ACTIVE, 0)
+    usable, skeleton, none, old_only = (
+        add_item(session, f"sheet case {i}", status=ItemStatus.QUEUED) for i in range(4)
+    )
+    for position, item in enumerate((usable, skeleton, none, old_only)):
+        link(session, deck, item).position = position
+    add_sheet(session, usable)
+    add_sheet(session, skeleton, usable=False)
+    add_sheet(session, old_only, is_current=False)
+    new_terms, plan = _planned(session)
+    assert new_terms == [(usable.id, deck.id)]
+    [warning] = [w for w in plan.warnings if w.code == "items_without_sheet"]
+    assert warning.params == {"count": 3, "deck_ids": [deck.id]}
