@@ -16,7 +16,7 @@ def test_health_reports_database_at_head(engine: Engine) -> None:
     assert response.status_code == 200
     body = response.json()
     assert (body["status"], body["version"]) == ("ok", __version__)
-    assert body["database"] == {"ok": True, "revision": "0001", "at_head": True}
+    assert body["database"] == {"ok": True, "revision": "0002", "at_head": True}
     assert body["demo"] is False
 
 

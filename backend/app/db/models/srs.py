@@ -59,7 +59,12 @@ class ReviewLog(Base):
     """Append-only. Before/after snapshot so retention can be computed without replaying FSRS."""
 
     __tablename__ = "review_log"
-    __table_args__ = (_rating_check("auto_rating"), _rating_check("final_rating"))
+    __table_args__ = (
+        _rating_check("auto_rating"),
+        _rating_check("final_rating"),
+        # A production is checked for at most one review (migration 0002, D-127).
+        Index("uq_review_log_production_attempt_id", "production_attempt_id", unique=True),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     card_id: Mapped[int] = mapped_column(ForeignKey("card.id", ondelete="CASCADE"), index=True)
@@ -70,6 +75,11 @@ class ReviewLog(Base):
     exercise_type: Mapped[str] = mapped_column(String(64))
     exercise_template_id: Mapped[int | None] = mapped_column(
         ForeignKey("exercise_template.id", ondelete="SET NULL")
+    )
+    # The sentence production checked by the AI that this review rated (M5.a1). Its errors stay
+    # attached to the production only: an error comes from an attempt or a review, never both.
+    production_attempt_id: Mapped[int | None] = mapped_column(
+        ForeignKey("production_attempt.id", ondelete="SET NULL")
     )
     answer_text: Mapped[str | None] = mapped_column(Text)
     # Relative to data/audio/.

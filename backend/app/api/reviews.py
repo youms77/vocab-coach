@@ -132,6 +132,7 @@ class RecordOut(BaseModel):
     state_after: SrsState
     item_status: ItemStatus
     item_status_changed: bool
+    error_event_id: int | None  # an error logged for a lexical confusion (typed answers)
 
 
 @router.post("/reviews", tags=["reviews"])
@@ -159,6 +160,7 @@ def record(body: RecordRequest, session: SessionDep, now: NowDep) -> RecordOut:
         state_after=recorded.state_after,
         item_status=recorded.item_status,
         item_status_changed=recorded.item_status_changed,
+        error_event_id=recorded.error_event_id,
     )
 
 

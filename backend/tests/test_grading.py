@@ -4,6 +4,8 @@ import pytest
 
 from app.domain import exercises as ex
 from app.domain.grading import (
+    Confusion,
+    ConfusionKind,
     DiffPart,
     Outcome,
     char_diff,
@@ -36,7 +38,9 @@ def typed(
         answer=answer,
         accepted=accepted,
         given=given,
-        confusions=[comparable(c, term) for c in confusions],
+        confusions={
+            comparable(c, term): Confusion(ConfusionKind.CONFUSABLE, c) for c in confusions
+        },
         response_time_ms=ms,
         estimate_seconds=ESTIMATE,
     )
@@ -180,6 +184,26 @@ def test_confusion_is_wrong_not_a_typo() -> None:
     assert confused.outcome == Outcome.WRONG
     assert confused.proposed_rating == Rating.AGAIN
     assert confused.diff is None
+    assert confused.confusion == Confusion(ConfusionKind.CONFUSABLE, "Affect")
+    assert plain.confusion is None
+
+
+def test_only_a_confusion_carries_its_cause() -> None:
+    explained = Confusion(ConfusionKind.PITFALL, "make a conclusion", "We draw a conclusion.")
+    result = grade_typed(
+        exercise_type=ex.GAP_FILL,
+        term="draw a conclusion",
+        answer="draw a conclusion",
+        accepted=[],
+        given="Make a conclusion",
+        confusions={comparable("make a conclusion", "draw a conclusion"): explained},
+        estimate_seconds=ESTIMATE,
+    )
+    assert (result.outcome, result.confusion) == (Outcome.WRONG, explained)
+    # A wrong answer that is no known confusion, a typo, an empty answer: no cause.
+    assert typed("explain", confusions=("affect",)).confusion is None
+    assert typed("acount for", confusions=("affect",)).confusion is None
+    assert typed("", confusions=("affect",)).confusion is None
 
 
 @pytest.mark.parametrize("given", [None, "", "   ", "?!"])
