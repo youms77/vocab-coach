@@ -4,15 +4,70 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M4.a1 — today's session, discovery and reviews, backend part 1 (branch
-  `feat/m4a-session-backend`, not merged). M1.a to M3.c3 are merged in `main`.
-- **Next milestone**: **M4.a2** on the same branch — the planner's usable-sheet filter and the demo (sheets,
-  simulation through the session service and the exercise choice). Then M4.b (today's screen, discovery,
-  speech synthesis) and M4.c (review player, shortcuts, deck queue).
+- **Last milestone completed**: M4.a2 — the planner's usable-sheet filter and the demo (sheets, simulation
+  through the session service and the exercise choice). M4.a (M4.a1 + M4.a2) is complete on branch
+  `feat/m4a-session-backend`, not merged. M1.a to M3.c3 are merged in `main`.
+- **Next milestone**: merge `feat/m4a-session-backend` once the owner has reviewed it, then M4.b (today's
+  screen, discovery, speech synthesis) and M4.c (review player, shortcuts, deck queue).
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
   M3.c3 below. M4.a makes no AI call.
 - The local `main` of the owner's checkout was still at M2.c1 at the start of M4.a1 (`origin/main` had M3.c3):
   run `git switch main` then `git pull` before starting a branch from it.
+
+## M4.a2 — Planner usable-sheet filter and the demo (part 2 of M4.a)
+
+Same branch `feat/m4a-session-backend`, not merged. No migration, no new dependency, SPEC.md unchanged.
+
+### Done
+
+- **Planner** (D-109): queued terms without a usable sheet are no longer proposed (`PlanInputs.items_without_sheet`,
+  computed by `planning.items_without_sheet()`), with the warning `items_without_sheet {count, deck_ids}`.
+  Deadline paces still count them; an interrupted discovery stays proposed; a queued deck with no usable term is
+  not activated.
+- **Demo sheets** (D-110): `content/demo/sheets.yaml` (dataset version 2): 68 full sheets with four templates each
+  (plus listening and the derived typed recall), 41 minimal translation-only sheets. Inserted through
+  `enrichment.save_sheet(provenance=...)` (new keyword) and the new `enrichment.add_templates()`.
+- **Simulation** (D-111): sessions through `study_sessions` (`session-1`, summary from the logs), exercise types
+  from `choose_exercise` (self-graded types: `auto_rating` null), discoveries through `begin_discovery` /
+  `finish_discovery` without initial ratings. `DEMO_EXERCISE_TYPES`, `initial_rating` and the provisional
+  session writes are removed.
+- **Owner's choice at the plan**: minimal sheets keep the typed recall that `save_sheet` derives (D-099 note).
+- **Tests**: 1395 passed (1315 before), 5 deselected live tests. New: planner filter (exclusion, warning,
+  pace unchanged, no activation, interrupted discovery kept), service (`missing`, skeleton, non-current sheet),
+  71 sheet-content tests (`test_demo_sheets.py`), demo coverage (full sheets for every queued / triage /
+  discovering term and 26 learning or consolidated ones, every review's type and template equal to
+  `choose_exercise`, self-graded `auto_rating` null, `session-1` summaries equal to `compute_summary`, `new`
+  cards only from the last session, no `items_without_sheet` at the anchor). Existing database tests that plan
+  queued terms now give them a sheet (`tests/factories.add_sheet`).
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm run check`: green (see the report). `alembic check`: no new upgrade operations.
+- `demo seed --reset` (temporary data dir): 60 days in 5.6 s (5.1 s before M4.a2; target 5 s, missed by about
+  0.6 s). Terms: active 5, archived 1, consolidated 51, discovering 1, draft 2, known 2, learning 10, queued 37,
+  triage 4. Review types: typed recall 350, self-assessment 224, recognition 138, gap-fill 85, spoken 2,
+  sentence production 1, listening 1.
+- **Manual scenario** on a temporary demo database (its own data dir, the owner's `.env` not read, port 8011):
+  `GET /api/session/today` (warnings: `deadline_triage_pending` only), `start` (201, `session-1`), `next` (a
+  gap-fill review: prompt `{sentence}` only, no solution key over 5 steps), `grade` "drill down inot" ->
+  `typo`, proposed Hard, `POST /api/reviews` Hard -> 200, discovery of the interrupted term "outperform"
+  (resumed, two prompts, cards due at the next study day start), `end` -> summary `{reviews: 5,
+  discoveries_started: 0 (resumed), discoveries_completed: 1, ...}`.
+
+### Left / notes
+
+- M4.b (today's screen, discovery, speech synthesis) and M4.c (review player, shortcuts, deck queue) use the
+  M4.a1 API reference without backend change; they need the i18n text of `items_without_sheet`.
+- The demo has few mature cards with full templates, so `sentence_production`, `spoken_answer` and
+  `listening_comprehension` appear only a few times in its history.
+- Still no `ai_call_log` rows in the demo; no error event from reviews outside the demo (M5).
+
+### Known issues
+
+- None known. Fixed on the way: `tests/api/test_session_api.py::test_review_steps_never_carry_a_solution` (M4.a1)
+  was flaky. It uses the unseeded production FSRS fuzz, so the cards sometimes stayed below the 21-day
+  maturity threshold and the mature exercise types were not reached (no leak). The test now seeds that
+  generator.
 
 ## M4.a1 — Today's session, discovery and reviews: backend (part 1 of M4.a)
 
@@ -122,20 +177,19 @@ wait, practice}` (only the field of its type is set):
 
 **Warning codes** (no text; i18n in M4.b / M4.c): grading `term_missing`; review step `no_cue`; discovery
 complete `term_missing`; plan warnings unchanged (`reviews_over_budget`, `deadline_unrealistic`,
-`deadline_passed`, `deadline_triage_pending`), plus `items_without_sheet` `{count, deck_ids}` in M4.a2.
+`deadline_passed`, `deadline_triage_pending`), plus `items_without_sheet` `{count, deck_ids}` (M4.a2, D-109:
+queued terms without a usable sheet are not proposed; a deck answer carries it when its id is in `deck_ids`).
 **Step types**: `review`, `new_item`, `wait`, `practice_info`, `done`. **Outcomes**: `exact`, `form`, `typo`,
 `wrong`, `empty`.
 
 ### Left / notes
 
-- **M4.a2** (next session, same branch): the planner skips terms without a usable sheet and warns
+- **M4.a2** (done, see above): the planner skips terms without a usable sheet and warns
   `items_without_sheet` (D-105); `content/demo/sheets.yaml` (full sheets with templates for every queued /
   triage / discovering term and at least 25 learning ones, minimal translation-only sheets for the rest, D-099);
   the simulation uses `choose_exercise`, the session service (`session-1`) and no initial ratings;
   `DEMO_EXERCISE_TYPES` and the provisional session writes removed; fingerprint and coverage tests; the 2-minute
   manual scenario on the demo database; `--demo` seed time measured.
-- Until M4.a2, the demo still writes `demo-provisional-1` sessions and discoveries with initial ratings; its
-  terms have no sheet, so `POST /api/discovery/{id}/start` answers `sheet_required` on the demo database.
 - `GET /api/decks` now computes today's plan (one more read per call).
 - No AI call in M4.a; no error event from reviews yet (M5).
 
@@ -1093,9 +1147,10 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M4.a2 (planner filter and demo)
+## Next step: merge M4.a, then M4.b
 
-- See "Left / notes" of M4.a1 above. Then M4.b and M4.c consume the M4.a1 API reference without backend change.
+- Review and merge `feat/m4a-session-backend` (M4.a1 + M4.a2). Then M4.b and M4.c consume the M4.a1 API
+  reference without backend change.
 - Before or alongside: the owner's real calls (M2.c2 and M3.c3 scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 

@@ -1384,6 +1384,10 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
     at all could never reach `learning` once the planner skips it, so "no sheet" in the milestone text becomes
     "no template";
   - the simulation completes discoveries **without initial ratings**, like the app (D-104).
+- **Note (M4.a2, owner's choice at the plan)**: a minimal sheet saved through `save_sheet` gets the
+  `typed_recall` template that the service derives from the French translation (D-082), like any sheet typed
+  in the app. So minimal terms use `self_assessment` for their receptive card only; their young productive
+  cards use typed recall.
 
 ## D-100 — Exercise choice and the maturity threshold (M4.a1)
 
@@ -1472,7 +1476,7 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   definition or a French translation (the D-092 content rule). A `needs_completion` skeleton is not usable.
   `usage_sheet.is_usable()` is the single rule.
 - `POST /api/discovery/{id}/start` on a term without a usable sheet answers 409 `sheet_required` and writes
-  nothing. The planner's exclusion and its `items_without_sheet` warning come with M4.a2.
+  nothing. The planner's exclusion and its `items_without_sheet` warning came with M4.a2 (D-109).
 
 ## D-106 — Response time capped at 5 minutes (M4.a1)
 
@@ -1513,3 +1517,54 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   request).
 - **`tts_voice`**: a string setting, default `""` (the first en-US voice), at most 200 characters, no list on
   the server (voices depend on the browser). `SettingSpec` gains `max_length`. No migration (`setting` table).
+
+## D-109 — The planner skips terms without a usable sheet (M4.a2)
+
+- `PlanInputs.items_without_sheet` (frozenset, default empty, so pure tests need no sheet) holds the queued
+  terms whose current sheet is missing or not usable (`usage_sheet.is_usable`, D-105).
+  `planning.items_without_sheet()` computes it in one query. `plan_session` leaves these terms out of the new
+  terms (pace and queue phases) and adds the warning `items_without_sheet {count, deck_ids}`: the number of
+  distinct terms left out, and the decks that would have supplied them, in queue order. `GET /api/decks`
+  shows the warning on each deck of `deck_ids` (the M4.a1 filter already read `deck_ids`).
+- Deadline paces still count these terms in `remaining`: a missing sheet does not move the deadline, and the
+  warning tells the user why the pace may not be reached. `decks_to_activate` follows the filtered selection,
+  so a queued deck with no usable term is not activated.
+- An interrupted discovery (`discovering`) stays proposed whatever its sheet: the term was already started.
+- Existing database tests that plan queued terms now give them a hand-typed sheet (`tests/factories.add_sheet`).
+
+## D-110 — Demo sheets (M4.a2)
+
+- `content/demo/sheets.yaml` (fictional, English; `dataset_version` 2 for the four demo files): 68 **full**
+  sheets (simple definition, French translation, one academic and one spoken example, pronunciation, a
+  confusable or a French-speaker pitfall when relevant, and one template each of gap-fill, recognition with
+  three distractors, sentence production and spoken answer) and 41 **minimal** ones (French translation
+  only). With seed 42, full sheets cover the 42 terms that end queued, in triage or discovering, and 26
+  learning or consolidated terms. Draft and known terms have none.
+- Inserted when the simulation creates the term, through the services:
+  `enrichment.save_sheet(..., provenance=Provenance("demo", None, "demo-sheets-v1"))` (new keyword; by default
+  the provenance is still copied from the edited version) and the new `enrichment.add_templates()` (content
+  validated by `validate_content`, nothing deleted, origin `demo`). The gap-fill template is added before the
+  sheet so the derived typed recall gets its accepted forms; listening reuses the recognition sentence, like
+  the AI path. A demo sheet is a hand-typed sheet: `edited_by_user` and `enrichment.edited`, like a sheet typed
+  in the app.
+- `tests/test_demo_sheets.py` applies the generated-content rules of `app/domain/exercises.py` (the same checks
+  as `EnrichmentEntry.problems`) to every full sheet.
+
+## D-111 — The demo goes through the session service and the exercise choice (M4.a2)
+
+- Sessions: `study_sessions.start_session` / `end_session` (format `session-1`, plan frozen at the start,
+  summary computed from the logs). `direct_writes.start_study_session` / `end_study_session` and
+  `demo-provisional-1` are removed; `direct_writes` keeps productions and errors (M5).
+- Reviews: the type and the template come from `choose_exercise` (templates read once per term, after its
+  sheet). `DEMO_EXERCISE_TYPES` and the learner's own maturity threshold are removed. Self-graded types store
+  `auto_rating` null. The learner draws its "changed rating" step for every review, so the generator sequence
+  does not depend on the templates.
+- Discoveries: `begin_discovery` / `finish_discovery` without initial ratings (D-104). The last session still
+  leaves one term `discovering`; the only `new` cards left are those of the terms discovered in the last
+  session.
+- Seed 42 stays reproducible (fingerprint test). Seed time for 60 days: 5.6 s on the owner's machine (5.1 s
+  before; the extra time goes to the sheets and the session summaries). The 5 s target is missed by about
+  0.6 s; accepted and reported to the owner.
+- Test fix on the way: the M4.a1 anti-leak walk (`test_review_steps_never_carry_a_solution`) seeds the
+  production FSRS fuzz generator. Unseeded, its cards sometimes stayed below the maturity threshold and the
+  mature exercise types were not reached, so the test failed now and then.

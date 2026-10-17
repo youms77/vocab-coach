@@ -45,7 +45,7 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/api/discovery.py` | `/api/discovery/{item_id}/start`, `/exercises`, `/complete` | M4.a1 |
 | `app/services/env_file.py` | safe edit of the three AI variables of `.env` (D-062) | M2.c1 |
 | `app/services/ai_connection_test.py` | shared connection test, CLI and API (D-065) | M2.c1 |
-| `app/demo/` | fictional demo data: dataset loader, simulated learner, 60-day simulation through the services, provisional direct writes, atomic `demo seed` | M1.c |
+| `app/demo/` | fictional demo data (`content/demo/`: decks, errors, prompts, hand-typed sheets): dataset loader, simulated learner, 60-day simulation through the services (session service `session-1`, `choose_exercise`, discovery without initial ratings), provisional direct writes (productions and errors only), atomic `demo seed` | M1.c, M4.a2 |
 | `app/domain/` | pure business logic (see "Domain and services" below) | M1.a, M1.b |
 | `app/services/` | operations that read and write the database, in the caller's transaction | M1.b |
 | `app/db/` | data layer (see below) | M1.a |
@@ -98,7 +98,8 @@ services/                         read/write the database; never commit (D-023)
   discovery.py    start_discovery() (activates a queued deck), complete_discovery() (creates both cards)
   decks.py        change_deck_status(), reorder_queue()
   durations.py    observed_estimates(): medians from review_log and discovery.completed events
-  planning.py     build_plan_inputs() + plan_today(): read-only
+  planning.py     build_plan_inputs() + plan_today(): read-only; queued terms without a usable
+                  sheet are passed as items_without_sheet (D-105, M4.a2)
   library.py      sources, decks, terms, deck links, search, quick add, duplicates lookup, deletion rules (M3.a)
   importing.py    preview() (read-only) and commit() of the rows the user validated (M3.a)
   triage.py       list_triage() (no usage sheet), apply_triage() all or nothing (M3.a)
@@ -107,6 +108,7 @@ services/                         read/write the database; never commit (D-023)
   review_flow.py  review_step() (prompt only), grade() (writes nothing), record() (auto rating recomputed), reveal() (M4.a1)
   discovery.py    + begin_discovery() / finish_discovery(): usable sheet required, no initial ratings (M4.a1)
   productions.py  record_written_production(): attempt, targets, production.recorded (M4.a1; M5 adds AI feedback)
+  enrichment.py   + save_sheet(provenance=...) and add_templates(origin=demo): the demo's hand-typed sheets (M4.a2)
    │
 domain/                           pure: no session, no network, no clock (`now` is a parameter)
   study_day.py    as_utc(), study_day_of(), study_day_bounds()        (timezone + day_start_hour)
