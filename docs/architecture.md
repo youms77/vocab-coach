@@ -38,7 +38,11 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/api/errors.py` | `{"detail": {"code", "message"}}` errors, 422 without `input` (D-063) | M2.c1 |
 | `app/api/ai.py` | `/api/ai/status`, `/providers/{name}/credential`, `/test`, `/usage` (D-064) | M2.c1 |
 | `app/api/settings.py` | `GET` / `PATCH /api/settings` | M2.c1 |
-| `app/api/library.py` | `/api/import/preview\|commit`, `/items` (search, quick add, get, patch, delete, status, merge), `/decks`, `/triage`, `/duplicates`; library errors mapped in `errors.py` | M3.a |
+| `app/api/library.py` | `/api/import/preview\|commit`, `/items` (search, quick add, get, patch, delete, status, merge), `/decks` (with today's pace and warnings, M4.a), `/decks/{id}/status`, `/decks/queue`, `/triage`, `/duplicates`; library errors mapped in `errors.py` | M3.a, M4.a1 |
+| `app/api/clock.py` | `get_now` / `NowDep`: the current time as a dependency, overridden by the API tests (D-097) | M3.c3 fix |
+| `app/api/session.py` | `/api/session/today`, `/start`, `/{id}/next`, `/{id}/end` | M4.a1 |
+| `app/api/reviews.py` | `/api/reviews/grade` (writes nothing), `/api/reviews` (record), `/api/reviews/reveal` | M4.a1 |
+| `app/api/discovery.py` | `/api/discovery/{item_id}/start`, `/exercises`, `/complete` | M4.a1 |
 | `app/services/env_file.py` | safe edit of the three AI variables of `.env` (D-062) | M2.c1 |
 | `app/services/ai_connection_test.py` | shared connection test, CLI and API (D-065) | M2.c1 |
 | `app/demo/` | fictional demo data: dataset loader, simulated learner, 60-day simulation through the services, provisional direct writes, atomic `demo seed` | M1.c |
@@ -99,6 +103,10 @@ services/                         read/write the database; never commit (D-023)
   importing.py    preview() (read-only) and commit() of the rows the user validated (M3.a)
   triage.py       list_triage() (no usage sheet), apply_triage() all or nothing (M3.a)
   duplicates.py   list_groups(), merge_items() (inversion, merge_conflict) (M3.a)
+  study_sessions.py  start (plan frozen, stale sessions closed), next_step() computed live, end (summary from the logs) (M4.a1)
+  review_flow.py  review_step() (prompt only), grade() (writes nothing), record() (auto rating recomputed), reveal() (M4.a1)
+  discovery.py    + begin_discovery() / finish_discovery(): usable sheet required, no initial ratings (M4.a1)
+  productions.py  record_written_production(): attempt, targets, production.recorded (M4.a1; M5 adds AI feedback)
    │
 domain/                           pure: no session, no network, no clock (`now` is a parameter)
   study_day.py    as_utc(), study_day_of(), study_day_bounds()        (timezone + day_start_hour)
@@ -111,6 +119,9 @@ domain/                           pure: no session, no network, no clock (`now` 
   planner.py      PlanInputs → plan_session() → SessionPlan (blocks, caps, limit, warnings)
   markdown_import.py  parse_import(text, today) → ParsedImport (header, rows, problems with stable codes) (M3.a)
   normalize.py    normalize_term(), naive_lemma() (single-word stem), classify_match(), term_in_sentence() (M3.a)
+  exercise_choice.py  choose_exercise(direction, state, stability, reps, templates) -> type + template (M4.a1)
+  grading.py      normalize_answer(), damerau_levenshtein(), grade_typed() / grade_choice() / check_production() (M4.a1)
+  review_steps.py build_prompt() (never a solution), build_solution(), shuffled_options() seeded by card + reps (M4.a1)
 ```
 
 - **Flow of a review**: `record_review` loads the item, refuses archived/known items and out-of-order
@@ -121,6 +132,15 @@ domain/                           pure: no session, no network, no clock (`now` 
   engine), decks with their items, discovering items, errors of the last 14 days, pending consolidation tasks
   and observed durations; `plan_session` computes the blocks and the number of new terms (formula in
   D-029). Nothing is written.
+- **Flow of a session** (M4.a1): `POST /api/session/start` closes a session left open on an earlier study
+  day, then returns today's open session or creates one with the plan frozen (`session-1`). `GET next` is
+  computed live from the cards (`card_snapshots`) and the frozen plan's new terms: a review step carries the
+  exercise chosen by `choose_exercise` and a prompt from `build_prompt`, never the answer. `POST
+  /api/reviews/grade` grades without writing and returns the solution; `POST /api/reviews` grades again on
+  the server, then `record_review`. A discovery is `start` (term `discovering`, first sentence), the sheet
+  (`GET /items/{id}/sheet`), the exercises graded by term, then `complete` (cards `new`, due the next study
+  day; the personal sentence becomes a `production_attempt`). `POST end` writes the summary computed from
+  `review_log` and `event_log`.
 - **Flow of an import** (M3.a): the browser reads the Markdown file and sends its text as JSON;
   `POST /api/import/preview` parses it (`parse_import`) and looks up duplicates and the target deck, without
   writing; the page lets the user fix, confirm, include or exclude rows and choose `attach | new | skip`; then

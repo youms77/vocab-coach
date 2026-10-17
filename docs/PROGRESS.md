@@ -4,17 +4,144 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M3.c3 — usage sheets, exercises, batch enrichment and list extension pages
-  (frontend). **M3 is complete** (module A). M1.a to M3.c3 are merged in `main`: the stacked branches
-  `feat/m2c2-settings-page`, `feat/m3a-library-import`, `feat/m3b-enrichment`, `feat/m3c1-library`,
-  `feat/m3c2-import-triage` and `feat/m3c3-sheets` went in together through the pull request of the tip, after
-  the pre-merge verification below.
-- **Next milestone**: **M4** — discovery and reviews (modules B and C, today's session). Start its branch from
-  `main`.
+- **Last milestone completed**: M4.a1 — today's session, discovery and reviews, backend part 1 (branch
+  `feat/m4a-session-backend`, not merged). M1.a to M3.c3 are merged in `main`.
+- **Next milestone**: **M4.a2** on the same branch — the planner's usable-sheet filter and the demo (sheets,
+  simulation through the session service and the exercise choice). Then M4.b (today's screen, discovery,
+  speech synthesis) and M4.c (review player, shortcuts, deck queue).
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2 and
-  M3.c3 below.
-- Fixed on top of M3.c3: `test_usage_lists_every_day_today_first` no longer depends on the date
-  (`GET /api/ai/usage` takes its clock from a dependency, D-097). See M3.c3 "Known issues".
+  M3.c3 below. M4.a makes no AI call.
+- The local `main` of the owner's checkout was still at M2.c1 at the start of M4.a1 (`origin/main` had M3.c3):
+  run `git switch main` then `git pull` before starting a branch from it.
+
+## M4.a1 — Today's session, discovery and reviews: backend (part 1 of M4.a)
+
+M4 is cut in three sessions: **M4.a** (backend, no screen), **M4.b** (today's screen, discovery, speech
+synthesis), **M4.c** (review player, keyboard shortcuts, deck queue). M4.a itself is cut in two (D-099):
+**M4.a1** (this part: domain, services, every route) and **M4.a2** (the planner's usable-sheet filter and the
+demo). Branch `feat/m4a-session-backend`, started from `origin/main` (`54bd2c8`, M3.c3 + D-097). No migration,
+no new dependency, SPEC.md unchanged.
+
+### Done
+
+- **Exercise choice** (`app/domain/exercise_choice.py`, D-100): direction x maturity (stability >= 21 days in
+  Review) x templates present; alternation on the parity of `reps`; fallback to another template of the
+  direction, then `self_assessment` (D-101); several templates of a type rotate with `(reps // 2) % n`.
+- **Grading** (`app/domain/grading.py`, D-102): normalisation, optional "to", hand-written Damerau-Levenshtein
+  (OSA), typo thresholds 0 / 1 / 2, confusion with another library term or a sheet's confusables and pitfalls ->
+  `wrong`, regular forms in typed recall, choice exercises, slow -> Hard, Easy never proposed, `term_missing`
+  for typed productions, character diff for typos.
+- **Steps without solutions** (`app/domain/review_steps.py`, D-103): prompts per type, deterministic option
+  shuffle (card id + `reps`), solutions only after an attempt, listening exception.
+- **Services**: `study_sessions.py` (start, stale close, live `next`, end with a summary from the logs, D-107),
+  `review_flow.py` (step, grade, record with the auto rating recomputed and the 5-minute cap, reveal),
+  `productions.py` (written attempt + targets + event), `discovery.py` (`begin_discovery` /
+  `finish_discovery`: usable sheet required, no initial ratings, payload v2, personal sentence, D-104, D-105),
+  `planning.card_snapshots()` extracted for `next`.
+- **API**: `app/api/session.py`, `reviews.py`, `discovery.py`; deck status and queue routes and `pace` /
+  `warnings` on every deck in `library.py`; new error handlers (deck transitions, `DiscoveryError`). Reference
+  below.
+- **Setting** `tts_voice` (string, default `""`, at most 200 characters, D-108).
+- **Tests**: 125 new (1315 passed, 5 deselected live tests; 1190 before). Domain: exercise choice (every
+  direction x maturity x templates present or absent, fallback, alternation, rotation), grading (table:
+  exact, form, typo at the three thresholds, affect/effect, "to", apostrophes, empty, choice, slow -> Hard,
+  Easy never proposed, `term_missing`), Damerau-Levenshtein (transposition, insertion, deletion, OSA), steps
+  (no solution key for any type x direction, deterministic shuffle, gapped sentence). API: every route and
+  error code, `auto_rating` recomputed when the client lies, `grade` and `reveal` write nothing (row count of
+  every table), anti-leak walk over every exercise type, idempotent start, stale-session close, `next` with a
+  learning card after 10 minutes on a fake clock, `wait`, `practice_info`, `done`, summary from the logs, full
+  discovery (cards `new` due the next study day, `production_attempt`, payload v2), deck pause / resume / done
+  / reopen / order / pace. **End-to-end scenario** (`tests/api/test_m4_scenario.py`): import, sheet by hand,
+  session, discovery, not due the same day, back in `next` at the start of the next study day, typo -> `typo`
+  with Hard proposed, Good recorded -> `auto_rating` 2, `final_rating` 3.
+
+### Verified (Windows 11, 2026-10-17)
+
+- See the commit's check output in the session report: `npm run check`, `alembic check`.
+
+### API reference for M4.b and M4.c
+
+Errors are `{"detail": {"code", "message", ...}}` (D-063); writes need `Content-Type: application/json`. Ids
+are integers; times are UTC ISO strings. `Progress = {reviews_done, reviews_remaining, new_done,
+new_remaining, estimated_seconds_remaining}`. `Session = {id, started_at, ended_at, study_day, planned:
+{format: "session-1", plan: SessionPlan}, summary}`. `SessionPlan` is the planner's output (M1.b, `plan
+today --json`).
+
+| Route | Request | Success |
+|---|---|---|
+| `GET /api/session/today` | – | 200 `{plan: SessionPlan, open_session: Session\|null}` (nothing written) |
+| `POST /api/session/start` | – | 201 `Session` (new, plan frozen) or 200 (today's open session); closes a session left open on an earlier study day |
+| `GET /api/session/{id}/next?practice_seen=false` | – | 200 `Step` (below) |
+| `POST /api/session/{id}/end` | – | 200 `Session` with `summary = {format, reviews, failed_reviews, discoveries_started, discoveries_completed, productions, words, duration_ms, planned_minutes}` |
+| `POST /api/reviews/grade` | `{card_id\|item_id (exactly one), exercise_type, exercise_template_id\|null, answer\|null (≤ 2000), choice_index\|null, response_time_ms ≥ 0}` | 200 `{outcome: exact\|form\|typo\|wrong\|empty\|null, proposed_rating: 1–3\|null, expected, accepted, diff: [{op: equal\|replace\|insert\|delete, given, expected}]\|null, warnings, solution, sheet_summary}`. **Writes nothing.** `item_id`: discovery exercises (`typed_recall`, `gap_fill`) of a `discovering` term |
+| `POST /api/reviews` | `{card_id, session_id, exercise_type, exercise_template_id\|null, answer\|null, choice_index\|null, response_time_ms ≥ 0, final_rating 1–4, expected_reps}` (no `auto_rating`: unknown fields are refused) | 200 `{review_log_id, due_after, state_after, item_status, item_status_changed}` |
+| `POST /api/reviews/reveal` | `{card_id, exercise_type, exercise_template_id\|null}` (self-graded types only) | 200 `{solution, sheet_summary}`. Writes nothing |
+| `POST /api/discovery/{item_id}/start` | `{session_id, deck_id\|null}` | 200 `{item_id, term, item_type, status, resumed, sentence: {text, source: origin\|example}\|null}` (never the sheet) |
+| `GET /api/discovery/{item_id}/exercises` | – | 200 `[{exercise_type: typed_recall\|gap_fill, exercise_template_id, prompt}]` (prompts only) |
+| `POST /api/discovery/{item_id}/complete` | `{session_id, duration_ms\|null, guess\|null (≤ 1000), exercise_results: [{exercise_type, outcome}] (≤ 10), personal_sentence\|null (≤ 1000)}` | 200 `{item_id, status: learning, cards: [{card_id, direction, due}], production_attempt_id\|null, warnings}` |
+| `POST /api/decks/{id}/status` | `{to: queued\|active\|paused\|done}` | 200 `Deck` |
+| `PUT /api/decks/queue` | `{deck_ids}`: every deck that is not done, once | 200 `[Deck]` |
+| `GET /api/decks`, `GET /api/decks/{id}` (and every `Deck` answer) | – | `Deck` gains `pace: {deck_id, deadline, remaining, days_left, required_per_day}\|null` and `warnings: [PlanWarning]` (the plan's warnings about this deck) |
+| `GET/PATCH /api/settings` | – | new key `tts_voice` (string, `""` = first en-US voice, ≤ 200 characters) |
+
+**Step** = `{type: review|new_item|wait|practice_info|done, session_id, progress: Progress, review, new_item,
+wait, practice}` (only the field of its type is set):
+
+- `review = {card_id, lexical_item_id, direction, srs_state, expected_reps, exercise_type, exercise_template_id,
+  input: choice|text|none, self_graded, term (receptive cards, not listening; else null), prompt, warnings}`;
+  send `expected_reps` back with `POST /api/reviews`.
+- `prompt` by type: `recognition_in_sentence` `{sentence, options[4]}`; `listening_comprehension` `{sentence,
+  options[4]}` (**hide the sentence**, speak it); `typed_recall` `{cue_fr, cue_definition}`; `gap_fill`
+  `{sentence}` (with `___`); `sentence_production` `{situation}`; `spoken_answer` `{question}`;
+  `self_assessment` receptive `{term, sentence}`, productive `{cue_fr, cue_definition, sentence_gapped}`.
+- `solution` by type (grade or reveal only): choice `{correct_index, meaning, meaning_fr, sentence}`;
+  `gap_fill` `{answer, accepted, sentence}` (completed); `typed_recall` `{answer, accepted}`; production and
+  spoken `{example_answer}`; `self_assessment` `{term, definition_simple, translation_fr, sentence}`.
+  `sheet_summary = {term, part_of_speech, definition_simple, translation_fr, pronunciation, examples[≤ 2]}|null`;
+  the full sheet is `GET /api/items/{id}/sheet`.
+- `new_item = {item_id, term, deck_id, resumed}`; `wait = {until}` (a learning card due later today);
+  `practice = {targeted_practice: {category_code, error_count}|null, consolidation_task_id|null}`, information
+  only: call `next?practice_seen=true` to get `done`.
+- Self-graded types (`self_assessment`, `sentence_production`, `spoken_answer`) have no proposed rating: show
+  the four buttons. Easy is never proposed.
+
+| Status | `code` | When |
+|---|---|---|
+| 404 | `session_not_found`, `card_not_found`, `item_not_found`, `deck_not_found` | unknown id |
+| 409 | `session_closed` | `next`, `end`, a review or a discovery on a closed session |
+| 409 | `card_changed` (+ `reps`) | `expected_reps` differs (sent twice, two tabs) |
+| 409 | `review_not_allowed` | term not reviewable (archived, known...), review earlier than the last one, discovery exercise of a term that is not `discovering` |
+| 409 | `not_due` (+ `due`) | card due after the current study day |
+| 409 | `sheet_required` | discovery start without a usable sheet (D-105) |
+| 409 | `already_discovered` | discovery start or complete after success |
+| 409 | `discovery_not_allowed` | paused or done deck, term not in the deck given |
+| 409 | `invalid_transition` (+ `from_status`, `to_status`) | discovery of a term in triage, complete before start, deck transition not allowed by D-026 |
+| 422 | `exercise_mismatch` | wrong direction, template of another term or type, missing template, `choice_index` out of range, reveal of a graded type, discovery exercise other than typed recall / gap-fill |
+| 422 | `invalid_queue` | `deck_ids` is not exactly the decks that are not done |
+| 422 | `invalid_request` (+ `errors`) | wrong shape, unknown field (`auto_rating`...), negative time, both or none of `card_id` / `item_id` |
+
+**Warning codes** (no text; i18n in M4.b / M4.c): grading `term_missing`; review step `no_cue`; discovery
+complete `term_missing`; plan warnings unchanged (`reviews_over_budget`, `deadline_unrealistic`,
+`deadline_passed`, `deadline_triage_pending`), plus `items_without_sheet` `{count, deck_ids}` in M4.a2.
+**Step types**: `review`, `new_item`, `wait`, `practice_info`, `done`. **Outcomes**: `exact`, `form`, `typo`,
+`wrong`, `empty`.
+
+### Left / notes
+
+- **M4.a2** (next session, same branch): the planner skips terms without a usable sheet and warns
+  `items_without_sheet` (D-105); `content/demo/sheets.yaml` (full sheets with templates for every queued /
+  triage / discovering term and at least 25 learning ones, minimal translation-only sheets for the rest, D-099);
+  the simulation uses `choose_exercise`, the session service (`session-1`) and no initial ratings;
+  `DEMO_EXERCISE_TYPES` and the provisional session writes removed; fingerprint and coverage tests; the 2-minute
+  manual scenario on the demo database; `--demo` seed time measured.
+- Until M4.a2, the demo still writes `demo-provisional-1` sessions and discoveries with initial ratings; its
+  terms have no sheet, so `POST /api/discovery/{id}/start` answers `sheet_required` on the demo database.
+- `GET /api/decks` now computes today's plan (one more read per call).
+- No AI call in M4.a; no error event from reviews yet (M5).
+
+### Known issues
+
+- None known.
 
 ## Pre-merge verification of M2.c2 to M3.c3 (2026-10-17)
 
@@ -966,10 +1093,9 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M4 (discovery and reviews)
+## Next step: M4.a2 (planner filter and demo)
 
-- **M3.c** is done (c1, c2, c3); sheet-content search was decided against for now (D-091).
-- **M4**: modules B and C, today's session (module D interface), speech synthesis, keyboard shortcuts.
+- See "Left / notes" of M4.a1 above. Then M4.b and M4.c consume the M4.a1 API reference without backend change.
 - Before or alongside: the owner's real calls (M2.c2 and M3.c3 scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
