@@ -80,6 +80,9 @@ export function TodayCard() {
           </ul>
         )}
         <PlanWarnings warnings={plan.warnings} decks={decks.data} paces={plan.deadline_paces} />
+        <p className="link-row">
+          <Link to="/queue">{t('queue.manageLink')}</Link>
+        </p>
         {(!empty || open !== null) && (
           <p className="today-actions">
             {open !== null && <span className="muted">{t('today.openSession')} </span>}

@@ -1248,6 +1248,304 @@ mark {
   font-weight: 700;
 }
 
+/* Review player (M4.c) */
+.review {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.review > p,
+.review-options-block > p {
+  margin: 0;
+}
+
+.review__direction {
+  font-size: 0.9375rem;
+}
+
+.review-sentence {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+
+.review-sentence-inline,
+.review-situation {
+  overflow-wrap: anywhere;
+}
+
+.review-situation {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.review-term {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.review-options-block {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.review-options-label {
+  font-weight: 600;
+}
+
+.review-options {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.review-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review-option:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.review-option:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.review-option[aria-pressed='true'] {
+  border-color: var(--text-muted);
+  border-width: 2px;
+}
+
+/* Right and wrong are said by a sign and a text; the border only repeats it. */
+.review-option--correct {
+  border-left: 4px solid var(--ok);
+}
+
+.review-option--wrong {
+  border-left: 4px solid var(--danger);
+}
+
+.review-option__text {
+  flex: 1 1 12rem;
+  overflow-wrap: anywhere;
+}
+
+.review-option__mark {
+  font-weight: 700;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.review-form .field input,
+.review-form .field textarea {
+  width: 100%;
+  max-width: 32rem;
+}
+
+.review-result:focus {
+  outline: none;
+}
+
+.review-result:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.review-result > .grade-result,
+.review-result > p {
+  margin-top: 0;
+}
+
+.review-summary {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+
+.review-summary p {
+  margin: var(--space-1) 0;
+}
+
+.review-summary__examples {
+  margin: var(--space-1) 0;
+  padding-left: var(--space-4);
+}
+
+.rating-block {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.rating-block > p {
+  margin: 0;
+}
+
+.rating-block__title {
+  font-weight: 600;
+}
+
+.rating {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.session .rating__button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+
+.rating__button--suggested {
+  border-color: var(--accent);
+  border-width: 2px;
+  font-weight: 700;
+}
+
+.rating__badge {
+  margin-left: 0;
+  color: var(--text);
+}
+
+.review-blocked {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.key-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.session-announce {
+  margin: 0;
+  min-height: 0;
+  font-size: 0.9375rem;
+}
+
+.session-announce:empty {
+  display: none;
+}
+
+/* Deck queue (M4.c) */
+.queue-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.queue-page .hero p {
+  margin: var(--space-1) 0;
+}
+
+.queue-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.queue-deck {
+  display: grid;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.queue-deck p {
+  margin: 0;
+}
+
+.queue-deck__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+.queue-deck__head h3 {
+  margin: 0;
+}
+
+.queue-deck__rank {
+  color: var(--text-muted);
+}
+
+.queue-deck .button-row {
+  margin-top: var(--space-1);
+}
+
+/* The status is a text; the border only repeats it. */
+.queue-status--active {
+  border-color: var(--ok);
+  color: var(--text);
+}
+
+.queue-status--paused {
+  border-color: var(--warn);
+  color: var(--text);
+}
+
+.queue-done summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.queue-announce {
+  margin: 0;
+}
+
+.queue-announce:empty {
+  display: none;
+}
+
 @media (max-width: 560px) {
   /* Four links fit at 375 px, in French too (M4.b added "Today"). */
   .topbar__nav {
@@ -1271,6 +1569,11 @@ mark {
 
   .card {
     padding: var(--space-4);
+  }
+
+  /* Rating buttons two by two on phones. */
+  .rating {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

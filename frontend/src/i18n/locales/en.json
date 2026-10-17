@@ -816,11 +816,6 @@
       "later": "These exercises are available in a later version of the app.",
       "continue": "Continue"
     },
-    "reviewPlaceholder": {
-      "text_one": "{{count}} review is due.",
-      "text_other": "{{count}} reviews are due.",
-      "later": "Provisional (M4.b): the review player comes with the next version of the app. You can end the session for now."
-    },
     "summary": {
       "title": "Session summary",
       "reviews": "Reviews",
@@ -923,5 +918,153 @@
     "diff": "Your answer compared with the expected one:",
     "removed": "extra",
     "added": "missing"
+  },
+  "review": {
+    "types": {
+      "recognition_in_sentence": "Recognise the term in a sentence",
+      "listening_comprehension": "Listen and understand",
+      "typed_recall": "Recall the English term",
+      "gap_fill": "Fill the gap",
+      "sentence_production": "Write a sentence",
+      "spoken_answer": "Answer aloud",
+      "self_assessment": "Do you remember?"
+    },
+    "receptive": "Receptive card: from English to the meaning.",
+    "productive": "Productive card: from the meaning to English.",
+    "prompt": {
+      "recognition": "What does “{{term}}” mean in this sentence?",
+      "recognitionNoTerm": "What does the highlighted term mean in this sentence?",
+      "listening": "Listen to the sentence, then choose the meaning of its key term. The sentence is shown after your answer.",
+      "typedRecall": "Type the English term.",
+      "gapFill": "Type the missing word or words.",
+      "sentenceProduction": "Write a sentence for this situation, using the term you are reviewing.",
+      "selfGradedLater": "Only the presence of the term is checked; AI feedback comes in a later version. You rate yourself.",
+      "spokenAnswer": "Answer this question aloud, using the term you are reviewing.",
+      "recordingLater": "Nothing is recorded yet: recording your voice comes in a later version. Answer aloud, then compare with an example.",
+      "selfReceptive": "Say to yourself what this term means, then check.",
+      "selfProductive": "Recall the English term, then check."
+    },
+    "cueFr": "In French: {{cue}}",
+    "cueDefinition": "Definition: {{cue}}",
+    "noCue": "This card has nothing to recall the term from (no translation, definition or sentence). Complete its usage sheet.",
+    "sentenceLabel": "the sentence",
+    "termLabel": "the term",
+    "options": {
+      "label": "Choose the meaning:",
+      "dontKnow": "I don't know",
+      "correct": "Right answer",
+      "yourChoice": "Your choice"
+    },
+    "answer": {
+      "termLabel": "The English term",
+      "gapLabel": "The missing word or words",
+      "sentenceLabel": "Your sentence",
+      "hint": "Press Enter to check. An empty answer shows the solution.",
+      "sentenceHint": "Enter checks; Shift+Enter starts a new line."
+    },
+    "check": "Check",
+    "checking": "Checking…",
+    "showAnswer": "Show the answer",
+    "showExample": "Show an example answer",
+    "result": {
+      "label": "Correction",
+      "meaning": "Meaning: {{meaning}}",
+      "sentence": "The sentence:",
+      "heard": "The sentence you heard:",
+      "example": "Example answer (one possibility among others):",
+      "exampleLabel": "the example answer",
+      "noSentence": "You did not write a sentence.",
+      "term_missing": "Your sentence does not contain the term.",
+      "compare": "Compare with your own answer, then rate yourself.",
+      "answerIs": "The term:"
+    },
+    "summary": {
+      "label": "About “{{term}}”",
+      "stress": "Stress: {{syllable}}",
+      "fullSheet": "Open the full usage sheet (new tab)"
+    },
+    "rate": {
+      "title": "How well did you remember?",
+      "again": "Again",
+      "hard": "Hard",
+      "good": "Good",
+      "easy": "Easy",
+      "suggested": "Suggested",
+      "proposed": "Suggested rating: {{rating}}. You can choose another one.",
+      "selfGraded": "Rate yourself: no rating is suggested for this exercise.",
+      "choose": "Choose your rating."
+    },
+    "saving": "Saving…",
+    "saved": {
+      "today": "Saved: the previous card comes back today at {{time}}.",
+      "later": "Saved: the previous card comes back on {{date}}.",
+      "status": "“{{term}}” is now {{status}}.",
+      "statusNoTerm": "This term is now {{status}}."
+    },
+    "cardChanged": "This card was already rated elsewhere (another tab?): here is the next step.",
+    "keys": {
+      "label": "Keyboard shortcuts",
+      "choose": "choose",
+      "show": "show the answer",
+      "check": "check",
+      "newLine": "new line",
+      "rate": "rate",
+      "accept": "accept the suggested rating",
+      "replay": "listen again",
+      "replaySlow": "listen slowly",
+      "space": "Space",
+      "enter": "Enter",
+      "shift": "Shift"
+    }
+  },
+  "queue": {
+    "title": "Deck queue",
+    "intro": "New terms come from your decks in this order, within the daily quota. Due reviews always come first.",
+    "orderHelp": "Decks with a deadline to come are placed first, by date, and cannot be moved by hand. Move the other decks up or down to choose which one supplies new terms next.",
+    "pauseNote": "Pausing a deck or marking it done stops its new terms only: the cards already created keep being reviewed.",
+    "backHome": "Back to today",
+    "decksLink": "Manage decks",
+    "manageLink": "Manage the queue",
+    "loading": "Loading the decks…",
+    "empty": "No deck yet.",
+    "allDone": "Every deck is done. Reopen one below, or import a new list.",
+    "listTitle": "In the queue",
+    "doneTitle_one": "Done ({{count}} deck)",
+    "doneTitle_other": "Done ({{count}} decks)",
+    "byDate": "Placed by its deadline.",
+    "deadline": "Deadline: {{date}}.",
+    "pace_one": "{{remaining}} terms left to discover in {{days}} days: {{count}} new term a day is needed.",
+    "pace_other": "{{remaining}} terms left to discover in {{days}} days: {{count}} new terms a day are needed.",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "moveUpNamed": "Move “{{deck}}” up",
+    "moveDownNamed": "Move “{{deck}}” down",
+    "status": {
+      "queued": "Queued",
+      "active": "Active",
+      "paused": "Paused",
+      "done": "Done"
+    },
+    "actions": {
+      "activate": "Activate",
+      "pause": "Pause",
+      "resume": "Resume",
+      "finish": "Mark as done",
+      "reopen": "Reopen"
+    },
+    "actionsNamed": {
+      "activate": "Activate “{{deck}}”",
+      "pause": "Pause “{{deck}}”",
+      "resume": "Resume “{{deck}}”",
+      "finish": "Mark “{{deck}}” as done",
+      "reopen": "Reopen “{{deck}}”"
+    },
+    "announce": {
+      "status": "“{{deck}}” is now {{status}}.",
+      "movedUp": "“{{deck}}” moved up: it is now number {{position}}.",
+      "movedDown": "“{{deck}}” moved down: it is now number {{position}}."
+    },
+    "reloaded": "Nothing was changed; the list was loaded again.",
+    "statusCount": "{{status}}: {{count}}"
   }
 }

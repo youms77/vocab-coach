@@ -1,9 +1,11 @@
 import type { Exercise, RunReport, SheetVersion, UsageSheet } from '../api/enrichment'
 import type { Deck, Item, ItemDetail } from '../api/library'
+import type { GradeResult, RecordResult, RevealResult, SheetSummary } from '../api/reviews'
 import type {
   NewItemEntry,
   Progress,
   ReviewEntry,
+  ReviewStep,
   SessionPlan,
   StudySession,
 } from '../api/session'
@@ -51,6 +53,8 @@ export function deck(id: number, name: string, overrides: Partial<Deck> = {}): D
     updated_at: '2026-10-16T10:00:00Z',
     item_count: 2,
     items_by_status: { queued: 2 },
+    pace: null,
+    warnings: [],
     ...overrides,
   }
 }
@@ -188,3 +192,223 @@ export const progress = (overrides: Partial<Progress> = {}): Progress => ({
   estimated_seconds_remaining: 120,
   ...overrides,
 })
+
+// --- Reviews (M4.c) -------------------------------------------------------------------------------
+
+const TERM = 'drill down into'
+
+export const sheetSummary = (): SheetSummary => ({
+  term: TERM,
+  part_of_speech: 'phrasal verb',
+  definition_simple: 'to look at something more closely',
+  translation_fr: ['examiner en détail'],
+  pronunciation: { ipa_us: '/ˌdrɪl ˈdaʊn ˈɪntu/', stressed_syllable: 'down', note: null },
+  examples: ['Let us drill down into the regional figures.'],
+})
+
+export function reviewStep(overrides: Partial<ReviewStep> = {}): ReviewStep {
+  return {
+    card_id: 21,
+    lexical_item_id: 5,
+    direction: 'productive',
+    srs_state: 'review',
+    expected_reps: 4,
+    exercise_type: 'typed_recall',
+    exercise_template_id: 31,
+    input: 'text',
+    self_graded: false,
+    term: null,
+    prompt: { cue_fr: 'examiner en détail', cue_definition: 'to look at something more closely' },
+    warnings: [],
+    ...overrides,
+  }
+}
+
+export function gradeAnswer(overrides: Partial<GradeResult> = {}): GradeResult {
+  return {
+    outcome: 'exact',
+    proposed_rating: 3,
+    expected: TERM,
+    accepted: [],
+    diff: null,
+    warnings: [],
+    solution: { answer: TERM, accepted: [] },
+    sheet_summary: sheetSummary(),
+    ...overrides,
+  }
+}
+
+export const recordAnswer = (overrides: Partial<RecordResult> = {}): RecordResult => ({
+  review_log_id: 900,
+  due_after: '2026-10-25T08:00:00Z',
+  state_after: 'review',
+  item_status: 'learning',
+  item_status_changed: false,
+  ...overrides,
+})
+
+/**
+ * One case per exercise type: the step, the answer of `grade` or `reveal`, and the solution
+ * strings that must not be in the page before the attempt (D-103).
+ */
+export interface ReviewCase {
+  name: string
+  step: ReviewStep
+  grade?: GradeResult
+  reveal?: RevealResult
+  secrets: string[]
+}
+
+const CHOICE_OPTIONS = [
+  'to summarise quickly',
+  'to reject an idea',
+  'to examine something in more detail',
+  'to stop working on something',
+]
+const choiceSolution = (sentence: string) => ({
+  correct_index: 2,
+  meaning: 'to examine something in more detail',
+  meaning_fr: 'examiner en détail',
+  sentence,
+})
+const RECOGNITION_SENTENCE = 'Let us drill down into the regional figures.'
+const LISTENING_SENTENCE = 'We need to drill down into these unexpected numbers.'
+
+export const reviewCases: ReviewCase[] = [
+  {
+    name: 'recognition_in_sentence',
+    step: reviewStep({
+      direction: 'receptive',
+      exercise_type: 'recognition_in_sentence',
+      input: 'choice',
+      term: TERM,
+      prompt: { sentence: RECOGNITION_SENTENCE, options: CHOICE_OPTIONS },
+    }),
+    grade: gradeAnswer({
+      expected: CHOICE_OPTIONS[2],
+      solution: choiceSolution(RECOGNITION_SENTENCE),
+    }),
+    secrets: ['examiner en détail', 'Right answer', 'to look at something more closely'],
+  },
+  {
+    name: 'listening_comprehension',
+    step: reviewStep({
+      direction: 'receptive',
+      exercise_type: 'listening_comprehension',
+      input: 'choice',
+      term: null,
+      prompt: { sentence: LISTENING_SENTENCE, options: CHOICE_OPTIONS },
+    }),
+    grade: gradeAnswer({
+      expected: CHOICE_OPTIONS[2],
+      solution: choiceSolution(LISTENING_SENTENCE),
+    }),
+    secrets: [LISTENING_SENTENCE, 'unexpected numbers', 'examiner en détail', TERM],
+  },
+  {
+    name: 'typed_recall',
+    step: reviewStep(),
+    grade: gradeAnswer({
+      outcome: 'typo',
+      proposed_rating: 2,
+      accepted: ['drill into'],
+      diff: [
+        { op: 'equal', given: 'drill down in', expected: 'drill down in' },
+        { op: 'replace', given: 'ot', expected: 'to' },
+      ],
+      solution: { answer: TERM, accepted: ['drill into'] },
+    }),
+    secrets: [TERM, 'drill into'],
+  },
+  {
+    name: 'gap_fill',
+    step: reviewStep({
+      exercise_type: 'gap_fill',
+      exercise_template_id: 32,
+      prompt: { sentence: 'Let us ___ the regional figures.' },
+    }),
+    grade: gradeAnswer({
+      solution: { answer: TERM, accepted: [], sentence: RECOGNITION_SENTENCE },
+    }),
+    secrets: [TERM, RECOGNITION_SENTENCE],
+  },
+  {
+    name: 'sentence_production',
+    step: reviewStep({
+      srs_state: 'review',
+      exercise_type: 'sentence_production',
+      exercise_template_id: 33,
+      self_graded: true,
+      prompt: { situation: 'Your manager asks how you will analyse a drop in sales.' },
+    }),
+    grade: gradeAnswer({
+      outcome: null,
+      proposed_rating: null,
+      expected: null,
+      warnings: ['term_missing'],
+      solution: { example_answer: 'I will drill down into the sales data region by region.' },
+    }),
+    secrets: [TERM, 'region by region'],
+  },
+  {
+    name: 'spoken_answer',
+    step: reviewStep({
+      exercise_type: 'spoken_answer',
+      exercise_template_id: 34,
+      input: 'none',
+      self_graded: true,
+      prompt: { question: 'How would you explore an unexpected result?' },
+    }),
+    reveal: {
+      solution: { example_answer: 'I would drill down into the data to find the cause.' },
+      sheet_summary: sheetSummary(),
+    },
+    secrets: [TERM, 'find the cause'],
+  },
+  {
+    name: 'self_assessment (receptive)',
+    step: reviewStep({
+      direction: 'receptive',
+      exercise_type: 'self_assessment',
+      exercise_template_id: null,
+      input: 'none',
+      self_graded: true,
+      term: TERM,
+      prompt: { term: TERM, sentence: RECOGNITION_SENTENCE },
+    }),
+    reveal: {
+      solution: {
+        term: TERM,
+        definition_simple: 'to look at something more closely',
+        translation_fr: ['examiner en détail'],
+        sentence: RECOGNITION_SENTENCE,
+      },
+      sheet_summary: sheetSummary(),
+    },
+    secrets: ['examiner en détail', 'to look at something more closely'],
+  },
+  {
+    name: 'self_assessment (productive)',
+    step: reviewStep({
+      exercise_type: 'self_assessment',
+      exercise_template_id: null,
+      input: 'none',
+      self_graded: true,
+      prompt: {
+        cue_fr: 'examiner en détail',
+        cue_definition: 'to look at something more closely',
+        sentence_gapped: 'Let us ___ the regional figures.',
+      },
+    }),
+    reveal: {
+      solution: {
+        term: TERM,
+        definition_simple: 'to look at something more closely',
+        translation_fr: ['examiner en détail'],
+        sentence: RECOGNITION_SENTENCE,
+      },
+      sheet_summary: sheetSummary(),
+    },
+    secrets: [TERM, RECOGNITION_SENTENCE],
+  },
+]

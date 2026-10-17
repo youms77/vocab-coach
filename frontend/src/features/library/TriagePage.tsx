@@ -12,16 +12,8 @@ import {
   type TriageDecision,
   type TriageEntry,
 } from '../../api/triage'
+import { isTyping } from '../../components/keyboard'
 import { ErrorText } from '../settings/ErrorText'
-
-/** Keys 1/2/3 are shortcuts, except while the user types in a field. */
-function isTyping(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  if (target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return true
-  if (target instanceof HTMLInputElement) return !['radio', 'checkbox', 'button'].includes(target.type)
-  return false
-}
 
 function TermCard({
   entry,
