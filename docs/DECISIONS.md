@@ -1241,3 +1241,14 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - Per SPEC only retained terms stay in the deck: an extension suggestion triaged as `known` leaves the deck
   (`deck_item.removed` event) but stays in the library as `known`, so it is never suggested again. Imported terms
   keep their deck links whatever the decision (D-075).
+
+## D-085 — Library pages: scope and conventions (M3.c1)
+
+- M3.c is delivered in three stacked branches (c1 library, c2 import / triage / duplicates, c3 sheets and
+  extension) to keep each review small. No component library: plain components and the existing CSS tokens.
+- Library error codes share `describeError` (`features/settings/errorMessage.ts`); a code unknown to the front end
+  falls back to the generic message. `apiSend` returns `undefined` for 204 answers (DELETE routes).
+- A possible duplicate on quick add is never blocking: the 409 `candidates` are shown and the user chooses
+  `attach` (to a candidate) or `new`, as the API contract defines.
+- The deck filter can be preset with `/library?deck=ID`; filter changes reset the page to the first one.
+- Sheet-content search stays out: `q` searches terms only (backend unchanged); to decide with M3.c3.

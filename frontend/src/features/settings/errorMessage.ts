@@ -18,6 +18,16 @@ const KNOWN_CODES = [
   'demo_read_only',
   'env_file_write_failed',
   'database_unavailable',
+  'item_not_found',
+  'deck_not_found',
+  'source_not_found',
+  'duplicate_term',
+  'already_in_deck',
+  'item_has_history',
+  'deck_has_history',
+  'merge_conflict',
+  'not_in_triage',
+  'invalid_transition',
 ] as const
 
 type KnownCode = (typeof KNOWN_CODES)[number]

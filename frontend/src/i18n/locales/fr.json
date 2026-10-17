@@ -6,7 +6,8 @@
   "nav": {
     "home": "Accueil",
     "settings": "Réglages",
-    "skipToContent": "Aller au contenu principal"
+    "skipToContent": "Aller au contenu principal",
+    "library": "Bibliothèque"
   },
   "demo": {
     "badge": "Données de démo",
@@ -197,7 +198,17 @@
     "test_in_progress": "Un test de ce fournisseur est déjà en cours.",
     "demo_read_only": "Impossible sur la base de démo.",
     "env_file_write_failed": "Le fichier .env n'a pas pu être écrit.",
-    "database_unavailable": "La base de données n'existe pas encore. Lancez d'abord la mise à niveau de la base."
+    "database_unavailable": "La base de données n'existe pas encore. Lancez d'abord la mise à niveau de la base.",
+    "item_not_found": "Ce terme n'existe plus.",
+    "deck_not_found": "Ce paquet n'existe plus.",
+    "source_not_found": "Cette source n'existe plus.",
+    "duplicate_term": "Un terme similaire est déjà dans votre bibliothèque.",
+    "already_in_deck": "Ce terme est déjà dans ce paquet.",
+    "item_has_history": "Ce terme a un historique d'étude : impossible de le supprimer. Archivez-le plutôt.",
+    "deck_has_history": "Des termes de ce paquet ont déjà été étudiés : le paquet ne peut pas être supprimé.",
+    "merge_conflict": "Les deux termes ont déjà des cartes de révision : fusion impossible.",
+    "not_in_triage": "Certains de ces termes n'attendent plus le tri.",
+    "invalid_transition": "Ce changement de statut n'est pas autorisé."
   },
   "home": {
     "title": "Bienvenue",
@@ -212,5 +223,123 @@
   "notFound": {
     "title": "Page introuvable",
     "back": "Retour à l'accueil"
+  },
+  "library": {
+    "title": "Bibliothèque",
+    "intro": "Tous les mots et expressions que vous voulez apprendre. Cherchez, filtrez, ajoutez et modifiez-les ici.",
+    "decksLink": "Gérer les paquets",
+    "loading": "Chargement…",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "saved": "Enregistré.",
+    "back": "← Retour à la bibliothèque",
+    "quickAdd": {
+      "title": "Ajout rapide",
+      "term": "Terme",
+      "sentence": "Phrase où vous l'avez rencontré (facultatif)",
+      "deck": "Paquet",
+      "noDeck": "Aucun paquet (Ajouts rapides)",
+      "submit": "Ajouter",
+      "added": "« {{term}} » ajouté.",
+      "duplicates": "Des termes similaires existent déjà. Utilisez l'un d'eux dans ce paquet, ou ajoutez le vôtre comme nouveau terme.",
+      "attach": "Utiliser celui-ci",
+      "addAnyway": "Ajouter comme nouveau terme"
+    },
+    "match": {
+      "exact": "même terme",
+      "possible": "terme similaire"
+    },
+    "filters": {
+      "search": "Recherche",
+      "deck": "Paquet",
+      "domain": "Domaine",
+      "type": "Type",
+      "status": "Statut",
+      "sheet": "Fiche d'usage",
+      "sort": "Trier par",
+      "order": "Ordre",
+      "asc": "Croissant",
+      "desc": "Décroissant",
+      "any": "Tous",
+      "archived": "Afficher les termes archivés"
+    },
+    "sort": {
+      "created_at": "Date d'ajout",
+      "term": "Terme",
+      "updated_at": "Dernière modification",
+      "status": "Statut",
+      "status_changed_at": "Changement de statut"
+    },
+    "status": {
+      "draft": "Brouillon",
+      "triage": "À trier",
+      "queued": "En file",
+      "discovering": "En découverte",
+      "learning": "En apprentissage",
+      "consolidated": "Consolidé",
+      "active": "Actif",
+      "known": "Connu",
+      "archived": "Archivé"
+    },
+    "type": {
+      "word": "Mot",
+      "collocation": "Collocation",
+      "phrase": "Expression",
+      "spoken_formula": "Formule orale"
+    },
+    "sheet": {
+      "none": "Pas de fiche",
+      "complete": "Fiche prête",
+      "needs_completion": "Fiche à compléter",
+      "edited": "Fiche modifiée par vous"
+    },
+    "terms": {
+      "title": "Termes",
+      "empty": "Aucun terme ne correspond. Ajoutez-en un ci-dessus, ou changez les filtres.",
+      "count_one": "{{count}} terme",
+      "count_other": "{{count}} termes",
+      "term": "Terme",
+      "type": "Type",
+      "status": "Statut",
+      "sheet": "Fiche",
+      "decks": "Paquets"
+    },
+    "pager": {
+      "label": "Pages",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "page": "Page {{page}} sur {{pages}}"
+    },
+    "item": {
+      "edit": "Modifier",
+      "sentence": "Phrase d'origine",
+      "partOfSpeech": "Classe grammaticale",
+      "notes": "Notes",
+      "actions": "Actions",
+      "archive": "Archiver",
+      "unarchive": "Remettre dans la file",
+      "delete": "Supprimer",
+      "deleteConfirm": "Supprimer définitivement « {{term}} » ?",
+      "deleteYes": "Oui, supprimer",
+      "duplicates": "Termes similaires",
+      "mergeInto": "Fusionner ce terme dans celui-ci",
+      "noDecks": "Ce terme n'est dans aucun paquet.",
+      "sheetIs": "{{state}}"
+    },
+    "decks": {
+      "title": "Paquets",
+      "intro": "Un paquet regroupe les termes d'une liste, d'un cours ou d'un projet.",
+      "new": "Nouveau paquet",
+      "name": "Nom",
+      "create": "Créer le paquet",
+      "list": "Vos paquets",
+      "empty": "Aucun paquet pour l'instant.",
+      "count_one": "{{count}} terme",
+      "count_other": "{{count}} termes",
+      "rename": "Renommer",
+      "delete": "Supprimer",
+      "deleteConfirm": "Supprimer le paquet « {{name}} » et ses termes ?",
+      "deleteYes": "Oui, supprimer"
+    }
   }
 }

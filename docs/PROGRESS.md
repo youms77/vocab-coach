@@ -4,13 +4,46 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M3.b — usage sheets (batch enrichment) and list extension, backend only
-  (2026-10-17), branch `feat/m3b-enrichment`, stacked on M3.a (`feat/m3a-library-import`) itself stacked on
-  `feat/m2c2-settings-page`. M1.a to M2.c1 are merged in `main`.
-- **Next milestone**: **M3.c** — the library, import, triage, duplicates and usage-sheet pages, on top of the API
-  references below.
-- Merge order: M2.c2's PR, then M3.a's, then M3.b's.
+- **Last milestone completed**: M3.c1 — library pages (frontend), branch `feat/m3c1-library`, stacked on
+  M3.b (`feat/m3b-enrichment`), M3.a (`feat/m3a-library-import`) and `feat/m2c2-settings-page`. M1.a to M2.c1 are merged in `main`.
+- **Next milestone**: **M3.c2** — import, triage and duplicates pages; then **M3.c3** (usage sheets and extension).
+- Merge order: M2.c2's PR, then M3.a's, M3.b's, M3.c1's.
 - The owner has not yet run anything against the real AI services: see "Owner's manual scenario" in M2.c2.
+
+## M3.c1 — Library pages (frontend)
+
+Branch `feat/m3c1-library`, stacked on M3.b. M3.c is cut in three (plan approved): **c1** library (this part),
+**c2** import / triage / duplicates, **c3** usage sheets, exercises, batch enrichment, list extension.
+No backend change, no migration, no new dependency, SPEC.md unchanged.
+
+### Done
+
+- **Pages** (`frontend/src/features/library/`): `/library` (search, filters deck / field / type / status /
+  sheet state, sort, paging of 50, archived toggle, `?deck=ID` preset, quick add with the duplicate choice
+  attach / add as new), `/library/items/:id` (edit, archive / restore, delete with confirmation, similar terms
+  with merge, deck links), `/library/decks` (create, rename, delete with confirmation).
+- **API layer** `api/library.ts` (hooks, types, query building); `apiSend` now accepts 204 answers.
+- **Errors**: the 10 library codes (D-063) have messages in `errors.*` (EN + FR).
+- **i18n**: `library.*` keys in `en.json` and `fr.json`; nav link "Library".
+- **Tests**: `LibraryPage.test.tsx`, 15 tests (list, filters sent to the API, deck preset, quick add, duplicate
+  flow, error, French, item edit / delete / history refusal / merge conflict / archive, decks create / rename /
+  history refusal).
+
+### Verified (Windows 11, 2026-10-17)
+
+- `npm run check`: ruff, pytest 1190 passed, tsc, oxlint, vitest 50 passed; `vite build` OK.
+- **Not done**: no visual check in a browser yet (layout, dark mode), no run against the demo database.
+
+### Left / notes
+
+- Unarchive offers `queued` only (the API also allows `learning` when cards exist).
+- Deck status, queue order and deadlines are M4. Search inside sheet content: still undecided (M3.b note).
+- **c2**: import page (paste or file, preview, per-row duplicate choice, commit), triage, duplicates.
+  **c3**: sheet view / edit / versions, exercises, batch enrichment, list extension.
+
+### Known issues
+
+- None known.
 
 ## M3.b — Usage sheets and list extension (backend) ✅
 

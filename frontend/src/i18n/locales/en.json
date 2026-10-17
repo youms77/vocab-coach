@@ -6,7 +6,8 @@
   "nav": {
     "home": "Home",
     "settings": "Settings",
-    "skipToContent": "Skip to main content"
+    "skipToContent": "Skip to main content",
+    "library": "Library"
   },
   "demo": {
     "badge": "Demo data",
@@ -197,7 +198,17 @@
     "test_in_progress": "A test of this provider is already running.",
     "demo_read_only": "Not possible on the demo database.",
     "env_file_write_failed": "The .env file could not be written.",
-    "database_unavailable": "The database does not exist yet. Run the database upgrade first."
+    "database_unavailable": "The database does not exist yet. Run the database upgrade first.",
+    "item_not_found": "This term no longer exists.",
+    "deck_not_found": "This deck no longer exists.",
+    "source_not_found": "This source no longer exists.",
+    "duplicate_term": "A similar term is already in your library.",
+    "already_in_deck": "This term is already in that deck.",
+    "item_has_history": "This term has study history, so it cannot be deleted. Archive it instead.",
+    "deck_has_history": "Some terms of this deck have already been studied, so the deck cannot be deleted.",
+    "merge_conflict": "Both terms already have review cards: they cannot be merged.",
+    "not_in_triage": "Some of these terms are no longer waiting for triage.",
+    "invalid_transition": "This status change is not allowed."
   },
   "home": {
     "title": "Welcome",
@@ -212,5 +223,123 @@
   "notFound": {
     "title": "Page not found",
     "back": "Back to home"
+  },
+  "library": {
+    "title": "Library",
+    "intro": "Every word and expression you want to learn. Search, filter, add and edit them here.",
+    "decksLink": "Manage decks",
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saved": "Saved.",
+    "back": "← Back to the library",
+    "quickAdd": {
+      "title": "Quick add",
+      "term": "Term",
+      "sentence": "Sentence where you met it (optional)",
+      "deck": "Deck",
+      "noDeck": "No deck (Quick adds)",
+      "submit": "Add",
+      "added": "Added “{{term}}”.",
+      "duplicates": "Similar terms already exist. Use one of them in this deck, or add yours as a new term.",
+      "attach": "Use this one",
+      "addAnyway": "Add as a new term"
+    },
+    "match": {
+      "exact": "same term",
+      "possible": "similar term"
+    },
+    "filters": {
+      "search": "Search",
+      "deck": "Deck",
+      "domain": "Field",
+      "type": "Type",
+      "status": "Status",
+      "sheet": "Usage sheet",
+      "sort": "Sort by",
+      "order": "Order",
+      "asc": "Ascending",
+      "desc": "Descending",
+      "any": "Any",
+      "archived": "Show archived terms"
+    },
+    "sort": {
+      "created_at": "Date added",
+      "term": "Term",
+      "updated_at": "Last change",
+      "status": "Status",
+      "status_changed_at": "Status change"
+    },
+    "status": {
+      "draft": "Draft",
+      "triage": "To sort",
+      "queued": "Queued",
+      "discovering": "Discovering",
+      "learning": "Learning",
+      "consolidated": "Consolidated",
+      "active": "Active",
+      "known": "Known",
+      "archived": "Archived"
+    },
+    "type": {
+      "word": "Word",
+      "collocation": "Collocation",
+      "phrase": "Phrase",
+      "spoken_formula": "Spoken formula"
+    },
+    "sheet": {
+      "none": "No sheet",
+      "complete": "Sheet ready",
+      "needs_completion": "Sheet to complete",
+      "edited": "Sheet edited by you"
+    },
+    "terms": {
+      "title": "Terms",
+      "empty": "No term matches. Add one above, or change the filters.",
+      "count_one": "{{count}} term",
+      "count_other": "{{count}} terms",
+      "term": "Term",
+      "type": "Type",
+      "status": "Status",
+      "sheet": "Sheet",
+      "decks": "Decks"
+    },
+    "pager": {
+      "label": "Pages",
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page {{page}} of {{pages}}"
+    },
+    "item": {
+      "edit": "Edit",
+      "sentence": "Original sentence",
+      "partOfSpeech": "Part of speech",
+      "notes": "Notes",
+      "actions": "Actions",
+      "archive": "Archive",
+      "unarchive": "Restore to the queue",
+      "delete": "Delete",
+      "deleteConfirm": "Delete “{{term}}” for good?",
+      "deleteYes": "Yes, delete",
+      "duplicates": "Similar terms",
+      "mergeInto": "Merge this term into it",
+      "noDecks": "This term is in no deck.",
+      "sheetIs": "{{state}}"
+    },
+    "decks": {
+      "title": "Decks",
+      "intro": "A deck groups the terms of one list, course or project.",
+      "new": "New deck",
+      "name": "Name",
+      "create": "Create deck",
+      "list": "Your decks",
+      "empty": "No deck yet.",
+      "count_one": "{{count}} term",
+      "count_other": "{{count}} terms",
+      "rename": "Rename",
+      "delete": "Delete",
+      "deleteConfirm": "Delete the deck “{{name}}” and its terms?",
+      "deleteYes": "Yes, delete"
+    }
   }
 }
