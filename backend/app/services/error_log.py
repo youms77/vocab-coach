@@ -702,13 +702,12 @@ def french_explanations(session: Session, errors: Sequence[ErrorEvent]) -> dict[
     ids = {e.production_attempt_id for e in errors if e.production_attempt_id is not None}
     if not ids:
         return {}
-    feedback = dict(
-        session.execute(
-            select(ProductionAttempt.id, ProductionAttempt.ai_feedback).where(
-                ProductionAttempt.id.in_(ids)
-            )
-        ).tuples()
+    rows = session.execute(
+        select(ProductionAttempt.id, ProductionAttempt.ai_feedback).where(
+            ProductionAttempt.id.in_(ids)
+        )
     )
+    feedback = {attempt_id: data for attempt_id, data in rows}
     found: dict[int, str] = {}
     for error in errors:
         data = feedback.get(error.production_attempt_id) if error.production_attempt_id else None

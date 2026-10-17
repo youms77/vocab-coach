@@ -4,7 +4,8 @@ builds the fictional demo database; `python -m app ai simulate` shows the AI gat
 offline; `python -m app ai status | test | usage` look at the real AI providers;
 `python -m app library import <file>` previews (or, with `--commit`, imports) a Markdown list;
 `library enrich` writes usage sheets through the AI and `library extend <deck_id>` asks for related
-terms. `python -m app errors list | show | add | categories` reads and edits the error log.
+terms. `python -m app errors list | show | add | categories` reads and edits the error log and
+`write correct --file <txt>` has the AI correct a text.
 `--demo` (before the command) works on the demo database."""
 
 import argparse
@@ -212,6 +213,13 @@ def _build_parser() -> argparse.ArgumentParser:
     categories.add_argument(
         "--proposed", action="store_true", help="only the categories the AI proposed"
     )
+    write = commands.add_parser("write", help="written productions (module E)")
+    write_commands = write.add_subparsers(dest="write_command", required=True)
+    correct = write_commands.add_parser(
+        "correct", help="record a text, have the AI correct it and log its errors"
+    )
+    correct.add_argument("--file", type=Path, required=True, help="a UTF-8 text file")
+    correct.add_argument("--prompt", help="the task or topic the text answers (500 characters)")
     return parser
 
 
@@ -378,6 +386,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if args.command == "errors":
         return _errors(args, url)
+    if args.command == "write":
+        from app import cli_write
+
+        return cli_write.run_write_correct(url, settings, args.file, prompt=args.prompt)
     if args.command == "plan":
         try:
             plan = build_today_plan(url, args.at)
