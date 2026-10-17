@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import type { UsageSheet } from '../../api/enrichment'
+import { SpeakButton } from '../../speech/SpeakButton'
 
 function Entry({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -12,8 +13,11 @@ function Entry({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-/** A usage sheet, read-only, in the SPEC order. Empty fields are left out. */
-export function SheetView({ sheet }: { sheet: UsageSheet }) {
+/**
+ * A usage sheet, read-only, in the SPEC order. Empty fields are left out. `audio` adds "Listen"
+ * buttons to the examples (discovery, M4.b); the library's sheet panel shows none.
+ */
+export function SheetView({ sheet, audio = false }: { sheet: UsageSheet; audio?: boolean }) {
   const { t } = useTranslation()
   const p = sheet.pronunciation
   const hasPronunciation = p !== null && (p.ipa_us ?? p.stressed_syllable ?? p.note) !== null
@@ -73,7 +77,17 @@ export function SheetView({ sheet }: { sheet: UsageSheet }) {
           <ul>
             {sheet.examples.map((e, i) => (
               <li key={i}>
-                “{e.sentence}” <span className="muted">({t(`sheet.kind.${e.kind}`)})</span>
+                <span lang="en">“{e.sentence}”</span>{' '}
+                <span className="muted">({t(`sheet.kind.${e.kind}`)})</span>
+                {audio && (
+                  <>
+                    {' '}
+                    <SpeakButton
+                      text={e.sentence}
+                      label={t('sheet.exampleLabel', { index: i + 1 })}
+                    />
+                  </>
+                )}
               </li>
             ))}
           </ul>

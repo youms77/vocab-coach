@@ -2,10 +2,18 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import { plan } from '../test/fixtures'
 import { renderApp } from '../test/renderApp'
 
 function mockHealth(body: Record<string, unknown>) {
-  vi.spyOn(globalThis, 'fetch').mockImplementation(() => Promise.resolve(Response.json(body)))
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/session/today')) {
+      return Promise.resolve(Response.json({ plan: plan(), open_session: null }))
+    }
+    if (url.includes('/decks')) return Promise.resolve(Response.json([]))
+    return Promise.resolve(Response.json(body))
+  })
 }
 
 describe('Demo data badge', () => {

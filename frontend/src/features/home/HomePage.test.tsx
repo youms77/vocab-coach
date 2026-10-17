@@ -2,15 +2,20 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
+import { plan } from '../../test/fixtures'
 import { renderApp } from '../../test/renderApp'
 
 function mockFetch(response: Response | Error) {
-  return vi
-    .spyOn(globalThis, 'fetch')
-    .mockImplementation(() =>
-      // A body can be read once: every request (health, AI status) gets its own copy.
-      response instanceof Error ? Promise.reject(response) : Promise.resolve(response.clone()),
-    )
+  return vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    // The Today card has its own tests (TodayCard.test.tsx): an empty plan here.
+    if (url.includes('/session/today')) {
+      return Promise.resolve(Response.json({ plan: plan(), open_session: null }))
+    }
+    if (url.includes('/decks')) return Promise.resolve(Response.json([]))
+    // A body can be read once: every other request (health, AI status) gets its own copy.
+    return response instanceof Error ? Promise.reject(response) : Promise.resolve(response.clone())
+  })
 }
 
 describe('HomePage', () => {
@@ -23,11 +28,14 @@ describe('HomePage', () => {
     expect(document.documentElement.lang).toBe('en')
   })
 
-  it('points to the import and the library while there is nothing to review', () => {
+  it('points to the import and the library while there is nothing to review', async () => {
     mockFetch(Response.json({ status: 'ok', version: '0.1.0' }))
     renderApp('/')
 
-    expect(screen.getByRole('link', { name: 'Import a list' })).toHaveAttribute('href', '/import')
+    expect(await screen.findByRole('link', { name: 'Import a list' })).toHaveAttribute(
+      'href',
+      '/import',
+    )
     expect(screen.getByRole('link', { name: 'Open the library' })).toHaveAttribute(
       'href',
       '/library',

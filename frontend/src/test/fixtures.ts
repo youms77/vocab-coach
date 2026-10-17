@@ -1,5 +1,12 @@
 import type { Exercise, RunReport, SheetVersion, UsageSheet } from '../api/enrichment'
 import type { Deck, Item, ItemDetail } from '../api/library'
+import type {
+  NewItemEntry,
+  Progress,
+  ReviewEntry,
+  SessionPlan,
+  StudySession,
+} from '../api/session'
 
 // Fictional test data shared by the M3.c3 tests.
 
@@ -116,3 +123,68 @@ export function exercise(id: number, type: string, content: Record<string, unkno
     updated_at: '2026-10-16T10:00:00Z',
   }
 }
+
+// --- Today's session (M4.b) -----------------------------------------------------------------------
+
+export function plan(overrides: Partial<SessionPlan> = {}): SessionPlan {
+  return {
+    study_day: '2026-10-17',
+    generated_at: '2026-10-17T08:00:00Z',
+    budget_seconds: 2700,
+    blocks: [],
+    total_seconds: 0,
+    new_items_allowed: 0,
+    limit: 'nothing_to_learn',
+    caps: { quota: 12, budget: 50, anticipation: 50, available: 0 },
+    decks_to_activate: [],
+    deadline_paces: [],
+    warnings: [],
+    observed_durations: [],
+    ...overrides,
+  }
+}
+
+export function reviewEntry(cardId: number, itemId: number): ReviewEntry {
+  return {
+    kind: 'review',
+    card_id: cardId,
+    lexical_item_id: itemId,
+    direction: 'productive',
+    state: 'review',
+    due: '2026-10-16T09:00:00Z',
+    retrievability: 0.85,
+    estimated_seconds: 30,
+    overflow: false,
+  }
+}
+
+export function newItemEntry(itemId: number, deckId: number | null): NewItemEntry {
+  return {
+    kind: 'new_item',
+    lexical_item_id: itemId,
+    deck_id: deckId,
+    resumed: false,
+    estimated_seconds: 120,
+  }
+}
+
+export function studySession(id: number, overrides: Partial<StudySession> = {}): StudySession {
+  return {
+    id,
+    started_at: '2026-10-17T08:00:00Z',
+    ended_at: null,
+    study_day: '2026-10-17',
+    planned: { format: 'session-1', plan: plan() },
+    summary: null,
+    ...overrides,
+  }
+}
+
+export const progress = (overrides: Partial<Progress> = {}): Progress => ({
+  reviews_done: 0,
+  reviews_remaining: 0,
+  new_done: 0,
+  new_remaining: 1,
+  estimated_seconds_remaining: 120,
+  ...overrides,
+})

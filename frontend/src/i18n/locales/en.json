@@ -8,7 +8,8 @@
     "settings": "Settings",
     "skipToContent": "Skip to main content",
     "library": "Library",
-    "label": "Main"
+    "label": "Main",
+    "today": "Today"
   },
   "demo": {
     "badge": "Demo data",
@@ -223,13 +224,23 @@
     "exercise_not_found": "This exercise no longer exists.",
     "item_archived": "Archived terms get no usage sheet. Restore the term first.",
     "invalid_exercise": "This exercise is not valid. Nothing was saved:",
-    "not_enough_context": "There is nothing to extend from: add a few terms, a field or a description to this deck first."
+    "not_enough_context": "There is nothing to extend from: add a few terms, a field or a description to this deck first.",
+    "session_not_found": "This study session does not exist.",
+    "session_closed": "This study session is already closed.",
+    "card_not_found": "This card does not exist.",
+    "card_changed": "This card was reviewed elsewhere in the meantime (another tab?).",
+    "review_not_allowed": "This term cannot be reviewed or practised now.",
+    "not_due": "This card is not due yet.",
+    "sheet_required": "This term has no usable sheet yet: write it (or generate it) before discovering the term.",
+    "already_discovered": "This term was already discovered.",
+    "discovery_not_allowed": "This term cannot be discovered now: its deck is paused or done, or the term left the deck.",
+    "exercise_mismatch": "This exercise does not match the term.",
+    "invalid_queue": "The deck order sent does not match your decks."
   },
   "home": {
     "title": "Welcome",
-    "intro": "This is the foundation of your vocabulary coach. Your daily session and your progress will appear here as the app grows.",
+    "intro": "Your daily session is below: due reviews first, then the new terms of your lists.",
     "todayTitle": "Today's session",
-    "todayEmpty": "Nothing to review yet. Start by importing a word list or adding terms to your library.",
     "libraryLink": "Open the library",
     "statusTitle": "System status",
     "apiChecking": "Checking the local server…",
@@ -631,7 +642,8 @@
       "current": "current",
       "open": "Open version {{version}}",
       "close": "Close"
-    }
+    },
+    "exampleLabel": "example {{index}}"
   },
   "exercises": {
     "title": "Exercises",
@@ -706,5 +718,210 @@
     "sortNow": "Sort them now",
     "dropped": "Left out: {{existing}} already in your library, {{repeated}} repeated.",
     "possibleDuplicates": "Possible duplicates of terms you already have:"
+  },
+  "speech": {
+    "listen": "Listen",
+    "listenSlowly": "Listen slowly",
+    "listenTo": "Listen to “{{what}}”",
+    "listenSlowlyTo": "Listen slowly to “{{what}}”",
+    "speaking": "Speaking…",
+    "speakingWhat": "Speaking “{{what}}”",
+    "unsupported": "This browser has no speech synthesis, so audio is not available.",
+    "noEnglishVoice": "No English voice is installed in this browser, so audio is not available.",
+    "nonAmerican": "Non-American voice ({{name}}): no en-US voice was found.",
+    "voice": {
+      "legend": "Voice",
+      "label": "Speech synthesis voice",
+      "automatic": "Automatic (first en-US voice)",
+      "unavailable": "{{name}} (not available here)",
+      "hint": "The voices come from this browser and its operating system; en-US voices are listed first.",
+      "fallback": "This voice is not available in this browser: the automatic choice is used instead.",
+      "test": "Test"
+    }
+  },
+  "today": {
+    "loading": "Preparing today's plan…",
+    "loadError": "Today's plan could not be loaded.",
+    "reviews_one": "{{count}} review due",
+    "reviews_other": "{{count}} reviews due",
+    "newItems_one": "{{count}} new term to discover",
+    "newItems_other": "{{count}} new terms to discover",
+    "deckCount": "{{deck}}: {{count}}",
+    "noDeck": "No deck",
+    "unknownDeck": "Deck {{id}}",
+    "minutes": "About {{minutes}} min, for a daily budget of {{budget}} min",
+    "targeted": "Targeted practice: {{category}} ({{count}} recent errors), for information only",
+    "consolidation": "A consolidation task is ready, for information only",
+    "empty": "Nothing to review or discover today. Import a word list or add terms to your library.",
+    "start": "Start today's session",
+    "resume": "Resume today's session",
+    "openSession": "A session is already open today."
+  },
+  "plan": {
+    "warningsTitle": "Warnings",
+    "warnings": {
+      "reviews_over_budget": "Due reviews need about {{minutes}} min, more than your {{budget}} min budget: no new term today.",
+      "deadline_unrealistic": "“{{deck}}” (deadline {{deadline}}): {{required}} new terms a day are needed, but only {{achievable}} fit in your budget.",
+      "deadline_unrealistic_finish": "At this pace the deck would be finished on {{date}}.",
+      "deadline_unrealistic_never": "At this pace the deck cannot be finished.",
+      "deadline_passed_one": "The deadline of “{{deck}}” ({{deadline}}) has passed with {{count}} term still to discover.",
+      "deadline_passed_other": "The deadline of “{{deck}}” ({{deadline}}) has passed with {{count}} terms still to discover.",
+      "deadline_triage_pending_one": "“{{deck}}” (deadline {{deadline}}) still has {{count}} term to sort.",
+      "deadline_triage_pending_other": "“{{deck}}” (deadline {{deadline}}) still has {{count}} terms to sort.",
+      "items_without_sheet_one": "{{count}} queued term has no usable sheet yet, so it is not proposed today.",
+      "items_without_sheet_other": "{{count}} queued terms have no usable sheet yet, so they are not proposed today."
+    },
+    "decksConcerned": "Decks concerned:",
+    "writeSheets": "Write or generate the sheets",
+    "sortTerms": "Sort them now"
+  },
+  "steps": {
+    "review": "Reviews",
+    "new_item": "New term",
+    "wait": "Short break",
+    "practice_info": "Also planned today",
+    "done": "Session complete"
+  },
+  "session": {
+    "title": "Today's session",
+    "starting": "Opening today's session…",
+    "loading": "Loading the next step…",
+    "startError": "Today's session could not be opened.",
+    "retry": "Retry",
+    "end": "End the session",
+    "endConfirm": "End today's session now? What you have done is kept.",
+    "endYes": "Yes, end it",
+    "endNo": "Keep going",
+    "ending": "Ending…",
+    "progress": {
+      "label": "Session progress",
+      "reviews": "Reviews: {{done}} done, {{remaining}} left",
+      "newItems": "New terms: {{done}} done, {{remaining}} left",
+      "time": "About {{minutes}} min left",
+      "bar": "{{done}} of {{total}} steps done"
+    },
+    "wait": {
+      "text": "Your next card (a term in learning) comes back at {{time}}.",
+      "inMinutes_one": "Next card in {{count}} min.",
+      "inMinutes_other": "Next card in {{count}} min.",
+      "inSeconds_one": "Next card in {{count}} s.",
+      "inSeconds_other": "Next card in {{count}} s.",
+      "ready": "Your next card should be ready.",
+      "auto": "This page checks again by itself when the time comes.",
+      "check": "Check now"
+    },
+    "practice": {
+      "targeted": "Targeted practice on your most frequent errors: {{category}} ({{count}} errors in the last 14 days).",
+      "consolidation": "A consolidation task (a talk using your deck's terms) is ready.",
+      "later": "These exercises are available in a later version of the app.",
+      "continue": "Continue"
+    },
+    "reviewPlaceholder": {
+      "text_one": "{{count}} review is due.",
+      "text_other": "{{count}} reviews are due.",
+      "later": "Provisional (M4.b): the review player comes with the next version of the app. You can end the session for now."
+    },
+    "summary": {
+      "title": "Session summary",
+      "reviews": "Reviews",
+      "failed": "Reviews failed (Again)",
+      "discoveriesStarted": "Discoveries started",
+      "discoveriesCompleted": "Discoveries completed",
+      "productions": "Sentences written",
+      "words": "Words written",
+      "duration": "Time spent",
+      "planned": "Time planned",
+      "minutes": "{{count}} min",
+      "home": "Back to the home page"
+    },
+    "closed": "This session is already closed.",
+    "restart": "Start a new session"
+  },
+  "discovery": {
+    "starting": "Preparing the discovery…",
+    "resumed": "You started this discovery earlier: it starts again from the sentence.",
+    "read": {
+      "title": "1. Read the sentence",
+      "origin": "Your original sentence",
+      "example": "An example sentence",
+      "noSentence": "This term has no sentence yet: here is the term alone.",
+      "sentenceLabel": "the sentence"
+    },
+    "guess": {
+      "title": "2. What do you think it means?",
+      "label": "Your guess, in English or French (optional)",
+      "hint": "Up to 1,000 characters. You will compare it with the sheet yourself.",
+      "submit": "Show the sheet",
+      "dontKnow": "I don't know"
+    },
+    "sheet": {
+      "title": "3. The usage sheet",
+      "yourGuess": "Your guess: “{{guess}}”",
+      "noGuess": "You did not guess: read the sheet carefully.",
+      "compare": "Compare with your guess: nothing is graded here.",
+      "termLabel": "the term",
+      "loading": "Loading the sheet…",
+      "missing": "This term has no sheet to show.",
+      "continue": "Go to the exercises"
+    },
+    "exercises": {
+      "title": "4. Quick exercises",
+      "loading": "Loading the exercises…",
+      "loadError": "The exercises could not be loaded.",
+      "skip": "Skip the exercises",
+      "counter": "Exercise {{index}} of {{total}}",
+      "typed_recall": "Recall the English term",
+      "gap_fill": "Fill the gap",
+      "cueFr": "In French: {{cue}}",
+      "cueDefinition": "Definition: {{cue}}",
+      "answerLabel": "Your answer",
+      "gapLabel": "The missing word or words",
+      "check": "Check",
+      "next": "Next exercise",
+      "done": "Continue",
+      "showSheet": "Show the sheet again",
+      "hideSheet": "Hide the sheet",
+      "answerAudioLabel": "the expected answer"
+    },
+    "repetition": {
+      "title": "Say it aloud",
+      "instructions": "Listen at normal speed, then slowly, and repeat the sentence aloud.",
+      "recordingLater": "Recording your voice comes in a later version.",
+      "done": "Done, I repeated it"
+    },
+    "personal": {
+      "title": "Your own sentence",
+      "label": "Write a sentence of your own with “{{term}}” (optional)",
+      "hint": "Up to 1,000 characters. It is saved; AI feedback comes in a later version.",
+      "finish": "Finish the discovery",
+      "skip": "Skip and finish",
+      "finishing": "Saving…"
+    },
+    "done": {
+      "title": "5. Into spaced repetition",
+      "firstReview": "“{{term}}” enters spaced repetition: first review on {{date}}.",
+      "term_missing": "Your sentence does not contain the term; it is saved anyway.",
+      "continue": "Continue"
+    },
+    "error": {
+      "writeSheet": "Write the sheet of “{{term}}”",
+      "blocked": "The other new terms of today wait until this one can be discovered. Write its sheet, then continue, or end the session.",
+      "continue": "Continue the session",
+      "retry": "Retry"
+    }
+  },
+  "grading": {
+    "outcomes": {
+      "exact": "Correct",
+      "form": "Correct: another form of the term",
+      "typo": "Almost: a small typo",
+      "wrong": "Not this one",
+      "empty": "No answer"
+    },
+    "expected": "Expected answer: {{answer}}",
+    "accepted": "Also accepted: {{list}}",
+    "diff": "Your answer compared with the expected one:",
+    "removed": "extra",
+    "added": "missing"
   }
 }

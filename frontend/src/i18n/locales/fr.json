@@ -8,7 +8,8 @@
     "settings": "Réglages",
     "skipToContent": "Aller au contenu principal",
     "library": "Bibliothèque",
-    "label": "Principale"
+    "label": "Principale",
+    "today": "Aujourd'hui"
   },
   "demo": {
     "badge": "Données de démo",
@@ -223,13 +224,23 @@
     "exercise_not_found": "Cet exercice n'existe plus.",
     "item_archived": "Un terme archivé n'a pas de fiche d'usage. Restaurez-le d'abord.",
     "invalid_exercise": "Cet exercice n'est pas valide. Rien n'a été enregistré :",
-    "not_enough_context": "Rien à partir de quoi étendre : ajoutez d'abord quelques termes, un domaine ou une description à ce paquet."
+    "not_enough_context": "Rien à partir de quoi étendre : ajoutez d'abord quelques termes, un domaine ou une description à ce paquet.",
+    "session_not_found": "Cette séance n'existe pas.",
+    "session_closed": "Cette séance est déjà terminée.",
+    "card_not_found": "Cette carte n'existe pas.",
+    "card_changed": "Cette carte a été révisée ailleurs entre-temps (un autre onglet ?).",
+    "review_not_allowed": "Ce terme ne peut pas être révisé ni travaillé maintenant.",
+    "not_due": "Cette carte n'est pas encore due.",
+    "sheet_required": "Ce terme n'a pas encore de fiche utilisable : écrivez-la (ou générez-la) avant de découvrir le terme.",
+    "already_discovered": "Ce terme a déjà été découvert.",
+    "discovery_not_allowed": "Ce terme ne peut pas être découvert maintenant : son paquet est en pause ou terminé, ou le terme a quitté le paquet.",
+    "exercise_mismatch": "Cet exercice ne correspond pas au terme.",
+    "invalid_queue": "L'ordre des paquets envoyé ne correspond pas à vos paquets."
   },
   "home": {
     "title": "Bienvenue",
-    "intro": "Voici le socle de votre coach de vocabulaire. Votre séance du jour et vos progrès apparaîtront ici au fil du développement.",
+    "intro": "Votre séance du jour est ci-dessous : d'abord les révisions dues, puis les nouveaux termes de vos listes.",
     "todayTitle": "Séance du jour",
-    "todayEmpty": "Rien à réviser pour l'instant. Commencez par importer une liste de mots ou par ajouter des termes à votre bibliothèque.",
     "libraryLink": "Ouvrir la bibliothèque",
     "statusTitle": "État du système",
     "apiChecking": "Vérification du serveur local…",
@@ -631,7 +642,8 @@
       "current": "courante",
       "open": "Ouvrir la version {{version}}",
       "close": "Fermer"
-    }
+    },
+    "exampleLabel": "l’exemple {{index}}"
   },
   "exercises": {
     "title": "Exercices",
@@ -706,5 +718,210 @@
     "sortNow": "Les trier maintenant",
     "dropped": "Écartés : {{existing}} déjà dans votre bibliothèque, {{repeated}} répétés.",
     "possibleDuplicates": "Doublons possibles de termes que vous avez déjà :"
+  },
+  "speech": {
+    "listen": "Écouter",
+    "listenSlowly": "Écouter lentement",
+    "listenTo": "Écouter « {{what}} »",
+    "listenSlowlyTo": "Écouter lentement « {{what}} »",
+    "speaking": "Lecture…",
+    "speakingWhat": "Lecture de « {{what}} »",
+    "unsupported": "Ce navigateur n'a pas de synthèse vocale : l'audio n'est pas disponible.",
+    "noEnglishVoice": "Aucune voix anglaise n'est installée dans ce navigateur : l'audio n'est pas disponible.",
+    "nonAmerican": "Voix non américaine ({{name}}) : aucune voix en-US n'a été trouvée.",
+    "voice": {
+      "legend": "Voix",
+      "label": "Voix de la synthèse vocale",
+      "automatic": "Automatique (première voix en-US)",
+      "unavailable": "{{name}} (non disponible ici)",
+      "hint": "Les voix viennent de ce navigateur et de son système ; les voix en-US sont en tête de liste.",
+      "fallback": "Cette voix n'est pas disponible dans ce navigateur : le choix automatique s'applique.",
+      "test": "Tester"
+    }
+  },
+  "today": {
+    "loading": "Préparation du plan du jour…",
+    "loadError": "Le plan du jour n'a pas pu être chargé.",
+    "reviews_one": "{{count}} révision due",
+    "reviews_other": "{{count}} révisions dues",
+    "newItems_one": "{{count}} nouveau terme à découvrir",
+    "newItems_other": "{{count}} nouveaux termes à découvrir",
+    "deckCount": "{{deck}} : {{count}}",
+    "noDeck": "Sans paquet",
+    "unknownDeck": "Paquet {{id}}",
+    "minutes": "Environ {{minutes}} min, pour un budget quotidien de {{budget}} min",
+    "targeted": "Exercice ciblé : {{category}} ({{count}} erreurs récentes), pour information",
+    "consolidation": "Une tâche de consolidation est prête, pour information",
+    "empty": "Rien à réviser ni à découvrir aujourd'hui. Importez une liste ou ajoutez des termes à votre bibliothèque.",
+    "start": "Démarrer la séance du jour",
+    "resume": "Reprendre la séance du jour",
+    "openSession": "Une séance est déjà ouverte aujourd'hui."
+  },
+  "plan": {
+    "warningsTitle": "Avertissements",
+    "warnings": {
+      "reviews_over_budget": "Les révisions dues demandent environ {{minutes}} min, plus que votre budget de {{budget}} min : aucun nouveau terme aujourd'hui.",
+      "deadline_unrealistic": "« {{deck}} » (échéance le {{deadline}}) : il faudrait {{required}} nouveaux termes par jour, mais votre budget n'en permet que {{achievable}}.",
+      "deadline_unrealistic_finish": "À ce rythme, le paquet serait terminé le {{date}}.",
+      "deadline_unrealistic_never": "À ce rythme, le paquet ne peut pas être terminé.",
+      "deadline_passed_one": "L'échéance de « {{deck}} » ({{deadline}}) est passée et il reste {{count}} terme à découvrir.",
+      "deadline_passed_other": "L'échéance de « {{deck}} » ({{deadline}}) est passée et il reste {{count}} termes à découvrir.",
+      "deadline_triage_pending_one": "« {{deck}} » (échéance le {{deadline}}) a encore {{count}} terme à trier.",
+      "deadline_triage_pending_other": "« {{deck}} » (échéance le {{deadline}}) a encore {{count}} termes à trier.",
+      "items_without_sheet_one": "{{count}} terme en file n'a pas encore de fiche utilisable : il n'est pas proposé aujourd'hui.",
+      "items_without_sheet_other": "{{count}} termes en file n'ont pas encore de fiche utilisable : ils ne sont pas proposés aujourd'hui."
+    },
+    "decksConcerned": "Paquets concernés :",
+    "writeSheets": "Écrire ou générer les fiches",
+    "sortTerms": "Les trier maintenant"
+  },
+  "steps": {
+    "review": "Révisions",
+    "new_item": "Nouveau terme",
+    "wait": "Petite pause",
+    "practice_info": "Également prévu aujourd'hui",
+    "done": "Séance terminée"
+  },
+  "session": {
+    "title": "Séance du jour",
+    "starting": "Ouverture de la séance du jour…",
+    "loading": "Chargement de l'étape suivante…",
+    "startError": "La séance du jour n'a pas pu être ouverte.",
+    "retry": "Réessayer",
+    "end": "Terminer la séance",
+    "endConfirm": "Terminer la séance du jour maintenant ? Ce que vous avez fait est conservé.",
+    "endYes": "Oui, terminer",
+    "endNo": "Continuer",
+    "ending": "Fin de la séance…",
+    "progress": {
+      "label": "Progression de la séance",
+      "reviews": "Révisions : {{done}} faites, {{remaining}} restantes",
+      "newItems": "Nouveaux termes : {{done}} faits, {{remaining}} restants",
+      "time": "Environ {{minutes}} min restantes",
+      "bar": "{{done}} étapes sur {{total}} faites"
+    },
+    "wait": {
+      "text": "Votre prochaine carte (un terme en apprentissage) revient à {{time}}.",
+      "inMinutes_one": "Prochaine carte dans {{count}} min.",
+      "inMinutes_other": "Prochaine carte dans {{count}} min.",
+      "inSeconds_one": "Prochaine carte dans {{count}} s.",
+      "inSeconds_other": "Prochaine carte dans {{count}} s.",
+      "ready": "Votre prochaine carte devrait être prête.",
+      "auto": "La page vérifie d'elle-même le moment venu.",
+      "check": "Vérifier maintenant"
+    },
+    "practice": {
+      "targeted": "Exercice ciblé sur vos erreurs les plus fréquentes : {{category}} ({{count}} erreurs ces 14 derniers jours).",
+      "consolidation": "Une tâche de consolidation (un exposé avec les termes de votre paquet) est prête.",
+      "later": "Ces exercices seront disponibles dans une prochaine version de l'application.",
+      "continue": "Continuer"
+    },
+    "reviewPlaceholder": {
+      "text_one": "{{count}} révision est due.",
+      "text_other": "{{count}} révisions sont dues.",
+      "later": "Provisoire (M4.b) : le lecteur de révisions arrive avec la prochaine version de l'application. Vous pouvez terminer la séance pour l'instant."
+    },
+    "summary": {
+      "title": "Résumé de la séance",
+      "reviews": "Révisions",
+      "failed": "Révisions échouées (À revoir)",
+      "discoveriesStarted": "Découvertes commencées",
+      "discoveriesCompleted": "Découvertes terminées",
+      "productions": "Phrases écrites",
+      "words": "Mots écrits",
+      "duration": "Temps passé",
+      "planned": "Temps prévu",
+      "minutes": "{{count}} min",
+      "home": "Retour à l'accueil"
+    },
+    "closed": "Cette séance est déjà terminée.",
+    "restart": "Démarrer une nouvelle séance"
+  },
+  "discovery": {
+    "starting": "Préparation de la découverte…",
+    "resumed": "Vous aviez commencé cette découverte : elle reprend depuis la phrase.",
+    "read": {
+      "title": "1. Lisez la phrase",
+      "origin": "Votre phrase d'origine",
+      "example": "Une phrase d'exemple",
+      "noSentence": "Ce terme n'a pas encore de phrase : voici le terme seul.",
+      "sentenceLabel": "la phrase"
+    },
+    "guess": {
+      "title": "2. Que veut-il dire, d'après vous ?",
+      "label": "Votre supposition, en anglais ou en français (facultatif)",
+      "hint": "1 000 caractères au plus. Vous la comparerez vous-même à la fiche.",
+      "submit": "Afficher la fiche",
+      "dontKnow": "Je ne sais pas"
+    },
+    "sheet": {
+      "title": "3. La fiche d'usage",
+      "yourGuess": "Votre supposition : « {{guess}} »",
+      "noGuess": "Vous n'avez rien supposé : lisez bien la fiche.",
+      "compare": "Comparez avec votre supposition : rien n'est noté ici.",
+      "termLabel": "le terme",
+      "loading": "Chargement de la fiche…",
+      "missing": "Ce terme n'a pas de fiche à afficher.",
+      "continue": "Passer aux exercices"
+    },
+    "exercises": {
+      "title": "4. Petits exercices",
+      "loading": "Chargement des exercices…",
+      "loadError": "Les exercices n'ont pas pu être chargés.",
+      "skip": "Passer les exercices",
+      "counter": "Exercice {{index}} sur {{total}}",
+      "typed_recall": "Retrouvez le terme anglais",
+      "gap_fill": "Complétez la phrase",
+      "cueFr": "En français : {{cue}}",
+      "cueDefinition": "Définition : {{cue}}",
+      "answerLabel": "Votre réponse",
+      "gapLabel": "Le ou les mots manquants",
+      "check": "Vérifier",
+      "next": "Exercice suivant",
+      "done": "Continuer",
+      "showSheet": "Revoir la fiche",
+      "hideSheet": "Masquer la fiche",
+      "answerAudioLabel": "la réponse attendue"
+    },
+    "repetition": {
+      "title": "Dites-le à voix haute",
+      "instructions": "Écoutez à vitesse normale, puis lentement, et répétez la phrase à voix haute.",
+      "recordingLater": "L'enregistrement de votre voix arrivera dans une prochaine version.",
+      "done": "C'est fait, je l'ai répétée"
+    },
+    "personal": {
+      "title": "Votre propre phrase",
+      "label": "Écrivez une phrase à vous avec « {{term}} » (facultatif)",
+      "hint": "1 000 caractères au plus. Elle est enregistrée ; la correction par l'IA arrivera plus tard.",
+      "finish": "Terminer la découverte",
+      "skip": "Passer et terminer",
+      "finishing": "Enregistrement…"
+    },
+    "done": {
+      "title": "5. Entrée en répétition espacée",
+      "firstReview": "« {{term}} » entre en révision : première révision le {{date}}.",
+      "term_missing": "Votre phrase ne contient pas le terme ; elle est enregistrée quand même.",
+      "continue": "Continuer"
+    },
+    "error": {
+      "writeSheet": "Écrire la fiche de « {{term}} »",
+      "blocked": "Les autres nouveaux termes du jour attendent que celui-ci puisse être découvert. Écrivez sa fiche puis continuez, ou terminez la séance.",
+      "continue": "Continuer la séance",
+      "retry": "Réessayer"
+    }
+  },
+  "grading": {
+    "outcomes": {
+      "exact": "Correct",
+      "form": "Correct : une autre forme du terme",
+      "typo": "Presque : une petite faute de frappe",
+      "wrong": "Pas celui-ci",
+      "empty": "Pas de réponse"
+    },
+    "expected": "Réponse attendue : {{answer}}",
+    "accepted": "Également acceptées : {{list}}",
+    "diff": "Votre réponse comparée à la réponse attendue :",
+    "removed": "en trop",
+    "added": "manquant"
   }
 }

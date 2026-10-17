@@ -11,6 +11,7 @@ import {
   useSettingsMutation,
 } from '../../api/settings'
 import { ErrorText } from './ErrorText'
+import { VoiceSetting } from './VoiceSetting'
 
 // The settings shown here, by group. `ai_provider_order` has its own card; `ui_language` is left
 // out on purpose: the language is chosen in the top bar and stored in the browser (D-066).
@@ -185,6 +186,7 @@ export function GeneralSettings() {
           {GROUPS.map((group) => (
             <GroupForm key={group.id} group={group} settings={settings.data} />
           ))}
+          {'tts_voice' in settings.data && <VoiceSetting settings={settings.data} />}
         </div>
       )}
     </section>

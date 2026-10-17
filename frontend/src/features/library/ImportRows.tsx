@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 
 import { isProblemCode, type PreviewRow, type Problem } from '../../api/import'
@@ -33,7 +34,7 @@ function suggestedTerm(row: PreviewRow): string | null {
   return null
 }
 
-function candidateLabel(c: Candidate, t: ReturnType<typeof useTranslation>['t']): string {
+function candidateLabel(c: Candidate, t: TFunction): string {
   const decks = c.decks.length > 0 ? ` — ${c.decks.map((d) => d.name).join(', ')}` : ''
   return t('import.rows.attachTo', {
     term: c.term,

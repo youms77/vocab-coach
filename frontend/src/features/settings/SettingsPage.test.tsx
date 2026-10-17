@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { AiStatus, AiUsage, ConnectionTestResult, ProviderState } from '../../api/ai'
 import type { SettingsMap } from '../../api/settings'
+import { installFakeSpeech, voice } from '../../test/fakeSpeech'
 import { apiErrorResponse, mockApi } from '../../test/mockApi'
 import { renderApp } from '../../test/renderApp'
 
@@ -100,6 +101,7 @@ const settings: SettingsMap = {
   consolidation_min_stability_days: setting(7, { minimum: 1 }),
   ui_language: setting('en', { choices: ['en', 'fr'] }),
   tts_rate: setting(1, { type: 'float', minimum: 0.5, maximum: 2 }),
+  tts_voice: setting(''),
   ai_provider_order: {
     ...setting('x'),
     value: ['gemini', 'groq', 'ollama'],
@@ -551,6 +553,66 @@ describe('Settings page: study settings', () => {
 
     await screen.findByLabelText('Daily time budget (minutes)')
     expect(screen.getAllByLabelText('Language')).toHaveLength(1)
+  })
+})
+
+describe('Settings page: voice', () => {
+  const zira = voice('Microsoft Zira - English (United States)', 'en-US')
+  const george = voice('Microsoft George - English (United Kingdom)', 'en-GB')
+  const hortense = voice('Microsoft Hortense - French (France)', 'fr-FR')
+
+  it('lists the English voices of this browser, en-US first, and saves the choice', async () => {
+    const fake = installFakeSpeech([hortense, george, zira])
+    const calls = mockApi({
+      ...baseRoutes(),
+      'PATCH /settings': (call) =>
+        Response.json({
+          ...settings,
+          tts_voice: { ...settings.tts_voice, value: (call.body as { tts_voice: string }).tts_voice },
+        }),
+    })
+    const user = userEvent.setup()
+    renderApp('/settings')
+
+    const select = await screen.findByLabelText('Speech synthesis voice')
+    const options = within(select).getAllByRole('option').map((o) => o.textContent)
+    expect(options).toEqual([
+      'Automatic (first en-US voice)',
+      'Microsoft Zira - English (United States) — en-US',
+      'Microsoft George - English (United Kingdom) — en-GB',
+    ])
+
+    await user.selectOptions(select, george.name)
+    const form = screen.getByRole('group', { name: 'Voice' }).closest('form') as HTMLElement
+    await user.click(within(form).getByRole('button', { name: 'Test' }))
+    expect(fake.spoken.at(-1)).toMatchObject({ voice: george, lang: 'en-US' })
+
+    await user.click(within(form).getByRole('button', { name: 'Save' }))
+    expect(await within(form).findByText('Saved.')).toBeInTheDocument()
+    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ tts_voice: george.name })
+  })
+
+  it('keeps a saved voice that this browser does not have, marked as such', async () => {
+    installFakeSpeech([zira])
+    mockApi({
+      ...baseRoutes(),
+      'GET /settings': { ...settings, tts_voice: { ...settings.tts_voice, value: 'Samantha' } },
+    })
+    renderApp('/settings')
+
+    const select = await screen.findByLabelText('Speech synthesis voice')
+    expect(select).toHaveValue('Samantha')
+    expect(within(select).getByRole('option', { name: 'Samantha (not available here)' })).toBeInTheDocument()
+    expect(screen.getByText(/the automatic choice is used instead/)).toBeInTheDocument()
+  })
+
+  it('explains that the browser has no speech synthesis', async () => {
+    mockApi(baseRoutes())
+    renderApp('/settings')
+
+    await screen.findByLabelText('Speech synthesis voice')
+    expect(screen.getByText(/This browser has no speech synthesis/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Test' })).toBeDisabled()
   })
 })
 
