@@ -121,21 +121,29 @@ class DurationRequired(LibraryError):
 # --- Validation ----------------------------------------------------------------------------------
 
 
+def unsupported_audio() -> UnsupportedAudio:
+    return UnsupportedAudio(
+        "This audio format is not accepted. Send one of: " + ", ".join(ACCEPTED_TYPES) + "."
+    )
+
+
+def audio_too_large() -> AudioTooLarge:
+    return AudioTooLarge(
+        f"The recording is larger than {MAX_AUDIO_BYTES // 1024 // 1024} MB.",
+        max_bytes=MAX_AUDIO_BYTES,
+    )
+
+
 def check_audio(data: bytes, content_type: str | None) -> str:
     """The file extension of an acceptable upload. Raises UnsupportedAudio, AudioEmpty,
     AudioTooLarge."""
     extension = extension_for(content_type)
     if extension is None:
-        raise UnsupportedAudio(
-            "This audio format is not accepted. Send one of: " + ", ".join(ACCEPTED_TYPES) + "."
-        )
+        raise unsupported_audio()
     if not data:
         raise AudioEmpty("The recording is empty.")
     if len(data) > MAX_AUDIO_BYTES:
-        raise AudioTooLarge(
-            f"The recording is {len(data) / 1024 / 1024:.1f} MB; at most "
-            f"{MAX_AUDIO_BYTES // 1024 // 1024} MB are accepted."
-        )
+        raise audio_too_large()
     return extension
 
 
