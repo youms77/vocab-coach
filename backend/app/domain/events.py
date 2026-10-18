@@ -52,6 +52,8 @@ class EventType(StrEnum):
     CARD_REVIEWED = "card.reviewed"
     PRODUCTION_RECORDED = "production.recorded"
     PRODUCTION_CORRECTED = "production.corrected"
+    PRODUCTION_TRANSCRIBED = "production.transcribed"
+    PRONUNCIATION_CHECKED = "pronunciation.checked"
     ERROR_RECORDED = "error.recorded"
     ERROR_UPDATED = "error.updated"
     ERROR_DELETED = "error.deleted"
@@ -359,21 +361,26 @@ class CardReviewed(Event):
 
 
 class ProductionOrigin(StrEnum):
-    """Where a written production comes from; it decides the source of its errors (M5)."""
+    """Where a production, written or spoken, comes from; for a written one it decides the source
+    of its errors (M5)."""
 
     WRITING = "writing"  # free writing (module E)
-    DISCOVERY = "discovery"  # the personal sentence of a discovery (module B)
+    # The personal sentence of a discovery (module B), or its spoken step 4: a shadowing.
+    DISCOVERY = "discovery"
     REVIEW = "review"  # a `sentence_production` review checked by the AI (module C)
     TRANSCRIPT = "transcript"  # the user's turns of a pasted conversation transcript (M5.a2)
+    SHADOWING = "shadowing"  # a sentence repeated after the speech synthesis (module F, M6.a1)
 
 
 class ProductionRecorded(Event):
     """Version 2 (M5) adds `origin`, optional so version 1 payloads still read. Version 3 (M5.a2)
     adds the `transcript` origin and, for a transcript, its turn and word counts and the date of
-    the conversation (never any text)."""
+    the conversation (never any text). Version 4 (M6.a1) adds the `shadowing` origin, and the
+    `discovery` origin on a spoken production; `audio_seconds` is the duration the recorder
+    measured."""
 
     event_type = EventType.PRODUCTION_RECORDED
-    payload_version = 3
+    payload_version = 4
     entity_type = "production_attempt"
     entity_id_field = "production_attempt_id"
 
@@ -407,6 +414,42 @@ class ProductionCorrected(Event):
     model: Annotated[str, Field(max_length=200)]
     prompt_version: Annotated[str, Field(max_length=100)]
     ai_call_id: Id | None = None
+
+
+class ProductionTranscribed(Event):
+    """A recording transcribed by speech recognition (written once: a second one is refused).
+    `silence`: no word was heard, or Whisper's segments say silence (nothing is compared then).
+    `audio_seconds` is the provider's measure when it gives one, else the recorder's."""
+
+    event_type = EventType.PRODUCTION_TRANSCRIBED
+    entity_type = "production_attempt"
+    entity_id_field = "production_attempt_id"
+
+    production_attempt_id: Id
+    kind: ProductionKind
+    provider: Annotated[str, Field(max_length=50)]
+    model: Annotated[str, Field(max_length=200)]
+    ai_call_id: Id | None = None
+    status: Literal["ok", "silence"]
+    heard_word_count: Annotated[int, Field(ge=0)]
+    audio_seconds: Annotated[float, Field(ge=0)] | None = None
+
+
+class PronunciationChecked(Event):
+    """A transcription compared word by word with its target sentence (no text in the payload).
+    Speech recognition is not a pronunciation judge: no error is recorded from it."""
+
+    event_type = EventType.PRONUNCIATION_CHECKED
+    entity_type = "production_attempt"
+    entity_id_field = "production_attempt_id"
+
+    production_attempt_id: Id
+    target_word_count: Annotated[int, Field(ge=0)]
+    recognized_count: Annotated[int, Field(ge=0)]
+    unrecognized_count: Annotated[int, Field(ge=0)]
+    word_accuracy: Annotated[float, Field(ge=0, le=1)]
+    comparator_version: Annotated[str, Field(min_length=1, max_length=50)]
+    provider: Annotated[str, Field(max_length=50)]
 
 
 class DrillGenerated(Event):
