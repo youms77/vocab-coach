@@ -10,6 +10,7 @@ next study day, like the cards of a discovery. No AI call: the card works in deg
 ones the user dismissed or that already are in the library, and says which can become a card.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -128,6 +129,21 @@ def item_of_error(session: Session, error_id: int) -> LexicalItem | None:
         .order_by(LexicalItem.id)
         .limit(1)
     )
+
+
+def cards_of(session: Session, errors: Sequence[ErrorEvent]) -> dict[int, LexicalItem]:
+    """error id -> the term made from it, for the errors that have one."""
+    if not errors:
+        return {}
+    return {
+        item.origin_error_event_id: item
+        for item in session.scalars(
+            select(LexicalItem)
+            .where(LexicalItem.origin_error_event_id.in_([error.id for error in errors]))
+            .order_by(LexicalItem.id.desc())
+        )
+        if item.origin_error_event_id is not None
+    }
 
 
 def _carded_keys(session: Session) -> set[str]:

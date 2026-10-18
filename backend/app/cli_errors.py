@@ -1,4 +1,4 @@
-"""`python -m app errors list | show | add | categories` (module E, M5.a1).
+"""`python -m app errors list | show | add | categories | card | suggestions | dismiss` (module E).
 
 Everything here works without an AI key. Exit codes, in the spirit of D-053: 0 done, 1 refused
 (an invalid error or category), 2 usage error (no database, unknown id).
@@ -14,7 +14,7 @@ from app.cli_library import EXIT_FAILED, EXIT_OK, EXIT_USAGE, _open
 from app.db.base import utcnow
 from app.db.models import ErrorEvent
 from app.domain.enums import ErrorSource
-from app.services import error_log
+from app.services import error_cards, error_log
 from app.services.library import LibraryError
 
 
@@ -214,4 +214,71 @@ def run_errors_categories(url: str, *, proposed_only: bool = False) -> int:
     for root in tree:
         _render_node(root, 0, lines)
     print("\n".join(lines))
+    return EXIT_OK
+
+
+def run_errors_card(
+    url: str, error_id: int, *, term: str | None = None, sentence: str | None = None
+) -> int:
+    """Make a term and its card from an error (no AI)."""
+    _console_safe()
+    engine = _open(url)
+    if engine is None:
+        return EXIT_USAGE
+    try:
+        with Session(engine) as session:
+            made = error_cards.create_card_from_error(
+                session, error_id, at=utcnow(), term=term, sentence=sentence
+            )
+            session.commit()
+            print(f"Term #{made.item.id} '{made.item.term}' made from error #{error_id}.")
+            print(f"  exercise: {made.plan.gap_fill['sentence']}")
+            print(f"  first review: {made.card.due.date().isoformat()}")
+    except LibraryError as exc:
+        reason = f" ({exc.extra['reason']})" if "reason" in exc.extra else ""
+        print(exc.message + reason, file=sys.stderr)
+        return EXIT_USAGE if exc.status == 404 else EXIT_FAILED
+    finally:
+        engine.dispose()
+    return EXIT_OK
+
+
+def run_errors_suggestions(url: str, *, min_count: int = 2, limit: int = 20) -> int:
+    """Recurring errors that could become cards."""
+    _console_safe()
+    engine = _open(url)
+    if engine is None:
+        return EXIT_USAGE
+    try:
+        with Session(engine) as session:
+            views = error_cards.list_suggestions(session, min_count=min_count, limit=limit)
+            if not views:
+                print("No recurring error without a card.")
+            for view in views:
+                found = view.suggestion
+                status = f"errors card {view.error_id}" if view.cardable else view.reason
+                print(f"{found.count}x  {found.erroneous_text} -> {found.correction}  [{status}]")
+                print(f"      {found.category_code}, last {found.last_at.date().isoformat()}")
+                print(f"      key: {found.key}")
+    finally:
+        engine.dispose()
+    return EXIT_OK
+
+
+def run_errors_dismiss(url: str, key: str) -> int:
+    """Stop suggesting a card for a recurring error (`key` as `errors suggestions` prints it)."""
+    _console_safe()
+    engine = _open(url)
+    if engine is None:
+        return EXIT_USAGE
+    try:
+        with Session(engine) as session:
+            done = error_cards.dismiss_suggestion(session, key, at=utcnow())
+            session.commit()
+            print("Dismissed." if done else "Already dismissed.")
+    except LibraryError as exc:
+        print(exc.message, file=sys.stderr)
+        return EXIT_USAGE if exc.status == 404 else EXIT_FAILED
+    finally:
+        engine.dispose()
     return EXIT_OK

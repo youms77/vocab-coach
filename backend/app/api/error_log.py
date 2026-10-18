@@ -17,7 +17,7 @@ from app.api.errors import require_database
 from app.db.engine import get_session
 from app.db.models import ErrorCategory, ErrorEvent
 from app.domain.enums import ErrorSource
-from app.services import error_log
+from app.services import error_cards, error_log
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
@@ -55,6 +55,7 @@ class ErrorOut(BaseModel):
     explanation_fr: str | None  # the AI's translation, while the explanation is still the AI's
     category: CategoryRef
     term: TermRef | None
+    card: TermRef | None  # the term made from this error (M5.a3), if any
     production_attempt_id: int | None
     review_log_id: int | None
     occurred_at: datetime
@@ -65,6 +66,7 @@ def errors_out(session: Session, errors: list[ErrorEvent]) -> list[ErrorOut]:
     categories = error_log.categories_of(session, errors)
     terms = error_log.terms_of(session, errors)
     french = error_log.french_explanations(session, errors)
+    cards = error_cards.cards_of(session, errors)
     out = []
     for error in errors:
         category = categories[error.category_id]
@@ -82,6 +84,9 @@ def errors_out(session: Session, errors: list[ErrorEvent]) -> list[ErrorOut]:
                 category=_category_ref(category),
                 term=TermRef(id=item_id, term=terms[item_id])
                 if item_id is not None and item_id in terms
+                else None,
+                card=TermRef(id=cards[error.id].id, term=cards[error.id].term)
+                if error.id in cards
                 else None,
                 production_attempt_id=error.production_attempt_id,
                 review_log_id=error.review_log_id,
@@ -184,6 +189,110 @@ def list_errors(
         page=result.page,
         page_size=result.page_size,
         facets=[FacetOut(**vars(facet)) for facet in result.facets],
+    )
+
+
+class SuggestionOut(BaseModel):
+    key: str
+    erroneous_text: str
+    correction: str
+    category: CategoryRef
+    count: int
+    first_at: datetime
+    last_at: datetime
+    error_id: int  # the error to make the card from (`POST /errors/{id}/card`)
+    sample_error_ids: list[int]  # newest first, at most 5
+    term: str | None  # the term the card would have
+    cardable: bool
+    reason: str | None  # why not: `no_context`, `no_correction`, `too_long`...
+
+
+class SuggestionsOut(BaseModel):
+    suggestions: list[SuggestionOut]
+
+
+@router.get("/errors/suggestions", tags=["errors"])
+def error_suggestions(
+    session: SessionDep,
+    min_count: Annotated[int, Query(ge=1, le=20)] = 2,
+    limit: Annotated[int, Query(ge=1, le=error_cards.MAX_SUGGESTIONS)] = 20,
+) -> SuggestionsOut:
+    """Wrong forms that came back at least `min_count` times with the same correction, the most
+    frequent first. Leaves out those with a card, in the library or dismissed. Drill errors do not
+    count. No AI."""
+    out = []
+    for view in error_cards.list_suggestions(session, min_count=min_count, limit=limit):
+        found = view.suggestion
+        category = error_log.category_by_code(session, found.category_code)
+        assert category is not None  # noqa: S101 (the code comes from a category row)
+        out.append(
+            SuggestionOut(
+                key=found.key,
+                erroneous_text=found.erroneous_text,
+                correction=found.correction,
+                category=_category_ref(category),
+                count=found.count,
+                first_at=found.first_at,
+                last_at=found.last_at,
+                error_id=view.error_id,
+                sample_error_ids=list(found.error_ids),
+                term=view.term,
+                cardable=view.cardable,
+                reason=view.reason,
+            )
+        )
+    return SuggestionsOut(suggestions=out)
+
+
+class DismissRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: Annotated[str, Field(min_length=1, max_length=700)]
+
+
+@router.post("/errors/suggestions/dismiss", tags=["errors"])
+def dismiss_suggestion(body: DismissRequest, session: SessionDep, now: NowDep) -> dict[str, bool]:
+    """The user does not want a card for this recurring error. `dismissed` is false when it was
+    dismissed before (nothing is written). 404 `suggestion_not_found`."""
+    dismissed = error_cards.dismiss_suggestion(session, body.key, at=now)
+    session.commit()
+    return {"dismissed": dismissed}
+
+
+class CardRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    term: Annotated[str, Field(min_length=1, max_length=300)] | None = None
+    sentence: Annotated[str, Field(min_length=1, max_length=400)] | None = None
+
+
+class CardOut(BaseModel):
+    error_id: int
+    item_id: int
+    term: str
+    card_id: int
+    deck_id: int
+    sentence: str  # the corrected sentence the exercise is made from
+    due: datetime  # the start of the next study day
+
+
+@router.post("/errors/{error_id}/card", status_code=201, tags=["errors"])
+def make_card(error_id: int, body: CardRequest, session: SessionDep, now: NowDep) -> CardOut:
+    """Make a term and one productive card from this error (no AI). The term is the correction
+    (or `term`); the exercise is the sentence the error came from (or `sentence`) with the
+    changed words blanked. 409 `card_exists`; 422 `not_cardable` with a `reason`."""
+    made = error_cards.create_card_from_error(
+        session, error_id, at=now, term=body.term, sentence=body.sentence
+    )
+    session.commit()
+    return CardOut(
+        error_id=error_id,
+        item_id=made.item.id,
+        term=made.item.term,
+        card_id=made.card.id,
+        deck_id=made.deck.id,
+        sentence=made.plan.sentence,
+        due=made.card.due,
     )
 
 
