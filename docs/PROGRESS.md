@@ -4,16 +4,141 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M5 (module E). `main` (`7904aa3`, CI green) has M1.a to M5.a3: M5.b as PR #17, M5.c
-  (M5.c1 + M5.c2, frontend) as PR #18, M5.a3 (backend) as PR #19, all merged on 2026-10-18. No migration since `0002`.
-- **Next**: **M6 — Speaking** (module F, SPEC section 9): recording, Groq transcription, shadowing, word-by-word
-  comparison, spoken answers in reviews, corrected free speaking, optional Azure hook. It also removes the last direct
-  write of the demo (`direct_writes.record_oral_production`, D-166).
+- **Last milestone completed**: M6.a1 (module F, backend: recordings, transcription, word-by-word comparison), on branch
+  `feat/m6a1-recordings-transcription`, not pushed yet. `main` (`7904aa3`, CI green) has M1.a to M5.a3: M5.b as PR #17,
+  M5.c (M5.c1 + M5.c2, frontend) as PR #18, M5.a3 (backend) as PR #19, all merged on 2026-10-18. No migration since `0002`.
+- **M6 — Speaking** (module F, SPEC section 9) is cut in five (D-168): **M6.a1** (done, backend: local recordings, Groq
+  Whisper transcription, shadowing, word-by-word comparison, playback, CLI), **M6.a2** (backend: corrected free speaking,
+  spoken answers in reviews, the demo through the services, which removes `direct_writes.record_oral_production`, D-166),
+  **M6.b1** and **M6.b2** (frontend: the `MediaRecorder` recorder and the screens; API reference in the M6.a1 section),
+  **M6.c** (Azure AI Speech, optional).
+- **Next**: M6.a2, or M6.b1 on the M6.a1 API. The owner decides the order.
 - **Left from M5, not scheduled**: the screens for cards from errors and suggestions ("M5.d", API in the M5.a3 section
   below) and an undo for a dismissed suggestion. The owner decides when they come.
-- Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. M5.a3 needs no
-  AI. The owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1 and M5.c2) are still to run.
+- Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. M6.a1 needs a
+  Groq key for transcription (`tests/live/test_live_speech.py` was not run: no key, no clip). The owner's manual scenarios
+  (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2 and M6.a1) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M6.a1 — Recordings, transcription and word-by-word comparison (backend)
+
+Branch `feat/m6a1-recordings-transcription`, cut from `main` (`7904aa3`), with the "Current state" fix of `docs/m5-wrap-up`
+cherry-picked first. Six commits after it: the domain, the gateway, the store and the service, the API, the CLI and the
+demo, the docs. **No migration** (`alembic check`: no new upgrade operation), **no frontend change**, no new dependency,
+no new setting. SPEC.md unchanged. Decisions D-168 to D-177.
+
+### Done
+
+- **Comparator** (`domain/speech_compare.py`, `speech-compare-1`, D-173): words cleaned as in the grading (D-102),
+  contractions (it's = it is = it has, don't = do not, 'd = would or had, John's = Johns...), numbers 0 to 100 in words
+  or digits, % / percent / per cent, hyphens (well-known = well known, e-mail = email); minimal and deterministic
+  alignment by dynamic programming with backtracking: `match` (also k:l merges), `close` (counted as recognised),
+  `substituted`, `missing`, `extra`; `unrecognized` with positions and what was heard; `word_accuracy`. **The `close`
+  rule chosen by the owner**: a British / American spelling, or one edit on a target word of 5 letters or more, except
+  on the first letter or for a final -s / -d.
+- **Rules** (`domain/speech_rules.py`): 10 MB, target 400 characters, duration bounds per production kind (shadowing
+  0.5 to 30 s), Whisper's silence rule (`no_speech_prob > 0.6` and `avg_logprob <= -1.0` on every segment).
+- **Gateway** (D-171, D-172): Groq Whisper asked for `verbose_json`, read tolerantly; `TranscriptionOutput` gains
+  `duration_s` and `segments`; `Gateway.transcribe` unchanged and still without a prompt. Whisper free limits checked
+  again: unchanged.
+- **Storage** (`app/speech/audio_store.py`, D-169): `data/audio/YYYY/MM/<uuid4>.<ext>` (`data/audio-demo/` in demo mode),
+  atomic write, paths resolved only inside the folder; `demo seed` empties `audio-demo/`.
+- **Service** (`services/speech.py`): validation, file, a short transaction (production `shadowing` / `oral`, target,
+  `text=""`, `word_count=0`, `production.recorded` v4; the file is deleted if it fails), transcription with no session
+  open and never with the target as a prompt, then a short transaction (text, `pronunciation_result`,
+  `production.transcribed`, `pronunciation.checked`). Silence stores no text and no comparison; an AI failure stores
+  nothing more and can be retried. **No error is ever created from the comparison** (D-174).
+- **API** (D-170, D-175): `POST /api/speech/shadowing` (raw body), `POST /api/productions/{id}/transcribe`,
+  `GET /api/productions/{id}/audio` (streamed, `Range` answered); `ProductionOut` gains `audio_url`, `audio_seconds`,
+  `transcription_status`, `comparison`. The API guard accepts an `audio/*` body under `/api/speech/` only.
+- **CLI** (D-176): `speech shadow`, `speech transcribe`, `speech compare`; `--demo` uses `data/audio-demo/`.
+- **Events** (open set, no migration): `production.recorded` v4 (`shadowing` origin), `production.transcribed`,
+  `pronunciation.checked`, with no text in their payloads.
+- **Privacy**: `.env.example` and the README say recordings sent to Groq leave the machine and stay in `data/`; the CI
+  refuses `flac`, `opus`, `aac`, `mp4` files too.
+- **Tests**: 2 230 backend tests (1 951 before): `test_speech_compare.py` (tolerances, close, properties on 500 random
+  pairs), `test_speech_rules.py`, `test_audio_store.py`, `test_speech_service.py`, `api/test_speech_api.py`,
+  `api/test_guard.py` (+9), `test_cli_speech.py`, `test_demo_seed.py` (+3), the Groq adapter and gateway tests (+20), and
+  `tests/live/test_live_speech.py` (off by default); `api/test_transcripts_api.py` now expects `production.recorded` v4. Every
+  clip is made in memory with `wave`.
+
+### Verified (Windows 11, 2026-10-18)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **2 230 pytest passed** (11 live deselected),
+  then the frontend: typecheck, oxlint `--deny-warnings`, 447 vitest tests. Exit code 0. `alembic check`: no new upgrade
+  operation. `git ls-files | grep -E '\.(wav|webm|mp3|m4a|ogg|flac|opus|aac|mp4)$'` is empty.
+- **On a temporary database, no key** (`VOCAB_DATA_DIR` in a temporary folder, keys emptied): `speech compare "We account
+  for regional fixed effects." "we account for regional fix effect"` flags `fixed -> fix` and `effects -> effect` (4 of
+  6, exit 0); `speech shadow` with a WAV made by `wave` and `--duration 2` keeps the production and prints
+  `unavailable (no_provider_configured)` (exit 1), the file is under `data/audio/2026/10/`; the same without
+  `--duration` stores nothing (exit 2). Through a `TestClient`: `GET /api/productions/1/audio` gives the same bytes as
+  `audio/wav`, `Range: bytes=0-9` gives 206; `GET /api/productions?kind=shadowing` shows `audio_url`, `audio_seconds`,
+  `transcription_status: pending`; `POST /api/productions/1/transcribe` answers 200 `unavailable`.
+- Not run by me: a real transcription (no Groq key here, no recording of the owner's voice), so the real `verbose_json`
+  answer is still unseen (read from the documentation; the live test checks it); the owner's scenario below.
+
+### Owner's manual scenario (about 2 minutes)
+
+1. With the **Windows Sound Recorder** (Enregistreur vocal), record yourself saying "We account for regional fixed
+   effects in all specifications." It saves an `.m4a` file (in `Documents\Sound recordings`, or `Enregistrements audio`).
+2. With your Groq key in `.env`, in `backend`: `uv run python -m app speech shadow --file "<path to the .m4a>" --target
+   "We account for regional fixed effects in all specifications."` It prints the duration measured by Groq, the
+   transcription, the words not recognised and the path of the file under `data\audio\YYYY\MM\`. Open that folder: the
+   file is there. At the root, `git status` does not show it.
+3. Without a Groq key (comment out `VOCAB_GROQ_API_KEY` in `.env`): the same command plus `--duration 4` records the
+   production and says the transcription is `unavailable (no_provider_configured)`; put the key back and run
+   `uv run python -m app speech transcribe <id>`.
+4. Without AI: `uv run python -m app speech compare "We account for regional fixed effects." "we account for regional fix
+   effect"`.
+5. Optional, the live test with your clip: `$env:VOCAB_RUN_LIVE='1'; $env:VOCAB_LIVE_AUDIO='<path to the .m4a>'; uv run
+   pytest tests/live/test_live_speech.py -m live -v -s`.
+
+### API reference for the screens (M6.b1)
+
+| Route | Request | Success |
+|---|---|---|
+| `POST /api/speech/shadowing` | body: the recording, `Content-Type` = its type (`audio/webm`, `audio/ogg`, `audio/mp4`, `audio/x-m4a`, `audio/wav`, `audio/x-wav`, `audio/mpeg`; `;codecs=...` allowed), at most 10 MB; query: `target_text` (1 to 400 characters), `duration_s` (0.5 to 30), `item_id?`, `origin?` (`shadowing` default, `discovery`), `study_session_id?` | 201 `SpeechOut` |
+| `POST /api/productions/{id}/transcribe` | none | 200 `SpeechOut` |
+| `GET /api/productions/{id}/audio` | `Range` allowed | 200 or 206, the file, type from its extension |
+
+`SpeechOut` = `{production_id, audio_url, audio_seconds, transcription: {status: ok | silence | unavailable, text|null,
+reason|null}, comparison|null}`; `comparison` = `{version, word_accuracy (4 decimals), target_word_count,
+heard_word_count, recognized_count, unrecognized: [{position, word, heard|null}], steps: [{op: match | close |
+substituted | missing | extra, target_start, target_end, heard_start, heard_end, target|null, heard|null}]}`.
+`reason` is `no_provider_configured`, `quota`, `network`, `auth`, `timeout`, `all_failed` or `incomplete`.
+`ProductionOut` (list and detail) gains `audio_url|null`, `audio_seconds|null`, `transcription_status` (`pending` |
+`ok` | `silence` | null) and `comparison|null`; `GET /api/productions?kind=shadowing` lists the shadowings.
+Errors: 413 `audio_too_large` (+ `max_bytes`); 415 `unsupported_audio` (an audio type not accepted),
+`unsupported_media_type` (not audio at all, from the guard); 422 `invalid_request`, `audio_empty`, `audio_too_short` /
+`audio_too_long` (+ `min_s`, `max_s`), `invalid_target`, `no_audio` (transcribe); 404 `item_not_found`,
+`session_not_found`, `production_not_found`, `no_audio` (playback); 409 `session_closed`, `already_transcribed`.
+The screen must say that speech recognition is not a pronunciation judge (SPEC module F), and must not show the
+target before the user has tried, where the exercise needs it (active recall).
+
+### Departures from the prompt
+
+- `production.transcribed` also carries `model` and `ai_call_id` (as `production.corrected`); `ProductionOut` also gains
+  `transcription_status` (D-175). Approved with the plan.
+- Groq's `duration`, when present, replaces `audio_seconds` after the transcription; silence is also detected from the
+  segments (D-171). Approved with the plan.
+- The guard accepts `audio/*` under `/api/speech/` (D-170) and the CI list gains four extensions (D-177). Approved with
+  the plan.
+- Not in the milestone: the code `duration_required` (422, CLI path only), the extras `min_s` / `max_s` / `max_bytes` on
+  the errors, and a README paragraph.
+
+### Left / notes
+
+- M6.a2, M6.b1, M6.b2, M6.c (D-168). Local transcription (faster-whisper) to propose later; audio backup in M10.
+- The first real `verbose_json` answer: run the live test once with a clip (scenario step 5).
+- The owner's manual scenarios (M2.c2 to M5.c2) and the one above. Push and the pull request: with the owner's go-ahead.
+
+### Known issues
+
+- The comparator counts these / those and quite / quiet as close (one edit apart), and does not know homophones
+  (their / there), numbers above a hundred in words or ordinals (D-173).
+- The target sentence is a query parameter, so it shows in uvicorn's console access log (not a secret, D-170).
+- `demo seed` cannot delete a demo recording another program holds open on Windows; it stays in `audio-demo/` (D-169).
+- `audio_url` is given whenever a path is stored; a file deleted by hand gives 404 `no_audio` on playback (D-169).
 
 ## M5.a3 — Cards from errors, recurring errors, the demo through the services (backend)
 

@@ -12,7 +12,7 @@ Browser ── http://127.0.0.1:5173 ──> Vite dev server (frontend/)
                                     FastAPI on 127.0.0.1:8000 (backend/app)
                                          │
                                          ▼  SQLAlchemy 2 + Alembic (M1.a)
-                                    data/vocab-coach.sqlite3  ·  audio in data/audio/ (M6)
+                                    data/vocab-coach.sqlite3  ·  recordings in data/audio/ (M6.a1)
                                     (demo mode: data/vocab-coach-demo.sqlite3, M1.c)
 ```
 
@@ -20,7 +20,7 @@ Browser ── http://127.0.0.1:5173 ──> Vite dev server (frontend/)
 `scripts/wait-and-open.mjs`, which opens the browser once `/api/health` and the Vite page answer (M1.c).
 Host and ports of the dev servers live in `frontend/dev-server.json`, read by `vite.config.ts` and the
 opener. Demo mode (`VOCAB_DEMO=1`, `python -m app --demo`, `start.ps1 -Demo`) only changes the database
-file; see D-033.
+file (and the recordings folder, `data/audio-demo/`); see D-033, D-169.
 Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/dist`.
 
 ## Backend (`backend/`)
@@ -33,8 +33,9 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/cli_plan.py` | `plan today`: builds the plan read-only (`PRAGMA query_only`) and renders it as text or JSON | M1.b |
 | `app/cli_ai.py` | `ai status` (providers, models, order; never a key), `ai test` (one real call per configured provider, optional Whisper clip, writes `ai_call_log`), `ai usage` (read-only) | M2.b1 |
 | `app/cli_library.py` | `library import <file> [--deck-id] [--no-triage] [--commit]`: read-only preview, or import of the clear lines with default choices | M3.a |
+| `app/cli_speech.py` | `speech shadow --file --target [--item] [--duration]`, `speech transcribe <id>`, `speech compare "<target>" "<heard>"` (no AI); exit codes 0 / 1 / 2 (D-176) | M6.a1 |
 | `app/api/health.py` | `GET /api/health` → `{status, version, database: {ok, revision, at_head}, demo}` | M0, M1.a, M1.c |
-| `app/api/guard.py` | ASGI middleware: Host / Origin / Sec-Fetch-Site / JSON-only checks (D-061) | M2.c1 |
+| `app/api/guard.py` | ASGI middleware: Host / Origin / Sec-Fetch-Site / JSON-only checks (D-061); an `audio/*` body is accepted under `/api/speech/` only (D-170) | M2.c1, M6.a1 |
 | `app/api/errors.py` | `{"detail": {"code", "message"}}` errors, 422 without `input` (D-063) | M2.c1 |
 | `app/api/ai.py` | `/api/ai/status`, `/providers/{name}/credential`, `/test`, `/usage` (D-064) | M2.c1 |
 | `app/api/settings.py` | `GET` / `PATCH /api/settings` | M2.c1 |
@@ -43,14 +44,15 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/api/session.py` | `/api/session/today`, `/start`, `/{id}/next`, `/{id}/end` | M4.a1 |
 | `app/api/reviews.py` | `/api/reviews/grade` (writes nothing), `/api/reviews` (record), `/api/reviews/reveal` | M4.a1 |
 | `app/api/discovery.py` | `/api/discovery/{item_id}/start`, `/exercises`, `/complete` | M4.a1 |
+| `app/api/speech.py` | `POST /api/speech/shadowing` (raw recording as the body, query parameters), `POST /api/productions/{id}/transcribe`, `GET /api/productions/{id}/audio` (streamed, `Range`); `ComparisonOut`, also used by `ProductionOut` | M6.a1 |
 | `app/services/env_file.py` | safe edit of the three AI variables of `.env` (D-062) | M2.c1 |
 | `app/services/ai_connection_test.py` | shared connection test, CLI and API (D-065) | M2.c1 |
-| `app/demo/` | fictional demo data (`content/demo/`: decks, errors, prompts, hand-typed sheets): dataset loader, simulated learner, 60-day simulation through the services (session service `session-1`, `choose_exercise`, discovery without initial ratings), module E through its services with fictional AI results validated by the real schemas (`fictional_ai.py`, D-163), the oral productions as the one direct write left, atomic `demo seed` | M1.c, M4.a2, M5.a3 |
+| `app/demo/` | fictional demo data (`content/demo/`: decks, errors, prompts, hand-typed sheets): dataset loader, simulated learner, 60-day simulation through the services (session service `session-1`, `choose_exercise`, discovery without initial ratings), module E through its services with fictional AI results validated by the real schemas (`fictional_ai.py`, D-163), the oral productions as the one direct write left, atomic `demo seed` (which also empties `data/audio-demo/`) | M1.c, M4.a2, M5.a3, M6.a1 |
 | `app/domain/` | pure business logic (see "Domain and services" below) | M1.a, M1.b |
 | `app/services/` | operations that read and write the database, in the caller's transaction | M1.b |
 | `app/db/` | data layer (see below) | M1.a |
 | `app/ai/` | AI gateway, prompts, schemas, providers (see "AI gateway" below) | M2.a, M2.b1 (Groq, Ollama), M2.b2 (Gemini) |
-| `app/speech/` | transcription, pronunciation | empty (M6) |
+| `app/speech/audio_store.py` | local recordings: accepted media types, `YYYY/MM/<uuid4>.<ext>` names, atomic write, paths resolved inside the folder only, demo folder (D-169) | M6.a1 |
 | `alembic.ini` | Alembic configuration (URL comes from the app settings) | M1.a |
 | `tests/` | pytest suite; database tests use a temporary SQLite file built by the migrations | M0, M1.a |
 
@@ -113,6 +115,8 @@ services/                         read/write the database; never commit (D-023)
                   list_suggestions() / dismiss_suggestion() for recurring errors (M5.a3, D-163, D-164)
   corrections.py / transcripts.py / drills.py  + store_correction() / store_analysis() / store_drill(): write an
                   already validated result in the caller's transaction; the AI paths and the demo use them (M5.a3, D-165)
+  speech.py       record_shadowing() (file, then a short transaction, then the transcription), transcribe_production(),
+                  store_transcription(), transcription_state(), comparison_of() (M6.a1, D-169 to D-175)
    │
 domain/                           pure: no session, no network, no clock (`now` is a parameter)
   study_day.py    as_utc(), study_day_of(), study_day_bounds()        (timezone + day_start_hour)
@@ -129,6 +133,9 @@ domain/                           pure: no session, no network, no clock (`now` 
   grading.py      normalize_answer(), damerau_levenshtein(), grade_typed() / grade_choice() / check_production() (M4.a1)
   error_cards.py  plan_card() (term, corrected sentence, gap-fill, small sheet), group_recurring() (M5.a3)
   review_steps.py build_prompt() (never a solution), build_solution(), shuffled_options() seeded by card + reps (M4.a1)
+  speech_compare.py  words(), compare(): word alignment by dynamic programming (match, close, substituted, missing,
+                  extra), contractions / numbers / hyphens tolerated (M6.a1, D-173)
+  speech_rules.py audio size and target limits, duration bounds per production kind, Whisper's silence rule (M6.a1)
 ```
 
 - **Flow of a review**: `record_review` loads the item, refuses archived/known items and out-of-order
@@ -154,6 +161,14 @@ domain/                           pure: no session, no network, no clock (`now` 
   `POST /api/import/commit` re-checks every row with the same domain functions and writes the deck (and source),
   the terms (`draft` → `triage` or `queued` through `set_item_status`), the deck links and `import.completed` in one
   transaction (D-074). The CLI `library import` runs the same two steps.
+- **Flow of a shadowing** (M6.a1): `POST /api/speech/shadowing` reads the raw body (at most 10 MB) and the query
+  parameters, checks media type, size, duration and target, writes the file (`AudioStore`), then in one short
+  transaction the oral production (`kind=shadowing`, `text=""`, `word_count=0`), its target term and
+  `production.recorded`; the file is deleted if that transaction fails. Then `gateway.transcribe()` runs with no
+  session open (the clip under its generated name, never the target as a prompt), and a second short transaction
+  stores the text, the `pronunciation_result` and `production.transcribed` + `pronunciation.checked`. An AI failure
+  writes nothing more: the recording stays and `POST /productions/{id}/transcribe` runs it again. Reads compute the
+  comparison again from `pronunciation_result`; no error is ever recorded from it (D-174).
 
 ## AI gateway (`backend/app/ai/`, M2.a, M2.b1, M2.b2)
 
@@ -201,7 +216,10 @@ http.py      urllib client: error status = a normal answer, network failure = Pr
   in the `x-goog-api-key` header only; its error bodies are read in two shapes (D-059).
 - **Live tests** (`tests/live/`, marker `live`): one real request per configured provider, only with
   `VOCAB_RUN_LIVE=1`; excluded from `npm run check` and the CI.
-- Decisions: D-038 to D-045 (M2.a), D-046 to D-055 (M2.b1), D-056 to D-060 (M2.b2). Tools: `uv run python -m app ai simulate`
+- **Transcription details** (M6.a1, D-171): Groq is asked for `verbose_json`; `ProviderResponse.transcription`
+  carries the audio duration and the segments' `no_speech_prob` / `avg_logprob`, which reach
+  `TranscriptionOutput.duration_s` / `segments`. `Gateway.transcribe` has no prompt parameter (D-172).
+- Decisions: D-038 to D-045 (M2.a), D-046 to D-055 (M2.b1), D-056 to D-060 (M2.b2), D-171 and D-172 (M6.a1). Tools: `uv run python -m app ai simulate`
   (fake providers, throwaway database), `ai status`, `ai test`, `ai usage` (real providers).
 
 ## Frontend (`frontend/src/`)

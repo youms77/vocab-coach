@@ -2533,3 +2533,185 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - The deck "Error cards" is an ordinary deck for the queue (it takes a queue position like the others); the screens show it
   with `kind: error_drill`, which the frontend does not special-case yet.
 - `ErrorOut.card` is additive; the frontend types are untouched in this milestone.
+
+## D-168 — M6 is cut in five (M6.a1, 2026-10-18)
+
+- **M6.a1** (backend): local recordings, Groq Whisper transcription through the gateway, word-by-word comparison
+  with a target sentence, playback, events, CLI. **M6.a2** (backend): corrected free speaking, spoken answers in
+  reviews (`spoken_answer`), the demo through the services (removes `app/demo/direct_writes.py`). **M6.b1** and
+  **M6.b2**: the frontend (`MediaRecorder` recorder, screens). **M6.c**: Azure AI Speech, optional.
+- Out of M6.a1 on purpose: local transcription (faster-whisper, to propose later), any error created from the
+  comparison (D-174), backup and export of the audio (M10).
+
+## D-169 — Recordings are files under `data/audio/` (M6.a1)
+
+- **Folder**: `<resolved_data_dir>/audio/`, and `<resolved_data_dir>/audio-demo/` when `settings.demo` is on, so no
+  demo file mixes with the owner's recordings; `demo seed` empties `audio-demo/` once the new database is in place
+  (a refused or failed seed leaves it). The demo folder follows `settings.demo` (`VOCAB_DEMO`, `--demo`), not the
+  demo marker of the database: `VOCAB_DATABASE_URL` and the demo mode exclude each other (D-033).
+- **Names** are the server's: `YYYY/MM/<uuid4 hex>.<ext>`, never the client's. `production_attempt.audio_path` holds
+  that path relative to the folder. Reading checks the stored path against this exact pattern and that the resolved
+  path stays inside the folder (no traversal, no absolute path, no backslash).
+- **Formats** (media type, parameters such as `;codecs=opus` ignored -> extension): `audio/webm` webm, `audio/ogg`
+  ogg, `audio/mp4` and `audio/x-m4a` m4a, `audio/wav` and `audio/x-wav` wav, `audio/mpeg` mp3. Groq reads every one
+  (`groq.AUDIO_EXTENSIONS`, tested). The served type follows from the extension: no column was added.
+- **Limits** (`domain/speech_rules.py`): 10 MB (`MAX_AUDIO_BYTES`, well below Groq's 25 MB), an empty file refused,
+  and duration bounds per production kind (shadowing 0.5 to 30 s; M6.a2 adds free speaking, about 180 s). The
+  client sends `duration_s` (a `MediaRecorder` webm often has no duration in its metadata): it is checked before
+  anything is written and is the only measure in degraded mode.
+- **Writing**: a temporary file in the same folder, flushed and fsynced, then `os.replace`; done **before** the
+  database transaction, and deleted if that transaction fails (tested by a failing event write and by an unknown
+  term). `clear()` uses `shutil.rmtree(ignore_errors=True)`: on Windows a file another program holds open stays.
+- **Playback** `GET /api/productions/{id}/audio` is Starlette's `FileResponse`. Checked on 2026-10-18: Starlette
+  **1.8.0** is installed; `FileResponse` answers HTTP `Range` requests since 0.39.0 ("Add support for HTTP Range to
+  FileResponse", #2697) with fixes up to 1.8.0 (weak `If-Range`, several ranges, client disconnect), confirmed in the
+  installed code (`accept-ranges: bytes`, 206, 416) and by a test (`Range: bytes=4-11` -> 206). Nothing to write.
+  `audio_url` is given whenever `audio_path` is set; a file deleted by hand gives 404 `no_audio` on playback.
+
+## D-170 — The upload is the raw body, and the guard lets `audio/*` through on `/api/speech/` (M6.a1)
+
+- `POST /api/speech/shadowing`: the body **is** the recording (`Content-Type` = its media type), everything else is a
+  query parameter (`target_text`, `duration_s`, `item_id`, `origin` = `shadowing` | `discovery`, `study_session_id`).
+  No multipart, so no `python-multipart` dependency, and `/docs` still offers a file picker (`openapi_extra`
+  describes a binary body for each accepted type).
+- An **async dependency** reads `request.stream()`: 415 `unsupported_audio` for a media type that is not accepted, 413
+  `audio_too_large` from `Content-Length` before reading, or as soon as the streamed (chunked) body passes 10 MB.
+  The routes are plain `def` with no database session in their dependencies (D-038).
+- **The guard** (D-061, rule 3) refused every body that is not `application/json` (415). It now also accepts an
+  `audio/*` body, on paths under `/api/speech/` only. No `audio/*` type is "CORS-safelisted" (only
+  `application/x-www-form-urlencoded`, `multipart/form-data` and `text/plain` are), so a request from another site is
+  still "non simple": the browser sends a preflight, which CORS refuses (tested). Host, Origin and
+  `Sec-Fetch-Site` rules are unchanged, and apply to these routes too.
+- The target sentence is a query parameter, so it appears in uvicorn's access log (console only, never a file). It
+  is the learner's practice sentence, not a secret: accepted.
+- Codes: 413 `audio_too_large` (+ `max_bytes`), 415 `unsupported_audio`, 422 `audio_empty`, `audio_too_short` /
+  `audio_too_long` (+ `min_s`, `max_s`), `invalid_target` (empty, no word, over 400 characters: checked by the
+  service, so the query parameter has no length constraint), `invalid_request` (missing parameter, NaN or infinite
+  `duration_s`), 404 `item_not_found`, `session_not_found`, 409 `session_closed`.
+
+## D-171 — `verbose_json`: the provider's duration and silence detection (M6.a1)
+
+- **Checked on 2026-10-18** in Groq's API reference (the OpenAPI specification embedded in console.groq.com/docs):
+  `response_format` accepts `json`, `text` and `verbose_json`; `CreateTranscriptionResponseVerboseJson` **requires
+  `language`, `duration` ("the duration of the input audio", typed as a string) and `text`**; each
+  `TranscriptionSegment` requires `id`, `seek`, `start`, `end`, `text`, `tokens`, with `no_speech_prob` and
+  `avg_logprob` optional. Its description of `no_speech_prob` says "higher than 1.0 and avg_logprob below -1": 1.0
+  is impossible for a probability, a typo copied from OpenAI's.
+- **Whisper's own rule** (openai/whisper, `transcribe.py`): defaults `no_speech_threshold=0.6`,
+  `logprob_threshold=-1.0`; a segment is skipped as silence when `no_speech_prob > 0.6` and `avg_logprob` is not
+  above -1.0. That is the threshold used.
+- **Groq free limits** (rate-limits page, "Free Plan Limits" tab; speech-to-text page) are unchanged from D-046:
+  `whisper-large-v3` and `-turbo` 20 requests per minute, 2 000 per day, 7 200 audio seconds per hour, 28 800 per
+  day, 25 MB per file. Only the date of the check in `groq.py` changed.
+- **Gateway**: `Gateway.transcribe(audio, language=, pin_provider=)` keeps its signature. `ProviderResponse` gains an
+  optional `transcription` (duration and segments as numbers); internally `parse` receives the whole response
+  instead of its text. `TranscriptionOutput` gains `duration_s` and `segments` (optional). The fake provider can play
+  them (`Success.transcription`).
+- **Groq adapter**: asks for `verbose_json`, read tolerantly because it was never called live before: `duration` as a
+  string or a number (negative, NaN, infinite or unreadable -> None), segments that are not objects ignored, numbers
+  that are not numbers -> None, only `text` required (the plain `json` answer still reads). The live test
+  `tests/live/test_live_speech.py` checks a real answer carries a duration.
+- **Duration**: the API keeps the client's `duration_s` mandatory (bounds checked before any write). After a
+  successful transcription, Groq's `duration`, when present, replaces `production_attempt.audio_seconds` and goes in
+  `production.transcribed.audio_seconds`; `production.recorded` keeps the recorder's value. Rule for M9: the last
+  measure wins. No new setting.
+- **Silence**: `silence` when the transcription has no word, or when **every** segment is silence by Whisper's rule
+  (a segment without the two numbers is not). The invented text ("Thank you.") is not stored (`text = ""`), and
+  nothing is compared.
+
+## D-172 — The target sentence is never a prompt for Whisper (M6.a1)
+
+- Whisper accepts a `prompt` that biases the recognition towards its words. Sending the target sentence would pull
+  the transcription towards what the learner was expected to say and hide exactly the intelligibility problems the
+  comparison looks for. So `Gateway.transcribe` has no prompt parameter, the Groq request has no `prompt` field
+  (tested), and the clip goes under its generated name (`<uuid4>.<ext>`, or `recording.<ext>` when the CLI
+  transcribes before storing), never the client's file name or the target. The service test checks the recorded
+  `TranscriptionRequest` holds the audio, the language and the timeout only.
+
+## D-173 — The word-by-word comparator (`domain/speech_compare.py`, version `speech-compare-1`) (M6.a1)
+
+- **Words**: `clean_typography` (made public in `normalize.py`: NFKC, typographic apostrophes, quotes and dashes),
+  en and em dashes as separators, then tokens `\d+(?:[.,]\d+)+%?` (grouped or decimal numbers), words of letters or
+  digits with inner apostrophes or hyphens, a final apostrophe and an optional `%`, or a lone `%`. The comparison
+  key is case-folded, a final apostrophe dropped ("students'" = "students"). Punctuation is ignored, as in D-102.
+- **Canonical forms** (a word may have several; two runs are equivalent when their sets meet): `%` = percent,
+  `50%` = 50 percent; a hyphenated word = its parts **and** the joined form ("e-mail" = "email"); "1,000" = 1000;
+  cannot / can't = can not, won't = will not, shan't = shall not, X n't = X not; 're are, 'm am, 've have, 'll will,
+  'd would or had; let's = let us; 's after he, she, it, that, this, there, here and the wh-words = is or has (it's
+  also = its); another word's 's = is, has, or the plural sound ("John's" = "Johns"). Then on the whole run: "per
+  cent" = percent, numbers in words from zero to a hundred = digits ("twenty-one" = 21, "a hundred" = 100).
+- **Alignment**: dynamic programming with backtracking over target and heard words. Costs: match 0, merge k:l
+  (k, l <= 3, tried in the order 1:2, 2:1, 1:3, 3:1, 2:2, 2:3, 3:2, 3:3; "it's" = "it is") 0, close 1, substitution
+  2, missing 2, extra 2. One generator of options serves both the filling and the backtracking, in a fixed
+  priority (match 1:1, merges, close, substitution, missing, extra), so the result is minimal and deterministic.
+  `difflib` was not used: it does not give a minimal alignment. Every step carries `[target_start, target_end)` and
+  `[heard_start, heard_end)`: each word of both sides appears exactly once, in order (property tested on 500 random
+  pairs). Cost: O(target x heard); 0.17 s for 400 and 2 000 characters.
+- **Close** (the owner's choice, 2026-10-18): both words alphabetic, and either a British / American variant two
+  edits apart by a spelling key (`-ogue` / `-og`, `-mme` / `-m`, grey / gray), or one Damerau edit (D-102) on a
+  target word of **five letters or more**, **except** on the first letter or for a final -s or -d added or removed
+  ("effects" / "effect" stays a substitution: it is a real difference for the listener). Known limits: these /
+  those and quite / quiet are one edit apart and count as close; homophones (their / there), numbers above a hundred
+  in words and ordinals are different.
+- **Output**: the steps, `unrecognized` (target words substituted or missing, with their position and what was
+  heard), counts and `word_accuracy` = (match + close) / target words. `pronunciation_result` stores the target, the
+  transcript and `unrecognized_words`, `scores = null` (reserved for M6.c) and the provider; **the alignment is
+  computed again on every read** (pure and fast), so a better comparator improves the old attempts. The version
+  goes into `pronunciation.checked`.
+- Limits: a target of at most 400 characters; `speech compare` accepts at most 2 000 characters heard.
+
+## D-174 — No error is created from the comparison (M6.a1)
+
+- A word the recogniser did not find is a *possible* intelligibility issue, never an error: speech recognition is not
+  a pronunciation judge (an accent it knows less well, a noisy room, a homophone), and automatic errors would skew
+  the normalised rates of module I. Nothing in M6.a1 writes `error_event`. The user can record a flagged word as a
+  `pronunciation.intelligibility` error through the existing manual entry (a screen comes in M6.b). The CLI says so
+  (`NOT_A_JUDGE`); the screens will (M6.b).
+
+## D-175 — Events and the transcription state (M6.a1)
+
+- `production.recorded` **version 4**: the new origin `shadowing`, and `discovery` on a spoken production (step 4 of a
+  discovery); `audio_seconds` = the recorder's measure. `ProductionOrigin`'s docstring now covers written and spoken
+  productions. A shadowing has `word_count = 0`: a repeated sentence holds none of the learner's own words, and
+  `word_count` is the denominator of the error rates.
+- New `production.transcribed` {`production_attempt_id`, `kind`, `provider`, `model`, `ai_call_id`, `status` `ok` |
+  `silence`, `heard_word_count`, `audio_seconds`} and `pronunciation.checked` {`production_attempt_id`,
+  `target_word_count`, `recognized_count`, `unrecognized_count`, `word_accuracy` (4 decimals),
+  `comparator_version`, `provider`}. No text in the payloads (as for the transcripts of M5.a2). `model` and
+  `ai_call_id` were added to the milestone's list, as in `production.corrected`. For module I: minutes of speech,
+  intelligibility over time.
+- **"Already transcribed"** = a `production.transcribed` event exists for the production (the event log as memory, as
+  in D-164), checked before the call and again in the write transaction (409 `already_transcribed`; a concurrent
+  transcription loses, tested). `production_attempt.ai_call_id` is **not** used: it designates the correction call,
+  which M6.a2 will add for free speaking.
+- `ProductionOut` gains (additions only) `audio_url`, `audio_seconds`, `transcription_status` (`pending` | `ok` |
+  `silence`, null without a recording; without it the M6.b1 screen could not tell "to transcribe again" from
+  "silence") and `comparison` (a transcribed shadowing). `GET /api/productions?kind=shadowing` lists them.
+- Origin `discovery`: `item_id` stays optional (no new error). `item_id`, when given, becomes a `production_target`
+  with `used = null`.
+- An AI failure writes nothing: the answer is 201 (or 200 for a retry) with `transcription.status = unavailable` and
+  `reason` (an `UnavailableReason`, or `incomplete` when the provider answered without a usable text).
+
+## D-176 — `speech` commands (M6.a1)
+
+- `speech shadow --file <clip> --target "<sentence>" [--item <id>] [--duration <s>]`, `speech transcribe <id>`,
+  `speech compare "<target>" "<heard>"` (no AI, no database). The media type comes from the extension (`.webm`,
+  `.ogg`, `.m4a`, `.mp4`, `.wav`, `.mp3`). With `--demo` the recordings go to `data/audio-demo/`.
+- **Without `--duration`** the CLI calls the gateway first (no session open), takes Groq's `duration`, then stores the
+  production and that transcription without a second call (`record_shadowing(transcription=...)`). Without a
+  provider, or without a duration in the answer, it refuses (exit 2) and stores nothing: the manual scenario
+  without a key passes `--duration`. The service raises `duration_required` (422) in that case; the API never meets
+  it, since `duration_s` is mandatory there.
+- Exit codes (D-053): 0 done (silence included), 1 the transcription is unavailable (the recording is kept; the
+  message gives `speech transcribe <id>`), 2 usage (no database, unreadable or refused clip, invalid sentence,
+  unknown term or production, already transcribed). Everything is refused before any AI call when possible. Output
+  goes through `_console_safe()` and is plain ASCII apart from the learner's own words.
+
+## D-177 — Small conventions met in M6.a1
+
+- `.env.example` and the README say that recordings sent to Groq's free tier leave the machine, and that they stay
+  in `data/`, never in Git. The CI list of refused files gains `flac`, `opus`, `aac` and `mp4` (`wav`, `webm`, `mp3`,
+  `m4a`, `ogg` were already there). No audio file is in the repository: the tests build their WAV clips in memory
+  with `wave`, or use a few fake bytes when the provider is fake.
+- No migration (the schema already had `audio_path`, `audio_seconds`, `pronunciation_result`), no new dependency, no
+  new setting, no frontend change.
