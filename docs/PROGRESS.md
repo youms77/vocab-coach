@@ -23,8 +23,8 @@ Updated at the end of every milestone session. Paste this file into the next pla
 ## M6.a1 — Recordings, transcription and word-by-word comparison (backend)
 
 Branch `feat/m6a1-recordings-transcription`, cut from `main` (`7904aa3`), with the "Current state" fix of `docs/m5-wrap-up`
-cherry-picked first. Six commits after it: the domain, the gateway, the store and the service, the API, the CLI and the
-demo, the docs. **No migration** (`alembic check`: no new upgrade operation), **no frontend change**, no new dependency,
+cherry-picked first. Then one commit per step (the domain, the gateway, the store and the service, the API, the CLI and
+the demo), a test update, a CLI fix and the docs. **No migration** (`alembic check`: no new upgrade operation), **no frontend change**, no new dependency,
 no new setting. SPEC.md unchanged. Decisions D-168 to D-177.
 
 ### Done
