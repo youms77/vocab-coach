@@ -45,7 +45,7 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/api/discovery.py` | `/api/discovery/{item_id}/start`, `/exercises`, `/complete` | M4.a1 |
 | `app/services/env_file.py` | safe edit of the three AI variables of `.env` (D-062) | M2.c1 |
 | `app/services/ai_connection_test.py` | shared connection test, CLI and API (D-065) | M2.c1 |
-| `app/demo/` | fictional demo data (`content/demo/`: decks, errors, prompts, hand-typed sheets): dataset loader, simulated learner, 60-day simulation through the services (session service `session-1`, `choose_exercise`, discovery without initial ratings), provisional direct writes (productions and errors only), atomic `demo seed` | M1.c, M4.a2 |
+| `app/demo/` | fictional demo data (`content/demo/`: decks, errors, prompts, hand-typed sheets): dataset loader, simulated learner, 60-day simulation through the services (session service `session-1`, `choose_exercise`, discovery without initial ratings), module E through its services with fictional AI results validated by the real schemas (`fictional_ai.py`, D-163), the oral productions as the one direct write left, atomic `demo seed` | M1.c, M4.a2, M5.a3 |
 | `app/domain/` | pure business logic (see "Domain and services" below) | M1.a, M1.b |
 | `app/services/` | operations that read and write the database, in the caller's transaction | M1.b |
 | `app/db/` | data layer (see below) | M1.a |
@@ -109,6 +109,10 @@ services/                         read/write the database; never commit (D-023)
   discovery.py    + begin_discovery() / finish_discovery(): usable sheet required, no initial ratings (M4.a1)
   productions.py  record_written_production(): attempt, targets, production.recorded (M4.a1; M5 adds AI feedback)
   enrichment.py   + save_sheet(provenance=...) and add_templates(origin=demo): the demo's hand-typed sheets (M4.a2)
+  error_cards.py  create_card_from_error(): term + sheet + gap-fill + one productive card in the "Error cards" deck;
+                  list_suggestions() / dismiss_suggestion() for recurring errors (M5.a3, D-163, D-164)
+  corrections.py / transcripts.py / drills.py  + store_correction() / store_analysis() / store_drill(): write an
+                  already validated result in the caller's transaction; the AI paths and the demo use them (M5.a3, D-165)
    │
 domain/                           pure: no session, no network, no clock (`now` is a parameter)
   study_day.py    as_utc(), study_day_of(), study_day_bounds()        (timezone + day_start_hour)
@@ -123,6 +127,7 @@ domain/                           pure: no session, no network, no clock (`now` 
   normalize.py    normalize_term(), naive_lemma() (single-word stem), classify_match(), term_in_sentence() (M3.a)
   exercise_choice.py  choose_exercise(direction, state, stability, reps, templates) -> type + template (M4.a1)
   grading.py      normalize_answer(), damerau_levenshtein(), grade_typed() / grade_choice() / check_production() (M4.a1)
+  error_cards.py  plan_card() (term, corrected sentence, gap-fill, small sheet), group_recurring() (M5.a3)
   review_steps.py build_prompt() (never a solution), build_solution(), shuffled_options() seeded by card + reps (M4.a1)
 ```
 
