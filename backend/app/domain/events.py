@@ -5,6 +5,7 @@ fields are validated (`extra="forbid"`), and a breaking change bumps `payload_ve
 Later modules add event types here.
 """
 
+from datetime import date
 from enum import StrEnum
 from typing import Annotated, Any, ClassVar, Literal
 
@@ -57,6 +58,9 @@ class EventType(StrEnum):
     ERROR_CATEGORY_CREATED = "error_category.created"
     ERROR_CATEGORY_PROPOSED = "error_category.proposed"
     ERROR_CATEGORY_RESOLVED = "error_category.resolved"
+    DRILL_GENERATED = "drill.generated"
+    DRILL_ITEM_ANSWERED = "drill.item_answered"
+    DRILL_COMPLETED = "drill.completed"
     SESSION_STARTED = "session.started"
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
@@ -358,13 +362,16 @@ class ProductionOrigin(StrEnum):
     WRITING = "writing"  # free writing (module E)
     DISCOVERY = "discovery"  # the personal sentence of a discovery (module B)
     REVIEW = "review"  # a `sentence_production` review checked by the AI (module C)
+    TRANSCRIPT = "transcript"  # the user's turns of a pasted conversation transcript (M5.a2)
 
 
 class ProductionRecorded(Event):
-    """Version 2 (M5) adds `origin`, optional so version 1 payloads still read."""
+    """Version 2 (M5) adds `origin`, optional so version 1 payloads still read. Version 3 (M5.a2)
+    adds the `transcript` origin and, for a transcript, its turn and word counts and the date of
+    the conversation (never any text)."""
 
     event_type = EventType.PRODUCTION_RECORDED
-    payload_version = 2
+    payload_version = 3
     entity_type = "production_attempt"
     entity_id_field = "production_attempt_id"
 
@@ -374,6 +381,10 @@ class ProductionRecorded(Event):
     word_count: Annotated[int, Field(ge=0)]
     audio_seconds: Annotated[float, Field(ge=0)] | None = None
     origin: ProductionOrigin | None = None
+    turns_total: Annotated[int, Field(ge=0)] | None = None
+    turns_user: Annotated[int, Field(ge=0)] | None = None
+    words_user: Annotated[int, Field(ge=0)] | None = None
+    occurred_on: date | None = None  # the day of the conversation, when the user gave it
 
 
 class ProductionCorrected(Event):
@@ -394,6 +405,49 @@ class ProductionCorrected(Event):
     model: Annotated[str, Field(max_length=200)]
     prompt_version: Annotated[str, Field(max_length=100)]
     ai_call_id: Id | None = None
+
+
+class DrillGenerated(Event):
+    """A targeted drill written by the AI and stored (M5.a2)."""
+
+    event_type = EventType.DRILL_GENERATED
+    entity_type = "production_attempt"
+    entity_id_field = "drill_id"
+
+    drill_id: Id
+    category_code: Annotated[str, Field(min_length=1, max_length=200)]
+    items: Annotated[int, Field(ge=1)]
+    provider: Annotated[str, Field(max_length=50)]
+    model: Annotated[str, Field(max_length=200)]
+    prompt_version: Annotated[str, Field(max_length=100)]
+    ai_call_id: Id | None = None
+
+
+class DrillItemAnswered(Event):
+    event_type = EventType.DRILL_ITEM_ANSWERED
+    entity_type = "production_attempt"
+    entity_id_field = "drill_id"
+
+    drill_id: Id
+    index: Annotated[int, Field(ge=0)]
+    category_code: Annotated[str, Field(min_length=1, max_length=200)]
+    outcome: Literal["exact", "wrong", "empty"]
+    response_time_ms: Annotated[int, Field(ge=0)]
+
+
+class DrillCompleted(Event):
+    """The last item of a drill was answered."""
+
+    event_type = EventType.DRILL_COMPLETED
+    entity_type = "production_attempt"
+    entity_id_field = "drill_id"
+
+    drill_id: Id
+    category_code: Annotated[str, Field(min_length=1, max_length=200)]
+    items: Annotated[int, Field(ge=1)]
+    correct: Annotated[int, Field(ge=0)]
+    wrong: Annotated[int, Field(ge=0)]
+    empty: Annotated[int, Field(ge=0)]
 
 
 class ErrorRecorded(Event):

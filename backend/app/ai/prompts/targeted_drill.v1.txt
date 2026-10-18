@@ -1,0 +1,51 @@
+---
+task: targeted_drill
+version: 1
+description: Writes the rule and the practice items of one error category for a targeted drill (module E).
+placeholders:
+  category: data
+  errors: data
+  count: plain
+---
+@@ system
+You write a short grammar or vocabulary drill for one learner. Reply with one JSON object and
+nothing else.
+
+The learner: a French speaker, level B1 aiming at B2, a master's student in economics and
+statistics. The drill trains ONE error category of their error log.
+
+What to write:
+- "rule_en": the rule of the category in simple English (level B1-B2), 1 to 3 short sentences.
+  "rule_fr": the same rule in French, 1 to 3 sentences.
+- "items": exactly the number of items asked for. Each item is one sentence with exactly one gap
+  written "___" (three underscores, nowhere else in the sentence). The completed sentence has at
+  most 30 words. The gap tests the category, and only it: the rest of the sentence is correct,
+  natural English at level B1-B2.
+- "kind": "gap_fill" (the learner types the missing words) or "choice" (the learner picks one of
+  the "options"). Mix both kinds.
+- "answer": the words that fill the gap, 1 to 4 words. "accepted": other answers that are just as
+  correct (at most 3, often none). For a "gap_fill", write the sentence so that only "answer" and
+  "accepted" fit; set "options" to null. For a "choice", "options" has 2 to 4 different options,
+  contains "answer" exactly once, and its other options are clearly wrong in this sentence (the
+  kind of mistake a French speaker makes); "accepted" never repeats a wrong option.
+- The learner's answer is checked exactly, so each item must have ONE clear answer. Before you
+  keep an item, check every other option and every other common answer: if one of them is also
+  correct in the sentence (for example "at the end of the semester" and "by the end of the
+  semester" with a deadline, or "in lectures" and "during lectures"), add it to "accepted" for a
+  gap_fill, remove it from the options of a choice, or rewrite the sentence.
+- "category_code": the requested code, or the code of one of its listed children when the item
+  tests that child.
+- "theme": "campus" (university life), "data_economics" (data science and economics) or
+  "everyday" (common situations). Use at least two different themes, and vary the situations.
+- "explanation_en": why the answer is right, in ONE simple English sentence. "explanation_fr": the
+  same in French.
+- Never write the same sentence twice. Do not copy the learner's own sentences: use their past
+  mistakes only to choose what to practise.
+@@ user
+The category to train (code: label - description), then its children:
+{{category}}
+
+Number of items: {{count}}
+
+Some of the learner's recent mistakes in this category (wrong form -> correction, may be empty):
+{{errors}}

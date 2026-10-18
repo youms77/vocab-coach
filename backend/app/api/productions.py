@@ -24,7 +24,8 @@ from app.db.engine import get_engine, get_session
 from app.db.models import ErrorCategory, ErrorEvent, ProductionAttempt
 from app.domain.enums import Modality, ProductionKind
 from app.domain.events import ProductionOrigin
-from app.services import corrections, productions
+from app.domain.transcript_import import MAX_PASTED_CHARS, UserByLabel, UserByMode
+from app.services import corrections, productions, transcripts
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
@@ -57,7 +58,9 @@ class ProductionOut(BaseModel):
     corrected: bool
     # `format: "correction-1"`: `output` (the AI's validated answer), `spans` (position of each
     # `wrong` in `text`, Unicode code points), `error_event_ids` (same order as `output.errors`),
-    # `targets` (checks and disagreements), `prompt_version`, `provider`, `model`.
+    # `targets` (checks and disagreements), `prompt_version`, `provider`, `model`. A transcript
+    # has `format: "transcript-1"` with the same keys (units as `sentences`); a drill has none
+    # here (read it with `/api/drills/{id}`).
     feedback: dict[str, Any] | None
     ai_call_id: int | None
     study_session_id: int | None
@@ -74,8 +77,11 @@ def production_out(session: Session, attempt: ProductionAttempt) -> ProductionOu
         prompt_text=attempt.prompt_text,
         text=attempt.text,
         word_count=attempt.word_count,
-        corrected=attempt.ai_feedback is not None,
-        feedback=dict(attempt.ai_feedback) if attempt.ai_feedback is not None else None,
+        corrected=attempt.ai_feedback is not None and attempt.kind is not ProductionKind.DRILL,
+        # A drill's feedback holds its solutions: it is read through /api/drills (D-103).
+        feedback=dict(attempt.ai_feedback)
+        if attempt.ai_feedback is not None and attempt.kind is not ProductionKind.DRILL
+        else None,
         ai_call_id=attempt.ai_call_id,
         study_session_id=attempt.study_session_id,
         targets=[
@@ -211,18 +217,56 @@ def correction_out(session: Session, result: corrections.CorrectionResult) -> Co
     )
 
 
+class TranscriptBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: Annotated[str, Field(min_length=1, max_length=2 * MAX_PASTED_CHARS)]
+    user: UserByLabel | UserByMode
+
+
+class CorrectRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # A transcript only: the pasted text again, so the AI gets the other speaker's turns as
+    # context (they are never stored). Without it, the units are checked without context.
+    transcript: TranscriptBody | None = None
+
+
 @router.post("/productions/{production_id}/correct", tags=["productions"])
 def correct(
-    production_id: int, engine: EngineDep, gateway: GatewayDep, now: NowDep
+    production_id: int,
+    engine: EngineDep,
+    gateway: GatewayDep,
+    now: NowDep,
+    body: CorrectRequest | None = None,
 ) -> CorrectionOut:
     """Correct a production with the AI: its errors are classified and logged. Takes a few
-    seconds. 409 `already_corrected` when it was corrected before; with `status` `unavailable` or
-    `incomplete` nothing was written and you can try again."""
-    result = corrections.correct_production(
-        _factory(engine),
-        gateway,
-        production_id,
-        clock=lambda: now,
-    )
+    seconds (a long transcript, several calls). A written production uses `production_correction`,
+    a transcript `transcript_analysis`; other kinds get 422 `not_correctable`. 409
+    `already_corrected` when it was corrected before; with `status` `unavailable` or `incomplete`
+    nothing was written and you can try again."""
+    factory = _factory(engine)
+    with factory() as session:
+        kind = productions.get_production(session, production_id).kind
+    transcript = body.transcript if body is not None else None
+    if kind is ProductionKind.TRANSCRIPT_ANALYSIS:
+        result = transcripts.analyse_transcript(
+            factory,
+            gateway,
+            production_id,
+            source=transcripts.TranscriptSource(transcript.text, transcript.user)
+            if transcript is not None
+            else None,
+            clock=lambda: now,
+        )
+    else:
+        if transcript is not None:
+            raise transcripts.NotATranscript("Only a transcript takes a transcript body.")
+        result = corrections.correct_production(
+            factory,
+            gateway,
+            production_id,
+            clock=lambda: now,
+        )
     with Session(engine) as session:
         return correction_out(session, result)

@@ -33,13 +33,14 @@ from app.ai.schemas.production_correction import (
     TargetCheck,
     correction_context,
 )
+from app.ai.schemas.transcript_analysis import TranscriptError
 from app.ai.tasks import correction_output_budget
 from app.ai.types import AiStatus, UnavailableReason
 from app.db.base import utcnow
 from app.db.event_log import record_event
 from app.db.models import ErrorCategory, EventLog, ProductionAttempt
 from app.domain import exercises as ex
-from app.domain.enums import ErrorSource, Modality
+from app.domain.enums import ErrorSource, Modality, ProductionKind
 from app.domain.events import EventType, ProductionCorrected, ProductionOrigin
 from app.domain.sentences import Sentence, TextTooLong, find_fragment, split_sentences
 from app.domain.study_day import as_utc
@@ -115,7 +116,7 @@ def prepare(session: Session, attempt_id: int) -> Prepared:
     """Everything the call needs. Raises ProductionNotFound, AlreadyCorrected, NotCorrectable,
     TextTooLongError."""
     attempt = productions.get_production(session, attempt_id)
-    if attempt.modality != Modality.WRITTEN:
+    if attempt.kind is not ProductionKind.WRITING or attempt.modality != Modality.WRITTEN:
         raise NotCorrectable("Only a written production can be corrected here.")
     if attempt.ai_feedback is not None:
         raise AlreadyCorrected("This production was already corrected.")
@@ -230,14 +231,20 @@ def _check_targets(
 
 
 @dataclass
-class _Written:
+class Written:
     error_ids: list[int] = field(default_factory=list)
     proposed_ids: list[int] = field(default_factory=list)
 
 
-def _category_for(
-    session: Session, error: CorrectionError, attempt_id: int, at: datetime, written: _Written
+def category_for(
+    session: Session,
+    error: "CorrectionError | TranscriptError",
+    attempt_id: int,
+    at: datetime,
+    written: "Written",
 ) -> ErrorCategory:
+    """The category of an AI error: the listed code, or the subcategory it proposes (created
+    `proposed`, or reused)."""
     proposal = error.proposed_subcategory
     if proposal is None:
         return error_log.active_category(session, error.category_code)
@@ -267,10 +274,10 @@ def _write(
     provenance: tuple[str | None, str | None, str | None],
     ai_call_id: int | None,
     at: datetime,
-) -> _Written:
+) -> Written:
     """The one write transaction. Raises ProductionNotFound, AlreadyCorrected."""
     provider, model, prompt_version = provenance
-    written = _Written()
+    written = Written()
     with session_factory() as session:
         attempt = session.get(ProductionAttempt, prepared.attempt_id)
         if attempt is None:
@@ -280,7 +287,7 @@ def _write(
         sentence_text = {s.index: s.text for s in prepared.sentences}
         ref_item = {t.ref: t.item_id for t in prepared.targets}
         for error in output.errors:
-            category = _category_for(session, error, attempt.id, at, written)
+            category = category_for(session, error, attempt.id, at, written)
             event = error_log.record_error(
                 session,
                 source=source,

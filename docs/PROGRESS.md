@@ -4,14 +4,138 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M5.a1 — production correction and error log (backend), on branch
-  `feat/m5a-errors-backend` (not merged yet). M1.a to M4.c are all in `main` (M4.c as `cbcc304`, CI green).
-- **Next milestone**: M5.a2 (backend), then M5.b and M5.c (screens). M5 is cut in four sessions (D-130).
-- The `ai test` call worked (`gemini-3.5-flash-lite`, structured JSON accepted) and the two M5.a1 live tests pass
-  with the owner's key. The owner's manual scenarios (M2.c2, M3.c3, M5.a1) are still to run.
+- **Last milestone completed**: M5.a2 — transcript analysis and targeted drills (backend), on branch
+  `feat/m5a2-transcripts-drills` (pushed, not merged; no PR yet). M1.a to M5.a1 are all in `main` (M5.a1 as
+  `2f3fe26`, PR #15).
+- **Next milestone**: M5.a3 (backend: cards from errors, suggestions for recurring errors, the demo's errors), then
+  M5.b and M5.c (screens). M5 cut revised in D-138.
+- Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. The
+  owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
 
-## M5.a1 — Production correction and error log (backend)
+## M5.a2 — Transcript analysis and targeted drills (backend)
+
+Branch `feat/m5a2-transcripts-drills` from `main` (`2f3fe26`, M5.a1 merged as PR #15), cut in two parts on the same
+branch (like D-099): transcripts, then drills and the planner. **No migration**: every value needed existed
+(`ProductionKind.transcript_analysis | drill`, `ErrorSource.transcript | drill`, `Modality.oral`). SPEC.md unchanged.
+
+### Done
+
+- **Transcript parser** (`domain/transcript_import.py`, pure, D-133): labels (known user and other labels),
+  timestamps, unlabelled paragraphs and the three modes, empty turns, limits (60 000 pasted, 6 000 of the user's),
+  stable problem codes, the context before each user turn (its last 300 characters), units (600 characters) and
+  chunks (2 500 characters, 20 units).
+- **`transcript_analysis` v1** (D-134): prompt (oral rules, homophones, quoted forms, the "since + duration" calque),
+  schema and validators (each tested: rejected, repaired once, then `incomplete`), budgets as named constants.
+- **Transcript service and routes**: `POST /api/transcripts/preview` (no session), `POST /api/transcripts` (only the
+  user's turns are stored, `production.recorded` v3), `/productions/{id}/correct` chooses the task by `kind` and
+  takes the transcript again for the context (`transcript_mismatch`). One call per chunk, all or nothing, no session
+  open during the calls (tested with a second writer on each call). Errors with source `transcript` and the day of
+  the conversation.
+- **`targeted_drill` v1** (D-135) and the drill rules (`domain/drills.py`): exact grading (D-136), deterministic
+  option order, public items without solutions.
+- **Drill service and routes**: `POST /api/drills`, `GET /api/drills`, `GET /api/drills/{id}`, `POST
+  /api/drills/{id}/items/{index}/answer`; events `drill.generated`, `drill.item_answered`, `drill.completed`; a
+  wrong answer becomes an error (source `drill`) with its French explanation; drill feedback hidden from
+  `/api/productions`.
+- **Planner** (D-137, amendment of D-029): targeted practice ignores drill errors.
+- **CLI**: `transcript analyse --file <txt> [--speaker | --mode] [--preview]`, `drill new <code> [--count N]`,
+  `drill list`. **Examples**: `content/examples/m5_transcript.txt`, `m5_transcript_clean.txt`,
+  `m5_transcript_unlabelled.txt` (fictional).
+- **Taxonomy v3**: the "since + duration" calque is described under `grammar.preposition.by_for_since`.
+
+### Verified (Windows 11, 2026-10-18)
+
+- `ruff check .`, `ruff format --check .`: clean. `pytest`: 1 763 passed, 10 live tests deselected. `alembic check`:
+  no operation. `npm run check`: green (backend as above, frontend untouched: 194 vitest tests).
+- **Live** (`gemini-3.5-flash-lite`, `VOCAB_RUN_LIVE=1`): `test_live_transcript.py` (example: exactly the three
+  expected codes, none from ChatGPT's turn; clean transcript: 0 errors) passed 6 of 6 times with the final prompt;
+  `test_live_drill.py` (10 valid items) passes; 5 drill probes all valid (one after a repair). The two M5.a1 live
+  tests still pass with taxonomy v3. Details in D-134 and D-135.
+- **Demo fingerprint** (seed 42, 60 days, anchor 2026-09-01): it changes, for two expected reasons only (taxonomy v3
+  descriptions, and `production.recorded` rows written as payload version 3 with null new fields); every other table
+  is identical, so the planner change has no effect on the demo (D-137).
+- Not run by me: the owner's manual scenario below.
+
+### Owner's manual scenario (about 2 minutes, with your key)
+
+1. `cd backend; uv run python -m app transcript analyse --file ../content/examples/m5_transcript.txt --preview`:
+   8 turns, the label "You" suggested, your 4 turns marked `*`.
+2. The same command without `--preview`: three errors (`grammar.preposition.fixed_expression`,
+   `grammar.preposition.by_for_since`, `grammar.tense.past_simple_vs_present_perfect`).
+3. `uv run python -m app errors list`: the three errors, with the source `transcript`.
+4. `uv run python -m app drill new grammar.preposition.fixed_expression --count 5`: the rule and 5 items, without
+   solutions.
+5. Start the app, open `http://127.0.0.1:8000/docs`: `POST /api/drills/{id}/items/0/answer` with a wrong answer
+   (`{"answer": "xyz", "response_time_ms": 3000}` for a gap-fill, or a wrong `choice_index` for a choice); the error
+   appears in `GET /api/errors?source=drill`.
+
+### API reference for M5.b and M5.c
+
+Errors use the D-063 format. `ProductionOut` is unchanged (M5.a1), except: a transcript's `feedback` has `format:
+"transcript-1"` with the `correction-1` keys (units as `sentences`, `natural_text: null`, `targets: []`) plus
+`units: [{index, turn, start, end, opens_turn}]`, `context_sent`, `calls: [{ai_call_id, provider, model, units:
+[first, last]}]`; `spans` point into `text` (the user's turns joined by a blank line); a drill's `feedback` is
+`null` and `corrected` is `false`. `ErrorOut.source` can now be `transcript` or `drill`.
+
+`PreviewOut = {turns: [{index (from 1), speaker_label|null, text, line_start, is_user|null}], labels: [{label, turns,
+words, chars, known: user|other|null}], labelled, suggested_user_label|null, designation: {label}|{mode}|null, user:
+{turns, words, chars}|null, problems: [{line|null, severity: info|warning|error, code, message}]}`.
+`DrillOut = {id, category: {code, label_en, label_fr}, rule_en, rule_fr, items: [{index (from 0), kind:
+gap_fill|choice, sentence (one ___), options|null (shuffled, same order on every read), answered, result|null}],
+completed, score: {correct, wrong, empty, answered, total}, created_at}`; `result = {outcome: exact|wrong|empty,
+expected, accepted, correct_index|null (into the shown options), explanation_en, explanation_fr, given}`.
+
+| Route | Request | Success |
+|---|---|---|
+| `POST /api/transcripts/preview` | `{text (≤ 120 000), user?: {label} \| {mode: alternating_user_first \| alternating_user_second \| all_mine}}` | 200 `PreviewOut`; writes nothing |
+| `POST /api/transcripts` | `{text, user: {label} \| {mode}, title\|null (≤ 200), occurred_on\|null (YYYY-MM-DD, not in the future), study_session_id\|null}` | 201 `ProductionOut` (uncorrected, `kind: transcript_analysis`, `modality: oral`) |
+| `POST /api/productions/{id}/correct` | optional `{transcript: {text, user}}` for a transcript (the context of the other speaker; without it, no context) | 200 as M5.a1 (`status`, `reason`, `attempt`, `errors`, `proposed_categories`); a long transcript takes several calls (10 to 40 s) |
+| `GET /api/productions?kind=transcript_analysis` | – | 200 page as M5.a1 |
+| `POST /api/drills` | `{category_code, count (5–15, default 10), study_session_id\|null}` | 201 `{status: "ok", reason: null, drill: DrillOut}`; AI failure: 200 `{status: incomplete\|unavailable, reason, drill: null}` |
+| `GET /api/drills?category=&limit=&offset=` | `category` is a code prefix | 200 `{items: [DrillOut], total, limit, offset}`, newest first, `limit` ≤ 100 |
+| `GET /api/drills/{id}` | – | 200 `DrillOut` |
+| `POST /api/drills/{id}/items/{index}/answer` | `{answer\|null (gap-fill), choice_index\|null (choice), response_time_ms ≥ 0}` | 200 `{result, error_event_id\|null, drill: DrillOut}` |
+
+| Status | `code` | When |
+|---|---|---|
+| 404 | `drill_not_found`, `item_not_found`, `category_not_found`, `production_not_found`, `session_not_found` | unknown drill (or not a drill), item index, category, production, study session |
+| 409 | `transcript_mismatch` | the transcript sent with `/correct` does not give the stored turns |
+| 409 | `already_answered`, `already_corrected` | item answered before; transcript analysed before |
+| 422 | `invalid_transcript` (+ `codes`) | no usable user turn (`empty_text`, `unknown_label`, `no_user_turns`) or `future_date` |
+| 422 | `text_too_long` (+ `codes`) | more than 60 000 pasted characters or 6 000 characters of your turns |
+| 422 | `not_drillable` (+ `reason`) | level-1 code, `pronunciation.*`, proposed or rejected category |
+| 422 | `exercise_mismatch` | a choice answered with text, a gap-fill with `choice_index`, an index out of range |
+| 422 | `invalid_production`, `not_correctable`, `invalid_request` | a transcript body on another kind; `correct` on a drill; malformed body (count out of 5–15, title > 200) |
+
+### Departures from the prompt (approved in the plan, except the last two)
+
+- Optional `{transcript}` body on `/correct` for the context and 409 `transcript_mismatch` (D-134); `theme` in drill
+  items (D-135); optional `user` in the preview (D-133); lines before the first label as an unlabelled turn
+  (D-133); `ProductionOut.feedback = null` for drills (D-136); the label rule left unchanged (D-133).
+- **To approve**: the demo fingerprint changes (taxonomy v3 and `production.recorded` v3, D-137), although the
+  prompt expected it unchanged; and taxonomy v3 itself (prompt tuning, as D-132 allows).
+- Small additions: chunks also limited to 20 units; drill errors get the accepted forms as `alternatives`;
+  `POST /api/drills` answers 200 with `drill: null` on an AI failure; `invalid_transcript` also covers a future date.
+
+### Left / notes
+
+- **M5.a3**: cards made from errors, suggestions for recurring errors, the demo's errors through the services
+  (D-138). **M5.b / M5.c**: the screens; M5.c keeps the pasted transcript in memory to send it with `/correct`, and
+  links the session's `practice_info` step to a drill through `category_code`.
+- The owner's manual scenario above.
+- `write correct` and `library enrich` accept `--demo` while the new AI commands refuse it (D-139).
+
+### Known issues
+
+- A lite model can write an arguable drill item (two answers that both fit); grading is exact, so the user may get
+  a `wrong` they disagree with: the solution shows `expected` and `accepted`, and the error can be deleted.
+- A line such as "Note: ..." inside a turn opens a turn with the label "Note" (D-133); the preview shows it.
+- Analysing a long transcript makes up to about 4 sequential calls; with Groq as fallback (8 000 tokens per minute)
+  a 429 is possible, handled by the gateway's retries.
+- `spans` use Unicode code points (as M5.a1).
+
+## M5.a1 — Production correction and error log (backend) ✅
 
 Branch `feat/m5a-errors-backend` from `origin/main` (`cbcc304`), six commits: the error log and categories, the
 review errors, the CLI errors commands, the AI correction, the AI-checked sentence production, then the docs. M5 is cut in four sessions (D-130). **One migration**
@@ -1436,12 +1560,12 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: merge M5.a1, then M5.a2
+## Next step: merge M5.a2, then M5.a3
 
-- Run the owner's manual scenario of M5.a1, approve the departures (D-127: migration 0002 and the review link
-  of the errors), and merge `feat/m5a-errors-backend` once CI is green.
-- M5.a2 (backend): transcript analysis, targeted drills, cards made from errors, suggestions for recurring errors,
-  the demo's errors through the services. Then M5.b and M5.c (the screens, on the API reference above).
+- Run the owner's manual scenario of M5.a2, approve the remaining departures (demo fingerprint, taxonomy v3), open the
+  PR of `feat/m5a2-transcripts-drills` and merge it once CI is green.
+- M5.a3 (backend): cards made from errors, suggestions for recurring errors, the demo's errors through the services
+  (D-138). Then M5.b and M5.c (the screens, on the API references of M5.a1 and M5.a2).
 - Before or alongside: the owner's real calls (M2.c2 and M3.c3 scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
