@@ -11,19 +11,22 @@ from app.ai.types import (
     ProviderError,
     ProviderRequest,
     ProviderResponse,
+    TranscriptionDetails,
     TranscriptionRequest,
 )
 
 
 @dataclass
 class Success:
-    """A successful answer. `content` is serialised to JSON when it is not already a string."""
+    """A successful answer. `content` is serialised to JSON when it is not already a string;
+    `transcription` plays a transcription's duration and segments."""
 
     content: Any = field(default_factory=lambda: {"ok": True, "echo": "ping"})
     input_tokens: int | None = 10
     output_tokens: int | None = 5
     model: str | None = None
     latency_s: float = 0.0
+    transcription: TranscriptionDetails | None = None
 
 
 @dataclass
@@ -101,4 +104,5 @@ class FakeProvider:
             model=step.model or self.model,
             input_tokens=step.input_tokens,
             output_tokens=step.output_tokens,
+            transcription=step.transcription,
         )
