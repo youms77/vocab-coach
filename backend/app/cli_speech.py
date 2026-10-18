@@ -98,9 +98,9 @@ def render_comparison(target: str, heard: str, comparison: Comparison) -> str:
 
 def _report(result: speech.SpeechResult, target: str, file: Path | None) -> int:
     seconds = f"{result.audio_seconds:g} s" if result.audio_seconds is not None else "length ?"
-    print(f"Production #{result.production_id} ({seconds}).")
+    print(f"Production #{result.production_id} ({seconds}).", flush=True)
     if file is not None:
-        print(f"Recording: {file}")
+        print(f"Recording: {file}", flush=True)
     outcome = result.transcription
     if outcome.status == "unavailable":
         print(
