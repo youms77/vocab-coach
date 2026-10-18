@@ -17,6 +17,9 @@ import { TriagePage } from './features/library/TriagePage'
 import { QueuePage } from './features/queue/QueuePage'
 import { SessionPage } from './features/session/SessionPage'
 import { SettingsPage } from './features/settings/SettingsPage'
+import { TranscriptDetailPage } from './features/transcripts/TranscriptDetailPage'
+import { TranscriptHistoryPage } from './features/transcripts/TranscriptHistoryPage'
+import { TranscriptPage } from './features/transcripts/TranscriptPage'
 import { WritingDetailPage } from './features/writing/WritingDetailPage'
 import { WritingHistoryPage } from './features/writing/WritingHistoryPage'
 import { WritingPage } from './features/writing/WritingPage'
@@ -40,6 +43,9 @@ export const routes: RouteObject[] = [
       { path: 'writing', element: <WritingPage /> },
       { path: 'writing/history', element: <WritingHistoryPage /> },
       { path: 'writing/:id', element: <WritingDetailPage /> },
+      { path: 'transcripts', element: <TranscriptPage /> },
+      { path: 'transcripts/history', element: <TranscriptHistoryPage /> },
+      { path: 'transcripts/:id', element: <TranscriptDetailPage /> },
       { path: 'errors', element: <ErrorsPage /> },
       { path: 'errors/new', element: <ManualErrorPage /> },
       { path: 'errors/categories', element: <CategoriesPage /> },

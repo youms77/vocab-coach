@@ -249,7 +249,10 @@
     "category_not_proposed": "This category is no longer waiting for a decision.",
     "unknown_category": "This category cannot be used: choose an active one.",
     "invalid_error": "This error cannot be saved.",
-    "category_exists": "A category with this code already exists."
+    "category_exists": "A category with this code already exists.",
+    "transcript_mismatch": "The conversation you pasted does not match the turns saved for this transcript. Paste the same conversation and choose the same turns as the first time. Your text is kept below.",
+    "invalid_transcript": "This conversation cannot be used.",
+    "text_too_long_transcript": "This conversation is too long: at most 60,000 pasted characters and 6,000 characters in your own turns."
   },
   "home": {
     "title": "Welcome",
@@ -1142,7 +1145,12 @@
     "targetDisagreement": "The AI and the text search disagree about whether this term was used.",
     "proposedTitle": "The AI proposed a new category",
     "proposedBody": "“{{label}}” ({{code}}) is waiting for your decision.",
-    "proposedLink": "Review the proposed categories"
+    "proposedLink": "Review the proposed categories",
+    "yourTurns": "Your turns, with the errors marked",
+    "turn": "Your turn {{n}}",
+    "contextSent": "Analysed with the other speaker's context: the end of the turn before each of yours was read.",
+    "contextNotSent": "Analysed without the other speaker's context.",
+    "noErrorsTurns": "No errors found in your turns."
   },
   "writing": {
     "title": "Writing",
@@ -1210,6 +1218,121 @@
       "corrected": "Corrected",
       "notCorrected": "Not corrected",
       "mixed": "This list also holds the personal sentences of the discovery and the sentences you wrote in reviews: the topic column tells them apart."
+    },
+    "transcriptLink": "Analyse a conversation transcript"
+  },
+  "transcripts": {
+    "title": "Conversation transcript",
+    "intro": "Paste a conversation, for example a voice session with ChatGPT, and say which turns are yours. Only your own errors are analysed, turn by turn, and added to your error log.",
+    "historyLink": "My analysed conversations",
+    "writingLink": "Write a text instead",
+    "paste": {
+      "label": "The conversation",
+      "chars": "{{chars}} / {{max}} characters",
+      "tooLong": "This text has {{chars}} characters and the limit is {{max}}. Shorten it before the preview.",
+      "preview": "Preview",
+      "previewing": "Reading…",
+      "stale": "The text changed since the preview. Preview it again."
+    },
+    "picker": {
+      "legend": "Which turns are yours?",
+      "labelsHint": "Choose the speaker label that is you.",
+      "modesHint": "This text has no speaker labels, so each paragraph is a turn. Say which turns are yours.",
+      "choose": "Choose one to continue.",
+      "labelMeta_one": "{{count}} turn · {{words}} words",
+      "labelMeta_other": "{{count}} turns · {{words}} words",
+      "known": {
+        "user": "usually you",
+        "other": "usually the other speaker"
+      },
+      "modes": {
+        "alternating_user_first": "I speak first",
+        "alternating_user_second": "I speak second",
+        "all_mine": "All of it is mine"
+      },
+      "single": "“{{label}}” has only one turn. A line that starts with a word and a colon, such as “Note:”, opens a new turn. If “{{label}}” is not a speaker, remove the colon in your text and preview it again."
+    },
+    "preview": {
+      "problemsTitle": "Things to know",
+      "turnsTitle": "Turns",
+      "turn": "Turn {{n}}",
+      "you": "You",
+      "other": "Other speaker",
+      "line": "line {{line}}",
+      "severity": {
+        "info": "Note",
+        "warning": "Warning",
+        "error": "Error"
+      },
+      "yours": "Your turns: {{turns}} · {{words}} words · {{chars}} / {{max}} characters"
+    },
+    "problems": {
+      "empty_text": "There is no text to analyse.",
+      "too_large": "The text is too long: at most 60,000 pasted characters, and at most 6,000 characters in your own turns.",
+      "no_speaker_labels": "No speaker labels were found: each paragraph is a turn. Say which turns are yours.",
+      "single_speaker": "Only one speaker was found.",
+      "unlabelled_text": "Some text comes before the first speaker label. It is kept as a turn that is not yours.",
+      "empty_turn": "This turn is empty and is ignored.",
+      "unknown_label": "The speaker label you chose is not in the text.",
+      "no_user_turns": "None of the turns is yours with this choice."
+    },
+    "reasons": {
+      "future_date": "The date of the conversation is in the future.",
+      "title_too_long": "The title is too long."
+    },
+    "meta": {
+      "title": "Details (optional)",
+      "titleLabel": "Title",
+      "titleChars": "{{chars}} / {{max}} characters",
+      "date": "Date of the conversation",
+      "dateHint": "Leave it empty for today.",
+      "dateFuture": "This date is in the future."
+    },
+    "privacy": {
+      "title": "Before you save",
+      "body": "Only your turns are saved. To analyse them, your turns and the end of the other speaker's turn that comes before each of them ({{chars}} characters at most) are sent to the AI provider. On a free plan, this content may be used to improve its models."
+    },
+    "save": "Save and analyse",
+    "saving": "Saving…",
+    "saveHint": "Preview the text and choose your turns first; then you can save.",
+    "detail": {
+      "title": "Your conversation and its analysis",
+      "loading": "Loading…",
+      "words_one": "{{count}} word of yours",
+      "words_other": "{{count}} words of yours",
+      "onlyYours": "Only your turns are saved.",
+      "analyseAnother": "Analyse another conversation",
+      "allTranscripts": "All my conversations",
+      "statusTitle": "Analysis status",
+      "analysing": "Analysing your turns… {{seconds}} s",
+      "analysingShort": "Analysing… {{seconds}} s",
+      "analysingHint": "A long conversation needs several AI calls and can take a few minutes. Your turns are saved: you can wait here.",
+      "notAnalysed": "Your turns are saved but were not analysed.",
+      "notAnalysedIncomplete": "Your turns are saved but were not analysed: the AI's answer could not be used.",
+      "notAnalysedReason": "Your turns are saved but were not analysed: {{reason}}.",
+      "tryAgain": "Try again",
+      "noMemory": "The conversation you pasted is not kept after a reload, so the other speaker's turns cannot be sent as context. Analyse your turns without that context, or paste the conversation again.",
+      "withoutContext": "Analyse without the other speaker's context",
+      "pasteAgain": "Paste the conversation again",
+      "analyseWithPaste": "Analyse with this conversation",
+      "analysisLabel": "Analysis",
+      "ready_one": "Analysis ready: {{count}} error found.",
+      "ready_other": "Analysis ready: {{count}} errors found.",
+      "readyNoErrors": "Analysis ready: no errors found."
+    },
+    "history": {
+      "title": "My conversations",
+      "intro": "The conversations you recorded, newest first.",
+      "empty": "No conversation yet. Paste the first one.",
+      "count_one": "{{count}} conversation",
+      "count_other": "{{count}} conversations",
+      "date": "Date",
+      "titleColumn": "Title",
+      "words": "Your words",
+      "status": "Status",
+      "analysed": "Analysed",
+      "notAnalysed": "Not analysed",
+      "untitled": "Untitled conversation"
     }
   },
   "errorLog": {

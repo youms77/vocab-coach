@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ApiError, apiGet, apiSend } from './client'
 import type { ErrorOut } from './errors'
@@ -70,9 +70,19 @@ export interface TargetCheck {
   disagreement: boolean
 }
 
+/** A unit of a transcript: a user turn, or a piece of a long one (`turn` is 0-based, D-133). */
+export interface TranscriptUnit {
+  index: number
+  turn: number
+  start: number
+  end: number
+  opens_turn: boolean
+}
+
 /**
- * `format: "correction-1"` is the written correction. Any other format (a transcript's
- * `transcript-1` arrives in M5.c) is shown as plain text by the correction view.
+ * `format: "correction-1"` is the written correction; `"transcript-1"` has the same keys plus
+ * `units`, `context_sent` and `calls` (units play the part of sentences, D-134). Any other format
+ * is shown as plain text by the correction view.
  */
 export interface Feedback {
   format: string
@@ -83,6 +93,9 @@ export interface Feedback {
   spans?: Span[]
   error_event_ids?: number[]
   targets?: TargetCheck[]
+  units?: TranscriptUnit[]
+  context_sent?: boolean
+  calls?: { ai_call_id: number | null; provider: string | null; model: string | null; units: number[] }[]
 }
 
 export interface Production {
@@ -183,6 +196,22 @@ export function useProductions(kind: string, page: number) {
   })
 }
 
+/** What a successful correction changes: the production, the lists, the error log and the counts. */
+export function applyCorrection(queryClient: QueryClient, result: CorrectionResult) {
+  if (result.status !== 'ok') return
+  queryClient.setQueryData([...productionsKey, 'detail', result.attempt.id], result.attempt)
+  void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
+  void queryClient.invalidateQueries({ queryKey: ['error-categories'] })
+  void queryClient.invalidateQueries({ queryKey: ['errors'] })
+}
+
+/** Corrected meanwhile (another tab, or a retry that did succeed): show what is stored. */
+export function applyCorrectionError(queryClient: QueryClient, error: unknown, id: number) {
+  if (error instanceof ApiError && error.code === 'already_corrected') {
+    void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'detail', id] })
+  }
+}
+
 /**
  * Corrects a production with the AI. It takes 2 to 60 s: the caller disables its button while
  * this runs. A corrected production changes the error log and the category counts too.
@@ -191,19 +220,8 @@ export function useCorrectProduction() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => apiSend<CorrectionResult>('POST', `/productions/${id}/correct`),
-    onError: (error, id) => {
-      // Corrected meanwhile (another tab, or a retry that did succeed): show what is stored.
-      if (error instanceof ApiError && error.code === 'already_corrected') {
-        void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'detail', id] })
-      }
-    },
-    onSuccess: (result) => {
-      if (result.status !== 'ok') return
-      queryClient.setQueryData([...productionsKey, 'detail', result.attempt.id], result.attempt)
-      void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
-      void queryClient.invalidateQueries({ queryKey: ['error-categories'] })
-      void queryClient.invalidateQueries({ queryKey: ['errors'] })
-    },
+    onError: (error, id) => applyCorrectionError(queryClient, error, id),
+    onSuccess: (result) => applyCorrection(queryClient, result),
   })
 }
 

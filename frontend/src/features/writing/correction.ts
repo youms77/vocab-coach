@@ -11,8 +11,8 @@ import { type MarkRange, type Segment, segment, toUtf16Ranges } from './spans'
 
 /*
  * The neutral shape the correction view draws. `readFeedback` is the only place that knows the
- * stored format: "correction-1" today; M5.c adds "transcript-1" (the same keys plus `units`) as a
- * second branch of the switch, with no change to the view.
+ * stored format: "correction-1" (a written text) and "transcript-1" (the same keys plus `units`,
+ * where units play the part of sentences and are grouped by the user's turn, D-151).
  */
 
 export interface ErrorEntry {
@@ -33,7 +33,8 @@ export interface ErrorEntry {
 }
 
 export interface ErrorGroup {
-  sentenceIndex: number
+  /** The sentence number of a text, or the number of your turn (from 1) in a transcript. */
+  number: number
   errors: ErrorEntry[]
 }
 
@@ -47,6 +48,8 @@ export interface TargetEntry {
 }
 
 export interface CorrectionModel {
+  /** `text` is a written paragraph; `transcript` is your turns of a conversation. */
+  kind: 'text' | 'transcript'
   overall: string
   /** The original text cut into plain and highlighted segments. */
   segments: Segment[]
@@ -55,6 +58,10 @@ export interface CorrectionModel {
   entries: ErrorEntry[]
   groups: ErrorGroup[]
   sentenceCount: number
+  /** Sentence number (text) or your turn number (transcript) of a unit / sentence index. */
+  numberOf: (sentenceIndex: number) => number
+  /** Transcript only: whether the other speaker's turns were sent as context (null for a text). */
+  contextSent: boolean | null
   notes: NaturalnessNote[]
   correctedText: string
   naturalText: string | null
@@ -83,7 +90,11 @@ function targetEntries(
   }))
 }
 
-function fromCorrection1(source: CorrectionSource, feedback: Feedback): CorrectionModel | null {
+function fromOutput(
+  source: CorrectionSource,
+  feedback: Feedback,
+  kind: 'text' | 'transcript',
+): CorrectionModel | null {
   const output: CorrectionOutput | undefined = feedback.output
   if (output === undefined || !Array.isArray(output.errors)) return null
   const logged = new Map<number, ErrorOut>()
@@ -93,6 +104,10 @@ function fromCorrection1(source: CorrectionSource, feedback: Feedback): Correcti
     if (index >= 0) logged.set(index, error)
   }
   const checks = feedback.targets ?? []
+  // A transcript's units are numbered over the whole conversation: the reader sees "Your turn k".
+  const turnOf = new Map((feedback.units ?? []).map((unit) => [unit.index, unit.turn + 1]))
+  const numberOf = (sentenceIndex: number) =>
+    kind === 'transcript' ? (turnOf.get(sentenceIndex) ?? sentenceIndex) : sentenceIndex
 
   const entries: ErrorEntry[] = output.errors.map((error, index) => {
     const row = logged.get(index) ?? null
@@ -115,23 +130,27 @@ function fromCorrection1(source: CorrectionSource, feedback: Feedback): Correcti
 
   const groups: ErrorGroup[] = []
   for (const entry of entries) {
-    let group = groups.find((g) => g.sentenceIndex === entry.sentenceIndex)
+    const number = numberOf(entry.sentenceIndex)
+    let group = groups.find((g) => g.number === number)
     if (group === undefined) {
-      group = { sentenceIndex: entry.sentenceIndex, errors: [] }
+      group = { number, errors: [] }
       groups.push(group)
     }
     group.errors.push(entry)
   }
-  groups.sort((a, b) => a.sentenceIndex - b.sentenceIndex)
+  groups.sort((a, b) => a.number - b.number)
 
   const ranges = toUtf16Ranges(source.text, feedback.spans ?? [])
   return {
+    kind,
     overall: output.overall_comment?.trim() ?? '',
     segments: segment(source.text, ranges),
     ranges,
     entries,
     groups,
     sentenceCount: output.sentences?.length ?? 0,
+    numberOf,
+    contextSent: kind === 'transcript' ? (feedback.context_sent ?? false) : null,
     notes: output.naturalness_notes ?? [],
     correctedText: output.corrected_text ?? '',
     naturalText: output.natural_text ?? null,
@@ -146,7 +165,9 @@ export function readFeedback(source: CorrectionSource): CorrectionModel | null {
   if (feedback === null) return null
   switch (feedback.format) {
     case 'correction-1':
-      return fromCorrection1(source, feedback)
+      return fromOutput(source, feedback, 'text')
+    case 'transcript-1':
+      return fromOutput(source, feedback, 'transcript')
     default:
       return null
   }
