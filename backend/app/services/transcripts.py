@@ -351,6 +351,92 @@ def merged_output(units: list[Unit], results: list[ChunkResult]) -> dict[str, An
     }
 
 
+def store_analysis(
+    session: Session, prepared: Prepared, results: list[ChunkResult], *, at: datetime
+) -> Written:
+    """Write the analysis in the caller's transaction (no commit): the feedback, one error event
+    per error, the categories the AI proposed and `production.corrected`. The AI path and the
+    demo's fictional analyses both come through here. Raises ProductionNotFound,
+    AlreadyCorrected."""
+    written = Written()
+    errors = [error for result in results for error in result.output.errors]
+    unit_text = {unit.index: unit.text for unit in prepared.units}
+    errors_at = prepared.errors_at or at
+    first = results[0]
+    attempt = session.get(ProductionAttempt, prepared.attempt_id)
+    if attempt is None:
+        raise ProductionNotFound(f"There is no production {prepared.attempt_id}.")
+    if attempt.ai_feedback is not None:
+        raise AlreadyCorrected("This transcript was already analysed.")
+    for error in errors:
+        category = category_for(session, error, attempt.id, at, written)
+        event = error_log.record_error(
+            session,
+            source=ErrorSource.TRANSCRIPT,
+            category=category,
+            erroneous_text=error.wrong,
+            correction=error.correction,
+            at=errors_at,
+            original_text=unit_text[error.unit_index],
+            alternatives=error.alternatives,
+            explanation=error.explanation_en,
+            production_attempt_id=attempt.id,
+            study_session_id=attempt.study_session_id,
+        )
+        written.error_ids.append(event.id)
+    attempt.ai_feedback = {
+        "format": FEEDBACK_FORMAT,
+        "prompt_version": first.prompt_version,
+        "provider": first.provider,
+        "model": first.model,
+        "output": merged_output(prepared.units, results),
+        "units": [
+            {
+                "index": u.index,
+                "turn": u.turn,
+                "start": u.start,
+                "end": u.end,
+                "opens_turn": u.opens_turn,
+            }
+            for u in prepared.units
+        ],
+        "spans": spans_of(prepared.units, errors),
+        "error_event_ids": list(written.error_ids),
+        "targets": [],
+        "context_sent": bool(prepared.contexts),
+        "calls": [
+            {
+                "ai_call_id": r.call_id,
+                "provider": r.provider,
+                "model": r.model,
+                "units": [r.units[0].index, r.units[-1].index],
+            }
+            for r in results
+        ],
+    }
+    attempt.ai_call_id = results[-1].call_id
+    attempt.updated_at = at
+    record_event(
+        session,
+        ProductionCorrected(
+            production_attempt_id=attempt.id,
+            word_count=attempt.word_count,
+            sentence_count=len(prepared.units),
+            error_count=len(errors),
+            naturalness_note_count=sum(len(r.output.naturalness_notes) for r in results),
+            targets=0,
+            targets_used_correctly=0,
+            provider=first.provider or "unknown",
+            model=first.model or "unknown",
+            prompt_version=first.prompt_version or f"{TASK}.v1",
+            ai_call_id=results[-1].call_id,
+        ),
+        occurred_at=at,
+        study_session_id=attempt.study_session_id,
+    )
+    return written
+
+
 def _write(
     session_factory: SessionFactory,
     prepared: Prepared,
@@ -359,83 +445,8 @@ def _write(
     at: datetime,
 ) -> Written:
     """The one write transaction. Raises ProductionNotFound, AlreadyCorrected."""
-    written = Written()
-    errors = [error for result in results for error in result.output.errors]
-    unit_text = {unit.index: unit.text for unit in prepared.units}
-    errors_at = prepared.errors_at or at
-    first = results[0]
     with session_factory() as session:
-        attempt = session.get(ProductionAttempt, prepared.attempt_id)
-        if attempt is None:
-            raise ProductionNotFound(f"There is no production {prepared.attempt_id}.")
-        if attempt.ai_feedback is not None:
-            raise AlreadyCorrected("This transcript was already analysed.")
-        for error in errors:
-            category = category_for(session, error, attempt.id, at, written)
-            event = error_log.record_error(
-                session,
-                source=ErrorSource.TRANSCRIPT,
-                category=category,
-                erroneous_text=error.wrong,
-                correction=error.correction,
-                at=errors_at,
-                original_text=unit_text[error.unit_index],
-                alternatives=error.alternatives,
-                explanation=error.explanation_en,
-                production_attempt_id=attempt.id,
-                study_session_id=attempt.study_session_id,
-            )
-            written.error_ids.append(event.id)
-        attempt.ai_feedback = {
-            "format": FEEDBACK_FORMAT,
-            "prompt_version": first.prompt_version,
-            "provider": first.provider,
-            "model": first.model,
-            "output": merged_output(prepared.units, results),
-            "units": [
-                {
-                    "index": u.index,
-                    "turn": u.turn,
-                    "start": u.start,
-                    "end": u.end,
-                    "opens_turn": u.opens_turn,
-                }
-                for u in prepared.units
-            ],
-            "spans": spans_of(prepared.units, errors),
-            "error_event_ids": list(written.error_ids),
-            "targets": [],
-            "context_sent": bool(prepared.contexts),
-            "calls": [
-                {
-                    "ai_call_id": r.call_id,
-                    "provider": r.provider,
-                    "model": r.model,
-                    "units": [r.units[0].index, r.units[-1].index],
-                }
-                for r in results
-            ],
-        }
-        attempt.ai_call_id = results[-1].call_id
-        attempt.updated_at = at
-        record_event(
-            session,
-            ProductionCorrected(
-                production_attempt_id=attempt.id,
-                word_count=attempt.word_count,
-                sentence_count=len(prepared.units),
-                error_count=len(errors),
-                naturalness_note_count=sum(len(r.output.naturalness_notes) for r in results),
-                targets=0,
-                targets_used_correctly=0,
-                provider=first.provider or "unknown",
-                model=first.model or "unknown",
-                prompt_version=first.prompt_version or f"{TASK}.v1",
-                ai_call_id=results[-1].call_id,
-            ),
-            occurred_at=at,
-            study_session_id=attempt.study_session_id,
-        )
+        written = store_analysis(session, prepared, results, at=at)
         session.commit()
     return written
 

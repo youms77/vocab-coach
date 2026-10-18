@@ -172,6 +172,62 @@ def _inputs(prepared: Prepared) -> dict[str, str]:
     }
 
 
+def store_drill(
+    session: Session,
+    code: str,
+    output: TargetedDrillOutput,
+    *,
+    provenance: tuple[str | None, str | None, str | None],
+    ai_call_id: int | None,
+    study_session_id: int | None,
+    at: datetime,
+) -> ProductionAttempt:
+    """Write a drill in the caller's transaction (no commit): the production holding the items
+    and their solutions, and `drill.generated`. The AI path and the demo's fictional drills both
+    come through here. Raises CategoryNotFound, NotDrillable."""
+    provider, model, prompt_version = provenance
+    drillable_category(session, code)  # still active
+    attempt = ProductionAttempt(
+        kind=ProductionKind.DRILL,
+        modality=Modality.WRITTEN,
+        prompt_text=code,
+        text="",
+        word_count=0,
+        ai_feedback={
+            "format": FEEDBACK_FORMAT,
+            "prompt_version": prompt_version,
+            "provider": provider,
+            "model": model,
+            "category_code": code,
+            "rule_en": output.rule_en,
+            "rule_fr": output.rule_fr,
+            "items": [item.model_dump(mode="json") for item in output.items],
+            "answers": [],
+        },
+        ai_call_id=ai_call_id,
+        study_session_id=study_session_id,
+        created_at=at,
+        updated_at=at,
+    )
+    session.add(attempt)
+    session.flush()
+    record_event(
+        session,
+        DrillGenerated(
+            drill_id=attempt.id,
+            category_code=code,
+            items=len(output.items),
+            provider=provider or "unknown",
+            model=model or "unknown",
+            prompt_version=prompt_version or f"{TASK}.v1",
+            ai_call_id=ai_call_id,
+        ),
+        occurred_at=at,
+        study_session_id=study_session_id,
+    )
+    return attempt
+
+
 @dataclass(frozen=True)
 class GenerationResult:
     status: Literal["ok", "incomplete", "unavailable"]
@@ -209,44 +265,14 @@ def generate_drill(
     output = result.data
     at = as_utc(clock())
     with session_factory() as session:
-        drillable_category(session, prepared.code)  # still active
-        attempt = ProductionAttempt(
-            kind=ProductionKind.DRILL,
-            modality=Modality.WRITTEN,
-            prompt_text=prepared.code,
-            text="",
-            word_count=0,
-            ai_feedback={
-                "format": FEEDBACK_FORMAT,
-                "prompt_version": result.prompt_version,
-                "provider": result.provider,
-                "model": result.model,
-                "category_code": prepared.code,
-                "rule_en": output.rule_en,
-                "rule_fr": output.rule_fr,
-                "items": [item.model_dump(mode="json") for item in output.items],
-                "answers": [],
-            },
+        attempt = store_drill(
+            session,
+            prepared.code,
+            output,
+            provenance=(result.provider, result.model, result.prompt_version),
             ai_call_id=result.call_id,
             study_session_id=prepared.study_session_id,
-            created_at=at,
-            updated_at=at,
-        )
-        session.add(attempt)
-        session.flush()
-        record_event(
-            session,
-            DrillGenerated(
-                drill_id=attempt.id,
-                category_code=prepared.code,
-                items=len(output.items),
-                provider=result.provider or "unknown",
-                model=result.model or "unknown",
-                prompt_version=result.prompt_version or f"{TASK}.v1",
-                ai_call_id=result.call_id,
-            ),
-            occurred_at=at,
-            study_session_id=prepared.study_session_id,
+            at=at,
         )
         session.commit()
         drill_id = attempt.id
