@@ -164,7 +164,10 @@ A progressive method, once per term:
   other speaker's.
 - **Targeted practice**: exercises generated for a specific category (for example 10 gap-fill sentences on
   at/on/in with places), with an explanation of the rule; results are logged too.
-- Rules and tricky pairs the user often gets wrong can become FSRS cards ("at university").
+- Rules and tricky pairs the user often gets wrong can become FSRS cards ("at university"). *(approved by owner,
+  M5.a3)* A card made from an error has **one productive card** (not the receptive + productive pair of module C):
+  the exercise is a gap-fill built from the sentence of the error, and the app suggests the errors that recur
+  (the same wrong form corrected the same way at least twice). No AI is needed (D-163, D-164).
 
 ### Module F — Speaking
 

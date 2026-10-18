@@ -55,6 +55,8 @@ class EventType(StrEnum):
     ERROR_RECORDED = "error.recorded"
     ERROR_UPDATED = "error.updated"
     ERROR_DELETED = "error.deleted"
+    ERROR_CARD_CREATED = "error.card_created"
+    ERROR_SUGGESTION_DISMISSED = "error.suggestion_dismissed"
     ERROR_CATEGORY_CREATED = "error_category.created"
     ERROR_CATEGORY_PROPOSED = "error_category.proposed"
     ERROR_CATEGORY_RESOLVED = "error_category.resolved"
@@ -488,6 +490,36 @@ class ErrorDeleted(Event):
     error_event_id: Id
     category_code: str
     source: ErrorSource
+
+
+class ErrorCardCreated(Event):
+    """A term and its card made from an error of the log (M5.a3). `recurrence` is the number of
+    identical errors (same wrong form, same correction) the log held at that moment."""
+
+    event_type = EventType.ERROR_CARD_CREATED
+    entity_type = "error_event"
+    entity_id_field = "error_event_id"
+
+    error_event_id: Id
+    lexical_item_id: Id
+    card_id: Id
+    deck_id: Id
+    category_code: str
+    source: ErrorSource
+    recurrence: Annotated[int, Field(ge=1)]
+
+
+class ErrorSuggestionDismissed(Event):
+    """The user does not want a card for a recurring error: `key` identifies the pair (see
+    `domain/error_cards.pair_key`), `error_event_id` is its latest occurrence at that moment."""
+
+    event_type = EventType.ERROR_SUGGESTION_DISMISSED
+    entity_type = "error_event"
+    entity_id_field = "error_event_id"
+
+    error_event_id: Id
+    key: Annotated[str, Field(min_length=1, max_length=700)]
+    count: Annotated[int, Field(ge=1)]
 
 
 class ErrorCategoryCreated(Event):

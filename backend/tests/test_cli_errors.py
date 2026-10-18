@@ -98,3 +98,32 @@ def test_categories_and_proposed(db_file: Path, capsys: pytest.CaptureFixture[st
     out = capsys.readouterr().out
     assert "grammar.preposition.campus  Campus / Campus" in out
     assert "fixed_expression" not in out
+
+
+def test_card_suggestions_and_dismiss(db_file: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    capsys.readouterr()
+    assert main(["errors", "suggestions"]) == 0
+    assert "No recurring error without a card." in capsys.readouterr().out
+    assert main(ADD) == 0
+    assert main(ADD) == 0
+    capsys.readouterr()
+
+    assert main(["errors", "suggestions"]) == 0
+    out = capsys.readouterr().out
+    assert "2x  in campus -> on campus  [errors card 2]" in out
+    assert "key: in campus => on campus" in out
+
+    assert main(["errors", "card", "2", "--term", "x y z u v w t"]) == 1
+    assert "(invalid_term)" in capsys.readouterr().err
+    assert main(["errors", "card", "2"]) == 0
+    out = capsys.readouterr().out
+    assert "'on campus' made from error #2." in out
+    assert "exercise: I live ___ campus." in out
+    assert main(["errors", "card", "2"]) == 1  # one card per error
+    assert "already is a card of this error" in capsys.readouterr().err
+    assert main(["errors", "card", "9"]) == 2
+
+    assert main(["errors", "suggestions"]) == 0
+    assert "No recurring error without a card." in capsys.readouterr().out
+    assert main(["errors", "dismiss", "in campus => on campus"]) == 2  # a card hides it: not found
+    assert main(["errors", "show", "2"]) == 0

@@ -1,7 +1,7 @@
 # Fictional production prompts for the demo seed (D-033): writing and speaking topics, plus
 # correct sentences used to fill the simulated texts up to their word count. Written for the demo.
 
-dataset_version: 2
+dataset_version: 3
 
 prompts:
   - kind: writing
@@ -56,3 +56,13 @@ fillers:
   - "I explained that it depends on why the data are missing."
   - "Overall, I am more confident than at the start of the year."
   - "There is still a lot to learn, but I can see some progress."
+
+# What the other speaker of a simulated conversation says between two turns of the learner
+# (fictional; the demo's transcripts are `You:` / `Tutor:` conversations).
+tutor_lines:
+  - "Hi! Let's warm up. Tell me about your week."
+  - "Interesting. Can you say more about that?"
+  - "That sounds useful. What did you learn from it?"
+  - "I see. And how did your supervisor react?"
+  - "Good. What will you do next?"
+  - "Thanks for sharing. Is there anything you would change?"

@@ -2443,3 +2443,93 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   and never shows a solution before an answer.
 - Run Vitest from `frontend/` (`npx vitest run ...`) or through `npm run check`: `npm --prefix frontend exec -- vitest`
   from the repository root gave a jsdom setup error in this session.
+
+## D-163 — Cards made from errors (M5.a3; departure from "two cards per term" approved with the plan)
+
+- **One error, one term, one productive card.** `POST /api/errors/{id}/card` (`services/error_cards.py`,
+  `domain/error_cards.py`) creates a `lexical_item` (`origin_error_event_id` = the error, `item.created` origin `error`,
+  `discovered_at` set), links it to the deck "Error cards" (`kind = error_drill`, created and activated with the first
+  card), writes a small usage sheet, one `gap_fill` template and **one productive card** due at the start of the next
+  study day (like a discovery). Events: `item.created`, `deck.item_added`, `item.status_changed`, `card.created` and the
+  new `error.card_created {error_event_id, lexical_item_id, card_id, deck_id, category_code, source, recurrence}`.
+  No receptive card (the departure from SPEC module C, approved by the owner and written in SPEC module E): a grammar
+  rule has no recognition exercise without an AI and a receptive self-assessment would only add workload.
+- **No AI**, so the card exists in degraded mode. The term is the correction; for a long correction (a sentence, from a
+  drill error) it is the changed words with one word of context on each side, and `term` in the request overrides it
+  (at most 6 words and 60 characters). The exercise is the sentence the error came from with the wrong form replaced
+  by the correction and **only the changed words blanked** ("live ___ campus"): blanking the whole term would leave
+  nothing to guess from. When the correction only removes words, the whole fragment is blanked.
+- **A card always has its sentence**: an error without an original sentence (a manual one) is refused with 422
+  `not_cardable` `reason: no_context` unless the request gives a `sentence` that contains the correction
+  (`invalid_sentence` otherwise). Other reasons: `no_correction`, `too_long`, `invalid_term`. 409 `card_exists` (+
+  `item_id`) when the error already has a card or the term is already in the library; 404 `error_not_found`.
+- **The wrong form is a pitfall of the sheet.** `grade_typed` tolerates one edit from four characters on, so "in campus"
+  typed for "on campus" would be a typo (Hard). The sheet lists the wrong fragment and the wrong changed words as
+  `french_speaker_pitfalls`, which makes them `wrong` answers (tested: "in" for "on" is `wrong`, never `typo`).
+  `review_flow._origin_category`: when a review falls into such a pitfall, the review error keeps the **category of the
+  origin error** (a preposition stays a preposition) instead of `lexis.wrong_word` / `lexis.collocation`.
+- The sheet's definition is the error's explanation (or "Say X, not Y"), saved by the new
+  `enrichment.store_generated_sheet` (provider `error`, prompt version `error-card-v1`), **not** by `save_sheet`: that one
+  derives a typed-recall template whose cue would be the rule, which contains the answer. Templates have origin `user`.
+- New transition kind `FROM_ERROR` (`draft -> learning`) in `ITEM_TRANSITIONS`: the term skips discovery (the user met the
+  error and its correction already) and does not use the daily quota of new terms.
+- The error row is not changed (no `lexical_item_id` written on it); `ErrorOut.card = {id, term} | null` is read from
+  `origin_error_event_id` (additive field).
+
+## D-164 — Suggestions for recurring errors (M5.a3)
+
+- **Recurring** = the same wrong form corrected the same way at least twice (default `min_count` 2): the key is
+  `"<wrong> => <correction>"` once lower-cased, with one apostrophe and words only (`pair_key`). Errors of source `drill`
+  are left out (D-137: a drill's mistakes are the generator's sentences, not habits). Deterministic, no AI.
+- `GET /api/errors/suggestions?min_count=&limit=` (1 to 50, default 20): `{suggestions: [{key, erroneous_text,
+  correction, category, count, first_at, last_at, error_id, sample_error_ids (5, newest first), term, cardable,
+  reason}]}`, the most frequent first, then the most recent, then the key. `error_id` is the newest error of the group
+  that can become a card (the one to send to `POST /errors/{id}/card`); a group none of whose errors can (no sentence)
+  is shown with `cardable: false` and its `reason`. Declared before `/errors/{error_id}` so the path is not read as an id.
+- A suggestion disappears when one of its errors has a card, when its term is already in the library, or when the user
+  dismissed it: `POST /api/errors/suggestions/dismiss {key}` writes `error.suggestion_dismissed {error_event_id, key,
+  count}` (no table, no migration; the event log is the memory). Idempotent (`{dismissed: false}` the second time); 404
+  `suggestion_not_found` for a key that is not a current suggestion. A dismissal stays: a new occurrence does not bring the
+  suggestion back (the owner's "no"). There is no way to undo it yet.
+- CLI: `errors card <id> [--term] [--sentence]`, `errors suggestions [--min-count] [--limit]`, `errors dismiss <key>`.
+
+## D-165 — `store_correction`, `store_analysis`, `store_drill` (M5.a3)
+
+- The write transaction of each AI task was a private `_write` that opened its own session. Each body is now a public
+  function that writes **in the caller's transaction, without committing**: `corrections.store_correction`,
+  `transcripts.store_analysis`, `drills.store_drill`. The AI paths call them from a short `with session_factory()` block
+  and commit exactly as before (behaviour unchanged: the whole test suite is the proof); the demo calls them inside its one
+  transaction. The rule "no write transaction during an AI call" is unchanged: the AI call still happens before.
+
+## D-166 — The demo goes through the services (M5.a3; narrows D-035)
+
+- **Dataset v3** (`content/demo/`): `explanation_fr` on the 59 error templates, `tutor_lines` (the other speaker of the
+  simulated conversations), `drills.yaml` (six drills of five items for six categories, with the learner's wrong answer
+  `wrong` for each gap-fill), and a full sheet for `tweak` (the term the last session leaves half discovered must have one).
+- `app/demo/fictional_ai.py` builds the outputs the AI tasks would have returned (correction, transcript chunk, drill) and
+  **validates them with the real Pydantic output models and validation contexts**, so a template that does not fit raises.
+  Provenance: provider `demo`, prompt versions `demo-correction-v1`, `demo-transcript-v1`, `demo-drill-v1`.
+- Written productions: `record_written_production` then `corrections.prepare` + `store_correction` (spans, `error_event_ids`,
+  `production.corrected`). Transcripts: `You:` / `Tutor:` conversations through `record_transcript`, `prepare` (with the
+  context) and `store_analysis`; spelling is left out as the real task does. Drills: `store_drill`, then `answer_item` for each
+  item (the learner's score rises from 50 % to 85 %); a drill every 6 to 10 worked days, the plan's targeted category when a
+  drill exists for it, never the same drill twice in a row; **the last session leaves one drill half answered**. Review
+  errors: `error_log.record_error`. Spoken productions: no service before M6, so `direct_writes.record_oral_production` is
+  the only direct write left (its errors still go through `error_log`).
+- **Cards from errors in the demo**: at about days -30 and -12 the learner makes up to two cards from the suggestions, and
+  dismisses one at day -12; the simulation reviews them with the other cards (their templates are registered).
+- The new random generator (`_drills`) is derived after the others, but the reviews of the new cards and the longer
+  sessions shift the older generators' draws: **the demo fingerprint changes** (D-137 already warned); determinism (same
+  seed, same fingerprint) and the other seeds' difference are still tested. Result for seed 42, 60 days, anchor 2026-09-01:
+  7 drills (6 finished, 1 open), 14 drill errors, 4 analysed transcripts, 8 corrected writings, 4 cards from errors, 1
+  dismissal.
+
+## D-167 — Small conventions met in M5.a3
+
+- The terms made from tense errors are the corrected fragment ("I haven't decided yet"): usable, but the cards fit fixed
+  expressions better. The user can give `term` and `sentence`. A smarter choice would need an AI and is left out.
+- If the user later edits the sheet of an error card with `save_sheet`, the derived typed-recall cue is the rule, which
+  contains the answer (known issue, D-163). Not handled here: the editing screens are not planned for these items.
+- The deck "Error cards" is an ordinary deck for the queue (it takes a queue position like the others); the screens show it
+  with `kind: error_drill`, which the frontend does not special-case yet.
+- `ErrorOut.card` is additive; the frontend types are untouched in this milestone.

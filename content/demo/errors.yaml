@@ -5,12 +5,13 @@
 #   wrong        -> the faulty part
 #   correction   -> what it should be
 #   alternatives -> 1 or 2 natural ways to say the whole sentence
+#   explanation  -> the rule in one English sentence; explanation_fr is its French version
 #   code         -> a code that exists in content/error_taxonomy.yaml (checked by the tests)
 #
 # `rates` gives, per code, the simulated number of errors per 100 words at the start and at the
 # end of the history (linear in between). Codes without a rate use `default_rate`.
 
-dataset_version: 2
+dataset_version: 3
 
 default_rate: 0.08
 
@@ -31,60 +32,70 @@ templates:
     correction: "on campus"
     alternatives: ["Most of my friends live on campus this year."]
     explanation: "With 'campus', English uses 'on': on campus."
+    explanation_fr: "Avec « campus », l'anglais emploie « on » : on campus."
   - code: grammar.preposition.fixed_expression
     original: "My sister is in university in Yaoundé."
     wrong: "in university"
     correction: "at university"
     alternatives: ["My sister is at university in Yaoundé.", "My sister studies at a university in Yaoundé."]
     explanation: "Being a student is 'at university' (British) or 'in college' (American)."
+    explanation_fr: "Être étudiant se dit « at university » (britannique) ou « in college » (américain)."
   - code: grammar.preposition.fixed_expression
     original: "On my opinion, the second model is better."
     wrong: "On my opinion"
     correction: "In my opinion"
     alternatives: ["In my opinion, the second model is better.", "I think the second model is better."]
     explanation: "The fixed phrase is 'in my opinion'."
+    explanation_fr: "L'expression figée est « in my opinion »."
   - code: grammar.preposition.fixed_expression
     original: "I did not delete the file by purpose."
     wrong: "by purpose"
     correction: "on purpose"
     alternatives: ["I did not delete the file on purpose.", "I didn't mean to delete the file."]
     explanation: "'On purpose' means intentionally; 'by purpose' does not exist."
+    explanation_fr: "« On purpose » veut dire exprès ; « by purpose » n'existe pas."
   - code: grammar.preposition.fixed_expression
     original: "Yesterday I stayed in home to revise."
     wrong: "in home"
     correction: "at home"
     alternatives: ["Yesterday I stayed at home to revise.", "Yesterday I stayed home to revise."]
     explanation: "Use 'at home' (or just 'home' after 'stay' in American English)."
+    explanation_fr: "On dit « at home » (ou simplement « home » après « stay » en américain)."
   - code: grammar.preposition.fixed_expression
     original: "She is on charge of the survey team."
     wrong: "on charge of"
     correction: "in charge of"
     alternatives: ["She is in charge of the survey team.", "She leads the survey team."]
     explanation: "Responsibility is expressed with 'in charge of'."
+    explanation_fr: "La responsabilité s'exprime avec « in charge of »."
   - code: grammar.preposition.fixed_expression
     original: "Sorry, I was at the phone with my supervisor."
     wrong: "at the phone"
     correction: "on the phone"
     alternatives: ["Sorry, I was on the phone with my supervisor."]
     explanation: "A call is 'on the phone'."
+    explanation_fr: "Un appel se dit « on the phone »."
   - code: grammar.preposition.fixed_expression
     original: "We work on pressure before every deadline."
     wrong: "on pressure"
     correction: "under pressure"
     alternatives: ["We work under pressure before every deadline."]
     explanation: "Stress is 'under pressure'."
+    explanation_fr: "Le stress se dit « under pressure »."
   - code: grammar.preposition.fixed_expression
     original: "I met my old teacher by hazard at the market."
     wrong: "by hazard"
     correction: "by chance"
     alternatives: ["I met my old teacher by chance at the market.", "I ran into my old teacher at the market."]
     explanation: "'By chance' means accidentally; 'hazard' means danger in English."
+    explanation_fr: "« By chance » veut dire par hasard ; « hazard » veut dire danger en anglais."
   - code: grammar.preposition.fixed_expression
     original: "He left on a hurry after the exam."
     wrong: "on a hurry"
     correction: "in a hurry"
     alternatives: ["He left in a hurry after the exam."]
     explanation: "The fixed phrase is 'in a hurry'."
+    explanation_fr: "L'expression figée est « in a hurry »."
 
   # --- grammar.preposition (other subcategories) -------------------------------------------
   - code: grammar.preposition.dependent
@@ -93,42 +104,49 @@ templates:
     correction: "depends on"
     alternatives: ["The result depends on the sample size."]
     explanation: "'Depend' takes 'on'."
+    explanation_fr: "« Depend » se construit avec « on »."
   - code: grammar.preposition.dependent
     original: "I am very interested by machine learning."
     wrong: "interested by"
     correction: "interested in"
     alternatives: ["I am very interested in machine learning."]
     explanation: "'Interested' takes 'in'."
+    explanation_fr: "« Interested » se construit avec « in »."
   - code: grammar.preposition.dependent
     original: "We discussed about the results for an hour."
     wrong: "discussed about"
     correction: "discussed"
     alternatives: ["We discussed the results for an hour.", "We talked about the results for an hour."]
     explanation: "'Discuss' takes a direct object, without 'about'."
+    explanation_fr: "« Discuss » prend un complément direct, sans « about »."
   - code: grammar.preposition.dependent
     original: "I like to listen music while I code."
     wrong: "listen music"
     correction: "listen to music"
     alternatives: ["I like to listen to music while I code."]
     explanation: "'Listen' needs 'to' before its object."
+    explanation_fr: "« Listen » demande « to » devant son complément."
   - code: grammar.preposition.time
     original: "The seminar starts in Monday."
     wrong: "in Monday"
     correction: "on Monday"
     alternatives: ["The seminar starts on Monday."]
     explanation: "Days take 'on'."
+    explanation_fr: "Les jours prennent « on »."
   - code: grammar.preposition.time
     original: "I usually study at the morning."
     wrong: "at the morning"
     correction: "in the morning"
     alternatives: ["I usually study in the morning."]
     explanation: "Parts of the day take 'in': in the morning, in the evening."
+    explanation_fr: "Les moments de la journée prennent « in » : in the morning, in the evening."
   - code: grammar.preposition.by_for_since
     original: "I have lived here since three years."
     wrong: "since three years"
     correction: "for three years"
     alternatives: ["I have lived here for three years."]
     explanation: "'For' + a duration, 'since' + a starting point."
+    explanation_fr: "« For » + une durée, « since » + un point de départ."
 
   # --- grammar.tense.past_simple_vs_present_perfect ----------------------------------------
   - code: grammar.tense.past_simple_vs_present_perfect
@@ -137,48 +155,56 @@ templates:
     correction: "I have never seen"
     alternatives: ["I have never seen this method before; it is completely new to me."]
     explanation: "Experience up to now takes the present perfect."
+    explanation_fr: "Une expérience jusqu'à maintenant se met au present perfect."
   - code: grammar.tense.past_simple_vs_present_perfect
     original: "Did you ever use R for a project?"
     wrong: "Did you ever use"
     correction: "Have you ever used"
     alternatives: ["Have you ever used R for a project?"]
     explanation: "Life experience up to now: present perfect with 'ever'."
+    explanation_fr: "Expérience de vie jusqu'à maintenant : present perfect avec « ever »."
   - code: grammar.tense.past_simple_vs_present_perfect
     original: "I already submitted the report, so I am free now."
     wrong: "I already submitted"
     correction: "I have already submitted"
     alternatives: ["I have already submitted the report, so I am free now."]
     explanation: "A past action with a present result is in the present perfect (British usage)."
+    explanation_fr: "Une action passée avec un résultat présent se met au present perfect (usage britannique)."
   - code: grammar.tense.past_simple_vs_present_perfect
     original: "I didn't decide yet which job to accept."
     wrong: "I didn't decide yet"
     correction: "I haven't decided yet"
     alternatives: ["I haven't decided yet which job to accept.", "I haven't made up my mind about the job yet."]
     explanation: "'Yet' goes with the present perfect."
+    explanation_fr: "« Yet » va avec le present perfect."
   - code: grammar.tense.past_simple_vs_present_perfect
     original: "This is the first time I presented in English."
     wrong: "I presented"
     correction: "I have presented"
     alternatives: ["This is the first time I have presented in English."]
     explanation: "'This is the first time' is followed by the present perfect."
+    explanation_fr: "« This is the first time » est suivi du present perfect."
   - code: grammar.tense.past_simple_vs_present_perfect
     original: "Since I arrived here, I met a lot of people."
     wrong: "I met"
     correction: "I have met"
     alternatives: ["Since I arrived here, I have met a lot of people."]
     explanation: "With 'since', the main clause takes the present perfect."
+    explanation_fr: "Avec « since », la proposition principale se met au present perfect."
   - code: grammar.tense.past_simple_vs_present_perfect
     original: "I work on this dataset for two months now."
     wrong: "I work"
     correction: "I have been working"
     alternatives: ["I have been working on this dataset for two months now."]
     explanation: "An action that started in the past and continues takes the present perfect (continuous)."
+    explanation_fr: "Une action commencée dans le passé qui continue se met au present perfect (continu)."
   - code: grammar.tense.past_simple_vs_present_perfect
     original: "I was never in London, but I would like to go."
     wrong: "I was never in London"
     correction: "I have never been to London"
     alternatives: ["I have never been to London, but I would like to go."]
     explanation: "Experience up to now: present perfect, and 'been to' for visits."
+    explanation_fr: "Expérience jusqu'à maintenant : present perfect, et « been to » pour une visite."
 
   # --- grammar.tense (other subcategories) -------------------------------------------------
   - code: grammar.tense.present_simple_vs_continuous
@@ -187,12 +213,14 @@ templates:
     correction: "it's raining"
     alternatives: ["Look, it's raining again, we can't go out."]
     explanation: "Something happening now takes the present continuous."
+    explanation_fr: "Ce qui se passe maintenant se met au présent continu."
   - code: grammar.tense.present_simple_vs_continuous
     original: "I am knowing the answer to this question."
     wrong: "I am knowing"
     correction: "I know"
     alternatives: ["I know the answer to this question."]
     explanation: "'Know' is a state verb: it is rarely used in the continuous."
+    explanation_fr: "« Know » est un verbe d'état : on l'emploie rarement au continu."
 
   # --- grammar.article, agreement, countability, word order, questions ---------------------
   - code: grammar.article
@@ -201,78 +229,91 @@ templates:
     correction: "I am a student"
     alternatives: ["I am a student in applied statistics.", "I study applied statistics."]
     explanation: "Jobs and roles take 'a' or 'an' in English."
+    explanation_fr: "Les métiers et les rôles prennent « a » ou « an » en anglais."
   - code: grammar.article
     original: "The data science is a fast-moving field."
     wrong: "The data science"
     correction: "Data science"
     alternatives: ["Data science is a fast-moving field."]
     explanation: "Fields in general take no article."
+    explanation_fr: "Les domaines en général ne prennent pas d'article."
   - code: grammar.article
     original: "The life of a PhD student is not easy."
     wrong: "The life"
     correction: "Life"
     alternatives: ["Life as a PhD student is not easy."]
     explanation: "General ideas take no article, unless they are made specific."
+    explanation_fr: "Les idées générales ne prennent pas d'article, sauf si on les précise."
   - code: grammar.article
     original: "My cousin is engineer in a bank."
     wrong: "is engineer"
     correction: "is an engineer"
     alternatives: ["My cousin is an engineer at a bank.", "My cousin works as an engineer at a bank."]
     explanation: "Jobs take 'a' or 'an'."
+    explanation_fr: "Les métiers prennent « a » ou « an »."
   - code: grammar.agreement
     original: "My supervisor work very late every evening."
     wrong: "work"
     correction: "works"
     alternatives: ["My supervisor works very late every evening."]
     explanation: "Third person singular takes -s in the present simple."
+    explanation_fr: "La troisième personne du singulier prend un -s au présent simple."
   - code: grammar.agreement
     original: "The results shows a clear trend."
     wrong: "shows"
     correction: "show"
     alternatives: ["The results show a clear trend."]
     explanation: "'Results' is plural: 'show'."
+    explanation_fr: "« Results » est pluriel : « show »."
   - code: grammar.agreement
     original: "Everybody know that the exam is hard."
     wrong: "Everybody know"
     correction: "Everybody knows"
     alternatives: ["Everybody knows that the exam is hard."]
     explanation: "'Everybody' is singular."
+    explanation_fr: "« Everybody » est singulier."
   - code: grammar.countability
     original: "Can you give me an information about the schedule?"
     wrong: "an information"
     correction: "some information"
     alternatives: ["Can you give me some information about the schedule?", "Do you know anything about the schedule?"]
     explanation: "'Information' is uncountable."
+    explanation_fr: "« Information » est indénombrable."
   - code: grammar.countability
     original: "My mentor gave me many advices."
     wrong: "many advices"
     correction: "a lot of advice"
     alternatives: ["My mentor gave me a lot of advice.", "My mentor gave me some good advice."]
     explanation: "'Advice' is uncountable."
+    explanation_fr: "« Advice » est indénombrable."
   - code: grammar.word_order
     original: "I like very much statistics."
     wrong: "I like very much statistics"
     correction: "I like statistics very much"
     alternatives: ["I like statistics very much.", "I really like statistics."]
     explanation: "Do not put an adverb between the verb and its object."
+    explanation_fr: "Ne placez pas d'adverbe entre le verbe et son complément."
   - code: grammar.word_order
     original: "Always I check the residuals first."
     wrong: "Always I check"
     correction: "I always check"
     alternatives: ["I always check the residuals first."]
     explanation: "Frequency adverbs go before the main verb."
+    explanation_fr: "Les adverbes de fréquence se placent avant le verbe principal."
   - code: grammar.question_form
     original: "You can explain this formula again?"
     wrong: "You can explain"
     correction: "Can you explain"
     alternatives: ["Can you explain this formula again?", "Could you go over this formula again?"]
     explanation: "Questions invert the subject and the auxiliary."
+    explanation_fr: "Les questions inversent le sujet et l'auxiliaire."
   - code: grammar.question_form
     original: "Why you chose this model?"
     wrong: "Why you chose"
     correction: "Why did you choose"
     alternatives: ["Why did you choose this model?"]
     explanation: "Past simple questions need 'did' and the base verb."
+    explanation_fr: "Les questions au prétérit demandent « did » et le verbe à l'infinitif."
 
   # --- lexis ------------------------------------------------------------------------------
   - code: lexis.false_friend
@@ -281,72 +322,84 @@ templates:
     correction: "Currently"
     alternatives: ["I currently live in Douala, but I grew up in Bafoussam.", "At the moment I live in Douala, but I grew up in Bafoussam."]
     explanation: "'Actually' means 'in fact'; 'actuellement' is 'currently'."
+    explanation_fr: "« Actually » veut dire « en fait » ; « actuellement » se dit « currently »."
   - code: lexis.false_friend
     original: "I will eventually come to the meeting if I finish early."
     wrong: "eventually"
     correction: "possibly"
     alternatives: ["I might come to the meeting if I finish early."]
     explanation: "'Eventually' means 'in the end'; 'éventuellement' is 'possibly'."
+    explanation_fr: "« Eventually » veut dire « finalement » ; « éventuellement » se dit « possibly »."
   - code: lexis.false_friend
     original: "I assisted to all the lectures this semester."
     wrong: "assisted to"
     correction: "attended"
     alternatives: ["I attended all the lectures this semester."]
     explanation: "'Assister à' is 'attend'; 'assist' means 'help'."
+    explanation_fr: "« Assister à » se dit « attend » ; « assist » veut dire aider."
   - code: lexis.false_friend
     original: "The company offers a formation in cloud computing."
     wrong: "a formation"
     correction: "training"
     alternatives: ["The company offers training in cloud computing.", "The company runs a cloud computing course."]
     explanation: "'Formation' (training) is a false friend."
+    explanation_fr: "« Formation » (training) est un faux ami."
   - code: lexis.false_friend
     original: "I passed my exam yesterday, I will get the results next week."
     wrong: "I passed my exam"
     correction: "I took my exam"
     alternatives: ["I took my exam yesterday; I will get the results next week.", "I sat my exam yesterday."]
     explanation: "'Pass' means succeed; 'passer un examen' is 'take' or 'sit' an exam."
+    explanation_fr: "« Pass » veut dire réussir ; « passer un examen » se dit « take » ou « sit »."
   - code: lexis.collocation
     original: "I want to make a research on mobile money."
     wrong: "make a research"
     correction: "do research"
     alternatives: ["I want to do research on mobile money.", "I want to study mobile money."]
     explanation: "'Research' is uncountable and goes with 'do'."
+    explanation_fr: "« Research » est indénombrable et se construit avec « do »."
   - code: lexis.collocation
     original: "Everybody can do a mistake in the code."
     wrong: "do a mistake"
     correction: "make a mistake"
     alternatives: ["Anybody can make a mistake in the code."]
     explanation: "You 'make' a mistake."
+    explanation_fr: "On « make » a mistake (on fait une erreur)."
   - code: lexis.collocation
     original: "Can you make a photo of the whiteboard?"
     wrong: "make a photo"
     correction: "take a photo"
     alternatives: ["Can you take a photo of the whiteboard?"]
     explanation: "You 'take' a photo."
+    explanation_fr: "On « take » a photo (on prend une photo)."
   - code: lexis.collocation
     original: "The dean said a speech at the ceremony."
     wrong: "said a speech"
     correction: "gave a speech"
     alternatives: ["The dean gave a speech at the ceremony.", "The dean made a speech at the ceremony."]
     explanation: "You 'give' (or 'make') a speech."
+    explanation_fr: "On « give » (ou « make ») a speech (on fait un discours)."
   - code: lexis.wrong_word
     original: "My brother learned me how to use Git."
     wrong: "learned me"
     correction: "taught me"
     alternatives: ["My brother taught me how to use Git.", "My brother showed me how to use Git."]
     explanation: "'Learn' is what the student does; the teacher 'teaches'."
+    explanation_fr: "« Learn » est ce que fait l'élève ; le professeur « teaches »."
   - code: lexis.wrong_word
     original: "Remember me to send the slides tonight."
     wrong: "Remember me"
     correction: "Remind me"
     alternatives: ["Remind me to send the slides tonight."]
     explanation: "'Remind someone to do something'."
+    explanation_fr: "« Remind someone to do something » : rappeler à quelqu'un de faire quelque chose."
   - code: lexis.wrong_word
     original: "Can you borrow me your charger?"
     wrong: "borrow me"
     correction: "lend me"
     alternatives: ["Can you lend me your charger?", "Can I borrow your charger?"]
     explanation: "You lend something to someone; you borrow something from someone."
+    explanation_fr: "On « lend » quelque chose à quelqu'un ; on « borrow » quelque chose à quelqu'un."
 
   # --- discourse, register, spelling ------------------------------------------------------
   - code: discourse.connectors
@@ -355,39 +408,46 @@ templates:
     correction: "Although it was late"
     alternatives: ["Although it was late, we finished the analysis.", "Despite the late hour, we finished the analysis."]
     explanation: "'Despite' is followed by a noun; 'although' by a clause."
+    explanation_fr: "« Despite » est suivi d'un nom ; « although » d'une proposition."
   - code: discourse.connectors
     original: "In other hand, the second method is faster."
     wrong: "In other hand"
     correction: "On the other hand"
     alternatives: ["On the other hand, the second method is faster."]
     explanation: "The connector is 'on the other hand'."
+    explanation_fr: "Le connecteur est « on the other hand »."
   - code: discourse.connectors
     original: "Even if I revised a lot, I found the test difficult."
     wrong: "Even if"
     correction: "Even though"
     alternatives: ["Even though I revised a lot, I found the test difficult."]
     explanation: "'Even though' introduces a fact; 'even if' a hypothesis."
+    explanation_fr: "« Even though » introduit un fait ; « even if » une hypothèse."
   - code: register.too_informal
     original: "The results of the second experiment are kinda weird."
     wrong: "kinda weird"
     correction: "somewhat unexpected"
     alternatives: ["The results of the second experiment are somewhat unexpected."]
     explanation: "Too informal for a report: prefer neutral wording."
+    explanation_fr: "Trop familier pour un rapport : préférez une formulation neutre."
   - code: register.too_informal
     original: "In this report we are gonna compare three models."
     wrong: "gonna"
     correction: "going to"
     alternatives: ["In this report we will compare three models.", "This report compares three models."]
     explanation: "'Gonna' belongs to speech, not to written reports."
+    explanation_fr: "« Gonna » appartient à l'oral, pas aux rapports écrits."
   - code: spelling
     original: "The enviroment variables were not set."
     wrong: "enviroment"
     correction: "environment"
     alternatives: ["The environment variables were not set."]
     explanation: "Spelling: environment, with an n before the m."
+    explanation_fr: "Orthographe : environment, avec un n avant le m."
   - code: spelling
     original: "Did you recieve my email about the meeting?"
     wrong: "recieve"
     correction: "receive"
     alternatives: ["Did you receive my email about the meeting?"]
     explanation: "'I before e, except after c': receive."
+    explanation_fr: "« I before e, except after c » : receive."

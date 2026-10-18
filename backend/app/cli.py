@@ -4,7 +4,8 @@ builds the fictional demo database; `python -m app ai simulate` shows the AI gat
 offline; `python -m app ai status | test | usage` look at the real AI providers;
 `python -m app library import <file>` previews (or, with `--commit`, imports) a Markdown list;
 `library enrich` writes usage sheets through the AI and `library extend <deck_id>` asks for related
-terms. `python -m app errors list | show | add | categories` reads and edits the error log and
+terms. `python -m app errors list | show | add | categories | card | suggestions | dismiss` reads
+and edits the error log (`card` makes a review card from an error) and
 `write correct --file <txt>` has the AI correct a text; `transcript analyse --file <txt>` finds
 your errors in a conversation transcript; `drill new <code>` and `drill list` are targeted drills.
 `--demo` (before the command) works on the demo database."""
@@ -210,6 +211,17 @@ def _build_parser() -> argparse.ArgumentParser:
     add.add_argument("--alt", action="append", default=[], help="a natural alternative (at most 2)")
     add.add_argument("--explanation", default="", help="the rule in one sentence")
     add.add_argument("--item-id", type=int, help="link the error to this term")
+    card = errors_commands.add_parser("card", help="make a term and a review card from an error")
+    card.add_argument("error_id", type=int)
+    card.add_argument("--term", help="the term to learn (default: the correction)")
+    card.add_argument("--sentence", help="a sentence that uses the correction (default: yours)")
+    suggestions = errors_commands.add_parser(
+        "suggestions", help="recurring errors that could become cards"
+    )
+    suggestions.add_argument("--min-count", type=_positive, default=2)
+    suggestions.add_argument("--limit", type=_positive, default=20, help="1 to 50")
+    dismiss = errors_commands.add_parser("dismiss", help="stop suggesting a recurring error")
+    dismiss.add_argument("key", help="the key printed by `errors suggestions`")
     categories = errors_commands.add_parser("categories", help="the error taxonomy with counts")
     categories.add_argument(
         "--proposed", action="store_true", help="only the categories the AI proposed"
@@ -351,6 +363,14 @@ def _errors(args: argparse.Namespace, url: str) -> int:
             explanation=args.explanation,
             item_id=args.item_id,
         )
+    if args.errors_command == "card":
+        return cli_errors.run_errors_card(
+            url, args.error_id, term=args.term, sentence=args.sentence
+        )
+    if args.errors_command == "suggestions":
+        return cli_errors.run_errors_suggestions(url, min_count=args.min_count, limit=args.limit)
+    if args.errors_command == "dismiss":
+        return cli_errors.run_errors_dismiss(url, args.key)
     return cli_errors.run_errors_categories(url, proposed_only=args.proposed)
 
 

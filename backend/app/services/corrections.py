@@ -265,6 +265,80 @@ def category_for(
     return outcome.category
 
 
+def store_correction(
+    session: Session,
+    prepared: Prepared,
+    output: ProductionCorrectionOutput,
+    *,
+    source: ErrorSource,
+    provenance: tuple[str | None, str | None, str | None],
+    ai_call_id: int | None,
+    at: datetime,
+) -> Written:
+    """Write a correction in the caller's transaction (no commit). The AI path and the demo's
+    fictional corrections both come through here. Raises ProductionNotFound, AlreadyCorrected."""
+    provider, model, prompt_version = provenance
+    written = Written()
+    attempt = session.get(ProductionAttempt, prepared.attempt_id)
+    if attempt is None:
+        raise ProductionNotFound(f"There is no production {prepared.attempt_id}.")
+    if attempt.ai_feedback is not None:
+        raise AlreadyCorrected("This production was already corrected.")
+    sentence_text = {s.index: s.text for s in prepared.sentences}
+    ref_item = {t.ref: t.item_id for t in prepared.targets}
+    for error in output.errors:
+        category = category_for(session, error, attempt.id, at, written)
+        event = error_log.record_error(
+            session,
+            source=source,
+            category=category,
+            erroneous_text=error.wrong,
+            correction=error.correction,
+            at=at,
+            original_text=sentence_text[error.sentence_index],
+            alternatives=error.alternatives,
+            explanation=error.explanation_en,
+            lexical_item_id=ref_item.get(error.target_ref)
+            if error.target_ref is not None
+            else None,
+            production_attempt_id=attempt.id,
+            study_session_id=attempt.study_session_id,
+        )
+        written.error_ids.append(event.id)
+    target_report = _check_targets(attempt, session, output.targets, prepared.text)
+    attempt.ai_feedback = {
+        "format": FEEDBACK_FORMAT,
+        "prompt_version": prompt_version,
+        "provider": provider,
+        "model": model,
+        "output": output.model_dump(mode="json"),
+        "spans": spans_of(prepared.sentences, output.errors),
+        "error_event_ids": list(written.error_ids),
+        "targets": target_report,
+    }
+    attempt.ai_call_id = ai_call_id
+    attempt.updated_at = at
+    record_event(
+        session,
+        ProductionCorrected(
+            production_attempt_id=attempt.id,
+            word_count=attempt.word_count,
+            sentence_count=len(prepared.sentences),
+            error_count=len(output.errors),
+            naturalness_note_count=len(output.naturalness_notes),
+            targets=len(target_report),
+            targets_used_correctly=sum(1 for t in target_report if t["used_correctly"]),
+            provider=provider or "unknown",
+            model=model or "unknown",
+            prompt_version=prompt_version or f"{TASK}.v1",
+            ai_call_id=ai_call_id,
+        ),
+        occurred_at=at,
+        study_session_id=attempt.study_session_id,
+    )
+    return written
+
+
 def _write(
     session_factory: SessionFactory,
     prepared: Prepared,
@@ -276,65 +350,15 @@ def _write(
     at: datetime,
 ) -> Written:
     """The one write transaction. Raises ProductionNotFound, AlreadyCorrected."""
-    provider, model, prompt_version = provenance
-    written = Written()
     with session_factory() as session:
-        attempt = session.get(ProductionAttempt, prepared.attempt_id)
-        if attempt is None:
-            raise ProductionNotFound(f"There is no production {prepared.attempt_id}.")
-        if attempt.ai_feedback is not None:
-            raise AlreadyCorrected("This production was already corrected.")
-        sentence_text = {s.index: s.text for s in prepared.sentences}
-        ref_item = {t.ref: t.item_id for t in prepared.targets}
-        for error in output.errors:
-            category = category_for(session, error, attempt.id, at, written)
-            event = error_log.record_error(
-                session,
-                source=source,
-                category=category,
-                erroneous_text=error.wrong,
-                correction=error.correction,
-                at=at,
-                original_text=sentence_text[error.sentence_index],
-                alternatives=error.alternatives,
-                explanation=error.explanation_en,
-                lexical_item_id=ref_item.get(error.target_ref)
-                if error.target_ref is not None
-                else None,
-                production_attempt_id=attempt.id,
-                study_session_id=attempt.study_session_id,
-            )
-            written.error_ids.append(event.id)
-        target_report = _check_targets(attempt, session, output.targets, prepared.text)
-        attempt.ai_feedback = {
-            "format": FEEDBACK_FORMAT,
-            "prompt_version": prompt_version,
-            "provider": provider,
-            "model": model,
-            "output": output.model_dump(mode="json"),
-            "spans": spans_of(prepared.sentences, output.errors),
-            "error_event_ids": list(written.error_ids),
-            "targets": target_report,
-        }
-        attempt.ai_call_id = ai_call_id
-        attempt.updated_at = at
-        record_event(
+        written = store_correction(
             session,
-            ProductionCorrected(
-                production_attempt_id=attempt.id,
-                word_count=attempt.word_count,
-                sentence_count=len(prepared.sentences),
-                error_count=len(output.errors),
-                naturalness_note_count=len(output.naturalness_notes),
-                targets=len(target_report),
-                targets_used_correctly=sum(1 for t in target_report if t["used_correctly"]),
-                provider=provider or "unknown",
-                model=model or "unknown",
-                prompt_version=prompt_version or f"{TASK}.v1",
-                ai_call_id=ai_call_id,
-            ),
-            occurred_at=at,
-            study_session_id=attempt.study_session_id,
+            prepared,
+            output,
+            source=source,
+            provenance=provenance,
+            ai_call_id=ai_call_id,
+            at=at,
         )
         session.commit()
     return written

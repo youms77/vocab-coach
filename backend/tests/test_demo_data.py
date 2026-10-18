@@ -34,9 +34,11 @@ from app.demo.seed import seed_demo, sqlite_url
 from app.domain.enums import (
     CardDirection,
     ContentOrigin,
+    DeckKind,
     DeckStatus,
     ErrorSource,
     ItemStatus,
+    ProductionKind,
     SrsState,
 )
 from app.domain.events import EventType
@@ -51,6 +53,7 @@ from app.domain.exercises import (
 from app.domain.planner import BlockKind
 from app.domain.study_day import study_day_bounds
 from app.domain.usage_sheet import is_usable
+from app.services import error_cards
 from app.services.planning import plan_today
 from app.services.study_sessions import SESSION_FORMAT, compute_summary
 from tests.demo_support import DEMO_ANCHOR, DEMO_SEED
@@ -179,7 +182,9 @@ def test_fixed_expression_errors_decline_per_100_words(db: Session) -> None:
 
 
 def test_productions_have_word_counts_in_range(db: Session) -> None:
-    attempts = db.scalars(select(ProductionAttempt)).all()
+    attempts = db.scalars(
+        select(ProductionAttempt).where(ProductionAttempt.kind != ProductionKind.DRILL)
+    ).all()
     assert len(attempts) >= 10
     for attempt in attempts:
         assert attempt.word_count == len(attempt.text.split())
@@ -260,7 +265,8 @@ def test_full_sheets_cover_the_terms_still_to_learn(db: Session) -> None:
     ]
     assert sum(item_id in full for item_id in learned) >= 25
     sheets = db.scalars(select(Enrichment).where(Enrichment.is_current)).all()
-    assert {sheet.provider for sheet in sheets} == {"demo"}
+    # "error": the small sheets of the cards made from errors (M5.a3).
+    assert {sheet.provider for sheet in sheets} == {"demo", "error"}
     for sheet in sheets:
         assert is_usable(sheet.status, dict(sheet.content))
     assert set(db.scalars(select(ExerciseTemplate.origin).distinct())) == {
@@ -320,9 +326,10 @@ def test_every_business_row_has_its_event(db: Session) -> None:
     assert set(db.scalars(select(Card.id))) <= entity_ids(EventType.CARD_CREATED)
     reviewed = {e.payload["review_log_id"] for e in _events(db, EventType.CARD_REVIEWED)}
     assert set(db.scalars(select(ReviewLog.id))) == reviewed
+    # A drill is not "recorded": it is generated (and answered item by item).
     assert set(db.scalars(select(ProductionAttempt.id))) <= entity_ids(
         EventType.PRODUCTION_RECORDED
-    )
+    ) | entity_ids(EventType.DRILL_GENERATED)
     assert set(db.scalars(select(ErrorEvent.id))) <= entity_ids(EventType.ERROR_RECORDED)
     sessions = set(db.scalars(select(StudySession.id)))
     assert sessions <= entity_ids(EventType.SESSION_STARTED)
@@ -375,3 +382,119 @@ def test_plan_at_the_anchor_has_reviews_new_terms_and_the_deadline_pace(db: Sess
     codes = {warning.code for warning in plan.warnings}
     assert "deadline_triage_pending" in codes
     assert "items_without_sheet" not in codes
+
+
+# --- module E through the services (M5.a3, D-163) ---------------------------------------------
+
+
+def test_written_productions_were_corrected_by_the_correction_service(db: Session) -> None:
+    writings = db.scalars(
+        select(ProductionAttempt).where(ProductionAttempt.kind == ProductionKind.WRITING)
+    ).all()
+    assert len(writings) >= 5
+    for attempt in writings:
+        feedback = attempt.ai_feedback
+        assert feedback is not None and feedback["format"] == "correction-1"
+        assert (feedback["provider"], feedback["prompt_version"]) == ("demo", "demo-correction-v1")
+        ids = feedback["error_event_ids"]
+        errors = db.scalars(select(ErrorEvent).where(ErrorEvent.id.in_(ids))).all()
+        assert len(errors) == len(ids) == len(feedback["output"]["errors"])
+        assert {e.source for e in errors} <= {ErrorSource.WRITING}
+        for span, error_id in zip(feedback["spans"], ids, strict=True):
+            error = db.get_one(ErrorEvent, error_id)
+            assert error.production_attempt_id == attempt.id
+            assert attempt.text[span["start"] : span["end"]] == error.erroneous_text
+    assert len(_events(db, EventType.PRODUCTION_CORRECTED)) == db.scalar(
+        select(func.count())
+        .select_from(ProductionAttempt)
+        .where(
+            ProductionAttempt.ai_feedback.is_not(None),
+            ProductionAttempt.kind != ProductionKind.DRILL,
+        )
+    )
+
+
+def test_transcripts_were_analysed_and_only_the_learner_is_stored(db: Session) -> None:
+    transcripts_ = db.scalars(
+        select(ProductionAttempt).where(
+            ProductionAttempt.kind == ProductionKind.TRANSCRIPT_ANALYSIS
+        )
+    ).all()
+    assert len(transcripts_) >= 2
+    for attempt in transcripts_:
+        feedback = attempt.ai_feedback
+        assert feedback is not None and feedback["format"] == "transcript-1"
+        assert "Tutor" not in attempt.text and "You:" not in attempt.text
+        assert feedback["context_sent"] is True
+        errors = db.scalars(
+            select(ErrorEvent).where(ErrorEvent.production_attempt_id == attempt.id)
+        ).all()
+        assert len(errors) == len(feedback["error_event_ids"])
+        assert {e.source for e in errors} == {ErrorSource.TRANSCRIPT}
+        assert not any(e.original_text.startswith(("Hi!", "Interesting")) for e in errors)
+
+
+def test_drills_were_stored_and_answered_by_the_drill_service(db: Session) -> None:
+    drills_ = db.scalars(
+        select(ProductionAttempt).where(ProductionAttempt.kind == ProductionKind.DRILL)
+    ).all()
+    assert len(drills_) >= 5
+    assert len({d.ai_feedback["category_code"] for d in drills_}) >= 3
+    finished = [d for d in drills_ if len(d.ai_feedback["answers"]) == len(d.ai_feedback["items"])]
+    open_ = [d for d in drills_ if d not in finished]
+    assert finished and len(open_) == 1  # the last session leaves one drill half done
+    assert len(_events(db, EventType.DRILL_COMPLETED)) == len(finished)
+    wrong_answers = [
+        a for d in drills_ for a in d.ai_feedback["answers"] if a["outcome"] == "wrong"
+    ]
+    assert wrong_answers
+    drill_errors = db.scalars(
+        select(ErrorEvent).where(ErrorEvent.source == ErrorSource.DRILL)
+    ).all()
+    assert {e.id for e in drill_errors} == {a["error_event_id"] for a in wrong_answers}
+    drill_ids = {d.id for d in drills_}
+    assert {e.production_attempt_id for e in drill_errors} <= drill_ids
+    assert all(e.explanation for e in drill_errors)
+
+
+def test_cards_were_made_from_recurring_errors(db: Session) -> None:
+    items = db.scalars(
+        select(LexicalItem).where(LexicalItem.origin_error_event_id.is_not(None))
+    ).all()
+    assert len(items) >= 2
+    deck = db.scalars(select(Deck).where(Deck.kind == DeckKind.ERROR_DRILL)).one()
+    assert deck.status == DeckStatus.ACTIVE
+    for item in items:
+        assert item.status in (ItemStatus.LEARNING, ItemStatus.CONSOLIDATED)
+        card = db.scalars(select(Card).where(Card.lexical_item_id == item.id)).one()
+        assert card.direction == CardDirection.PRODUCTIVE  # one card per error
+        assert db.scalar(
+            select(func.count()).select_from(ReviewLog).where(ReviewLog.card_id == card.id)
+        )
+        origin = db.get_one(ErrorEvent, item.origin_error_event_id)
+        assert origin.correction.casefold().startswith(item.term.casefold()[:3])
+    created = _events(db, EventType.ERROR_CARD_CREATED)
+    assert {e.payload["lexical_item_id"] for e in created} == {i.id for i in items}
+    assert all(e.payload["recurrence"] >= 2 for e in created)
+    assert len(_events(db, EventType.ERROR_SUGGESTION_DISMISSED)) == 1
+
+
+def test_carded_and_dismissed_errors_are_no_longer_suggested(db: Session) -> None:
+    carded = {
+        error_cards.rules.pair_key(e.erroneous_text, e.correction)
+        for e in db.scalars(
+            select(ErrorEvent).join(LexicalItem, LexicalItem.origin_error_event_id == ErrorEvent.id)
+        )
+    }
+    dismissed = {e.payload["key"] for e in _events(db, EventType.ERROR_SUGGESTION_DISMISSED)}
+    suggested = {v.suggestion.key for v in error_cards.list_suggestions(db, limit=50)}
+    assert not suggested & (carded | dismissed)
+
+
+def test_the_demo_still_has_no_receptive_card_for_an_error_card(db: Session) -> None:
+    item_ids = select(LexicalItem.id).where(LexicalItem.origin_error_event_id.is_not(None))
+    assert not db.scalar(
+        select(func.count())
+        .select_from(Card)
+        .where(Card.lexical_item_id.in_(item_ids), Card.direction == CardDirection.RECEPTIVE)
+    )

@@ -15,7 +15,7 @@
 # Full sheets cover every term that ends queued, in triage or discovering with seed 42, and at
 # least 25 learning or consolidated terms. Draft and known terms have no sheet.
 
-dataset_version: 2
+dataset_version: 3
 
 sheets:
   # --- Causal inference reading ------------------------------------------------------------
@@ -872,7 +872,25 @@ sheets:
       sentence_production: {situation: "Explain why a bank prefers a simple scoring model to a deep neural network.", example_answer: "The bank prefers a simple model because it is interpretable."}
       spoken_answer: {question: "Why would you choose logistic regression over a black box?", example_answer: "Because it is interpretable and the stakeholders can trust it."}
   - term: tweak
-    sheet: {translation_fr: [ajuster légèrement, peaufiner]}
+    sheet:
+      definition_simple: To make a small change to something in order to improve it.
+      translation_fr: [ajuster légèrement, peaufiner]
+      register_level: neutral
+      examples:
+        - {sentence: "We tweaked the learning rate and the validation error dropped.", kind: academic}
+        - {sentence: "I just need to tweak the last slide before the meeting.", kind: spoken}
+      pronunciation: {ipa_us: "twik", stressed_syllable: "TWEAK"}
+      confusables:
+        - {term: twist, difference: "To twist is to turn or bend something; to tweak is to adjust it a little."}
+    exercises:
+      gap_fill: {sentence: "After the first run we had to ___ the model slightly.", answer: tweak, accepted: [tweaked, tweaks, tweaking]}
+      recognition_in_sentence:
+        sentence: "She tweaked the figure so that the labels were easier to read."
+        meaning: made a small change to improve something
+        meaning_fr: ajusté légèrement
+        distractors: [deleted completely, copied without changes, printed on paper]
+      sentence_production: {situation: "Tell a colleague that you changed a small detail in your code to fix a bug.", example_answer: "I tweaked one parameter in the code and the bug disappeared."}
+      spoken_answer: {question: "Which small change did you make to improve your last project?", example_answer: "I tweaked the model to reduce the error on the test set."}
   - term: sanity check
     sheet:
       definition_simple: A quick test to see if a result makes basic sense.

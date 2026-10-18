@@ -1,0 +1,285 @@
+# Fictional targeted drills for the demo seed (D-033, D-163). Every sentence was written for the demo.
+#
+# Each drill is the output a `targeted_drill` AI call would have given, so the demo stores it through
+# the same service (`store_drill`) and answers it through `answer_item`; the tests check every drill
+# with the real output schema. Item fields are those of the schema (`kind`, `sentence` with one ___,
+# `answer`, `accepted`, `options` for a choice, `category_code`, `theme`, the two explanations).
+# `wrong` is demo-only: what the simulated learner types when they miss a gap-fill (a choice item
+# is missed by picking the first wrong option).
+
+dataset_version: 3
+
+drills:
+  - code: grammar.preposition.fixed_expression
+    rule_en: "Some phrases always take the same small word. Learn the whole phrase, not the preposition alone."
+    rule_fr: "Certaines expressions prennent toujours le même petit mot. Apprenez l'expression entière, pas la préposition seule."
+    items:
+      - kind: gap_fill
+        sentence: "Most first-year students live ___ campus."
+        answer: "on"
+        wrong: "in"
+        category_code: grammar.preposition.fixed_expression
+        theme: campus
+        explanation_en: "We say 'on campus'."
+        explanation_fr: "On dit « on campus »."
+      - kind: choice
+        sentence: "My cousin is ___ university in Yaoundé this year."
+        answer: "at"
+        options: ["at", "in", "on"]
+        category_code: grammar.preposition.fixed_expression
+        theme: campus
+        explanation_en: "Being a student is 'at university'."
+        explanation_fr: "Être étudiant se dit « at university »."
+      - kind: gap_fill
+        sentence: "She is ___ charge of the survey team."
+        answer: "in"
+        wrong: "on"
+        category_code: grammar.preposition.fixed_expression
+        theme: data_economics
+        explanation_en: "Responsibility is 'in charge of'."
+        explanation_fr: "La responsabilité se dit « in charge of »."
+      - kind: choice
+        sentence: "I did not delete the file ___ purpose; it was an accident."
+        answer: "on"
+        options: ["on", "by", "with"]
+        category_code: grammar.preposition.fixed_expression
+        theme: everyday
+        explanation_en: "'On purpose' means intentionally."
+        explanation_fr: "« On purpose » veut dire exprès."
+      - kind: gap_fill
+        sentence: "He left the lab ___ a hurry after the exam."
+        answer: "in"
+        wrong: "on"
+        category_code: grammar.preposition.fixed_expression
+        theme: campus
+        explanation_en: "The fixed phrase is 'in a hurry'."
+        explanation_fr: "L'expression figée est « in a hurry »."
+
+  - code: grammar.preposition.dependent
+    rule_en: "Some verbs and adjectives need one particular preposition. Learn each one together with its preposition."
+    rule_fr: "Certains verbes et adjectifs demandent une préposition précise. Apprenez chacun avec sa préposition."
+    items:
+      - kind: gap_fill
+        sentence: "The result depends ___ the sample size."
+        answer: "on"
+        wrong: "of"
+        category_code: grammar.preposition.dependent
+        theme: data_economics
+        explanation_en: "'Depend' takes 'on'."
+        explanation_fr: "« Depend » se construit avec « on »."
+      - kind: choice
+        sentence: "I am very interested ___ machine learning."
+        answer: "in"
+        options: ["in", "by", "for"]
+        category_code: grammar.preposition.dependent
+        theme: data_economics
+        explanation_en: "'Interested' takes 'in'."
+        explanation_fr: "« Interested » se construit avec « in »."
+      - kind: gap_fill
+        sentence: "I like to listen ___ music while I code."
+        answer: "to"
+        wrong: "at"
+        category_code: grammar.preposition.dependent
+        theme: everyday
+        explanation_en: "'Listen' needs 'to' before its object."
+        explanation_fr: "« Listen » demande « to » devant son complément."
+      - kind: choice
+        sentence: "We are waiting ___ the results of the second experiment."
+        answer: "for"
+        options: ["for", "to", "of"]
+        category_code: grammar.preposition.dependent
+        theme: campus
+        explanation_en: "'Wait' takes 'for'."
+        explanation_fr: "« Wait » se construit avec « for »."
+      - kind: gap_fill
+        sentence: "She is good ___ explaining difficult ideas."
+        answer: "at"
+        wrong: "in"
+        category_code: grammar.preposition.dependent
+        theme: campus
+        explanation_en: "'Good' takes 'at' for a skill."
+        explanation_fr: "« Good » se construit avec « at » pour une compétence."
+
+  - code: grammar.preposition.time
+    rule_en: "Days take 'on', parts of the day and months take 'in', and clock times take 'at'."
+    rule_fr: "Les jours prennent « on », les moments de la journée et les mois « in », et les heures « at »."
+    items:
+      - kind: gap_fill
+        sentence: "The seminar starts ___ Monday."
+        answer: "on"
+        wrong: "in"
+        category_code: grammar.preposition.time
+        theme: campus
+        explanation_en: "Days take 'on'."
+        explanation_fr: "Les jours prennent « on »."
+      - kind: choice
+        sentence: "I usually study ___ the morning."
+        answer: "in"
+        options: ["in", "at", "on"]
+        category_code: grammar.preposition.time
+        theme: everyday
+        explanation_en: "Parts of the day take 'in'."
+        explanation_fr: "Les moments de la journée prennent « in »."
+      - kind: gap_fill
+        sentence: "The train leaves ___ 7:30 every day."
+        answer: "at"
+        wrong: "in"
+        category_code: grammar.preposition.time
+        theme: everyday
+        explanation_en: "Clock times take 'at'."
+        explanation_fr: "Les heures prennent « at »."
+      - kind: choice
+        sentence: "Our exams are ___ June."
+        answer: "in"
+        options: ["in", "on", "at"]
+        category_code: grammar.preposition.time
+        theme: campus
+        explanation_en: "Months take 'in'."
+        explanation_fr: "Les mois prennent « in »."
+      - kind: gap_fill
+        sentence: "She was born ___ 1999, in a small town near Douala."
+        answer: "in"
+        wrong: "on"
+        category_code: grammar.preposition.time
+        theme: everyday
+        explanation_en: "Years take 'in'."
+        explanation_fr: "Les années prennent « in »."
+
+  - code: grammar.tense.past_simple_vs_present_perfect
+    rule_en: "Use the present perfect for an experience up to now or a past action with a present result. Use the past simple for a finished time."
+    rule_fr: "Utilisez le present perfect pour une expérience jusqu'à maintenant ou une action passée au résultat présent. Utilisez le prétérit pour un moment terminé."
+    items:
+      - kind: gap_fill
+        sentence: "I ___ this method before, so it is new to me."
+        answer: "have never seen"
+        accepted: ["'ve never seen"]
+        wrong: "never saw"
+        category_code: grammar.tense.past_simple_vs_present_perfect
+        theme: data_economics
+        explanation_en: "Experience up to now takes the present perfect."
+        explanation_fr: "Une expérience jusqu'à maintenant se met au present perfect."
+      - kind: choice
+        sentence: "We ___ the report yesterday afternoon."
+        answer: "finished"
+        options: ["finished", "have finished", "have been finishing"]
+        category_code: grammar.tense.past_simple_vs_present_perfect
+        theme: campus
+        explanation_en: "'Yesterday' is a finished time: past simple."
+        explanation_fr: "« Yesterday » est un moment terminé : prétérit."
+      - kind: gap_fill
+        sentence: "I ___ decided yet which job to accept."
+        answer: "haven't"
+        accepted: ["have not"]
+        wrong: "didn't"
+        category_code: grammar.tense.past_simple_vs_present_perfect
+        theme: everyday
+        explanation_en: "'Yet' goes with the present perfect."
+        explanation_fr: "« Yet » va avec le present perfect."
+      - kind: choice
+        sentence: "Since I arrived here, I ___ a lot of people."
+        answer: "have met"
+        options: ["have met", "met", "meet"]
+        category_code: grammar.tense.past_simple_vs_present_perfect
+        theme: campus
+        explanation_en: "With 'since', the main clause takes the present perfect."
+        explanation_fr: "Avec « since », la proposition principale se met au present perfect."
+      - kind: gap_fill
+        sentence: "This is the first time I ___ in English."
+        answer: "have presented"
+        accepted: ["'ve presented"]
+        wrong: "presented"
+        category_code: grammar.tense.past_simple_vs_present_perfect
+        theme: campus
+        explanation_en: "'This is the first time' is followed by the present perfect."
+        explanation_fr: "« This is the first time » est suivi du present perfect."
+
+  - code: grammar.article
+    rule_en: "Jobs and roles take 'a' or 'an' ('an' before a vowel sound). 'The' points to something both people know."
+    rule_fr: "Les métiers et les rôles prennent « a » ou « an » (« an » devant un son voyelle). « The » désigne ce que les deux personnes connaissent."
+    items:
+      - kind: gap_fill
+        sentence: "I am ___ student in applied statistics."
+        answer: "a"
+        wrong: "the"
+        category_code: grammar.article
+        theme: campus
+        explanation_en: "Jobs and roles take 'a' or 'an'."
+        explanation_fr: "Les métiers et les rôles prennent « a » ou « an »."
+      - kind: choice
+        sentence: "My cousin is ___ engineer in a bank."
+        answer: "an"
+        options: ["an", "a", "the"]
+        category_code: grammar.article
+        theme: everyday
+        explanation_en: "Before a vowel sound we use 'an'."
+        explanation_fr: "Devant un son voyelle, on emploie « an »."
+      - kind: choice
+        sentence: "We had ___ interesting discussion about the project."
+        answer: "an"
+        options: ["an", "a", "the"]
+        category_code: grammar.article
+        theme: data_economics
+        explanation_en: "'Interesting' starts with a vowel sound: 'an'."
+        explanation_fr: "« Interesting » commence par un son voyelle : « an »."
+      - kind: gap_fill
+        sentence: "She works as ___ analyst for a telecom company."
+        answer: "an"
+        wrong: "a"
+        category_code: grammar.article
+        theme: data_economics
+        explanation_en: "'Analyst' starts with a vowel sound: 'an'."
+        explanation_fr: "« Analyst » commence par un son voyelle : « an »."
+      - kind: gap_fill
+        sentence: "Could you open ___ window, please? It is hot in here."
+        answer: "the"
+        wrong: "a"
+        category_code: grammar.article
+        theme: everyday
+        explanation_en: "We say 'the window' when both people know which one."
+        explanation_fr: "On dit « the window » quand les deux personnes savent laquelle."
+
+  - code: lexis.collocation
+    rule_en: "Some words only go together in English. Learn the verb with its noun, for example 'do research' and 'make a mistake'."
+    rule_fr: "Certains mots ne vont ensemble qu'en anglais. Apprenez le verbe avec son nom, par exemple « do research » et « make a mistake »."
+    items:
+      - kind: gap_fill
+        sentence: "I want to ___ research on mobile money."
+        answer: "do"
+        wrong: "make"
+        category_code: lexis.collocation
+        theme: data_economics
+        explanation_en: "'Research' goes with 'do'."
+        explanation_fr: "« Research » va avec « do »."
+      - kind: choice
+        sentence: "Anybody can ___ a mistake in the code."
+        answer: "make"
+        options: ["make", "do", "take"]
+        category_code: lexis.collocation
+        theme: data_economics
+        explanation_en: "You 'make' a mistake."
+        explanation_fr: "On « make » a mistake."
+      - kind: gap_fill
+        sentence: "Can you ___ a photo of the whiteboard?"
+        answer: "take"
+        wrong: "make"
+        category_code: lexis.collocation
+        theme: campus
+        explanation_en: "You 'take' a photo."
+        explanation_fr: "On « take » a photo."
+      - kind: choice
+        sentence: "The dean will ___ a speech at the ceremony."
+        answer: "give"
+        options: ["give", "say", "tell"]
+        category_code: lexis.collocation
+        theme: campus
+        explanation_en: "You 'give' a speech."
+        explanation_fr: "On « give » a speech."
+      - kind: gap_fill
+        sentence: "Let's ___ a short break before the next session."
+        answer: "take"
+        accepted: ["have"]
+        wrong: "do"
+        category_code: lexis.collocation
+        theme: everyday
+        explanation_en: "You 'take' or 'have' a break."
+        explanation_fr: "On « take » ou « have » a break."

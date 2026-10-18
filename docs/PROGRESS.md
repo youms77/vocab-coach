@@ -4,14 +4,113 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M5.c2 - the drills screens and the links (frontend), on branch
-  `feat/m5c-transcripts-drills` (committed, not pushed, no PR yet), after M5.c1. `main` has M1.a to M5.b2 (M5.b as PR #17,
-  `bab1a95`). M5.c is complete: transcripts and drills.
-- **Next**: M5.a3 (backend: cards made from errors, suggestions for recurring errors, the demo's errors through the
-  services), then the M5.c pull request. Order revised by the owner, see D-151 (amendment of D-138).
-- Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. The
-  owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1, M5.b2, M5.c1 and M5.c2) are still to run.
+- **Last milestone completed**: M5.a3 - cards made from errors, suggestions for recurring errors, and the demo's
+  module E through the services (backend), on branch `claude/m5a3-error-cards-fa8d12`, cut from the tip of
+  `feat/m5c-transcripts-drills` (M5.c1 + M5.c2, both committed, not pushed, no PR yet). `main` has M1.a to M5.b2
+  (M5.b as PR #17, `bab1a95`). No migration; M5.c is frontend only and M5.a3 backend only.
+- **Next**: the pull request of M5.c, then the one of M5.a3 (in that order), then the screens for cards from errors and
+  suggestions (not planned yet) or M6 (speaking). Order of M5.c before M5.a3: D-151.
+- Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. M5.a3 needs no
+  AI. The owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1 and M5.c2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M5.a3 — Cards from errors, recurring errors, the demo through the services (backend)
+
+Branch `claude/m5a3-error-cards-fa8d12` (worktree), cut from the tip of `feat/m5c-transcripts-drills` (M5.c1 and M5.c2,
+not pushed). Five commits: the domain, the services, the API and CLI, the `store_*` refactor, the demo (plus the docs).
+**No migration** (`alembic check`: no new upgrade operation), **no frontend change** (`git diff --stat
+feat/m5c-transcripts-drills -- frontend` is empty), no new dependency. SPEC.md: one sentence in module E (one productive
+card per error, approved). Decisions D-163 to D-167.
+
+### Done
+
+- **Cards from errors** (D-163): `POST /api/errors/{id}/card` makes a term (the correction, or `term`), a small sheet made
+  from the error (its explanation; the wrong forms as pitfalls), one `gap_fill` of the sentence the error came from with the
+  changed words blanked, and **one productive card** in the deck "Error cards" (`kind error_drill`). No AI. The term goes
+  `draft -> learning` through the new transition kind `FROM_ERROR`; the card is due at the start of the next study day.
+- **Reviews of these cards** (D-163): the wrong form is a sheet pitfall, so "in" for "on" is `wrong`, never a typo; falling
+  back into it logs a review error with the **category of the origin error** (`review_flow._origin_category`).
+- **Recurring errors** (D-164): `GET /api/errors/suggestions` (the same wrong form corrected the same way at least twice;
+  drill errors left out; carded, in-library and dismissed ones hidden), `POST /api/errors/suggestions/dismiss`
+  (event `error.suggestion_dismissed`, no table). `ErrorOut.card` (additive).
+- **CLI**: `errors card <id> [--term] [--sentence]`, `errors suggestions [--min-count] [--limit]`, `errors dismiss <key>`.
+- **`store_correction`, `store_analysis`, `store_drill`** (D-165): the write step of each AI task, public, in the caller's
+  transaction (no behaviour change).
+- **The demo through the services** (D-166): corrections, analysed transcripts (`You:` / `Tutor:` conversations), drills
+  with their answers and drill errors, review errors, and cards made from recurring errors (4, plus 1 dismissal). The
+  results of the "AI" come from `app/demo/fictional_ai.py` and are validated by the real output models. Only the spoken
+  productions are still written directly (`direct_writes.record_oral_production`, until M6). Dataset v3.
+- **Events** (open set, no migration): `error.card_created`, `error.suggestion_dismissed`.
+- **Tests**: 1 951 backend tests (1 763 before): `test_error_cards.py` (domain), `test_error_cards_service.py`,
+  `api/test_error_cards_api.py`, `test_cli_errors.py` (+1), `test_demo_data.py` (+6, module E in the demo),
+  `test_demo_fictional_ai.py` (every template and every drill against the real schemas and grading).
+
+### Verified (Windows 11, 2026-10-18)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **1 951 pytest passed** (10 live deselected), then the
+  frontend: typecheck, oxlint `--deny-warnings`, 447 vitest tests. Exit code 0. `alembic check`: no new upgrade operation.
+- **Breaking check** (applied, then undone): `review_flow._origin_category` removed from `_confusion_error`: the test
+  `test_falling_back_into_the_error_keeps_its_category` fails (`lexis.collocation` instead of
+  `grammar.preposition.fixed_expression`); with the code back it passes.
+- **Demo, seed 42, 60 days, anchor 2026-09-01** (built in about 4 s, read through the real API with a `TestClient`):
+  `/api/drills` lists 7 drills over 3 categories (6 finished, 1 with 3 of 5 answered); `/api/productions?kind=
+  transcript_analysis` lists 4 analysed conversations (`transcript-1`, only the learner's turns stored); `/api/errors?
+  source=drill` has 14 errors; `/api/errors/suggestions` lists the recurring errors (10 occurrences for the most frequent);
+  `/api/errors` shows `card` on the errors that have one; `/api/decks` lists "Error cards" (`error_drill`, active). The CLI
+  `--demo errors suggestions` and `errors card` work on it. The same seed gives the same fingerprint (tested).
+- **Demo fingerprint** changes for expected reasons (D-166): new rows (drills, analysed transcripts, error cards and their
+  events, `explanation_fr`), and the reviews of the new cards shift the older random draws. Not compared with the previous
+  one table by table.
+- Not run by me: the owner's manual scenario below; no screen shows cards from errors or suggestions yet (backend only).
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+1. `.\start.ps1 -Demo`, then in `backend`: `uv run python -m app --demo errors suggestions --limit 5`: the recurring errors,
+   each with `errors card <id>`.
+2. `uv run python -m app --demo errors card <id>` for one of them (for example "in university"): the term, the exercise
+   (`She is ___ university.`) and the first review date. Run the same command again: "already is a card of this error".
+3. Open `http://127.0.0.1:8000/docs`, `GET /api/errors/suggestions` (the card is gone), `POST /api/errors/suggestions/dismiss`
+   with a key, `GET /api/drills` (7 drills, one unfinished), `GET /api/productions?kind=transcript_analysis`.
+4. In the app: `/drills` and `/transcripts/history` on the demo now have content; `/errors?source=drill` lists the drill
+   errors with "Open the drill".
+
+### API reference for the screens (M5.d)
+
+| Route | Request | Success |
+|---|---|---|
+| `POST /api/errors/{id}/card` | `{term?: ≤ 300, sentence?: ≤ 400}` (both optional) | 201 `{error_id, item_id, term, card_id, deck_id, sentence, due}` |
+| `GET /api/errors/suggestions?min_count=2&limit=20` | `min_count` 1-20, `limit` 1-50 | 200 `{suggestions: [{key, erroneous_text, correction, category: {code, label_en, label_fr, status}, count, first_at, last_at, error_id, sample_error_ids, term\|null, cardable, reason\|null}]}` |
+| `POST /api/errors/suggestions/dismiss` | `{key}` | 200 `{dismissed: bool}` |
+
+`ErrorOut` gains `card: {id, term} | null`. Errors: 404 `error_not_found`, `suggestion_not_found`; 409 `card_exists` (+
+`item_id`); 422 `not_cardable` (+ `reason`: `no_context`, `invalid_sentence`, `invalid_term`, `no_correction`,
+`too_long`), `invalid_request` (malformed body).
+
+### Departures from the prompt
+
+- **One productive card per error**, not two (D-163): approved with the plan; SPEC module E says so.
+- **A `sentence` in the request**: not planned; needed because a manual error has no original sentence and every card
+  needs its gap-fill (D-163).
+- **A dismissal event** (approved with the plan) and `ErrorOut.card` (additive, not planned).
+- `tweak` got a full sheet (the demo's half-discovered term must have one, D-166).
+
+### Left / notes
+
+- **The screens** for cards from errors and suggestions (not planned yet: "M5.d"), and an undo for a dismissal.
+- **The M5.c pull request** (frontend only): this branch is cut from its tip, so open M5.c's PR first, then this one
+  (backend, `content/demo`, docs); `docs/PROGRESS.md` and `docs/DECISIONS.md` will need a textual merge if both are
+  based on `main`.
+- **M6**: speaking, which removes the last direct write of the demo.
+- The owner's manual scenarios (M2.c2 to M5.c2) and the one above.
+
+### Known issues
+
+- A term made from a tense error is the corrected fragment ("I have met"): fine as a pattern, less as a word. The user can
+  give `term` and `sentence` (D-167).
+- Editing the sheet of an error card with `save_sheet` derives a typed-recall exercise whose cue is the rule, which contains
+  the answer (D-167).
+- A dismissed suggestion cannot be brought back (D-164).
+- The demo's suggestions show counts such as 10: the dataset repeats its 59 templates.
 
 ## M5.c2 — Drills and links (frontend)
 
