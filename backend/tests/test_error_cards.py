@@ -55,16 +55,33 @@ def test_without_an_explanation_the_rule_is_generated() -> None:
     assert sheet.definition_simple == 'Say "on campus", not "in campus".'
 
 
-def test_without_the_original_sentence_there_is_no_exercise() -> None:
-    plan = plan_card(**campus(original_text=""))
-    assert plan.sentence is None
-    assert plan.gap_fill is None
-    assert read_sheet(plan.sheet).examples == []
+def test_without_the_original_sentence_a_sentence_must_be_given() -> None:
+    with pytest.raises(NotCardable) as excinfo:
+        plan_card(**campus(original_text=""))
+    assert excinfo.value.reason == "no_context"
+    plan = plan_card(**campus(original_text=""), sentence="We met on campus last week.")
+    assert plan.sentence == "We met on campus last week."
+    assert plan.gap_fill is not None
+    assert plan.gap_fill["sentence"] == "We met ___ campus last week."
 
 
-def test_an_original_sentence_that_lacks_the_wrong_form_gives_no_exercise() -> None:
-    plan = plan_card(**campus(original_text="Nothing to see here."))
-    assert plan.gap_fill is None
+def test_a_given_sentence_replaces_the_original_one() -> None:
+    plan = plan_card(**campus(), sentence="They study on campus.")
+    assert plan.sentence == "They study on campus."
+    assert read_sheet(plan.sheet).examples[0].sentence == "They study on campus."
+
+
+@pytest.mark.parametrize("sentence", ["They study at home.", "x" * 500 + " on campus"])
+def test_a_sentence_without_the_correction_or_too_long_is_refused(sentence: str) -> None:
+    with pytest.raises(NotCardable) as excinfo:
+        plan_card(**campus(), sentence=sentence)
+    assert excinfo.value.reason in {"invalid_sentence", "no_context"}
+
+
+def test_an_original_sentence_that_lacks_the_wrong_form_needs_a_sentence() -> None:
+    with pytest.raises(NotCardable) as excinfo:
+        plan_card(**campus(original_text="Nothing to see here."))
+    assert excinfo.value.reason == "no_context"
 
 
 def test_a_correction_that_only_removes_words_blanks_the_whole_fragment() -> None:

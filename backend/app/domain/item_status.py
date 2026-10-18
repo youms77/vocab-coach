@@ -18,13 +18,20 @@ class TransitionKind(StrEnum):
     AUTOMATIC = "automatic"  # learning <-> consolidated, after each review
     MARK_ACTIVE = "mark_active"  # module G (M7): correct use in a free production
     UNARCHIVE = "unarchive"
+    FROM_ERROR = "from_error"  # a card made from an error of the log (M5.a3): no discovery
 
 
 S = ItemStatus
 K = TransitionKind
 
 ITEM_TRANSITIONS: dict[ItemStatus, dict[ItemStatus, TransitionKind]] = {
-    S.DRAFT: {S.TRIAGE: K.MANUAL, S.QUEUED: K.MANUAL, S.KNOWN: K.MANUAL, S.ARCHIVED: K.MANUAL},
+    S.DRAFT: {
+        S.TRIAGE: K.MANUAL,
+        S.QUEUED: K.MANUAL,
+        S.KNOWN: K.MANUAL,
+        S.ARCHIVED: K.MANUAL,
+        S.LEARNING: K.FROM_ERROR,
+    },
     S.TRIAGE: {S.QUEUED: K.MANUAL, S.KNOWN: K.MANUAL, S.ARCHIVED: K.MANUAL},
     S.QUEUED: {
         S.DISCOVERING: K.START_DISCOVERY,

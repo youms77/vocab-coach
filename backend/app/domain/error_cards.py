@@ -50,8 +50,8 @@ class CardPlan:
 
     term: str
     wrong: str  # the wrong fragment the term replaces
-    sentence: str | None  # the corrected sentence the error came from, if known
-    gap_fill: dict[str, Any] | None  # `gap_fill` template content, if a sentence is known
+    sentence: str  # the corrected sentence the error came from
+    gap_fill: dict[str, Any]  # `gap_fill` template content
     sheet: dict[str, Any]  # `UsageSheet` content
 
 
@@ -183,9 +183,12 @@ def plan_card(
     original_text: str = "",
     explanation: str = "",
     term: str | None = None,
+    sentence: str | None = None,
 ) -> CardPlan:
-    """Plan the card of an error. `term` replaces the proposed term (a shorter or a better one).
-    Raises NotCardable (`no_correction`, `too_long`, `invalid_term`)."""
+    """Plan the card of an error. `term` replaces the proposed term (a shorter or a better one);
+    `sentence` replaces the sentence the error came from (it must hold the correction). Every card
+    has a gap-fill, so an error without a usable sentence is refused. Raises NotCardable
+    (`no_correction`, `too_long`, `invalid_term`, `invalid_sentence`, `no_context`)."""
     wrong, right = _trim(erroneous_text), _trim(correction)
     if not wrong or not right or _key(wrong) == _key(right):
         raise NotCardable("no_correction", "This error has no different correction to learn.")
@@ -205,14 +208,24 @@ def plan_card(
             raise NotCardable(
                 "too_long", "The correction is too long to become a card: give a shorter term."
             )
-    sentence = _corrected_sentence(original_text, erroneous_text, correction)
-    gap = _gap_fill(sentence, erroneous_text, correction) if sentence else None
+    if sentence is not None and sentence.strip():
+        context = sentence.strip()
+        if find_fragment(context, correction) is None:
+            raise NotCardable("invalid_sentence", "The sentence must contain the correction.")
+    else:
+        context = _corrected_sentence(original_text, erroneous_text, correction)
+    gap = _gap_fill(context, erroneous_text, correction) if context else None
+    if gap is None:
+        raise NotCardable(
+            "no_context",
+            "A card needs a sentence that uses the correction: give one.",
+        )
     return CardPlan(
         term=chosen,
         wrong=wrong,
-        sentence=sentence,
+        sentence=context,
         gap_fill=gap,
-        sheet=_sheet(chosen, wrong, diff.wrong_core, sentence, explanation),
+        sheet=_sheet(chosen, wrong, diff.wrong_core, context, explanation),
     )
 
 

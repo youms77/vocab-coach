@@ -774,6 +774,26 @@ def save_sheet(
     return get_sheet(session, item.id)
 
 
+def store_generated_sheet(
+    session: Session, item_id: int, sheet: UsageSheet, at: datetime, provenance: Provenance
+) -> Enrichment:
+    """A first sheet made by the app itself (provider "error" for a card made from an error),
+    saved as the current version. Unlike `save_sheet` it derives no typed-recall template: the
+    caller owns the term's exercises. Raises ItemNotFound."""
+    at = as_utc(at)
+    get_item(session, item_id)
+    new, _ = _new_version(
+        session,
+        item_id,
+        sheet.model_dump(mode="json"),
+        status=EnrichmentStatus.COMPLETE,
+        provenance=provenance,
+        edited=False,
+        at=at,
+    )
+    return new
+
+
 def add_templates(
     session: Session,
     item_id: int,

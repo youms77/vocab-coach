@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     Card,
     Enrichment,
+    ErrorCategory,
     ErrorEvent,
     ExerciseTemplate,
     LexicalItem,
@@ -552,6 +553,21 @@ def confusion_category(item_type: ItemType | str, given: str, expected: str) -> 
     return "lexis.wrong_word"
 
 
+def _origin_category(
+    session: Session, item: LexicalItem, confusion: Confusion
+) -> ErrorCategory | None:
+    """A card made from an error (M5.a3): its wrong form is a pitfall of the sheet, and falling
+    back into it is the same error again, so it keeps the category of the error the card came
+    from (a preposition stays a preposition, not a "wrong word")."""
+    if confusion.kind != ConfusionKind.PITFALL or item.origin_error_event_id is None:
+        return None
+    origin = session.get(ErrorEvent, item.origin_error_event_id)
+    if origin is None:
+        return None
+    category = session.get(ErrorCategory, origin.category_id)
+    return category if category is not None and category.status == "active" else None
+
+
 def _confusion_error(
     session: Session,
     ctx: ExerciseContext,
@@ -574,7 +590,7 @@ def _confusion_error(
         return None
     given = graded.answer_text.strip()
     expected = str(ctx.content["answer"])
-    category = error_log.category_by_code(
+    category = _origin_category(session, ctx.item, result.confusion) or error_log.category_by_code(
         session, confusion_category(ctx.item.item_type, given, expected)
     )
     if category is None:  # the taxonomy was never loaded (`db upgrade` syncs it)
