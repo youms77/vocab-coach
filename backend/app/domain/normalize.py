@@ -35,7 +35,8 @@ _PLACEHOLDERS = {
 _PLACEHOLDER_TOKENS = frozenset(_PLACEHOLDERS.values())
 
 
-def _clean_typography(text: str) -> str:
+def clean_typography(text: str) -> str:
+    """NFKC, then typographic apostrophes, quotes and dashes to their ASCII forms."""
     text = unicodedata.normalize("NFKC", text)
     return text.translate(_APOSTROPHES).translate(_QUOTES).translate(_DASHES)
 
@@ -47,7 +48,7 @@ def _canonical_token(token: str) -> str:
 
 def normalize_term(term: str) -> str:
     """The form duplicates are matched on: "To account for (sth)." -> "account for sth"."""
-    text = _clean_typography(term).casefold()
+    text = clean_typography(term).casefold()
     text = " ".join(text.split())
     previous = None
     while text != previous:  # quotes and final punctuation can wrap each other
@@ -152,7 +153,7 @@ _WORD = re.compile(r"[\w']+")
 
 
 def _tokens(text: str) -> list[str]:
-    return _WORD.findall(_clean_typography(text).casefold())
+    return _WORD.findall(clean_typography(text).casefold())
 
 
 def term_in_sentence(term: str, sentence: str) -> bool:
