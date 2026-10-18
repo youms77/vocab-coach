@@ -33,7 +33,7 @@ from app.ai.policy import (
 from app.ai.prompt_loader import PromptLibrary
 from app.ai.providers import Provider, build_providers
 from app.ai.redact import clean_message
-from app.ai.schemas import AiOutput, TranscriptionOutput
+from app.ai.schemas import AiOutput, TranscriptionOutput, TranscriptionSegment
 from app.ai.tasks import TASKS, TRANSCRIPTION_TASK, TaskSpec
 from app.ai.types import (
     AiResult,
@@ -60,8 +60,8 @@ logger = logging.getLogger("app.ai")
 ProviderMap = Mapping[str, Provider]
 # (provider, repair message or None, request timeout) -> response
 type SendFn = Callable[[Provider, str | None, float], ProviderResponse]
-# model text -> (validated data, "") or (None, validation message)
-type ParseFn = Callable[[str], tuple[Any, str]]
+# provider response -> (validated data, "") or (None, validation message)
+type ParseFn = Callable[[ProviderResponse], tuple[Any, str]]
 
 
 class Gateway:
@@ -150,13 +150,15 @@ class Gateway:
             timeout_s=spec.timeout_s,
             pin=pin_provider,
             send=send,
-            parse=lambda text: _validate(schema, text, context),
+            parse=lambda response: _validate(schema, response.text, context),
         )
 
     def transcribe(
         self, audio: AudioClip, *, language: str = "en", pin_provider: str | None = None
     ) -> AiResult[TranscriptionOutput]:
-        """Speech to text, through the same retry / fallback / journal path."""
+        """Speech to text, through the same retry / fallback / journal path. The output carries the
+        provider's audio duration and segments when it gives them (D-171). There is no prompt: a
+        target sentence would pull the recognition towards it (D-172)."""
 
         def send(provider: Provider, repair: str | None, timeout_s: float) -> ProviderResponse:
             return provider.transcribe(
@@ -170,7 +172,7 @@ class Gateway:
             timeout_s=60.0,
             pin=pin_provider,
             send=send,
-            parse=lambda text: (TranscriptionOutput(text=text), ""),
+            parse=lambda response: (_transcription_output(response), ""),
         )
 
     def status(self) -> list[ProviderStatus]:
@@ -283,7 +285,7 @@ class Gateway:
                         error.message,
                     )
                 else:
-                    data, problem = parse(response.text)
+                    data, problem = parse(response)
                     error = (
                         None
                         if data is not None
@@ -467,6 +469,25 @@ class Gateway:
 
     def _mask(self, text: str) -> str:
         return clean_message(text, self._secrets(), 1000)
+
+
+def _transcription_output(response: ProviderResponse) -> TranscriptionOutput:
+    details = response.transcription
+    if details is None:
+        return TranscriptionOutput(text=response.text)
+    return TranscriptionOutput(
+        text=response.text,
+        duration_s=details.duration_s,
+        segments=[
+            TranscriptionSegment(
+                start=segment.start,
+                end=segment.end,
+                no_speech_prob=segment.no_speech_prob,
+                avg_logprob=segment.avg_logprob,
+            )
+            for segment in details.segments
+        ],
+    )
 
 
 def _validate[T: BaseModel](

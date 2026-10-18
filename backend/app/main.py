@@ -15,6 +15,7 @@ from app.api import (
     productions,
     reviews,
     session,
+    speech,
     transcripts,
     writing,
 )
@@ -47,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(writing.router, prefix="/api")
     app.include_router(transcripts.router, prefix="/api")
     app.include_router(drills.router, prefix="/api")
+    app.include_router(speech.router, prefix="/api")
     register_error_handlers(app)
     # Added last, so it is the outermost layer: even a CORS preflight goes through the Host check.
     app.add_middleware(ApiGuard, port=settings.port, allowed_origins=settings.cors_origins)

@@ -8,7 +8,9 @@ terms. `python -m app errors list | show | add | categories | card | suggestions
 and edits the error log (`card` makes a review card from an error) and
 `write correct --file <txt>` has the AI correct a text; `transcript analyse --file <txt>` finds
 your errors in a conversation transcript; `drill new <code>` and `drill list` are targeted drills.
-`--demo` (before the command) works on the demo database."""
+`speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
+`speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
+texts without AI. `--demo` (before the command) works on the demo database."""
 
 import argparse
 import os
@@ -262,6 +264,31 @@ def _build_parser() -> argparse.ArgumentParser:
         help="number of items, 5 to 15 (default 10)",
     )
     drill_commands.add_parser("list", help="your drills, newest first, with their scores")
+
+    speech = commands.add_parser("speech", help="recordings and speech recognition (module F)")
+    speech_commands = speech.add_subparsers(dest="speech_command", required=True)
+    shadow = speech_commands.add_parser(
+        "shadow", help="store a recording of a sentence, transcribe it and compare it"
+    )
+    shadow.add_argument(
+        "--file", type=Path, required=True, help="the clip (.m4a, .webm, .ogg, .wav, .mp3)"
+    )
+    shadow.add_argument("--target", required=True, help="the sentence you repeated")
+    shadow.add_argument("--item", type=_positive, help="the id of the term worked on")
+    shadow.add_argument(
+        "--duration",
+        type=float,
+        help="length in seconds (without it, the duration measured by Groq is used)",
+    )
+    transcribe = speech_commands.add_parser(
+        "transcribe", help="transcribe again a recording that has no transcription yet"
+    )
+    transcribe.add_argument("production_id", type=_positive)
+    compare = speech_commands.add_parser(
+        "compare", help="compare a sentence with what was heard, word by word (no AI)"
+    )
+    compare.add_argument("target", help="the sentence to say")
+    compare.add_argument("heard", help="what speech recognition wrote")
     return parser
 
 
@@ -374,9 +401,12 @@ def _errors(args: argparse.Namespace, url: str) -> int:
     return cli_errors.run_errors_categories(url, proposed_only=args.proposed)
 
 
-def _demo_seed(args: argparse.Namespace, demo_file: Path) -> int:
+def _demo_seed(args: argparse.Namespace, settings: Settings) -> int:
     # Imported here: the simulation pulls in every service, which other commands do not need.
     from app.demo.seed import DemoSeedError, check_target, is_seeded, render_summary, seed_demo
+    from app.speech.audio_store import AudioStore
+
+    demo_file = settings.demo_database_file
 
     if args.if_missing and is_seeded(demo_file):
         print(f"Demo database already seeded ({demo_file}).")
@@ -385,7 +415,12 @@ def _demo_seed(args: argparse.Namespace, demo_file: Path) -> int:
         check_target(demo_file, reset=args.reset)  # refuse before announcing anything
         print(f"Generating the demo database ({demo_file})...", flush=True)
         summary = seed_demo(
-            demo_file, seed=args.seed, days=args.days, anchor=args.anchor, reset=args.reset
+            demo_file,
+            seed=args.seed,
+            days=args.days,
+            anchor=args.anchor,
+            reset=args.reset,
+            audio_store=AudioStore.demo(settings),
         )
     except DemoSeedError as exc:
         print(str(exc), file=sys.stderr)
@@ -413,7 +448,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "demo":
         # Never the personal database: always the demo file, whatever VOCAB_DATABASE_URL says.
-        return _demo_seed(args, settings.demo_database_file)
+        return _demo_seed(args, settings)
     if args.command == "ai":
         return _ai(args, settings)
     url = settings.resolved_database_url
@@ -446,6 +481,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.drill_command == "new":
             return cli_drill.run_drill_new(url, settings, args.category_code, count=args.count)
         return cli_drill.run_drill_list(url)
+    if args.command == "speech":
+        from app import cli_speech
+
+        if args.speech_command == "compare":
+            return cli_speech.run_speech_compare(args.target, args.heard)
+        if args.speech_command == "transcribe":
+            return cli_speech.run_speech_transcribe(url, settings, args.production_id)
+        return cli_speech.run_speech_shadow(
+            url, settings, args.file, target=args.target, item_id=args.item, duration=args.duration
+        )
     if args.command == "transcript":
         from app import cli_transcript
 

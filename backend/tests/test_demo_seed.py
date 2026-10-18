@@ -17,6 +17,7 @@ from app.db.models import Deck
 from app.db.settings_store import get_all_settings, get_setting, set_setting
 from app.demo.seed import DemoSeedError, seed_demo, sqlite_url
 from app.domain.settings_defaults import SettingError
+from app.speech.audio_store import AudioStore
 from tests.demo_support import DEMO_ANCHOR, fingerprint
 
 # Safety and CLI tests only need a small demo database; determinism uses three weeks.
@@ -139,6 +140,30 @@ def test_a_failed_build_leaves_the_previous_database_intact(
     assert [p.name for p in tmp_path.iterdir() if ".tmp-" in p.name] == []
 
 
+def _recording(folder: Path) -> Path:
+    path = folder / "2026" / "09" / ("a" * 32 + ".webm")
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"old demo recording")
+    return path
+
+
+def test_a_seed_empties_the_demo_recordings(tmp_path: Path) -> None:
+    store = AudioStore(tmp_path / "audio-demo")
+    old = _recording(store.root)
+    seed_demo(tmp_path / "demo.sqlite3", days=SHORT_DAYS, anchor=DEMO_ANCHOR, audio_store=store)
+    assert not old.exists()
+
+
+def test_a_refused_seed_keeps_the_demo_recordings(tmp_path: Path) -> None:
+    path = tmp_path / "demo.sqlite3"
+    seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR)
+    store = AudioStore(tmp_path / "audio-demo")
+    old = _recording(store.root)
+    with pytest.raises(DemoSeedError):
+        seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR, audio_store=store)
+    assert old.exists()
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows locks open files")
 def test_a_database_in_use_is_reported_and_kept(tmp_path: Path) -> None:
     path = tmp_path / "vocab-coach-demo.sqlite3"
@@ -211,6 +236,15 @@ def test_cli_seed_never_touches_the_personal_database(
     assert "Rows per table" in out and "Errors by category (level 2)" in out
     assert personal.read_bytes() == before
     assert (env / "vocab-coach-demo.sqlite3").exists()
+
+
+def test_cli_seed_empties_audio_demo_but_never_the_personal_recordings(env: Path) -> None:
+    demo = _recording(env / "audio-demo")
+    personal = _recording(env / "audio")
+    args = ["demo", "seed", "--days", str(SHORT_DAYS), "--anchor", DEMO_ANCHOR.isoformat()]
+    assert main(args) == 0
+    assert not demo.exists()
+    assert personal.read_bytes() == b"old demo recording"
 
 
 def test_cli_seed_refuses_then_skips_then_resets(

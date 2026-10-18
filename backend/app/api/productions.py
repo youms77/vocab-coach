@@ -1,4 +1,5 @@
-"""Written productions and their AI correction (module E, M5.a1).
+"""Productions and their AI correction (module E, M5.a1). Spoken productions are recorded, played
+and transcribed through `app/api/speech.py` (M6.a1); they are read here like the others.
 
 `POST /productions/{id}/correct` calls the AI, so it is a plain `def` route with **no database
 session in its dependencies**: the service opens short sessions itself and none is open while the
@@ -20,12 +21,13 @@ from app.ai import Gateway, get_gateway
 from app.api.clock import NowDep
 from app.api.error_log import ErrorOut, errors_out
 from app.api.errors import require_database
+from app.api.speech import ComparisonOut, audio_url, comparison_out
 from app.db.engine import get_engine, get_session
 from app.db.models import ErrorCategory, ErrorEvent, ProductionAttempt
 from app.domain.enums import Modality, ProductionKind
 from app.domain.events import ProductionOrigin
 from app.domain.transcript_import import MAX_PASTED_CHARS, UserByLabel, UserByMode
-from app.services import corrections, productions, transcripts
+from app.services import corrections, productions, speech, transcripts
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
@@ -67,9 +69,17 @@ class ProductionOut(BaseModel):
     targets: list[TargetOut]
     created_at: datetime
     updated_at: datetime
+    # Spoken productions (M6.a1). `audio_url` streams the recording; `transcription_status` is
+    # `pending` (to transcribe again), `ok` or `silence`, null without a recording; `comparison`
+    # is the word-by-word comparison of a transcribed shadowing, computed again on each read.
+    audio_url: str | None = None
+    audio_seconds: float | None = None
+    transcription_status: Literal["pending", "ok", "silence"] | None = None
+    comparison: ComparisonOut | None = None
 
 
 def production_out(session: Session, attempt: ProductionAttempt) -> ProductionOut:
+    comparison = speech.comparison_of(session, attempt)
     return ProductionOut(
         id=attempt.id,
         kind=attempt.kind,
@@ -95,6 +105,10 @@ def production_out(session: Session, attempt: ProductionAttempt) -> ProductionOu
         ],
         created_at=attempt.created_at,
         updated_at=attempt.updated_at,
+        audio_url=audio_url(attempt.id) if attempt.audio_path else None,
+        audio_seconds=attempt.audio_seconds,
+        transcription_status=speech.transcription_state(session, attempt),
+        comparison=comparison_out(comparison) if comparison is not None else None,
     )
 
 

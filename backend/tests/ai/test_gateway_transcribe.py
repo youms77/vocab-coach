@@ -4,7 +4,14 @@ from collections.abc import Callable
 
 from app.ai.gateway import Gateway
 from app.ai.providers.fake import Failure, FakeProvider, Success
-from app.ai.types import AudioClip, Capability, ErrorKind, UnavailableReason
+from app.ai.types import (
+    AudioClip,
+    Capability,
+    ErrorKind,
+    SpeechSegment,
+    TranscriptionDetails,
+    UnavailableReason,
+)
 from tests.ai.conftest import log_rows, ping
 
 ProviderFactory = Callable[..., FakeProvider]
@@ -59,3 +66,28 @@ def test_transcription_retries_and_falls_back_like_text(
 
     assert result.ok and result.provider == "b"
     assert [(r.provider, r.fallback_from) for r in log_rows(engine)] == [("a", None), ("b", "a")]
+
+
+def test_the_fake_provider_plays_a_duration_and_segments(
+    provider_factory: ProviderFactory, make_gateway: GatewayFactory
+) -> None:
+    details = TranscriptionDetails(
+        duration_s=2.5, segments=(SpeechSegment(start=0.0, end=2.5, no_speech_prob=0.1),)
+    )
+    stt = provider_factory("stt", Success(content="hello", transcription=details), capabilities=STT)
+    result = make_gateway(stt).transcribe(AUDIO)
+
+    assert result.ok and result.data is not None
+    assert result.data.duration_s == 2.5
+    assert [s.model_dump() for s in result.data.segments] == [
+        {"start": 0.0, "end": 2.5, "no_speech_prob": 0.1, "avg_logprob": None}
+    ]
+
+
+def test_without_details_the_output_has_text_only(
+    provider_factory: ProviderFactory, make_gateway: GatewayFactory
+) -> None:
+    stt = provider_factory("stt", Success(content="hello"), capabilities=STT)
+    result = make_gateway(stt).transcribe(AUDIO)
+    assert result.data is not None
+    assert (result.data.duration_s, result.data.segments) == (None, [])

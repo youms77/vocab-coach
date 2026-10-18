@@ -12,3 +12,11 @@ the classic shape (`error.code` = HTTP status, `error.status`, `details[]` with 
 `QuotaFailure.violations[].quotaId`, `RetryInfo.retryDelay`) comes from public forum reports, and
 `error_429_interactions_*` / `error_402` follow the documented Interactions codes. The quota ids,
 retry delays and the `FAILED_PRECONDITION` wording are reported values, not guaranteed ones.
+
+`groq/transcription_verbose_*` (M6.a1, D-171): built from the `CreateTranscriptionResponseVerboseJson`
+and `TranscriptionSegment` schemas of Groq's API reference (`language`, `duration` as a string, `text`,
+`segments[]` with `id`, `seek`, `start`, `end`, `text`, `tokens` and the optional `avg_logprob`,
+`compression_ratio`, `no_speech_prob`, `temperature`). The token ids and probabilities are invented;
+`transcription_verbose_hallucination` is the classic "Thank you." written over silence, with a
+no-speech probability above Whisper's 0.6 threshold. `transcription_ok` / `transcription_silence` are
+the plain `json` format (text only), still read.

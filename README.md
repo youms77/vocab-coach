@@ -158,12 +158,15 @@ environment variable first).
    You should see a line like `groq: ok (openai/gpt-oss-20b, 650 ms, tokens in/out 96/14)`.
 
 The free plan has limits. Approximate values from [Groq's rate-limits page](https://console.groq.com/docs/rate-limits)
-(read on 2026-10-16; they change, and your own limits are shown in your Groq console):
+(read on 2026-10-16, checked again on 2026-10-18; they change, and your own limits are shown in your Groq console):
 
 | Model used by default | Requests | Tokens / audio | Notes |
 |---|---|---|---|
 | `openai/gpt-oss-20b` (text) | 30 per minute, 1,000 per day | 8,000 tokens per minute, 200,000 per day | the app falls back or waits when a limit is hit |
 | `whisper-large-v3` (speech-to-text) | 20 per minute, 2,000 per day | 7,200 audio seconds per hour, 28,800 per day | clips up to 25 MB |
+
+**Privacy**: with a Groq key, your speaking recordings are sent to Groq to be transcribed, so they leave your
+computer. They are kept in `data/audio/` (never committed). Without a key they stay local, untranscribed.
 
 ### Ollama: optional, local and offline
 
@@ -217,6 +220,19 @@ Ambiguous lines (a translation after `=`, a whole sentence, a sub-item...) are r
 already in your library are added to the new deck instead of being duplicated. Options: `--deck-id N` (add to an
 existing deck), `--no-triage` (queue the terms directly instead of the "I know it / not sure / to learn" triage),
 and `--demo` before `library` to try it on the demo database.
+
+Speaking (milestone M6; the recording screens come later). Record a sentence with any recorder (Windows Sound
+Recorder saves `.m4a`), then:
+
+```powershell
+uv run python -m app speech shadow --file C:\path\to\clip.m4a --target "We account for regional fixed effects."
+uv run python -m app speech transcribe 12        # transcribe again a recording kept without a key
+uv run python -m app speech compare "We account for fixed effects." "we account for fix effect"   # no AI
+```
+
+`speech shadow` keeps the recording in `data/audio/`, transcribes it with Groq Whisper and lists the words that
+were not recognised. Speech recognition is not a pronunciation judge: a flagged word is a possible intelligibility
+issue, nothing more, and no error is recorded automatically. Without a key, add `--duration <seconds>`.
 
 ## Backup
 

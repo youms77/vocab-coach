@@ -13,7 +13,9 @@ Three rules, applied to the whole application (`/docs` and `/openapi.json` too):
    `Sec-Fetch-Site: cross-site`, is refused. The browser sets both headers; a page cannot forge
    them.
 3. A POST, PUT or PATCH with a body must be `application/json`: a form from another site cannot
-   send that without a CORS preflight, which the CORS middleware refuses.
+   send that without a CORS preflight, which the CORS middleware refuses. The one exception is a
+   raw recording, an `audio/*` body, on the `/api/speech/` paths only (D-170): no `audio/*` type is
+   "CORS-safelisted" either, so another site still needs a preflight, refused the same way.
 
 Pure ASGI (no `BaseHTTPMiddleware`: it would buffer bodies and complicate streaming). Added last in
 `create_app` so it is the outermost layer: even a CORS preflight goes through the Host check.
@@ -27,6 +29,8 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 BODY_METHODS = frozenset({"POST", "PUT", "PATCH"})
 LOOPBACK_NAMES = ("127.0.0.1", "localhost", "[::1]")
+# Recordings are posted raw, with their audio media type, under this prefix (module F).
+AUDIO_UPLOAD_PREFIX = "/api/speech/"
 
 
 def _normalize_origin(origin: str) -> str:
@@ -81,7 +85,10 @@ class ApiGuard:
 
         if method in BODY_METHODS and _has_body(headers):
             media_type = headers.get("content-type", "").split(";", 1)[0].strip().lower()
-            if media_type != "application/json":
+            audio_upload = media_type.startswith("audio/") and scope["path"].startswith(
+                AUDIO_UPLOAD_PREFIX
+            )
+            if media_type != "application/json" and not audio_upload:
                 return 415, "unsupported_media_type", "The request body must be application/json."
         return None
 
