@@ -28,6 +28,7 @@ from app.db.taxonomy import sync_taxonomy
 from app.demo.dataset import DemoDataset, load_dataset
 from app.demo.simulation import SimulationConfig, simulate
 from app.domain.study_day import study_day_of
+from app.speech.audio_store import AudioStore
 
 DEFAULT_SEED = 42
 DEFAULT_DAYS = 60
@@ -164,8 +165,11 @@ def seed_demo(
     anchor: date | None = None,
     reset: bool = False,
     dataset: DemoDataset | None = None,
+    audio_store: AudioStore | None = None,
 ) -> SeedSummary:
-    """Build the demo database at `target` (a SQLite file). Raises DemoSeedError when refused."""
+    """Build the demo database at `target` (a SQLite file). Raises DemoSeedError when refused.
+    Once the new database is in place, `audio_store` (the demo's recordings) is emptied: its files
+    belonged to productions that no longer exist."""
     started = time.perf_counter()
     target = target.resolve()
     check_target(target, reset=reset)
@@ -180,6 +184,8 @@ def seed_demo(
         _replace(temporary, target)
     finally:
         _remove_quietly(temporary)
+    if audio_store is not None:
+        audio_store.clear()
     summary = summarize(sqlite_url(target), marker)
     summary.path = target
     summary.seconds = time.perf_counter() - started

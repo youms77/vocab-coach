@@ -69,8 +69,14 @@ class AudioStore:
 
     @classmethod
     def for_settings(cls, settings: Settings) -> "AudioStore":
+        """The folder of the current mode: personal, or the demo's."""
         folder = DEMO_AUDIO_DIR if settings.demo else AUDIO_DIR
         return cls(settings.resolved_data_dir / folder)
+
+    @classmethod
+    def demo(cls, settings: Settings) -> "AudioStore":
+        """The demo's folder whatever the mode (`demo seed` always builds the demo database)."""
+        return cls(settings.resolved_data_dir / DEMO_AUDIO_DIR)
 
     def save(self, data: bytes, extension: str, *, at: datetime) -> str:
         """Write a new file atomically; returns its path relative to the folder."""
