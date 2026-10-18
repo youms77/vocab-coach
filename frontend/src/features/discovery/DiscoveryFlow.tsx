@@ -4,10 +4,14 @@ import { Link } from 'react-router'
 
 import { ApiError } from '../../api/client'
 import { type CompleteResult, useCompleteDiscovery, useStartDiscovery } from '../../api/discovery'
+import { useCorrectProduction, useProduction } from '../../api/productions'
 import type { NewItemStep } from '../../api/session'
+import { useElapsedSeconds } from '../../components/useElapsedSeconds'
 import { formatDateTime } from '../session/format'
 import { StepHeading } from '../session/StepHeading'
+import { aiReasonText } from '../settings/aiReason'
 import { ErrorText } from '../settings/ErrorText'
+import { CorrectionView } from '../writing/CorrectionView'
 import { type ExerciseOutcome, ExercisesStep } from './ExercisesStep'
 import { PersonalSentenceStep, RepetitionStep } from './ProductionSteps'
 import { ReadAndGuess } from './ReadAndGuess'
@@ -17,7 +21,76 @@ type Phase = 'read' | 'sheet' | 'exercises' | 'repetition' | 'personal' | 'done'
 
 const codeOf = (error: unknown) => (error instanceof ApiError ? error.code : null)
 
-function Done({ result, term, onNext }: { result: CompleteResult; term: string; onNext: () => void }) {
+/**
+ * The optional AI check of the personal sentence (D-104, D-128, D-143). It only calls `/correct` on the
+ * production `complete` created; a failure is said and never blocks "Continue". The usage sheet
+ * is neither reloaded nor shown on this path.
+ */
+function SentenceCheck({ productionId, sentence }: { productionId: number; sentence: string }) {
+  const { t } = useTranslation()
+  const correct = useCorrectProduction()
+  const seconds = useElapsedSeconds(correct.isPending, correct.submittedAt)
+  // Corrected meanwhile (409 already_corrected): show what is stored.
+  const stored = useProduction(productionId, codeOf(correct.error) === 'already_corrected')
+  const done = correct.data?.status === 'ok' ? correct.data : null
+  const feedback = done?.attempt.feedback ?? stored.data?.feedback ?? null
+
+  let failure: string | null = null
+  if (correct.data?.status === 'incomplete') failure = t('discovery.sentenceCheck.incomplete')
+  else if (correct.data?.status === 'unavailable') {
+    failure = t('discovery.sentenceCheck.unavailable', { reason: aiReasonText(t, correct.data.reason) })
+  }
+
+  return (
+    <section className="discovery-check" aria-label={t('discovery.sentenceCheck.title')}>
+      {feedback === null && (
+        <p>
+          <button
+            type="button"
+            className="button"
+            disabled={correct.isPending}
+            onClick={() => correct.mutate(productionId)}
+          >
+            {correct.isPending
+              ? t('discovery.sentenceCheck.running', { seconds })
+              : t('discovery.sentenceCheck.button')}
+          </button>
+        </p>
+      )}
+      {feedback === null && <p className="muted field-hint">{t('discovery.sentenceCheck.hint')}</p>}
+      <div role="status">
+        {failure !== null && <p className="form-message form-message--warn">{failure}</p>}
+      </div>
+      {correct.isError && codeOf(correct.error) !== 'already_corrected' && <ErrorText error={correct.error} />}
+      {feedback !== null && (
+        <>
+          <h3>{t('discovery.sentenceCheck.title')}</h3>
+          <CorrectionView
+            compact
+            level={3}
+            text={sentence}
+            feedback={feedback}
+            errors={done?.errors}
+            proposedCategories={done?.proposed_categories}
+          />
+        </>
+      )}
+    </section>
+  )
+}
+
+function Done({
+  result,
+  term,
+  sentence,
+  onNext,
+}: {
+  result: CompleteResult
+  term: string
+  /** The personal sentence that was sent, if any. */
+  sentence: string | null
+  onNext: () => void
+}) {
   const { t, i18n } = useTranslation()
   const first = result.cards.map((c) => c.due).sort()[0]
   return (
@@ -28,6 +101,9 @@ function Done({ result, term, onNext }: { result: CompleteResult; term: string; 
       )}
       {result.warnings.includes('term_missing') && (
         <p className="form-message form-message--warn">{t('discovery.done.term_missing')}</p>
+      )}
+      {result.production_attempt_id !== null && sentence !== null && (
+        <SentenceCheck productionId={result.production_attempt_id} sentence={sentence} />
       )}
       <button type="button" className="button button--primary" onClick={onNext}>
         {t('discovery.done.continue')}
@@ -57,6 +133,8 @@ export function DiscoveryFlow({
   const [phase, setPhase] = useState<Phase>('read')
   const [guess, setGuess] = useState<string | null>(null)
   const [results, setResults] = useState<ExerciseOutcome[]>([])
+  // The personal sentence as sent, to show it with its correction on the last screen.
+  const [personal, setPersonal] = useState<string | null>(null)
   // From the moment step 1 is shown to the moment `complete` is sent.
   const shownAt = useRef<number | null>(null)
 
@@ -98,6 +176,7 @@ export function DiscoveryFlow({
 
   function finish(personalSentence: string | null) {
     if (complete.isPending || complete.isSuccess) return
+    setPersonal(personalSentence)
     complete.mutate(
       {
         session_id: sessionId,
@@ -192,7 +271,7 @@ export function DiscoveryFlow({
       )
     case 'done':
       return complete.data !== undefined ? (
-        <Done result={complete.data} term={started.term} onNext={onNext} />
+        <Done result={complete.data} term={started.term} sentence={personal} onNext={onNext} />
       ) : null
   }
 }

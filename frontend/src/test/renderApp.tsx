@@ -5,17 +5,18 @@ import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
 
 import { routes } from '../routes'
 
-/** Renders the whole app at a given URL, with a fresh query cache and no retries. */
+/** Renders the whole app at a given URL, with a fresh query cache and no retries. Returns the router too. */
 export function renderApp(initialPath = '/') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
   const router = createMemoryRouter(routes, { initialEntries: [initialPath] })
-  return render(
+  const result = render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+  return { ...result, router, queryClient }
 }
 
 /** Renders one component with a fresh query cache and a router (for links), outside the layout. */

@@ -9,7 +9,8 @@
     "skipToContent": "Skip to main content",
     "library": "Library",
     "label": "Main",
-    "today": "Today"
+    "today": "Today",
+    "writing": "Writing"
   },
   "demo": {
     "badge": "Demo data",
@@ -235,7 +236,13 @@
     "already_discovered": "This term was already discovered.",
     "discovery_not_allowed": "This term cannot be discovered now: its deck is paused or done, or the term left the deck.",
     "exercise_mismatch": "This exercise does not match the term.",
-    "invalid_queue": "The deck order sent does not match your decks."
+    "invalid_queue": "The deck order sent does not match your decks.",
+    "already_corrected": "This text was already corrected. It has been loaded again.",
+    "production_mismatch": "The AI check could not be linked to this card, so the review is saved without it.",
+    "production_not_found": "This text does not exist (any more).",
+    "text_too_long": "This text is too long: at most 4,000 characters and 40 sentences.",
+    "invalid_production": "This text cannot be saved.",
+    "not_correctable": "This text cannot be corrected by the AI."
   },
   "home": {
     "title": "Welcome",
@@ -887,7 +894,7 @@
     "personal": {
       "title": "Your own sentence",
       "label": "Write a sentence of your own with “{{term}}” (optional)",
-      "hint": "Up to 1,000 characters. It is saved; AI feedback comes in a later version.",
+      "hint": "Up to 1,000 characters. It is saved; on the last screen you can ask the AI to check it.",
       "finish": "Finish the discovery",
       "skip": "Skip and finish",
       "finishing": "Saving…"
@@ -903,6 +910,14 @@
       "blocked": "The other new terms of today wait until this one can be discovered. Write its sheet, then continue, or end the session.",
       "continue": "Continue the session",
       "retry": "Retry"
+    },
+    "sentenceCheck": {
+      "button": "Check my sentence with AI",
+      "running": "Checking… {{seconds}} s",
+      "hint": "Optional. Your sentence is saved already, and you can continue without the check.",
+      "title": "What the AI found in your sentence",
+      "unavailable": "The AI could not check your sentence: {{reason}}. You can try again or continue.",
+      "incomplete": "The AI could not check your sentence: its answer could not be used. You can try again or continue."
     }
   },
   "grading": {
@@ -938,7 +953,7 @@
       "typedRecall": "Type the English term.",
       "gapFill": "Type the missing word or words.",
       "sentenceProduction": "Write a sentence for this situation, using the term you are reviewing.",
-      "selfGradedLater": "Only the presence of the term is checked; AI feedback comes in a later version. You rate yourself.",
+      "selfGradedLater": "The AI checks your sentence when it is available. Otherwise only the presence of the term is checked and you rate yourself.",
       "spokenAnswer": "Answer this question aloud, using the term you are reviewing.",
       "recordingLater": "Nothing is recorded yet: recording your voice comes in a later version. Answer aloud, then compare with an example.",
       "selfReceptive": "Say to yourself what this term means, then check.",
@@ -1015,6 +1030,23 @@
       "space": "Space",
       "enter": "Enter",
       "shift": "Shift"
+    },
+    "aiCheck": {
+      "checking": "Checking your sentence…",
+      "elapsed": "Checking your sentence… {{seconds}} s",
+      "hint": "The AI is reading your sentence. It can take up to a minute. Your sentence is saved.",
+      "skip": "Skip the check and rate myself",
+      "found": "What the AI found in your sentence",
+      "notice": {
+        "unavailable": "The AI check is not available: {{reason}}. Rate your sentence yourself.",
+        "incomplete": "The AI check could not be used. Rate your sentence yourself.",
+        "skipped": "Check skipped. Rate your sentence yourself.",
+        "failed": "The AI check failed: {{error}} Rate your sentence yourself."
+      }
+    },
+    "errorLogged": {
+      "text": "Added to your error log.",
+      "link": "See the error"
     }
   },
   "queue": {
@@ -1066,5 +1098,109 @@
     },
     "reloaded": "Nothing was changed; the list was loaded again.",
     "statusCount": "{{status}}: {{count}}"
+  },
+  "correction": {
+    "notCorrected": "Not corrected yet",
+    "overall": "Overall comment",
+    "yourText": "Your text, with the errors marked",
+    "noErrors": "No errors found.",
+    "sentenceCorrect": "Your sentence is correct.",
+    "errorsTitle": "Errors",
+    "sentence": "Sentence {{n}}",
+    "errorNumber": "Error {{n}}",
+    "goToError": "Error {{n}}: go to its explanation",
+    "backToText": "Back to the text",
+    "wrong": "Incorrect",
+    "right": "Correct",
+    "alternatives": "Other natural options",
+    "category": "Category",
+    "showFrench": "Show in French",
+    "hideFrench": "Hide the French",
+    "term": "Related term",
+    "naturalnessTitle": "Correct, but not very natural",
+    "naturalnessIntro": "These parts are grammatical. A native speaker would probably say them differently. They are not errors and are not logged.",
+    "suggestion": "Try",
+    "correctedTitle": "Corrected version",
+    "naturalTitle": "More natural version",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Could not copy: select the text and copy it yourself.",
+    "targetsTitle": "Target terms",
+    "targetUsedCorrectly": "used correctly",
+    "targetUsedWrong": "used, but not correctly",
+    "targetUsed": "used",
+    "targetNotUsed": "not used",
+    "targetDisagreement": "The AI and the text search disagree about whether this term was used.",
+    "proposedTitle": "The AI proposed a new category",
+    "proposedBody": "“{{label}}” ({{code}}) is waiting for your decision.",
+    "proposedLink": "Review the proposed categories"
+  },
+  "writing": {
+    "title": "Writing",
+    "intro": "Write a short paragraph in English. The AI corrects it, marks each error and adds it to your error log.",
+    "historyLink": "My previous texts",
+    "topics": {
+      "title": "Choose a topic",
+      "intro": "Three suggestions for today, or write on your own topic.",
+      "theme": "Topic theme",
+      "allThemes": "All themes",
+      "tags": {
+        "academic": "Academic",
+        "interview": "Interview",
+        "data_science": "Data science",
+        "everyday": "Everyday",
+        "campus": "Campus"
+      },
+      "loading": "Loading the topics…",
+      "empty": "No topic for this theme.",
+      "use": "Use this topic",
+      "chosen": "Chosen",
+      "own": "Write on my own topic",
+      "ownLabel": "Your topic ({{max}} characters at most)",
+      "current": "Topic:",
+      "clear": "Remove the topic"
+    },
+    "text": {
+      "label": "Your text",
+      "words_one": "{{count}} word",
+      "words_other": "{{count}} words",
+      "chars": "{{chars}} / {{max}} characters",
+      "tooLong": "This text has {{chars}} characters and the limit is {{max}}. Shorten it before sending."
+    },
+    "submit": "Correct my text",
+    "saving": "Saving…",
+    "checking": "Checking… {{seconds}} s",
+    "submitHint": "Your text is saved first, then corrected. The correction takes a few seconds, sometimes up to a minute.",
+    "detail": {
+      "title": "Your text and its correction",
+      "loading": "Loading…",
+      "topic": "Topic:",
+      "writeAnother": "Write another text",
+      "allTexts": "All my texts",
+      "statusTitle": "Correction status",
+      "checkingHint": "The AI is checking your text. It is saved already; you can wait here.",
+      "notCorrected": "Your text is saved but was not corrected.",
+      "notCorrectedIncomplete": "Your text is saved but was not corrected: the AI's answer could not be used.",
+      "notCorrectedReason": "Your text is saved but was not corrected: {{reason}}.",
+      "tryAgain": "Try again",
+      "correctionLabel": "Correction",
+      "ready_one": "Correction ready: {{count}} error found.",
+      "ready_other": "Correction ready: {{count}} errors found.",
+      "readyNoErrors": "Correction ready: no errors found."
+    },
+    "history": {
+      "title": "My texts",
+      "intro": "Your written texts, newest first.",
+      "empty": "No text yet. Write the first one.",
+      "count_one": "{{count}} text",
+      "count_other": "{{count}} texts",
+      "date": "Date",
+      "topic": "Topic",
+      "text": "Text",
+      "status": "Status",
+      "corrected": "Corrected",
+      "notCorrected": "Not corrected",
+      "mixed": "This list also holds the personal sentences of the discovery and the sentences you wrote in reviews: the topic column tells them apart."
+    }
   }
 }

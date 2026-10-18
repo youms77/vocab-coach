@@ -1,22 +1,11 @@
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { type ConnectionTestResult, type ProviderName, useConnectionTest } from '../../api/ai'
+import { useElapsedSeconds } from '../../components/useElapsedSeconds'
 import { ErrorText } from './ErrorText'
 
 function seconds(ms: number, language: string) {
   return new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(ms / 1000)
-}
-
-/** Whole seconds since `start` (ms), ticking every second while `running`. */
-function useElapsedSeconds(running: boolean, start: number) {
-  const [now, setNow] = useState(start)
-  useEffect(() => {
-    if (!running) return
-    const timer = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [running])
-  return Math.max(0, Math.floor((now - start) / 1000))
 }
 
 function TestOutcome({ result }: { result: ConnectionTestResult }) {

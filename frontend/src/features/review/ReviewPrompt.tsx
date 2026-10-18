@@ -149,7 +149,9 @@ function TypedAnswer({
       </div>
       {state.phase !== 'answered' && state.phase !== 'recording' && state.phase !== 'recorded' && (
         <button type="submit" className="button button--primary" disabled={!answering}>
-          {state.phase === 'checking' ? t('review.checking') : t('review.check')}
+          {state.phase === 'checking' || state.phase === 'checking_production'
+            ? t('review.checking')
+            : t('review.check')}
         </button>
       )}
     </form>

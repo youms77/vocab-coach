@@ -2056,6 +2056,11 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - M5.a3: cards made from errors, suggestions for recurring errors, the demo's errors through the services.
 - M5.b and M5.c: the screens (writing, transcripts, drills, error log).
 - The `practice_info` step of the session stays informative; M5.c links it to a drill through `category_code`.
+- **Amendment (M5.b1, owner's decision): the order is M5.b, then M5.a3, then M5.c.** The screens of writing and of the
+  error log come first, because they need no new backend; the backend of M5.a3 (cards made from errors, suggestions
+  for recurring errors, the demo's errors) follows; M5.c (transcripts, drills, the `practice_info` link) comes last,
+  on the complete API. M5.b itself is two parts on one branch: M5.b1 (writing and corrections) and M5.b2 (error log
+  and categories).
 
 ## D-139 — Small conventions met in M5.a2
 
@@ -2069,3 +2074,116 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - `corrections.category_for` and `corrections.Written` are public (shared with the transcript service).
 - The live tests of M5.a2 (`test_live_transcript.py`, `test_live_drill.py`) follow D-054: deselected by default,
   `VOCAB_RUN_LIVE=1` and a configured provider required, a quota is a skip.
+
+## D-140 — Error spans and the correction model (M5.b1, 2026-10-18)
+
+- The backend counts spans in Unicode code points (D-128), JavaScript in UTF-16 units. `features/writing/spans.ts`
+  (pure) converts once: `Array.from(text)`, then the running sum of the lengths. A span that is out of bounds, not
+  made of integers or with `start >= end` is ignored and reported with `console.warn` in development only: a wrong
+  highlight is better than a crash.
+- **Overlaps**: spans that overlap (a nested one included) are merged into one mark that carries every error number;
+  spans that only touch stay two marks. `segment()` then cuts the text into plain and marked segments.
+- `features/writing/correction.ts` is the only place that knows the stored format: `readFeedback()` switches on
+  `feedback.format` and returns a neutral model (segments, ranges, entries grouped by sentence, naturalness notes,
+  the corrected and natural texts, target checks). `correction-1` is the only branch today; M5.c adds
+  `transcript-1` (the same keys plus `units`) as a second branch, without touching the view. An unknown format, a
+  missing feedback or a `correction-1` without `output` gives `null`: the view shows the plain text and "Not
+  corrected yet".
+- The logged errors (`ErrorOut`) are matched to `output.errors` through `feedback.error_event_ids`. The logged
+  explanation wins over the stored one (the user may have edited it) and its French goes with it (null once edited,
+  so no stale translation is offered).
+
+## D-141 — The correction view (M5.b1)
+
+- `CorrectionView` takes `{text, feedback, errors?, targets?, proposedCategories?, compact?, level?}`. The first
+  three are the milestone's; `targets` (the production's targets, for the term names) and `proposedCategories` are
+  additions, because `feedback.targets` carries item ids but no term, and the proposals only come with `/correct`.
+- **Marks are never colour alone**: a wavy underline, a tinted background and the error number in superscript, each
+  number a link to its entry; each entry has a "Back to the text" link. The links move the focus (`getElementById`
+  + `focus()`) instead of changing the URL hash, so `/writing/:id` stays clean.
+- Entries: `wrong` → `correction` (with visually hidden "Incorrect" / "Correct" labels and `del` / `ins`), the
+  alternatives, the category (label in the interface language, then the code in small type), the English
+  explanation, "Show in French" per error (never open by default, whatever the interface language; absent when the
+  French is null) and the linked target term.
+- **Category labels**: the logged row first; else the tree of `GET /api/error-categories` (queried only when some
+  error has no logged row, e.g. a reloaded `/writing/:id`, which does not return the errors); else the code alone.
+- **Compact** (a review sentence, the personal sentence of a discovery): marks, the list, the naturalness notes and
+  the corrected version, without the natural version, the Copy buttons and the target terms; the page around it
+  already deals with the term. Section headings take a `level` (2 on a page, 3 inside a step).
+- Naturalness notes are presented as correct but unusual and "not logged", never as errors. A proposed category is
+  announced with a link to `/errors/categories` (the page itself arrives in M5.b2; until then the link shows the
+  404 page).
+- "No errors found." for a text, "Your sentence is correct." for a single sentence.
+
+## D-142 — The writing flow (M5.b1)
+
+- `/writing` creates the production (`POST /api/productions`), clears the draft and goes to `/writing/{id}` with
+  `replace: true` and the router state `{autoCorrect: true}`. The detail page starts `/correct` by itself once, clears
+  the state at once, and shows the correction or the reason. Two consequences: a reload never creates a second
+  production (the URL is the production's) and never starts a correction by itself (the flag is gone); "Try again"
+  only calls `/correct`. Departure from the prompt's wording ("Checking… n s" on the writing page): the counter is on
+  the detail page, where the saved text is visible while the AI works.
+- `409 already_corrected` invalidates the production's query, so the stored correction is shown.
+- **Length**: counted in code points (as Python's `len`), words as runs of non-space characters. Over 4 000 the
+  button is disabled with a visible message and nothing is sent; no `maxLength` attribute, which would silently cut
+  a paste. The server stays the judge of the 40 sentences (`text_too_long`, shown, text and draft kept).
+- **Draft**: `localStorage` key `vocab-coach.writing-draft`, every access in `try/catch`, cleared when the production
+  is created. It is a per-viewer convenience: the page works without storage.
+- Topics: `GET /api/writing/topics?count=3&tag=` (the theme selector is labelled "Topic theme" so it is not confused
+  with the theme switcher of the top bar); the prompt sent is the English text of the topic or what the user typed
+  (500 characters at most).
+- **History** (`/writing/history`, 20 per page, the page in the URL): `ProductionOut` does not expose `origin`, so the
+  list also holds the personal sentences of discoveries and the sentences written in reviews. The topic column
+  (`prompt_text`) tells them apart, and the page says so. Not fixed here (it would need a backend field).
+- The AI failure is a 200 answer: `unavailable` gives the translated reason (`aiReasons.*`, D-095 — through
+  `aiReasonText`, which maps an unknown reason to "the providers failed"), `incomplete` its own sentence.
+
+## D-143 — Sentence production checked by the AI in the review player (M5.b1; builds on D-120, D-129)
+
+- A new phase `checking_production` in `reviewMachine`. A typed, non-empty sentence on a `sentence_production` card
+  with a template calls `POST /api/reviews/check-production` (a plain function, not a mutation, so an
+  `AbortController` can stop the wait). An empty sentence stays the self-graded path of M4.c.
+- `status: ok`: the correction in compact mode, `term_missing` derived from the stored `feedback.targets`, the
+  example answer, the sheet summary, the proposed rating (1 or 3 marked "Suggested", Enter accepts; null gives four
+  buttons without a suggestion). `POST /reviews` carries `production_attempt_id` and never `auto_rating`.
+- **Fallback = `grade`, not `reveal`** (departure from the prompt, approved in the plan): `unavailable`, `incomplete`,
+  a network error or "Skip the check" go back to the exact M4.c path, which for this type is `grade` (it keeps the
+  `term_missing` warning that `reveal` does not give; `grade` writes nothing). `POST /reviews` then carries no
+  `production_attempt_id`. A notice says why. Refusals that a fallback would not fix (`exercise_mismatch`,
+  `not_due`, `review_not_allowed`, `session_closed`, `session_not_found`) are handled as for `grade`.
+- **Waiting**: "Checking your sentence… n s" (hidden from screen readers; a static polite status says it once);
+  after 5 s a "Skip the check and rate myself" button aborts the request. The sentence stays recorded on the server
+  and the user rates it themselves, as accepted in the prompt. The reducer refuses an AI answer that arrives after
+  the skip (same state object, tested), so no `Date` or flag is needed for the race. Shortcuts are only armed in
+  `answering` and `answered`, so keys are ignored while waiting.
+- **Active recall (D-103)**: the example answer is only in the answer of `check-production` (or of `grade`), so
+  nothing of it is in the DOM before. A test fails if it is: breaking check (b) in PROGRESS.
+- `409 production_mismatch` on `POST /reviews`: a discreet message, then **one** automatic resend without
+  `production_attempt_id` (`productionDropped` empties it, so a second refusal is shown like any other error).
+- **`error_event_id`** (a lexical confusion in a typed answer): the polite announcement of the session page, now a
+  `ReactNode`, adds "Added to your error log." and a link to `/errors/{id}` (the final route of M5.b2).
+- The hint under the sentence field no longer says that AI correction comes in a later version.
+
+## D-144 — The AI check of the personal sentence in discovery (M5.b1; builds on D-104, D-128)
+
+- On the last screen, when `complete` answered a `production_attempt_id` and a sentence was written, a "Check my
+  sentence with AI" button sits next to "Continue". It only calls `POST /api/productions/{id}/correct`, shows the
+  compact correction, and a failure (reason, network, refusal) is said without blocking "Continue"; the button can be
+  used again after a failure. `409 already_corrected` reads the stored production.
+- The sheet is neither reloaded nor shown on this path (a test counts the sheet requests). The sentence shown is the
+  one that was sent (kept in the flow's state). Its errors have the source `writing` (D-128).
+
+## D-145 — Small conventions met in M5.b1
+
+- `apiSend` takes an optional `AbortSignal`; `mockApi` rejects with an `AbortError` when the signal fires, like
+  `fetch`. `renderApp` also returns the router and the query client (to check the URL and the history action).
+- `useElapsedSeconds` moved to `components/` (the settings page and the new pages share it); the review panel counts
+  its own ticks instead, because the lint rule on impure calls refuses `Date.now()` in an event handler.
+- `PageTitle` (a focusable `h1`) for the new screens: focus goes to the title on arrival.
+- `errorMessage.ts`: six new codes; `invalid_production` shows the English detail like `invalid_setting` (D-068).
+- i18n: `review.check` was already a string (the button label), so the new keys are `review.aiCheck.*`.
+- **Navigation**: "Writing" is a fifth link. At 375 px the five links fit on one row in English; in French
+  ("Aujourd'hui", "Bibliothèque") the last one wraps to a second row, with no horizontal scroll (D-119 asked for
+  no scroll; wrapping was already the design). "Errors" arrives with M5.b2.
+- Found in the browser: a grid track without `minmax(0, 1fr)` let the history table widen the page to 1 661 px;
+  `.writing-page` now has it, like the library page.

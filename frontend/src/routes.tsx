@@ -13,6 +13,9 @@ import { TriagePage } from './features/library/TriagePage'
 import { QueuePage } from './features/queue/QueuePage'
 import { SessionPage } from './features/session/SessionPage'
 import { SettingsPage } from './features/settings/SettingsPage'
+import { WritingDetailPage } from './features/writing/WritingDetailPage'
+import { WritingHistoryPage } from './features/writing/WritingHistoryPage'
+import { WritingPage } from './features/writing/WritingPage'
 
 // One entry per feature folder under src/features/ as milestones add them.
 export const routes: RouteObject[] = [
@@ -30,6 +33,9 @@ export const routes: RouteObject[] = [
       { path: 'enrichment', element: <EnrichmentPage /> },
       { path: 'triage', element: <TriagePage /> },
       { path: 'duplicates', element: <DuplicatesPage /> },
+      { path: 'writing', element: <WritingPage /> },
+      { path: 'writing/history', element: <WritingHistoryPage /> },
+      { path: 'writing/:id', element: <WritingDetailPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

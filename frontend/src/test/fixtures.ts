@@ -244,6 +244,7 @@ export const recordAnswer = (overrides: Partial<RecordResult> = {}): RecordResul
   state_after: 'review',
   item_status: 'learning',
   item_status_changed: false,
+  error_event_id: null,
   ...overrides,
 })
 

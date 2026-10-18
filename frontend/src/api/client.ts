@@ -47,11 +47,15 @@ export async function apiGet<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
-/** A write request. The body, when given, is sent as JSON (the backend refuses anything else). */
+/**
+ * A write request. The body, when given, is sent as JSON (the backend refuses anything else).
+ * `signal` stops waiting for the answer; the server may still finish the request.
+ */
 export async function apiSend<T>(
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
@@ -59,6 +63,7 @@ export async function apiSend<T>(
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   })
   if (!response.ok) {
     throw await errorFrom(response, `${method} /api${path}`)
