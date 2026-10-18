@@ -2062,6 +2062,7 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   for recurring errors, the demo's errors) follows; M5.c (transcripts, drills, the `practice_info` link) comes last,
   on the complete API. M5.b itself is two parts on one branch: M5.b1 (writing and corrections) and M5.b2 (error log
   and categories).
+- **Second amendment (M5.c1, owner's decision): M5.c comes before M5.a3**, see D-151.
 
 ## D-139 — Small conventions met in M5.a2
 
@@ -2262,3 +2263,100 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - **Navigation**: "Errors" is the sixth top link; the links wrap to two rows at 375 px in English and in French, with
   no horizontal scroll (measured: `scrollWidth` 375 on every new page).
 - Page layouts use `grid-template-columns: minmax(0, 1fr)`, so a wide table scrolls in its frame (D-145).
+
+## D-151 — M5.c before M5.a3, and M5.c in two parts (amends D-138, M5.c1, 2026-10-18)
+
+- **Owner's decision**: the order is M5.b (done), then **M5.c, then M5.a3**. The transcript and drill screens need no
+  new backend, and the real analyses of the owner's conversations are worth having before the backend of M5.a3.
+  M5.a3 keeps its content (cards made from errors, suggestions for recurring errors, the demo's errors through the
+  services); nothing of it enters M5.c.
+- M5.c is two parts on one branch (`feat/m5c-transcripts-drills`): **M5.c1** transcripts (`/transcripts`,
+  `/transcripts/:id`, `/transcripts/history`, `transcript-1` in the correction view, the error log's transcript link),
+  **M5.c2** drills (`/drills`, `/drills/:id`, "Practise now", "Practise this category", the error log's drill link).
+- No backend change in M5.c (`git diff --stat main -- backend` is empty); a need found on the way stops the session.
+
+## D-152 — The pasted conversation lives in memory only (M5.c1)
+
+- The server stores your turns, not the other speaker's, so `/correct` needs the paste again to give the AI the
+  context (D-134). `features/transcripts/transcriptMemory.ts` is a module-level `Map<productionId, {text, user}>`:
+  `remember` after saving, `recall` for the analysis, `forget` after success. It is **never** in `localStorage`,
+  `sessionStorage`, the router state (react-router writes it to `history.state`) or the URL, and there is no draft.
+- Saving navigates to `/transcripts/{id}` with `replace: true` and the state `{autoAnalyse: true}` only. The detail
+  page clears it at once (a ref guard makes this safe in StrictMode) and starts `/correct` once, with `{transcript}`
+  when the memory has it, without a body otherwise. A reload therefore never creates a production and never starts an
+  analysis by itself.
+- `useAnalyseTranscript(onDone)` forgets in the **hook's** callbacks (`ok`, or `409 already_corrected`): the
+  callbacks of `mutate()` are dropped when the page is left, and a long analysis can outlive it. An AI failure
+  (`unavailable`, `incomplete`) keeps the paste: "Try again" calls only `/correct`, with the same body.
+- After a reload the memory is empty. The page then offers **"Analyse without the other speaker's context"** (no body,
+  `context_sent: false`) and **"Paste the conversation again"** (the same paste, preview and choice as the first page;
+  the body is `{transcript: {text, user}}`). `409 transcript_mismatch` shows a sentence and keeps the pasted text.
+- The privacy test uses a `createBrowserRouter` variant (`renderAppInBrowser`), because the memory router never writes
+  `history.state` and the test would prove nothing. It records `window.history.state`, the router state and the URL at
+  **every** navigation (the state that carries the flag is cleared a moment later, so a final check would miss it),
+  then the two storages. Breaking check (a) in PROGRESS.
+
+## D-153 — Preview and choice of your turns (M5.c1)
+
+- The preview belongs to the text it was made from: editing the text hides the preview and the choice and disables
+  saving until "Preview" is run again, so what is saved is what was previewed. The latest answer wins when two
+  previews overlap.
+- "Preview" sends `{text}`; the parser's suggestion (`suggested_user_label`, echoed as `designation`) pre-chooses the
+  label. Changing the choice reads the text again with `{text, user}`. **Without labels no mode is pre-chosen** (the
+  prompt only listed the three modes): the parser already warns that each paragraph is a turn, and a wrong guess would
+  silently analyse the other speaker's sentences.
+- Limits as the server's: 60 000 pasted characters, counted in code points. Over it: a visible message, "Preview" and
+  saving disabled, no request, **no `maxLength`** (it would cut a paste without saying so). The 6 000 characters of
+  your turns come back from the parser as a `too_large` error problem.
+- Problems: one i18n key per code (`transcripts.problems.*`); an unknown code falls back to the backend's English
+  message; the severity is written (Note, Warning, Error), never by colour alone (D-087). A label with one turn and no
+  known role gets the D-133 explanation ("Note:" opens a turn).
+- Your turns are marked "You" in words and by a border; the others "Other speaker". The pasted text is shown with
+  `white-space: pre-wrap`.
+
+## D-154 — Date and title (M5.c1)
+
+- The server refuses `occurred_on` after the **study day** (`study_today()`: the `timezone` and `day_start_hour`
+  settings), not after the browser's calendar day. The date field's `max` and the client check use the plan's
+  `study_day` (`GET /api/session/today`), with `localDay()` while it loads. The comparison is on `YYYY-MM-DD`
+  strings. The server stays the judge (`invalid_transcript` with `future_date`).
+- The title is optional, at most 200 code points (a counter and a disabled button; no `maxLength`). Empty fields are
+  sent as `null`; `study_session_id` is `null` (transcripts are not part of a study session in M5.c1).
+
+## D-155 — `transcript-1` in the correction model and the view (M5.c1; amends D-140 and D-141)
+
+- `readFeedback` has a second branch. Both formats go through one function; the model gained `kind` (`text` or
+  `transcript`), `numberOf(sentenceIndex)` and `contextSent` (null for a text, `false` when the flag is missing).
+- Units play the part of sentences (the entries keep the unit index in `sentenceIndex`), but errors and naturalness
+  notes are **grouped by your turn**: `units[].turn + 1`, "Your turn k" with k the position among your turns. Two units
+  of one long turn are one group; an unknown unit keeps its own index rather than disappearing.
+- The spans are in the stored text (your turns joined by a blank line), in code points, converted as before
+  (`toUtf16Ranges`); the text is shown with `pre-wrap` so the turns stay apart.
+- There is no natural version (`natural_text` is null) and no target term, so those sections are already hidden. The
+  view shows "Your turns, with the errors marked", the mention "Analysed with / without the other speaker's context"
+  from `context_sent`, and "No errors found in your turns".
+- **Departure from D-140** ("without touching the view"): these three labels and the group headings needed a small change in
+  `CorrectionView`; the stored-format knowledge stays in `correction.ts`.
+
+## D-156 — Error codes and the transcript reasons (M5.c1)
+
+- `errorMessage.ts` knows `transcript_mismatch` (409) and `invalid_transcript` (422). `not_correctable` was known.
+- `invalid_transcript` and `text_too_long` carry `codes` (the parser's codes, `future_date`, `title_too_long`).
+  `describeError` returns them as translated `reasons` (`transcripts.reasons.*`, then `transcripts.problems.*`, then
+  the code itself), shown as a list under the sentence by `ErrorText`.
+- `text_too_long` **with** `codes` is a transcript (60 000 and 6 000 characters); without, it is a written text (4 000
+  characters and 40 sentences): two sentences for one code (`errors.text_too_long_transcript`).
+- The codes of the drills (`drill_not_found`, `already_answered`, `not_drillable`...) arrive with M5.c2.
+
+## D-157 — Small conventions met in M5.c1
+
+- `productionLink` (D-146): the source `transcript` links to `/transcripts/{production_attempt_id}`; `drill` follows in
+  M5.c2 (the drill id must be checked against the production id in the service then).
+- `applyCorrection` and `applyCorrectionError` (in `api/productions.ts`) are the invalidations shared by the two
+  correction hooks.
+- `context` is a reserved option of i18next: the privacy sentence uses `{{chars}}`.
+- Found in the browser: a fieldset keeps its content's minimum width, so a 28 rem title field made the page 481 px wide
+  at 375 px. `.transcript-meta` and `.transcript-picker` have `min-width: 0` and the field is `min(28rem, 100%)` wide
+  (like D-145's table).
+- No new link in the top bar: the pages are reached from `/writing` ("Analyse a conversation transcript"), and the
+  history, the detail and the error log link to each other.

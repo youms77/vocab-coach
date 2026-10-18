@@ -4,14 +4,117 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M5.b2 - the error log and the categories (frontend), on branch
-  `feat/m5b-writing-errors` with M5.b1 (committed, not pushed, no PR yet). `main` has M1.a to M5.a2 (M5.a2 as
-  `8bb866a`, PR #16).
-- **Next**: M5.a3 (backend), then M5.c (transcripts and drills screens). Order revised by the owner, see D-138
-  (amendment). The branch `feat/m5b-writing-errors` can get its PR before or after M5.a3.
+- **Last milestone completed**: M5.c1 - the transcript screens (frontend), on branch `feat/m5c-transcripts-drills`
+  (committed, not pushed, no PR yet). `main` has M1.a to M5.b2 (M5.b as PR #17, `bab1a95`).
+- **Next**: M5.c2 (drills and the links), then M5.a3 (backend). Order revised by the owner, see D-151 (amendment of
+  D-138): M5.c comes before M5.a3.
 - Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. The
-  owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1 and M5.b2) are still to run.
+  owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1, M5.b2 and M5.c1) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M5.c1 — Transcripts (frontend)
+
+First of two parts on branch `feat/m5c-transcripts-drills` (M5.c2: drills and the links), cut from `main`
+(`bab1a95`). **No backend change** (`git diff --stat main -- backend` is empty), no migration, no new dependency,
+SPEC.md unchanged. Decisions D-151 to D-157.
+
+### Done
+
+- **API layer** (`api/transcripts.ts`): the types read in `app/api/transcripts.py`, `app/api/productions.py` and
+  `app/domain/transcript_import.py`; `usePreviewTranscript`, `useCreateTranscript`, `useAnalyseTranscript` (a
+  `{transcript}` body is optional; `onDone` runs in the hook). `api/productions.ts` shares `applyCorrection` /
+  `applyCorrectionError` between the two correction hooks, and `Feedback` gained `units`, `context_sent`, `calls`.
+- **`/transcripts`** (`TranscriptPage`): the paste with a code-point counter and the 60 000 limit (message, disabled
+  button, no request, no `maxLength`), "Preview", the parser's problems in the interface language with the severity in
+  words, the choice of your turns (a label, or three modes without labels), the numbered turns with yours marked
+  "You" and a border, your counters against 6 000, an optional title (200) and date (`max` = the study day), the
+  privacy notice, "Save and analyse" (D-152, D-153, D-154).
+- **`/transcripts/:id`** (`TranscriptDetailPage`): the analysis starts once after saving, with the pasted conversation
+  kept **in memory only** (`transcriptMemory.ts`); "Analysing your turns… n s"; "Try again"; after a reload, "Analyse
+  without the other speaker's context" or "Paste the conversation again" (same preview and choice); `409
+  transcript_mismatch` keeps the pasted text; `409 already_corrected` shows the stored analysis (D-152).
+- **`/transcripts/history`**: 20 per page, the page in the URL; date, title, your words, state in words.
+- **`CorrectionView` / `readFeedback`**: the `transcript-1` branch; errors grouped under "Your turn k"; the mention
+  "analysed with / without the other speaker's context"; no natural version (D-155).
+- **Elsewhere**: a link on `/writing`; the error log opens a `transcript` error's conversation (`productionLink`); two
+  new error codes (`transcript_mismatch`, `invalid_transcript`) and the translated `codes` of `invalid_transcript` and
+  `text_too_long` (D-156).
+- **i18n** (EN + FR, same keys): `transcripts.*`, `correction.yourTurns` / `turn` / `contextSent` / `contextNotSent` /
+  `noErrorsTurns`, `errors.transcript_mismatch` / `invalid_transcript` / `text_too_long_transcript`,
+  `writing.transcriptLink`. **CSS**: `.transcript-*`, tokens only.
+- **Tests**: 378 in total (332 before; 31 → 37 files). `TranscriptPage.test.tsx` (17), `TranscriptDetailPage.test.tsx`
+  (12), `TranscriptHistoryPage.test.tsx` (3), `correction.transcript.test.ts` (7), `logRules.test.ts` (3),
+  `errorMessage.test.ts` (4); one assertion of `ErrorsPage.test.tsx` changed (a transcript error now has a link).
+
+### Verified (Windows 11, 2026-10-18)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, 1 763 pytest passed (10 live deselected), then
+  the frontend: typecheck, oxlint `--deny-warnings`, 378 vitest tests. Exit code 0. `npm --prefix frontend run build`
+  passes (same chunk-size warning). `git diff --stat main -- backend`: empty.
+- **Breaking check** (applied, then undone; the code is back to green): (a) the pasted text added to the navigation
+  state (`state: { autoAnalyse: true, text }`): the privacy test fails (`expected '{"history":{"usr":{"autoAnalyse":true…'
+  not to contain 'Hello! Where do you live at the moment?'`). The test watches `window.history.state`, the router state
+  and the URL at every navigation (a `createBrowserRouter` variant, `renderAppInBrowser`), then the two storages. The
+  checks (b) and (c) of the prompt belong to M5.c2.
+- **In the in-app browser** (Chromium; EN and FR; light and dark; 375 px), on a temporary demo database in the
+  session's scratchpad (`VOCAB_DATA_DIR`, `VOCAB_DEMO=1`, the three AI settings emptied, backend on port 8011 behind
+  the Vite that was already running on 5173; `data/` and `.env` not touched):
+  1. `m5_transcript.txt` pasted (in French): "You" pre-chosen, 8 turns, 4 of them yours ("Vos tours : 4 · 59 mots"),
+     "Save and analyse": `/transcripts/18`, "not analysed: no AI provider is set up", `history.state` = `{usr: null}`,
+     `localStorage` / `sessionStorage` without any text.
+  2. Reload: no request, the two buttons; "Paste the conversation again" with the conversation, preview, then the
+     analysis, which the server accepted as matching (the degraded message again).
+  3. An unlabelled paragraph text: three modes, none chosen, "I speak second" gives turns 2, 4 and 6 as yours.
+  4. 60 001 characters: the message, the disabled button, **0 requests**, no `maxlength`. A lone "Note:" line: the
+     explanation of D-133.
+  5. A stored `transcript-1` analysis (written into the temporary database with a script): three numbered marks on the
+     right words after the blank lines between turns, "Your turn 1" to "Your turn 3", the context mention, no natural
+     version.
+  6. `scrollWidth` 375 on `/transcripts` (with a preview), `/transcripts/17`, `/transcripts/18`, `/transcripts/history`
+     in English and in French, light and dark (the combinations were spread over the pages, not all 16 crossed).
+     **Found and fixed**: the title field (28 rem) made the page 481 px wide at 375 px; a fieldset keeps its content's
+     minimum width, so `.transcript-meta` and `.transcript-picker` got `min-width: 0` (D-157).
+- Not checked in the browser: a real AI analysis (no key was used; covered by the tests and by the stored analysis
+  above), the date field's `max` against a study day that is not today, "Try again" after a failure.
+
+### Owner's manual scenario (about 3 minutes, with your Gemini key)
+
+1. `/writing` → "Analyse a conversation transcript": paste `content/examples/m5_transcript.txt`, check that "You" is
+   already chosen and that your 4 turns are marked, then "Save and analyse" (the privacy notice is above the button).
+2. The result: three errors, all in your turns (none in ChatGPT's), under "Your turn 1" to "Your turn 3"; they appear in
+   `/errors?source=transcript`, and each row's "Open the text" leads back to the conversation.
+3. Reload the page: the stored analysis stays, no new analysis starts. For a text that was not analysed, reload shows
+   "Analyse without the other speaker's context" and "Paste the conversation again".
+4. Paste `content/examples/m5_transcript_unlabelled.txt`: the three modes ("I speak second" is the right one), save.
+
+### Departures from the prompt
+
+- **No preselected mode without labels** (D-153): the prompt only asked for three modes; none is chosen, and saving
+  waits for a choice.
+- **The date limit is the study day, not the browser's calendar day** (D-154), because that is what the server's
+  `future_date` uses; the local day only stands in while the plan loads.
+- **`CorrectionView` changed a little** (D-155), although D-140 planned "no change to the view": a turn heading, the
+  context mention and the "no errors in your turns" sentence needed it.
+- `useAnalyseTranscript(onDone)`: the memory is forgotten in the hook's callbacks (they run after the page is left),
+  not in the component.
+- The prompt listed more error codes (`drill_not_found`, `already_answered`, `not_drillable`...): they are for M5.c2;
+  `not_correctable` was already known.
+
+### Left / notes
+
+- **M5.c2**: the drills screens, "Practise now", "Practise this category", the `drill` link of the error log.
+- **M5.a3** (backend): cards made from errors, suggestions for recurring errors, the demo's errors through the
+  services (the demo's transcript productions are still "Not analysed").
+- The analysis of a very long conversation (up to about 4 calls, a few minutes) was not tried live.
+- The owner's manual scenario above.
+
+### Known issues
+
+- A long category code wraps in the middle of the word inside an error entry (existing CSS, seen at 375 px).
+- `document.documentElement.lang` follows the interface language only after a change, not at load (`i18n/index.ts`):
+  seen while checking in French; not touched here.
+- Leaving the page during a long analysis lets it finish on the server; the result is there when the page is opened
+  again, but the pasted text is gone (so a retry has no context).
 
 ## M5.b2 — Error log and categories (frontend)
 
@@ -1748,13 +1851,14 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M5.a3, then M5.c
+## Next step: M5.c2, then M5.a3
 
+- **M5.c2** (frontend): the drills screens (`/drills`, `/drills/:id`), the "Practise now" link of `practice_info` and of
+  the Today card, "Practise this category", and the `drill` link of the error log (D-151).
 - **M5.a3** (backend): cards made from errors, suggestions for recurring errors, the demo's errors through the
-  services (D-138). Then **M5.c**: transcripts, drills and the link from `practice_info`.
-- Before or alongside: the owner's real calls (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1 and M5.b2 scenarios) and the
-  D-056 "to confirm" list. The branch `feat/m5b-writing-errors` (M5.b1 and M5.b2) is ready for a PR once the
-  owner has read it.
+  services (D-138).
+- Before or alongside: the owner's real calls (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1, M5.b2 and M5.c1 scenarios) and the
+  D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅
