@@ -9,6 +9,15 @@ import { plan, progress, sheetVersion, studySession } from '../../test/fixtures'
 import { installFakeSpeech } from '../../test/fakeSpeech'
 import { apiErrorResponse, mockApi, type RecordedCall } from '../../test/mockApi'
 import { renderApp } from '../../test/renderApp'
+import {
+  categoryTree,
+  correctedProduction,
+  correctionError,
+  correctionResult,
+  feedback,
+  loggedErrors,
+  unavailableResult,
+} from '../../test/writingFixtures'
 import { highlightTerm } from './highlight'
 
 const SENTENCE = 'We account for regional fixed effects in all specifications.'
@@ -372,6 +381,182 @@ describe('Discovery of a new term', () => {
     expect(screen.getByRole('heading', { name: '1. Lisez la phrase' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Je ne sais pas' })).toBeInTheDocument()
     expect(within(screen.getByRole('main')).getByText("Votre phrase d'origine")).toBeInTheDocument()
+  })
+})
+
+describe('Discovery: the AI check of the personal sentence', () => {
+  const PERSONAL = 'I like statistics a lot.'
+  const personalError = correctionError({
+    sentence_index: 1,
+    wrong: 'like statistics',
+    correction: 'am interested in statistics',
+    alternatives: [],
+    category_code: 'lexis.wrong_word',
+  })
+  const checked = () =>
+    correctionResult({
+      attempt: correctedProduction({
+        id: 5,
+        text: PERSONAL,
+        feedback: feedback(PERSONAL, { errors: [personalError] }),
+      }),
+      errors: loggedErrors([personalError]),
+    })
+
+  /** From the first screen to the last one, writing `sentence` (or skipping it when null). */
+  async function walkToEnd(user: ReturnType<typeof userEvent.setup>, sentence: string | null) {
+    await user.click(await screen.findByRole('button', { name: "I don't know" }))
+    await user.click(await screen.findByRole('button', { name: 'Go to the exercises' }))
+    await user.click(await screen.findByRole('button', { name: 'Done, I repeated it' }))
+    if (sentence !== null) {
+      await user.type(await screen.findByLabelText(/Write a sentence of your own/), sentence)
+      await user.click(screen.getByRole('button', { name: 'Finish the discovery' }))
+    } else {
+      await user.click(await screen.findByRole('button', { name: 'Skip and finish' }))
+    }
+    await screen.findByRole('heading', { name: '5. Into spaced repetition' })
+  }
+
+  const base = (overrides: Record<string, unknown> = {}) =>
+    routes({
+      'GET /discovery/20/exercises': [],
+      'GET /error-categories': categoryTree(),
+      ...overrides,
+    })
+
+  it('offers the button only when the sentence became a production', async () => {
+    // A sentence was written: complete answers with its production.
+    const calls = mockApi(base())
+    const user = userEvent.setup()
+    const first = renderApp('/session')
+    await walkToEnd(user, PERSONAL)
+    expect(screen.getByRole('button', { name: 'Check my sentence with AI' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    // Nothing is sent until the button is pressed.
+    expect(calls.some((c) => c.path === '/productions/5/correct')).toBe(false)
+    first.unmount()
+
+    // No sentence: `production_attempt_id` is null and so is the button.
+    mockApi(
+      base({
+        'POST /discovery/20/complete': () =>
+          Response.json({ ...completed, production_attempt_id: null, warnings: [] }),
+      }),
+    )
+    renderApp('/session')
+    await walkToEnd(userEvent.setup(), null)
+    expect(screen.queryByRole('button', { name: 'Check my sentence with AI' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
+  })
+
+  it('shows the compact correction of the sentence, never loading or showing the sheet again', async () => {
+    const calls = mockApi(base({ 'POST /productions/5/correct': () => Response.json(checked()) }))
+    const user = userEvent.setup()
+    renderApp('/session')
+    await walkToEnd(user, PERSONAL)
+    const sheetRequests = sheetCalls(calls).length
+    await user.click(screen.getByRole('button', { name: 'Check my sentence with AI' }))
+
+    const section = await screen.findByRole('region', { name: 'What the AI found in your sentence' })
+    expect(section.querySelectorAll('mark')).toHaveLength(1)
+    expect(section.querySelector('mark')?.firstChild?.textContent).toBe('like statistics')
+    expect(within(section).getByText('Error 1')).toBeInTheDocument()
+    expect(within(section).getByRole('heading', { name: 'Corrected version' })).toBeInTheDocument()
+    expect(within(section).queryByRole('heading', { name: 'More natural version' })).toBeNull()
+    // The button is gone, one request was made, and the sheet was not touched.
+    expect(screen.queryByRole('button', { name: 'Check my sentence with AI' })).toBeNull()
+    expect(calls.filter((c) => c.method === 'POST' && c.path === '/productions/5/correct')).toHaveLength(1)
+    expect(sheetCalls(calls)).toHaveLength(sheetRequests)
+    expect(screen.queryByText(DEFINITION)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByRole('heading', { name: 'Session summary' })).toBeInTheDocument()
+  })
+
+  it('shows the running time and refuses a second request', async () => {
+    let release: (response: Response) => void = () => undefined
+    const calls = mockApi(
+      base({
+        'POST /productions/5/correct': () =>
+          new Promise<Response>((resolve) => {
+            release = resolve
+          }),
+      }),
+    )
+    const user = userEvent.setup()
+    renderApp('/session')
+    await walkToEnd(user, PERSONAL)
+    await user.click(screen.getByRole('button', { name: 'Check my sentence with AI' }))
+    const running = await screen.findByRole('button', { name: /^Checking… \d+ s$/ })
+    expect(running).toBeDisabled()
+    await user.click(running)
+    expect(calls.filter((c) => c.path === '/productions/5/correct')).toHaveLength(1)
+    // "Continue" is not blocked by the wait.
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+    release(Response.json(checked()))
+    expect(await screen.findByRole('region', { name: 'What the AI found in your sentence' })).toBeInTheDocument()
+  })
+
+  it('a failure is explained, does not block "Continue", and the button can be used again', async () => {
+    let attempts = 0
+    mockApi(
+      base({
+        'POST /productions/5/correct': () => {
+          attempts += 1
+          return Response.json(attempts === 1 ? unavailableResult('quota') : checked())
+        },
+      }),
+    )
+    const user = userEvent.setup()
+    renderApp('/session')
+    await walkToEnd(user, PERSONAL)
+    await user.click(screen.getByRole('button', { name: 'Check my sentence with AI' }))
+    expect(await screen.findByText(/could not check your sentence: the free quota is used up/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'Check my sentence with AI' }))
+    expect(await screen.findByRole('region', { name: 'What the AI found in your sentence' })).toBeInTheDocument()
+  })
+
+  it('a network error or a refusal is shown without blocking "Continue"', async () => {
+    mockApi(base({ 'POST /productions/5/correct': () => apiErrorResponse(404, 'production_not_found') }))
+    const user = userEvent.setup()
+    renderApp('/session')
+    await walkToEnd(user, PERSONAL)
+    await user.click(screen.getByRole('button', { name: 'Check my sentence with AI' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('This text does not exist')
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    expect(await screen.findByRole('heading', { name: 'Session summary' })).toBeInTheDocument()
+  })
+
+  it('on 409 already_corrected, shows the stored correction', async () => {
+    const calls = mockApi(
+      base({
+        'POST /productions/5/correct': () => apiErrorResponse(409, 'already_corrected'),
+        'GET /productions/5': () => Response.json(checked().attempt),
+      }),
+    )
+    const user = userEvent.setup()
+    renderApp('/session')
+    await walkToEnd(user, PERSONAL)
+    await user.click(screen.getByRole('button', { name: 'Check my sentence with AI' }))
+    expect(await screen.findByRole('region', { name: 'What the AI found in your sentence' })).toBeInTheDocument()
+    expect(calls.some((c) => c.method === 'GET' && c.path === '/productions/5')).toBe(true)
+  })
+
+  it('is translated into French', async () => {
+    mockApi(base({ 'POST /productions/5/correct': () => Response.json(unavailableResult('network')) }))
+    const user = userEvent.setup()
+    renderApp('/session')
+    await screen.findByRole('heading', { name: '1. Read the sentence' })
+    await user.selectOptions(screen.getByLabelText('Language'), 'fr')
+    await user.click(await screen.findByRole('button', { name: 'Je ne sais pas' }))
+    await user.click(await screen.findByRole('button', { name: /exercices/ }))
+    await user.click(await screen.findByRole('button', { name: /répété/ }))
+    await user.type(await screen.findByLabelText(/phrase/i), PERSONAL)
+    await user.click(screen.getByRole('button', { name: 'Terminer la découverte' }))
+    await user.click(await screen.findByRole('button', { name: "Vérifier ma phrase avec l'IA" }))
+    expect(await screen.findByText(/L'IA n'a pas pu vérifier votre phrase/)).toBeInTheDocument()
   })
 })
 

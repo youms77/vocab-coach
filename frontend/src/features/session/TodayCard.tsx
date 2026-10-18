@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 
 import { useDecks } from '../../api/library'
 import { entriesOf, useToday } from '../../api/session'
+import { useCategoryName } from '../errors/useCategoryName'
 import { ErrorText } from '../settings/ErrorText'
 import { minutesOf } from './format'
 import { PlanWarnings } from './PlanWarnings'
@@ -12,6 +13,7 @@ export function TodayCard() {
   const { t } = useTranslation()
   const today = useToday()
   const decks = useDecks()
+  const categoryName = useCategoryName()
 
   let body
   if (today.isPending) {
@@ -73,7 +75,10 @@ export function TodayCard() {
             </li>
             {targeted !== undefined && (
               <li className="muted">
-                {t('today.targeted', { category: targeted.category_code, count: targeted.error_count })}
+                {t('today.targeted', {
+                  category: categoryName(targeted.category_code),
+                  count: targeted.error_count,
+                })}
               </li>
             )}
             {consolidation !== undefined && <li className="muted">{t('today.consolidation')}</li>}

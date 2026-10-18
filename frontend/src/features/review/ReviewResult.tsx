@@ -5,6 +5,10 @@ import type { GradeResult as Result, SheetSummary } from '../../api/reviews'
 import type { ReviewStep } from '../../api/session'
 import { SpeakButton } from '../../speech/SpeakButton'
 import { GradeResult } from '../discovery/GradeResult'
+import { describeError } from '../settings/errorMessage'
+import { aiReasonText } from '../settings/aiReason'
+import { CorrectionView } from '../writing/CorrectionView'
+import type { CheckNotice, ProductionCheck } from './reviewMachine'
 import { text } from './stepText'
 
 const CHOICE_TYPES = ['recognition_in_sentence', 'listening_comprehension']
@@ -46,18 +50,44 @@ function Summary({ summary, itemId }: { summary: SheetSummary; itemId: number })
   )
 }
 
+function NoticeText({ notice }: { notice: CheckNotice }) {
+  const { t } = useTranslation()
+  let message: string
+  switch (notice.kind) {
+    case 'unavailable':
+      message = t('review.aiCheck.notice.unavailable', { reason: aiReasonText(t, notice.reason) })
+      break
+    case 'incomplete':
+      message = t('review.aiCheck.notice.incomplete')
+      break
+    case 'skipped':
+      message = t('review.aiCheck.notice.skipped')
+      break
+    case 'failed':
+      message = t('review.aiCheck.notice.failed', { error: describeError(t, notice.error).text })
+      break
+  }
+  return <p className="form-message form-message--warn">{message}</p>
+}
+
 /**
- * The correction, shown only after `grade` or `reveal`: the outcome (a sign and a text), then the
+ * The correction, shown only after `grade`, `reveal` or the AI check: the outcome (a sign and a text), then the
  * solution of the exercise type and the summary of the sheet.
  */
 export function ReviewResult({
   review,
   result,
   answer,
+  check = null,
+  notice = null,
 }: {
   review: ReviewStep
   result: Result
   answer: string
+  /** The AI's correction of the typed sentence (sentence production, status ok). */
+  check?: ProductionCheck | null
+  /** Why the AI check was not used, when the sentence was self-graded instead. */
+  notice?: CheckNotice | null
 }) {
   const { t } = useTranslation()
   const solution = result.solution
@@ -107,11 +137,24 @@ export function ReviewResult({
     const example = text(solution.example_answer)
     body = (
       <div className="grade-result" role="status">
+        {notice !== null && <NoticeText notice={notice} />}
         {type === 'sentence_production' && answer.trim() === '' && (
           <p className="muted">{t('review.result.noSentence')}</p>
         )}
         {result.warnings.includes('term_missing') && (
           <p className="form-message form-message--warn">{t('review.result.term_missing')}</p>
+        )}
+        {check !== null && (
+          <div className="review-check">
+            <h3>{t('review.aiCheck.found')}</h3>
+            <CorrectionView
+              compact
+              level={3}
+              text={answer}
+              feedback={check.feedback}
+              errors={check.errors}
+            />
+          </div>
         )}
         {example !== null && (
           <p>

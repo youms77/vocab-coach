@@ -6,6 +6,7 @@ import type { PlanWarning, SessionPlan } from '../../api/session'
 import { deck, newItemEntry, plan, reviewEntry, studySession } from '../../test/fixtures'
 import { mockApi } from '../../test/mockApi'
 import { renderApp } from '../../test/renderApp'
+import { categoryTree } from '../../test/writingFixtures'
 
 const decks = [
   deck(1, 'Causal inference reading', { deadline: '2026-11-20' }),
@@ -51,6 +52,13 @@ const busyPlan = plan({
 })
 
 describe('Today card', () => {
+  it('names the targeted category by its label in the interface language', async () => {
+    mockApi({ ...routes(busyPlan), 'GET /error-categories': categoryTree() })
+    renderApp('/')
+    expect(await screen.findByText(/Targeted practice: Prepositions \(4 recent errors\)/)).toBeInTheDocument()
+    expect(screen.queryByText(/grammar\.preposition/)).toBeNull()
+  })
+
   it('shows the plan: reviews, new terms per deck, minutes against the budget, practice', async () => {
     mockApi(routes(busyPlan))
     renderApp('/')

@@ -53,7 +53,27 @@ const KNOWN_CODES = [
   'discovery_not_allowed',
   'exercise_mismatch',
   'invalid_queue',
+  'already_corrected',
+  'production_mismatch',
+  'production_not_found',
+  'text_too_long',
+  'invalid_production',
+  'not_correctable',
+  'error_not_found',
+  'category_not_found',
+  'category_not_proposed',
+  'unknown_category',
+  'invalid_error',
+  'category_exists',
 ] as const
+
+// These say *why* a value was refused (never the value itself): the English detail is kept.
+const DETAILED_CODES: readonly string[] = [
+  'invalid_credential',
+  'invalid_setting',
+  'invalid_production',
+  'invalid_error',
+]
 
 type KnownCode = (typeof KNOWN_CODES)[number]
 
@@ -68,8 +88,7 @@ export function describeError(t: TFunction, error: unknown): { text: string; det
     return { text: t('errors.network'), detail: null }
   }
   if (isKnownCode(error.code)) {
-    // These two say *why* the value was refused (never the value itself): keep the English detail.
-    const withDetail = error.code === 'invalid_credential' || error.code === 'invalid_setting'
+    const withDetail = DETAILED_CODES.includes(error.code)
     return { text: t(`errors.${error.code}`), detail: withDetail ? error.message : null }
   }
   if (error.status === 502 || error.status === 504) {

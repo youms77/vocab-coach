@@ -26,7 +26,18 @@ export function mockApi(routes: Record<string, Handler | object>) {
     calls.push(call)
     const route = routes[`${method} ${path}`]
     if (route === undefined) return Response.json({ detail: 'Not Found' }, { status: 404 })
-    return typeof route === 'function' ? (route as Handler)(call) : Response.json(route)
+    const answer = Promise.resolve(
+      typeof route === 'function' ? (route as Handler)(call) : Response.json(route),
+    )
+    const signal = init?.signal
+    if (signal === undefined || signal === null) return answer
+    // Like fetch: an aborted request rejects with an AbortError, even if the route never answers.
+    const aborted = new Promise<never>((_, reject) => {
+      const abort = () => reject(new DOMException('The operation was aborted.', 'AbortError'))
+      if (signal.aborted) abort()
+      else signal.addEventListener('abort', abort, { once: true })
+    })
+    return Promise.race([answer, aborted])
   })
   return calls
 }

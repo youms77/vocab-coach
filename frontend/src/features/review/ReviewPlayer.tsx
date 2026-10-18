@@ -1,10 +1,12 @@
 import type { TFunction } from 'i18next'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 
 import { ApiError } from '../../api/client'
 import type { ItemStatus } from '../../api/library'
 import {
+  checkProduction,
   type ExerciseType,
   type Rating,
   type RecordResult,
@@ -17,7 +19,13 @@ import { useSpeech } from '../../speech/useSpeech'
 import { StepHeading } from '../session/StepHeading'
 import { ErrorText } from '../settings/ErrorText'
 import { RatingButtons } from './RatingButtons'
-import { initialReviewState, type ReviewAction, reviewReducer, revealedResult } from './reviewMachine'
+import {
+  initialReviewState,
+  type ReviewAction,
+  type ReviewState,
+  reviewReducer,
+  revealedResult,
+} from './reviewMachine'
 import { ReviewPrompt } from './ReviewPrompt'
 import { ReviewResult } from './ReviewResult'
 import { promptOptions, replayText, termOf, text } from './stepText'
@@ -29,8 +37,17 @@ const codeOf = (error: unknown) => (error instanceof ApiError ? error.code : nul
 const CONTINUE_CODES = ['not_due', 'review_not_allowed']
 /** The session itself is gone: the page handles these (D-114). */
 const SESSION_CODES = ['session_closed', 'session_not_found']
+/** Refusals of the AI check that a self-graded fallback would not fix: handled as for `grade`. */
+const CHECK_BLOCKING_CODES = [...CONTINUE_CODES, ...SESSION_CODES, 'exercise_mismatch']
+/** After this many seconds of waiting for the AI, the user may rate the sentence themselves (D-142). */
+export const SKIP_AFTER_SECONDS = 5
 
-function announcement(t: TFunction, language: string, record: RecordResult, term: string | null) {
+function announcement(
+  t: TFunction,
+  language: string,
+  record: RecordResult,
+  term: string | null,
+): ReactNode {
   const due = new Date(record.due_after)
   const sameDay = due.toDateString() === new Date().toDateString()
   const saved = sameDay
@@ -40,11 +57,49 @@ function announcement(t: TFunction, language: string, record: RecordResult, term
     : t('review.saved.later', {
         date: new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(due),
       })
-  if (!record.item_status_changed) return saved
-  const status = t(`library.status.${record.item_status as ItemStatus}`).toLocaleLowerCase(language)
-  const changed =
-    term !== null ? t('review.saved.status', { term, status }) : t('review.saved.statusNoTerm', { status })
-  return `${saved} ${changed}`
+  let message = saved
+  if (record.item_status_changed) {
+    const status = t(`library.status.${record.item_status as ItemStatus}`).toLocaleLowerCase(language)
+    const changed =
+      term !== null ? t('review.saved.status', { term, status }) : t('review.saved.statusNoTerm', { status })
+    message = `${saved} ${changed}`
+  }
+  if (record.error_event_id === null) return message
+  // A lexical confusion in a typed answer was logged as an error (M5.a1): say so, politely.
+  return (
+    <>
+      {message} {t('review.errorLogged.text')}{' '}
+      <Link to={`/errors/${record.error_event_id}`}>{t('review.errorLogged.link')}</Link>
+    </>
+  )
+}
+
+/** The wait for the AI check: a counter, and after a few seconds a way out (D-142). */
+function CheckingPanel({ onSkip }: { onSkip: () => void }) {
+  const { t } = useTranslation()
+  // Mounted when the wait begins: it counts its own seconds.
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => setSeconds((n) => n + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+  return (
+    <div className="review-checking">
+      {/* The counter ticks every second: it is hidden from screen readers, the status is not. */}
+      <p className="visually-hidden" role="status">
+        {t('review.aiCheck.checking')}
+      </p>
+      <p aria-hidden="true">
+        <span className="spinner" /> {t('review.aiCheck.elapsed', { seconds })}
+      </p>
+      <p className="muted">{t('review.aiCheck.hint')}</p>
+      {seconds >= SKIP_AFTER_SECONDS && (
+        <button type="button" className="button" onClick={onSkip}>
+          {t('review.aiCheck.skip')}
+        </button>
+      )}
+    </div>
+  )
 }
 
 function KeyHints({ items }: { items: [string, string][] }) {
@@ -85,7 +140,7 @@ export function ReviewPlayer({
   sessionId: number
   review: ReviewStep
   /** Saved: the page announces `message` and asks for the next step. */
-  onRecorded: (message: string) => void
+  onRecorded: (message: ReactNode) => void
   /** Already rated elsewhere (another tab): the page says so and asks for the next step. */
   onCardChanged: () => void
   /** Ask the backend for the current step again. */
@@ -110,6 +165,19 @@ export function ReviewPlayer({
     return true
   }, [])
 
+  // The AI check of a typed sentence (D-129, D-142): how to stop waiting for it.
+  const checkAbort = useRef<AbortController | null>(null)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      checkAbort.current?.abort()
+    }
+  }, [])
+  // Shown when the server did not recognise the checked sentence and the rating went without it.
+  const [unlinked, setUnlinked] = useState(false)
+
   // The response time runs from the prompt being shown to the answer (D-121).
   const shownAt = useRef(0)
   useEffect(() => {
@@ -120,6 +188,7 @@ export function ReviewPlayer({
   const restart = useCallback(() => {
     current.current = initialReviewState
     setState(initialReviewState)
+    setUnlinked(false)
     shownAt.current = performance.now()
     grade.reset()
     reveal.reset()
@@ -133,8 +202,69 @@ export function ReviewPlayer({
 
   function submitText() {
     const answer = current.current.answer
+    // A typed sentence is checked by the AI; an empty one stays on the self-graded path (M4.c).
+    if (
+      review.exercise_type === 'sentence_production' &&
+      review.exercise_template_id !== null &&
+      answer.trim() !== ''
+    ) {
+      checkSentence(answer, review.exercise_template_id)
+      return
+    }
     if (!transition({ type: 'submit', choiceIndex: null, responseTimeMs: elapsed() })) return
     gradeWith(answer.trim() === '' ? null : answer, null)
+  }
+
+  /** The AI's answer, or the way back to the self-graded path of M4.c (`grade` writes nothing). */
+  function checkSentence(answer: string, templateId: number) {
+    if (!transition({ type: 'submitProduction', responseTimeMs: elapsed() })) return
+    const controller = new AbortController()
+    checkAbort.current = controller
+    checkProduction(
+      {
+        card_id: review.card_id,
+        session_id: sessionId,
+        exercise_template_id: templateId,
+        answer,
+        response_time_ms: current.current.responseTimeMs ?? 0,
+      },
+      controller.signal,
+    ).then(
+      (checked) => {
+        if (!mounted.current) return
+        if (checked.status === 'ok') {
+          transition({ type: 'productionChecked', check: checked })
+        } else if (
+          transition({
+            type: 'productionUnchecked',
+            notice:
+              checked.status === 'incomplete'
+                ? { kind: 'incomplete' }
+                : { kind: 'unavailable', reason: checked.reason },
+          })
+        ) {
+          gradeWith(answer, null)
+        }
+      },
+      (error: unknown) => {
+        // After "Skip the check" the phase has moved on: a late answer or the abort changes nothing.
+        if (!mounted.current || current.current.phase !== 'checking_production') return
+        if (CHECK_BLOCKING_CODES.includes(codeOf(error) ?? '')) {
+          transition({ type: 'checkFailed', error })
+          failed(error)
+        } else if (transition({ type: 'productionUnchecked', notice: { kind: 'failed', error } })) {
+          gradeWith(answer, null)
+        }
+      },
+    )
+  }
+
+  /** Stop waiting. The sentence stays recorded on the server; the user rates it themselves. */
+  function skipCheck() {
+    const answer = current.current.answer
+    if (!transition({ type: 'productionUnchecked', notice: { kind: 'skipped' } })) return
+    checkAbort.current?.abort()
+    gradeWith(answer, null)
   }
 
   function choose(index: number | null) {
@@ -184,6 +314,11 @@ export function ReviewPlayer({
   function rate(rating: Rating) {
     const before = current.current
     if (!transition({ type: 'rate', rating })) return
+    send(rating, before, before.productionAttemptId)
+  }
+
+  /** `POST /reviews`; `productionAttemptId` is the AI-checked sentence, when there is one (D-129). */
+  function send(rating: Rating, before: ReviewState, productionAttemptId: number | null) {
     const answer = review.input === 'text' && before.answer.trim() !== '' ? before.answer : null
     record.mutate(
       {
@@ -196,6 +331,7 @@ export function ReviewPlayer({
         response_time_ms: before.responseTimeMs ?? 0,
         final_rating: rating,
         expected_reps: review.expected_reps,
+        ...(productionAttemptId !== null ? { production_attempt_id: productionAttemptId } : {}),
       },
       {
         onSuccess: (saved) => {
@@ -205,6 +341,13 @@ export function ReviewPlayer({
         onError: (error) => {
           if (codeOf(error) === 'card_changed') {
             onCardChanged()
+            return
+          }
+          if (codeOf(error) === 'production_mismatch' && productionAttemptId !== null) {
+            // The server does not recognise the checked sentence: send the rating once without it.
+            transition({ type: 'productionDropped' })
+            setUnlinked(true)
+            send(rating, before, null)
             return
           }
           transition({ type: 'recordFailed', error })
@@ -289,6 +432,7 @@ export function ReviewPlayer({
         onReveal={showAnswer}
       />
       {state.phase === 'answering' && state.error !== null && !blocked && <ErrorText error={state.error} />}
+      {state.phase === 'checking_production' && <CheckingPanel onSkip={skipCheck} />}
 
       {state.result !== null && (
         <div
@@ -298,7 +442,13 @@ export function ReviewPlayer({
           role="region"
           aria-label={t('review.result.label')}
         >
-          <ReviewResult review={review} result={state.result} answer={state.answer} />
+          <ReviewResult
+            review={review}
+            result={state.result}
+            answer={state.answer}
+            check={state.check}
+            notice={state.notice}
+          />
         </div>
       )}
 
@@ -319,6 +469,7 @@ export function ReviewPlayer({
               onRate={rate}
             />
             {state.phase === 'answered' && state.error !== null && <ErrorText error={state.error} />}
+            {unlinked && <p className="muted">{t('errors.production_mismatch')}</p>}
             {state.phase === 'recorded' && <p className="muted">{t('session.loading')}</p>}
           </>
         )

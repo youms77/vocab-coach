@@ -1605,7 +1605,8 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   minutes against the budget, targeted practice and consolidation for information. The five plan warnings are
   translated with their data: `items_without_sheet` links each deck (`/library?deck=ID`) and `/enrichment`;
   `deadline_triage_pending` links `/triage?deck=ID` (its deadline comes from the plan's paces). The error
-  category of targeted practice is shown as its code: no route gives the taxonomy labels yet.
+  category of targeted practice is shown as its code: no route gave the taxonomy labels yet (since M5.a1
+  `GET /api/error-categories` does, and M5.b2 shows the label with the code as a fallback, D-150).
 - `/session` calls `start` once per visit (a ref guards React's development double effect; the route is
   idempotent anyway), then `next`. `next` is a query (`staleTime: Infinity`, no refetch on focus) fetched
   again only when the page asks; `practice_seen` is part of its key. `done` ends the session by itself, once,
@@ -2056,6 +2057,11 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - M5.a3: cards made from errors, suggestions for recurring errors, the demo's errors through the services.
 - M5.b and M5.c: the screens (writing, transcripts, drills, error log).
 - The `practice_info` step of the session stays informative; M5.c links it to a drill through `category_code`.
+- **Amendment (M5.b1, owner's decision): the order is M5.b, then M5.a3, then M5.c.** The screens of writing and of the
+  error log come first, because they need no new backend; the backend of M5.a3 (cards made from errors, suggestions
+  for recurring errors, the demo's errors) follows; M5.c (transcripts, drills, the `practice_info` link) comes last,
+  on the complete API. M5.b itself is two parts on one branch: M5.b1 (writing and corrections) and M5.b2 (error log
+  and categories).
 
 ## D-139 — Small conventions met in M5.a2
 
@@ -2069,3 +2075,190 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - `corrections.category_for` and `corrections.Written` are public (shared with the transcript service).
 - The live tests of M5.a2 (`test_live_transcript.py`, `test_live_drill.py`) follow D-054: deselected by default,
   `VOCAB_RUN_LIVE=1` and a configured provider required, a quota is a skip.
+
+## D-140 — Error spans and the correction model (M5.b1, 2026-10-18)
+
+- The backend counts spans in Unicode code points (D-128), JavaScript in UTF-16 units. `features/writing/spans.ts`
+  (pure) converts once: `Array.from(text)`, then the running sum of the lengths. A span that is out of bounds, not
+  made of integers or with `start >= end` is ignored and reported with `console.warn` in development only: a wrong
+  highlight is better than a crash.
+- **Overlaps**: spans that overlap (a nested one included) are merged into one mark that carries every error number;
+  spans that only touch stay two marks. `segment()` then cuts the text into plain and marked segments.
+- `features/writing/correction.ts` is the only place that knows the stored format: `readFeedback()` switches on
+  `feedback.format` and returns a neutral model (segments, ranges, entries grouped by sentence, naturalness notes,
+  the corrected and natural texts, target checks). `correction-1` is the only branch today; M5.c adds
+  `transcript-1` (the same keys plus `units`) as a second branch, without touching the view. An unknown format, a
+  missing feedback or a `correction-1` without `output` gives `null`: the view shows the plain text and "Not
+  corrected yet".
+- The logged errors (`ErrorOut`) are matched to `output.errors` through `feedback.error_event_ids`. The logged
+  explanation wins over the stored one (the user may have edited it) and its French goes with it (null once edited,
+  so no stale translation is offered).
+
+## D-141 — The correction view (M5.b1)
+
+- `CorrectionView` takes `{text, feedback, errors?, targets?, proposedCategories?, compact?, level?}`. The first
+  three are the milestone's; `targets` (the production's targets, for the term names) and `proposedCategories` are
+  additions, because `feedback.targets` carries item ids but no term, and the proposals only come with `/correct`.
+- **Marks are never colour alone**: a wavy underline, a tinted background and the error number in superscript, each
+  number a link to its entry; each entry has a "Back to the text" link. The links move the focus (`getElementById`
+  + `focus()`) instead of changing the URL hash, so `/writing/:id` stays clean.
+- Entries: `wrong` → `correction` (with visually hidden "Incorrect" / "Correct" labels and `del` / `ins`), the
+  alternatives, the category (label in the interface language, then the code in small type), the English
+  explanation, "Show in French" per error (never open by default, whatever the interface language; absent when the
+  French is null) and the linked target term.
+- **Category labels**: the logged row first; else the tree of `GET /api/error-categories` (queried only when some
+  error has no logged row, e.g. a reloaded `/writing/:id`, which does not return the errors); else the code alone.
+- **Compact** (a review sentence, the personal sentence of a discovery): marks, the list, the naturalness notes and
+  the corrected version, without the natural version, the Copy buttons and the target terms; the page around it
+  already deals with the term. Section headings take a `level` (2 on a page, 3 inside a step).
+- Naturalness notes are presented as correct but unusual and "not logged", never as errors. A proposed category is
+  announced with a link to `/errors/categories` (the page itself arrives in M5.b2; until then the link shows the
+  404 page).
+- "No errors found." for a text, "Your sentence is correct." for a single sentence.
+
+## D-142 — The writing flow (M5.b1)
+
+- `/writing` creates the production (`POST /api/productions`), clears the draft and goes to `/writing/{id}` with
+  `replace: true` and the router state `{autoCorrect: true}`. The detail page starts `/correct` by itself once, clears
+  the state at once, and shows the correction or the reason. Two consequences: a reload never creates a second
+  production (the URL is the production's) and never starts a correction by itself (the flag is gone); "Try again"
+  only calls `/correct`. Departure from the prompt's wording ("Checking… n s" on the writing page): the counter is on
+  the detail page, where the saved text is visible while the AI works.
+- `409 already_corrected` invalidates the production's query, so the stored correction is shown.
+- **Length**: counted in code points (as Python's `len`), words as runs of non-space characters. Over 4 000 the
+  button is disabled with a visible message and nothing is sent; no `maxLength` attribute, which would silently cut
+  a paste. The server stays the judge of the 40 sentences (`text_too_long`, shown, text and draft kept).
+- **Draft**: `localStorage` key `vocab-coach.writing-draft`, every access in `try/catch`, cleared when the production
+  is created. It is a per-viewer convenience: the page works without storage.
+- Topics: `GET /api/writing/topics?count=3&tag=` (the theme selector is labelled "Topic theme" so it is not confused
+  with the theme switcher of the top bar); the prompt sent is the English text of the topic or what the user typed
+  (500 characters at most).
+- **History** (`/writing/history`, 20 per page, the page in the URL): `ProductionOut` does not expose `origin`, so the
+  list also holds the personal sentences of discoveries and the sentences written in reviews. The topic column
+  (`prompt_text`) tells them apart, and the page says so. Not fixed here (it would need a backend field).
+- The AI failure is a 200 answer: `unavailable` gives the translated reason (`aiReasons.*`, D-095 — through
+  `aiReasonText`, which maps an unknown reason to "the providers failed"), `incomplete` its own sentence.
+
+## D-143 — Sentence production checked by the AI in the review player (M5.b1; builds on D-120, D-129)
+
+- A new phase `checking_production` in `reviewMachine`. A typed, non-empty sentence on a `sentence_production` card
+  with a template calls `POST /api/reviews/check-production` (a plain function, not a mutation, so an
+  `AbortController` can stop the wait). An empty sentence stays the self-graded path of M4.c.
+- `status: ok`: the correction in compact mode, `term_missing` derived from the stored `feedback.targets`, the
+  example answer, the sheet summary, the proposed rating (1 or 3 marked "Suggested", Enter accepts; null gives four
+  buttons without a suggestion). `POST /reviews` carries `production_attempt_id` and never `auto_rating`.
+- **Fallback = `grade`, not `reveal`** (departure from the prompt, approved in the plan): `unavailable`, `incomplete`,
+  a network error or "Skip the check" go back to the exact M4.c path, which for this type is `grade` (it keeps the
+  `term_missing` warning that `reveal` does not give; `grade` writes nothing). `POST /reviews` then carries no
+  `production_attempt_id`. A notice says why. Refusals that a fallback would not fix (`exercise_mismatch`,
+  `not_due`, `review_not_allowed`, `session_closed`, `session_not_found`) are handled as for `grade`.
+- **Waiting**: "Checking your sentence… n s" (hidden from screen readers; a static polite status says it once);
+  after 5 s a "Skip the check and rate myself" button aborts the request. The sentence stays recorded on the server
+  and the user rates it themselves, as accepted in the prompt. The reducer refuses an AI answer that arrives after
+  the skip (same state object, tested), so no `Date` or flag is needed for the race. Shortcuts are only armed in
+  `answering` and `answered`, so keys are ignored while waiting.
+- **Active recall (D-103)**: the example answer is only in the answer of `check-production` (or of `grade`), so
+  nothing of it is in the DOM before. A test fails if it is: breaking check (b) in PROGRESS.
+- `409 production_mismatch` on `POST /reviews`: a discreet message, then **one** automatic resend without
+  `production_attempt_id` (`productionDropped` empties it, so a second refusal is shown like any other error).
+- **`error_event_id`** (a lexical confusion in a typed answer): the polite announcement of the session page, now a
+  `ReactNode`, adds "Added to your error log." and a link to `/errors/{id}` (the final route of M5.b2).
+- The hint under the sentence field no longer says that AI correction comes in a later version.
+
+## D-144 — The AI check of the personal sentence in discovery (M5.b1; builds on D-104, D-128)
+
+- On the last screen, when `complete` answered a `production_attempt_id` and a sentence was written, a "Check my
+  sentence with AI" button sits next to "Continue". It only calls `POST /api/productions/{id}/correct`, shows the
+  compact correction, and a failure (reason, network, refusal) is said without blocking "Continue"; the button can be
+  used again after a failure. `409 already_corrected` reads the stored production.
+- The sheet is neither reloaded nor shown on this path (a test counts the sheet requests). The sentence shown is the
+  one that was sent (kept in the flow's state). Its errors have the source `writing` (D-128).
+
+## D-145 — Small conventions met in M5.b1
+
+- `apiSend` takes an optional `AbortSignal`; `mockApi` rejects with an `AbortError` when the signal fires, like
+  `fetch`. `renderApp` also returns the router and the query client (to check the URL and the history action).
+- `useElapsedSeconds` moved to `components/` (the settings page and the new pages share it); the review panel counts
+  its own ticks instead, because the lint rule on impure calls refuses `Date.now()` in an event handler.
+- `PageTitle` (a focusable `h1`) for the new screens: focus goes to the title on arrival.
+- `errorMessage.ts`: six new codes; `invalid_production` shows the English detail like `invalid_setting` (D-068).
+- i18n: `review.check` was already a string (the button label), so the new keys are `review.aiCheck.*`.
+- **Navigation**: "Writing" is a fifth link. At 375 px the five links fit on one row in English; in French
+  ("Aujourd'hui", "Bibliothèque") the last one wraps to a second row, with no horizontal scroll (D-119 asked for
+  no scroll; wrapping was already the design). "Errors" arrives with M5.b2.
+- Found in the browser: a grid track without `minmax(0, 1fr)` let the history table widen the page to 1 661 px;
+  `.writing-page` now has it, like the library page.
+
+## D-146 — The error log page: state in the URL, dates, links (M5.b2)
+
+- `/errors` keeps every filter in the URL (`category`, `source`, `q`, `from`, `to`, `item_id`, `page`; empty values and
+  page 1 are left out), so Back, reload and sharing work. The form holds a draft and "Apply" writes the URL; the form
+  is remounted (`key`) when the URL changes, so it always shows the applied filters. A facet button writes `category`
+  at once; clicking the pressed one clears it (`aria-pressed`). 25 rows per page (the backend allows 100).
+- **Dates**: "From" and "To" are calendar days in the browser's time zone, sent as local midnights in UTC
+  (`occurred_from` = the start of the first day, `occurred_to` = the start of the day after the last day, because the
+  backend's bound is exclusive). The planner's study day (`day_start_hour`) is not used here: it is a scheduling
+  notion, and this is a log of what happened on a calendar day.
+- Rows link to `/errors/{id}` with the current search in the router state; the detail page's back link and the
+  redirect after a deletion use it, so the filters survive the round trip. Without state they fall back to `/errors`.
+- **Production link**: `ErrorOut` carries no production kind. A row links to `/writing/{production_attempt_id}` for the
+  sources `writing` and `review` (both are written productions) and has no link for `transcript`, `drill`,
+  `speaking` or `consolidation` (their screens arrive with M5.c).
+- The term chip of `item_id` shows the term's name (`GET /api/items/{id}`), "Term {id}" while it is unknown, and a
+  button that removes the filter.
+
+## D-147 — Category selectors (M5.b2)
+
+- A native `<select>` with the tree flattened and indented (recursively: the demo taxonomy has three levels, for
+  instance `grammar.preposition.time`). **Filter**: active and proposed categories (a rejected one holds no error);
+  a top-level category reads "X (all)" because the backend filters by code prefix; a proposed one is marked
+  "(proposed)". **Assign** (edit, manual entry, parent of a new category): active categories only, which is what the
+  backend accepts (`unknown_category` otherwise); in the edit form the error's current category stays selectable even
+  when it is only proposed. Any active category may be chosen, level 1 included (the backend allows it).
+- A category that is not in the list (not loaded yet) stays as an option with its label or its code, so the control
+  never shows a wrong value.
+
+## D-148 — Editing, deleting and entering errors by hand (M5.b2)
+
+- The edit form sends **only the changed fields** (`PATCH`); with nothing changed it says so and sends nothing.
+  `lexical_item_id: null` unlinks the term. Editing the explanation drops the stored French translation (a backend
+  rule), and the form says so while a French version is shown.
+- The edit form is not remounted after a save (a `mutate` callback of an unmounted component never runs): the "Saved."
+  state lives in the page, and the form compares against the refreshed error.
+- **Deletion** asks inline; focus goes to "Keep it" (D-067). `useDeleteError` invalidates the lists and the category
+  counts but not the error's own query, which is still mounted and would answer 404 before the navigation.
+- **Manual entry**: client checks that mirror the backend (`fragment.ts` is a look-alike of `find_fragment`: runs of
+  spaces, typographic apostrophes, NFC / NFD and, as a second try, case): the incorrect form must be in the sentence
+  when one is given, and must differ from the correction. The server stays the judge: `invalid_error` (with its
+  English detail), `unknown_category` and the others are shown. After a success the form empties and a link opens
+  the new error. An exotic case difference (such as "ß") could make the client check stricter than the server's; the
+  client check is a convenience and the message names the rule.
+- The term picker searches `GET /api/items?q=`, shows at most 8 results as buttons and lets the user unlink.
+
+## D-149 — The categories page (M5.b2)
+
+- The AI's proposals come first. Accept sends a rename only when a label differs from the proposal's. Reject is
+  explained before it is done ("its errors move to the parent category", focus on "Cancel"), then reports how many
+  errors moved. The result and the refusals are shown **at page level**, not inside the card: the reloaded tree
+  removes the card, and `category_not_proposed` (decided elsewhere) reloads the tree by itself.
+- `useResolveCategory` does not await its invalidation (so the card's own `mutate` callbacks still run), and
+  invalidates the Today plan when errors moved (targeted practice reads the counts).
+- The tree shows the label in the interface language, the code, the status and the origin **as text**, and the counts
+  (total and last 14 days) with a link to the filtered list. Rejected categories are folded in a `<details>`.
+- Creation: the parent defaults to the first active top-level category (a top-level category is an explicit choice
+  "None"); the code name follows the backend rule (`^[a-z][a-z0-9_]{1,40}$`), checked while typing; both labels are
+  required, descriptions optional; `category_exists` is shown.
+
+## D-150 — Labels, links and small conventions of M5.b2
+
+- `useCategoryName()` gives the label of a code in the interface language and falls back to the code (tree loading,
+  request failed, unknown code). The Today card and the `practice_info` step use it; `categoryLabels` returns an
+  empty map for anything that is not a list, so a label lookup cannot take a page down.
+- The term's page has a card "Errors linked to this term" that opens `/errors?item_id=ID`.
+- **Error codes**: six new ones in `errorMessage.ts` (`error_not_found`, `category_not_found`,
+  `category_not_proposed`, `unknown_category`, `invalid_error`, `category_exists`). The prompt counted nine and
+  listed five; `category_exists` was missing from it. `invalid_error` shows the English detail like `invalid_setting`.
+- The page strings live in `errorLog.*`: `errors.*` already holds the messages by code.
+- **Navigation**: "Errors" is the sixth top link; the links wrap to two rows at 375 px in English and in French, with
+  no horizontal scroll (measured: `scrollWidth` 375 on every new page).
+- Page layouts use `grid-template-columns: minmax(0, 1fr)`, so a wide table scrolls in its frame (D-145).

@@ -11,6 +11,11 @@ export function formatDay(day: string, language: string): string {
   )
 }
 
+/** An instant (UTC ISO string) as a short local date (for tables). */
+export function formatShortDate(iso: string, language: string): string {
+  return new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(new Date(iso))
+}
+
 /** An instant (UTC ISO string) as a local date and time. */
 export function formatDateTime(iso: string, language: string): string {
   return new Intl.DateTimeFormat(language, { dateStyle: 'full', timeStyle: 'short' }).format(

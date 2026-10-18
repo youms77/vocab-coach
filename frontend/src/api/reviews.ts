@@ -2,6 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { apiSend } from './client'
 import type { Pronunciation } from './enrichment'
+import type { ErrorOut } from './errors'
+import type { AiStatus, Feedback } from './productions'
 import { type SrsState, todayKey } from './session'
 
 // backend/app/api/reviews.py and app/domain/review_steps.py (solutions, sheet summary).
@@ -117,6 +119,8 @@ export interface RecordBody {
   response_time_ms: number
   final_rating: Rating
   expected_reps: number
+  /** The production returned by `check-production` (sentence production only), else omitted. */
+  production_attempt_id?: number
 }
 
 export interface RecordResult {
@@ -125,6 +129,8 @@ export interface RecordResult {
   state_after: SrsState
   item_status: string
   item_status_changed: boolean
+  /** An error logged for a lexical confusion in a typed answer (M5.a1), else null. */
+  error_event_id: number | null
 }
 
 /** Records the final rating. Today's plan changes, so the Today card is refetched. */
@@ -134,4 +140,33 @@ export function useRecordReview() {
     mutationFn: (body: RecordBody) => apiSend<RecordResult>('POST', '/reviews', body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: todayKey }),
   })
+}
+
+export interface CheckProductionBody {
+  card_id: number
+  session_id: number
+  exercise_template_id: number
+  answer: string
+  response_time_ms: number
+}
+
+/**
+ * The AI check of a sentence production. The sentence is recorded either way; the solution and the
+ * sheet summary come with the answer, once the attempt was made (D-103). `proposed_rating` is 1, 3
+ * or null (rate it yourself).
+ */
+export interface CheckProductionResult {
+  production_attempt_id: number
+  status: AiStatus
+  reason: string | null
+  feedback: Feedback | null
+  errors: ErrorOut[]
+  proposed_rating: number | null
+  solution: Solution
+  sheet_summary: SheetSummary | null
+}
+
+/** Takes 2 to 60 s: `signal` lets the page stop waiting (the production stays recorded). */
+export function checkProduction(body: CheckProductionBody, signal?: AbortSignal) {
+  return apiSend<CheckProductionResult>('POST', '/reviews/check-production', body, signal)
 }

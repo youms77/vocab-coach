@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
@@ -80,7 +80,7 @@ export function SessionPage() {
   // A review's `session_closed` / `session_not_found` (POST /reviews), handled like `next`'s.
   const [playerError, setPlayerError] = useState<unknown>(null)
   // The latest saved review ("next review on…"), announced politely outside the step card.
-  const [announcement, setAnnouncement] = useState('')
+  const [announcement, setAnnouncement] = useState<ReactNode>('')
   const next = useNextStep(ended === null ? sessionId : null, practiceSeen)
 
   const openSession = useCallback(() => {

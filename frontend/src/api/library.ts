@@ -164,9 +164,10 @@ export function sourcesOf(decks: Deck[]): SourceRef[] {
   return [...byId.values()].sort((a, b) => a.title.localeCompare(b.title))
 }
 
-export function useItems(filters: ItemFilters) {
+export function useItems(filters: ItemFilters, enabled = true) {
   const query = itemsQuery(filters)
   return useQuery({
+    enabled,
     queryKey: [...itemsKey, 'list', query],
     queryFn: ({ signal }) => apiGet<ItemPage>(`/items?${query}`, { signal }),
     placeholderData: keepPreviousData,

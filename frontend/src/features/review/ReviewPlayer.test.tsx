@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { GradeResult, RecordResult } from '../../api/reviews'
+import type { CheckProductionResult, GradeResult, RecordResult } from '../../api/reviews'
 import type { ReviewStep, SessionSummary, Step } from '../../api/session'
 import i18n from '../../i18n'
 import {
@@ -18,6 +18,7 @@ import {
 import { installFakeSpeech } from '../../test/fakeSpeech'
 import { apiErrorResponse, mockApi, type RecordedCall } from '../../test/mockApi'
 import { renderApp } from '../../test/renderApp'
+import { unavailableCheck } from '../../test/writingFixtures'
 
 const summary: SessionSummary = {
   format: 'session-1',
@@ -53,12 +54,14 @@ interface Routes {
   grade?: GradeResult | (() => Response)
   reveal?: object
   record?: RecordResult | (() => Response)
+  /** The AI check of a typed sentence; unavailable unless a test says otherwise. */
+  check?: CheckProductionResult | (() => Response | Promise<Response>)
   /** What `next` answers once a review is recorded. */
   after?: Step
 }
 
 /** A session whose `next` gives one review, then `after` (done by default) once it is recorded. */
-function session({ review, grade, reveal, record, after = done }: Routes) {
+function session({ review, grade, reveal, record, check, after = done }: Routes) {
   let recorded = false
   return mockApi({
     ...base,
@@ -67,6 +70,8 @@ function session({ review, grade, reveal, record, after = done }: Routes) {
     'POST /reviews/grade': () =>
       typeof grade === 'function' ? grade() : Response.json(grade ?? gradeAnswer()),
     'POST /reviews/reveal': () => Response.json(reveal),
+    'POST /reviews/check-production': () =>
+      typeof check === 'function' ? check() : Response.json(check ?? unavailableCheck()),
     'POST /reviews': () => {
       if (typeof record === 'function') return record()
       recorded = true
@@ -139,13 +144,17 @@ describe('Review player: every exercise type', () => {
       await screen.findByRole('heading', { name: 'Session summary' })
 
       const graded = c.step.input !== 'none'
+      // A typed sentence is first sent to the AI check; here it is unavailable, so the card goes
+      // on exactly as in M4.c (`grade`, self-graded).
+      const aiCheck = c.step.exercise_type === 'sentence_production' ? ['POST /reviews/check-production'] : []
       expect(reviewCalls(calls)).toEqual([
         'GET /session/7/next',
+        ...aiCheck,
         graded ? 'POST /reviews/grade' : 'POST /reviews/reveal',
         'POST /reviews',
         'GET /session/7/next',
       ])
-      const checkCall = calls.find((call) => call.path.startsWith('/reviews/'))
+      const checkCall = calls.find((call) => /^\/reviews\/(grade|reveal)$/.test(call.path))
       expect(checkCall?.body).toMatchObject({
         card_id: 21,
         exercise_type: c.step.exercise_type,
