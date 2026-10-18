@@ -2360,3 +2360,86 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   (like D-145's table).
 - No new link in the top bar: the pages are reached from `/writing` ("Analyse a conversation transcript"), and the
   history, the detail and the error log link to each other.
+
+## D-158 — The drills pages and `?category=` (M5.c2)
+
+- `/drills` is the list and the creation form; `/drills/:id` is the player. No new link in the top bar (D-157's rule):
+  the pages are reached from `/errors` ("Targeted drills"), `/errors/categories` ("Practise this category"), the Today
+  card and the session's `practice_info` step ("Practise now").
+- **One `?category=` parameter with two roles** (proposed in the plan, accepted): it filters the list by code prefix
+  and, on arrival, preselects the form's category when it can be drilled and scrolls to the form. Changing the filter
+  later does not move the form; nothing starts without a click. The page (`?page=`) is in the URL too (20 per page).
+- **Eligible categories** (`drillRules.ts`, same rule as `drillable_category`): active, a code with a dot (level 2 or
+  more), not `pronunciation`. `CategorySelect` got a mode `drill`: eligible nodes are selectable, their level-1
+  ancestors stay as greyed options so the tree stays readable, everything else is left out. A preset that the loaded
+  tree refuses (proposed, unknown) is not preselected; before the tree is loaded the code alone decides. The server
+  stays the judge (`not_drillable`).
+- **Creation**: number 5 to 15 (default 10) checked in the page; a ref guard so two clicks send one request; "Preparing
+  your exercises… n s" in the button, with a polite status; 201 opens the drill; `incomplete` / `unavailable` (HTTP
+  200) show the reason with `aiReasonText` and keep the form filled. `{fromSession}` in the navigation state becomes
+  `study_session_id` and is passed on to `/drills/{id}`.
+
+## D-159 — The drill player (M5.c2; builds on D-120, D-121, D-122)
+
+- `drillMachine.ts` is a pure reducer per item (`answering` → `sending` → `answered`, `failed` back to `answering` with
+  the typed answer kept; an action the phase refuses returns the same object). `DrillItemPlayer` keeps the state in a ref
+  as well and sends a request only when the reducer accepted the action: two Enter before React re-renders send one
+  answer (tested; removing the guard makes two tests fail, see PROGRESS).
+- **The page owns the index** (`DrillRun`, mounted once the drill is loaded, `useState(() => firstUnanswered(drill))`):
+  the answer replaces the cached drill, but the result stays in front of the user until "Next". Leaving an item is
+  guarded twice (a ref in the player, and a relative `setIndex`), so a double Enter or a double click cannot skip one.
+- Bodies: a gap-fill sends `{answer, response_time_ms}` (empty string for "I don't know"), a choice sends
+  `{choice_index, response_time_ms}` (`null` for "I don't know"); the server refuses the other field. The time runs from
+  the item being shown to the answer (D-121).
+- Keys: 1 to 4 choose (read from `key` or `Digit1`-`Digit4` / `Numpad1`-`Numpad4`, D-122), Enter goes to the next item
+  once the result is shown; ignored in fields, with Ctrl/Alt/Meta, on repeat, and Enter on a focused button or link.
+  `useDrillShortcuts` reuses `digitOf` and `activatesItself` (now exported from `useReviewShortcuts.ts`); `KeyHints`
+  moved to `components/KeyHints.tsx`. One hint line per phase.
+- **Enter does not send an empty gap-fill** (the "Check" button is disabled until something is typed): a held Enter that
+  reaches the next item's focused field must not answer it as "I don't know". After the first item the field of a
+  gap-fill takes the focus (keyboard flow); on the first item the page title keeps it.
+- Errors: `409 already_answered` reads the drill again and moves to its first item not answered; `exercise_mismatch`,
+  `item_not_found` and `drill_not_found` show the translated message and "Retry" (reads the drill again, the item starts
+  fresh); anything else (network) keeps the answer typed for another try.
+- The result shows a sign **and** a word (never colour alone), what was given, the right answer, the accepted forms, the
+  English explanation (French on request) and, when `error_event_id` is set, "Added to your error log" with a link and the
+  sentence "The correction is exact. If you think your answer was correct, you can delete this error." The recap of the
+  finished drill has no error link (`DrillOut` carries no `error_event_id`): "See these errors" covers it.
+
+## D-160 — Active recall in the drill screens (M5.c2; D-103, D-136)
+
+- Before the answer the page renders `index`, `kind`, the sentence (gap as a line plus the word "blank" for screen
+  readers) and the options in the order received. The rule is shown from the start (it is the rule SPEC asks for).
+  Nothing else comes from the server earlier: the player reads items from the `DrillOut`, which has no solution for an
+  unanswered item, and makes no request but `GET /drills/{id}` and the answer.
+- The recap and the results of the other items are only rendered on the final screen. Tested against `innerHTML` as a
+  whole with unguessable solution tokens (`ANSWER-TOKEN`...), for a gap-fill and a choice, and against the list of
+  requests.
+
+## D-161 — The links (M5.c2; amends D-107 / D-114 and D-146)
+
+- `productionLink`: a `drill` error opens `/drills/{production_attempt_id}`; `answer_item` gives the error the drill's own
+  id, checked in `services/drills.py`. The error log and the error detail say "Open the drill" / "Open the drill it comes
+  from" for it (`errorLog.list.openDrill`, `errorLog.detail.openDrill`).
+- **"Practise now"** (`session.practice.now`) in the `practice_info` step and on the Today card: shown when
+  `category_code` exists and passes `isDrillableCode` (the code alone, so the card does not wait for the tree). The step
+  passes `{fromSession: step.session_id}`; the card passes the open session's id, and nothing when none is open.
+  "Continue" is unchanged. Two texts changed because they said the exercises were not available:
+  `session.practice.later` now speaks of the consolidation task only and is shown only when there is one;
+  `today.targeted` lost "for information only".
+- Back to the session: `/session` resumes the open session, and the `practice_info` step is shown again (`practiceSeen`
+  is local to the page): "Continue" is enough. Not changed here (known issue).
+- `/errors/categories`: "Practise this category" on every active category of level 2 or more outside pronunciation, with
+  the accessible name "Practise this category: {label}" (the visible text is contained in it).
+
+## D-162 — Error codes and test helpers (M5.c2; follows D-156)
+
+- `errorMessage.ts` knows `drill_not_found` (404), `already_answered` (409) and `not_drillable` (422). The `reason` of
+  `not_drillable` (`level`, `pronunciation`, `proposed`, `rejected`) is shown as a translated line (`drills.reasons.*`),
+  falling back to the backend's English sentence for any other reason. The other codes the drills can answer were already
+  known (`category_not_found`, `item_not_found`, `exercise_mismatch`, `invalid_request`, `session_not_found`...).
+- Test helpers: `renderApp` takes a router entry (so a test can start with a navigation state), `node` of
+  `writingFixtures.ts` is exported, `test/drillFixtures.ts` has a small fake server that grades like `domain/drills.py`
+  and never shows a solution before an answer.
+- Run Vitest from `frontend/` (`npx vitest run ...`) or through `npm run check`: `npm --prefix frontend exec -- vitest`
+  from the repository root gave a jsdom setup error in this session.

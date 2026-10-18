@@ -4,13 +4,120 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M5.c1 - the transcript screens (frontend), on branch `feat/m5c-transcripts-drills`
-  (committed, not pushed, no PR yet). `main` has M1.a to M5.b2 (M5.b as PR #17, `bab1a95`).
-- **Next**: M5.c2 (drills and the links), then M5.a3 (backend). Order revised by the owner, see D-151 (amendment of
-  D-138): M5.c comes before M5.a3.
+- **Last milestone completed**: M5.c2 - the drills screens and the links (frontend), on branch
+  `feat/m5c-transcripts-drills` (committed, not pushed, no PR yet), after M5.c1. `main` has M1.a to M5.b2 (M5.b as PR #17,
+  `bab1a95`). M5.c is complete: transcripts and drills.
+- **Next**: M5.a3 (backend: cards made from errors, suggestions for recurring errors, the demo's errors through the
+  services), then the M5.c pull request. Order revised by the owner, see D-151 (amendment of D-138).
 - Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. The
-  owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1, M5.b2 and M5.c1) are still to run.
+  owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1, M5.b2, M5.c1 and M5.c2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M5.c2 — Drills and links (frontend)
+
+Second part of branch `feat/m5c-transcripts-drills`. **No backend change** (`git diff --stat main -- backend` is empty),
+no migration, no new dependency, SPEC.md unchanged. Decisions D-158 to D-162.
+
+### Done
+
+- **API layer** (`api/drills.ts`): the types read in `app/api/drills.py`, `services/drills.py` and `domain/drills.py`;
+  `useDrills` (20 per page), `useDrill`, `useCreateDrill`, `useAnswerItem` (the answer's `drill` replaces the cached one;
+  a wrong answer invalidates the error log and the category counts).
+- **`/drills`** (`DrillsPage`): the list (category in the interface language with its code, date, score, state; filter by
+  category prefix and page in the URL) and the "New drill" form (eligible categories only, 5 to 15 items, "Preparing your
+  exercises… n s", no double send, AI failures in words with the form kept, `?category=` preset and scroll, the study
+  session from the navigation state) (D-158).
+- **`/drills/:id`** (`DrillPage`, `DrillItemPlayer`, `DrillResult`, `DrillSummary`): the rule from the start (French on
+  request), "Item n of N", resume at the first item not answered, gap-fill with a labelled field and a gap marked by a
+  line ("blank" for screen readers), choices with keys 1 to 4 (AZERTY digit row and numeric keypad), "I don't know",
+  the exact result with sign and word, "Added to your error log" with a link, "Next" (Enter), the score and the recap,
+  "New drill on this category", "See these errors", "Back to today's session" (D-159, D-160).
+- **Links** (D-161): "Practise now" in `practice_info` and on the Today card, "Practise this category" on
+  `/errors/categories`, "Targeted drills" on `/errors`, a drill error opens its drill (`productionLink`).
+- **Elsewhere**: `CategorySelect` mode `drill`; `KeyHints` moved to `components/`; `activatesItself` exported; the error
+  codes `drill_not_found`, `already_answered`, `not_drillable` with the translated `reason` (D-162).
+- **i18n** (EN + FR, same keys, "vous"): `drills.*`, `errors.drill_not_found` / `already_answered` / `not_drillable`,
+  `session.practice.now`, `errorLog.drillsLink`, `errorLog.categories.practise` / `practiseNamed`,
+  `errorLog.list.openDrill`, `errorLog.detail.openDrill`; two texts reworded (`session.practice.later`,
+  `today.targeted`). **CSS**: `.drills-page`, `.drill-*`, tokens only; the choices reuse `.review-option*`.
+- **Tests**: 447 in total (378 before; 37 → 42 files). `DrillsPage.test.tsx`, `DrillPage.test.tsx`,
+  `drillLinks.test.tsx`, `drillMachine.test.ts`, `drillRules.test.ts`, plus additions to `errorMessage.test.ts` (+3) and
+  `logRules.test.ts` (+1); 65 tests under `features/drills/`.
+
+### Verified (Windows 11, 2026-10-18)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, 1 763 pytest passed (10 live deselected), then the
+  frontend: typecheck, oxlint `--deny-warnings`, 447 vitest tests. Exit code 0. `npm --prefix frontend run build` passes
+  (same chunk-size warning). `git diff --stat main -- backend`: empty.
+- **Breaking checks** (applied, then undone; the code is back to green, 65 drills tests pass):
+  (b) a preload of the item's result (an empty answer sent when the item is mounted, its result rendered hidden): the
+  active-recall test fails (`expected '<div><div class="shell">…' not to contain 'ANSWER-TOKEN'`). The test looks at the
+  whole `innerHTML` and at the list of requests.
+  (c) the ref guard removed (`transition` always returns true): two tests fail, "sends one answer when Enter is pressed
+  twice before the screen updates" and "sends one answer when a choice key is pressed twice at once" (two answers sent).
+  A first variant that read the React state instead of the ref also failed 12 tests, because the request callbacks then
+  saw a stale state; it is not the one counted above.
+- **In the in-app browser** (Chromium; 375 px; temporary demo database in the session's scratchpad, backend on port 8011
+  behind the Vite already on 5173; `data/` and `.env` not touched; the backend was started again with the three AI
+  settings really empty, see below):
+  1. `/drills`: the list (2 seeded drills: "Not started", "3 of 5 Completed") and the form with level-1 parents greyed and
+     pronunciation / spelling left out.
+  2. A seeded `drill-1` (5 items) played with the keyboard against the real backend: wrong gap-fill (error logged: "Added
+     to your error log", link), Enter to go on, a choice, the field focused for the next gap-fill (typing without a
+     click), "I don't know", the score "2 of 5 correct" and the recap with the three links.
+  3. Today card in French: "S'entraîner maintenant" → `/drills?category=grammar.tense.past_simple_vs_present_perfect`, the
+     select preselected, the page scrolled to the form (scrollY 224, form top 257 px), `history.state.usr` =
+     `{fromSession: 50}`, "Cet exercice fait partie de la séance du jour." Without any AI: "The drill could not be
+     created: no AI provider is set up. Nothing was saved; you can try again.", the form still filled (category, 10), the
+     button enabled again.
+  4. `scrollWidth` 375 on `/`, `/drills`, `/drills?category=…`, `/drills/19` (summary), `/drills/20` (reader), `/errors`,
+     `/errors/categories`, `/session`: English with the dark theme, and French with the light theme (the language and
+     theme were crossed in those two combinations only, not all 16). The result block in French at 375 px was read on a
+     screenshot.
+- **Found while verifying (not a bug of the app)**: my first backend start used PowerShell's `$env:X = ""`, which
+  *deletes* the variable on Windows, so `.env` supplied the Gemini key and the "Create the drill" click made **one real
+  call** (drill 21, 10 items, written to the temporary database only). It confirmed the real flow, then the backend was
+  restarted with the three settings truly empty (`VOCAB_GEMINI_API_KEY=` from Git Bash) and the degraded mode was
+  checked. Use Git Bash (or `cmd`) to empty a variable for a test run.
+- Not checked in the browser: the `practice_info` step with its link in the live session (reviews come first, 17 were
+  due; it is covered by `drillLinks.test.tsx`), a list of more than 20 drills, the reload of a drill in progress,
+  French with the dark theme, light English, the 409 and 422 paths against the real server (tests only).
+
+### Owner's manual scenario (about 3 minutes, with your Gemini key)
+
+1. `/errors/categories` → "Practise this category" on a preposition (for example "Place"): the form opens with the
+   category chosen; keep 5 items and "Create the drill" (a few seconds).
+2. Read the rule, answer the items with the keyboard (1 to 4 for a choice, Enter to check and to go on); answer one gap-fill
+   wrongly on purpose: the result shows your answer, the right one and the explanation, and "Added to your error log"
+   with a link; open it (`/errors/{id}`), it comes back to the drill with "Open the drill it comes from".
+3. At the end: the score, the recap, "See these errors" (`/errors?source=drill&category=…`), "New drill on this category".
+4. Today: if the targeted-practice line appears, "Practise now" leads to the form with the right category chosen; from the
+   session's "Also planned today" step the same link keeps the session ("Back to today's session" at the end).
+
+### Departures from the prompt
+
+- **Enter does not send an empty gap-fill** and "Check" is disabled while the field is empty (D-159): "I don't know" is the
+  way to give an empty answer.
+- **`session.practice.later` and `today.targeted` reworded** (D-161): they said the exercises were for information only
+  or for a later version; the first now speaks of the consolidation task alone.
+- **`CategorySelect` got a third mode** and `KeyHints` moved out of `ReviewPlayer` (a refactor without behaviour change).
+- The recap has no link to the logged errors (`DrillOut` has no `error_event_id`): "See these errors" is used.
+
+### Left / notes
+
+- **M5.a3** (backend): cards made from errors, suggestions for recurring errors, the demo's errors through the services
+  (the demo still has no drill and no drill error). Then the pull request of M5.c.
+- **M6**: speaking and recording; **M9**: statistics.
+- The owner's manual scenario above.
+
+### Known issues
+
+- After "Back to today's session" the session's `practice_info` step is shown again (D-161); "Continue" is enough.
+- `{fromSession}` lives in the navigation state: a drill opened by its URL (a bookmark, the history list) has no
+  "Back to today's session" link.
+- A lite model can write an arguable drill item (two answers that both fit); the result says the correction is exact and
+  that the error can be deleted (M5.a2's known issue, now visible in the screen).
+- `document.documentElement.lang` follows the interface language only after a change (M5.c1's known issue, seen again).
 
 ## M5.c1 — Transcripts (frontend)
 
