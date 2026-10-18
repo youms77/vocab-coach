@@ -12,6 +12,7 @@ import {
   useResolveCategory,
 } from '../../api/errors'
 import { PageTitle } from '../../components/PageTitle'
+import { isDrillableNode } from '../drills/drillRules'
 import { ErrorText } from '../settings/ErrorText'
 import { CategorySelect } from './CategorySelect'
 
@@ -191,6 +192,20 @@ function TreeNodes({ nodes }: { nodes: CategoryNode[] }) {
               <>
                 {' '}
                 <Link to={errorsHref(node.code)}>{t('errorLog.categories.errorsLink')}</Link>
+              </>
+            )}
+            {/* The server stays the judge (`not_drillable`); this is the same rule on the code. */}
+            {isDrillableNode(node) && (
+              <>
+                {' '}
+                <Link
+                  to={`/drills?${new URLSearchParams({ category: node.code }).toString()}`}
+                  aria-label={t('errorLog.categories.practiseNamed', {
+                    label: labelOf(node, i18n.language),
+                  })}
+                >
+                  {t('errorLog.categories.practise')}
+                </Link>
               </>
             )}
           </p>

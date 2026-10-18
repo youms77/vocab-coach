@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import type { PracticeStep, SessionSummary as Summary } from '../../api/session'
+import { isDrillableCode } from '../drills/drillRules'
+import { sessionState } from '../drills/fromSession'
 import { useCategoryName } from '../errors/useCategoryName'
 import { minutesOf } from './format'
 import { StepHeading } from './StepHeading'
@@ -66,13 +68,19 @@ export function WaitPanel({
   )
 }
 
-/** Targeted practice and consolidation are information only in M4 (D-107). */
+/**
+ * Targeted practice and consolidation are information in the session (D-107). Since M5.c2 the
+ * targeted practice has a "Practise now" link to the drills page, which carries the session so the
+ * drill can lead back to it; "Continue" is unchanged.
+ */
 export function PracticeInfoPanel({
   practice,
+  sessionId,
   onContinue,
   busy,
 }: {
   practice: PracticeStep
+  sessionId: number
   onContinue: () => void
   busy: boolean
 }) {
@@ -93,10 +101,21 @@ export function PracticeInfoPanel({
         )}
         {practice.consolidation_task_id !== null && <li>{t('session.practice.consolidation')}</li>}
       </ul>
-      <p className="muted">{t('session.practice.later')}</p>
-      <button type="button" className="button button--primary" onClick={onContinue} disabled={busy}>
-        {t('session.practice.continue')}
-      </button>
+      {practice.consolidation_task_id !== null && <p className="muted">{t('session.practice.later')}</p>}
+      <p className="today-actions">
+        {targeted !== null && isDrillableCode(targeted.category_code) && (
+          <Link
+            to={`/drills?${new URLSearchParams({ category: targeted.category_code }).toString()}`}
+            state={sessionState(sessionId)}
+            className="button"
+          >
+            {t('session.practice.now')}
+          </Link>
+        )}
+        <button type="button" className="button button--primary" onClick={onContinue} disabled={busy}>
+          {t('session.practice.continue')}
+        </button>
+      </p>
     </>
   )
 }

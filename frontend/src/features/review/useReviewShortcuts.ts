@@ -42,7 +42,7 @@ export function digitOf(event: KeyboardEvent): Rating | null {
 }
 
 /** Enter and Space already activate a focused button or link: the page must not act twice. */
-function activatesItself(target: EventTarget | null): boolean {
+export function activatesItself(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLButtonElement ||
     target instanceof HTMLAnchorElement ||

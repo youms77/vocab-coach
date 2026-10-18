@@ -67,6 +67,9 @@ const KNOWN_CODES = [
   'category_exists',
   'transcript_mismatch',
   'invalid_transcript',
+  'drill_not_found',
+  'already_answered',
+  'not_drillable',
 ] as const
 
 // These say *why* a value was refused (never the value itself): the English detail is kept.
@@ -111,13 +114,20 @@ export function describeError(t: TFunction, error: unknown): DescribedError {
     const codes = (TRANSCRIPT_CODES as readonly string[]).includes(error.code) ? codesOf(error) : []
     // `text_too_long` of a transcript is about 60 000 / 6 000 characters, not 4 000 and 40 sentences.
     const key = error.code === 'text_too_long' && codes.length > 0 ? 'text_too_long_transcript' : error.code
-    return {
-      text: t(`errors.${key}`),
-      detail: withDetail ? error.message : null,
-      reasons: codes.map((code) =>
-        t(`transcripts.reasons.${code}`, { defaultValue: t(`transcripts.problems.${code}`, { defaultValue: code }) }),
-      ),
+    const reasons = codes.map((code) =>
+      t(`transcripts.reasons.${code}`, { defaultValue: t(`transcripts.problems.${code}`, { defaultValue: code }) }),
+    )
+    // A category that cannot be drilled says why (`level`, `pronunciation`, `proposed`...); an
+    // unknown reason keeps the backend's English sentence.
+    if (error.code === 'not_drillable') {
+      const reason = error.detail.reason
+      reasons.push(
+        typeof reason === 'string'
+          ? t(`drills.reasons.${reason}`, { defaultValue: error.message })
+          : error.message,
+      )
     }
+    return { text: t(`errors.${key}`), detail: withDetail ? error.message : null, reasons }
   }
   if (error.status === 502 || error.status === 504) {
     // Vite's proxy answers this way when the backend is down.

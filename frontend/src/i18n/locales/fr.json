@@ -252,7 +252,10 @@
     "category_exists": "Une catégorie avec ce code existe déjà.",
     "transcript_mismatch": "La conversation que vous avez collée ne correspond pas aux tours enregistrés pour cette transcription. Collez la même conversation et choisissez les mêmes tours que la première fois. Votre texte est conservé ci-dessous.",
     "invalid_transcript": "Cette conversation ne peut pas être utilisée.",
-    "text_too_long_transcript": "Cette conversation est trop longue : 60 000 caractères collés au plus, et 6 000 caractères dans vos propres tours."
+    "text_too_long_transcript": "Cette conversation est trop longue : 60 000 caractères collés au plus, et 6 000 caractères dans vos propres tours.",
+    "drill_not_found": "Cet exercice n'existe pas (ou plus).",
+    "already_answered": "Vous avez déjà répondu à cette question.",
+    "not_drillable": "Vous ne pouvez pas vous entraîner sur cette catégorie."
   },
   "home": {
     "title": "Bienvenue",
@@ -769,7 +772,7 @@
     "noDeck": "Sans paquet",
     "unknownDeck": "Paquet {{id}}",
     "minutes": "Environ {{minutes}} min, pour un budget quotidien de {{budget}} min",
-    "targeted": "Exercice ciblé : {{category}} ({{count}} erreurs récentes), pour information",
+    "targeted": "Exercice ciblé : {{category}} ({{count}} erreurs récentes)",
     "consolidation": "Une tâche de consolidation est prête, pour information",
     "empty": "Rien à réviser ni à découvrir aujourd'hui. Importez une liste ou ajoutez des termes à votre bibliothèque.",
     "start": "Démarrer la séance du jour",
@@ -832,8 +835,9 @@
     "practice": {
       "targeted": "Exercice ciblé sur vos erreurs les plus fréquentes : {{category}} ({{count}} erreurs ces 14 derniers jours).",
       "consolidation": "Une tâche de consolidation (un exposé avec les termes de votre paquet) est prête.",
-      "later": "Ces exercices seront disponibles dans une prochaine version de l'application.",
-      "continue": "Continuer"
+      "later": "La tâche de consolidation sera disponible dans une prochaine version de l'application.",
+      "continue": "Continuer",
+      "now": "S'entraîner maintenant"
     },
     "summary": {
       "title": "Résumé de la séance",
@@ -1384,7 +1388,8 @@
       "date": "Date",
       "term": "Terme",
       "text": "Texte",
-      "openText": "Ouvrir le texte"
+      "openText": "Ouvrir le texte",
+      "openDrill": "Ouvrir l'exercice"
     },
     "detail": {
       "title": "Une erreur de votre journal",
@@ -1419,7 +1424,8 @@
       "deleteConfirm": "Supprimer cette erreur de votre journal ? Les statistiques ne la compteront plus.",
       "deleteYes": "Oui, la supprimer",
       "deleteKeep": "La garder",
-      "deleting": "Suppression…"
+      "deleting": "Suppression…",
+      "openDrill": "Ouvrir l'exercice d'où elle vient"
     },
     "manual": {
       "title": "Ajouter une erreur",
@@ -1486,7 +1492,109 @@
       "slugInvalid": "Le nom de code doit suivre la règle indiquée sous le champ.",
       "create": "Créer la catégorie",
       "creating": "Création…",
-      "created": "« {{label}} » créée ({{code}})."
+      "created": "« {{label}} » créée ({{code}}).",
+      "practise": "S'entraîner sur cette catégorie",
+      "practiseNamed": "S'entraîner sur cette catégorie : {{label}}"
+    },
+    "drillsLink": "Exercices ciblés"
+  },
+  "drills": {
+    "title": "Exercices ciblés",
+    "intro": "De courts exercices sur une catégorie d'erreurs, écrits par l'IA à partir de vos propres fautes. Une réponse fausse est ajoutée à votre journal d'erreurs.",
+    "errorLogLink": "Journal d'erreurs",
+    "form": {
+      "title": "Nouvel exercice",
+      "category": "Catégorie",
+      "chooseCategory": "Choisissez une catégorie",
+      "count": "Nombre de questions",
+      "countHint": "De 5 à 15.",
+      "countInvalid": "Choisissez un nombre de 5 à 15.",
+      "create": "Créer l'exercice",
+      "preparing": "Préparation de vos exercices… {{seconds}} s",
+      "preparingStatus": "Préparation de vos exercices…",
+      "preparingHint": "L'IA les écrit ; cela prend quelques secondes.",
+      "noCategories": "Aucune catégorie ne peut être travaillée pour l'instant.",
+      "fromSession": "Cet exercice fait partie de la séance du jour.",
+      "unavailable": "L'exercice n'a pas pu être créé : {{reason}}. Rien n'a été enregistré ; vous pouvez réessayer.",
+      "incomplete": "La réponse de l'IA n'a pas pu être utilisée. Rien n'a été enregistré ; vous pouvez réessayer."
+    },
+    "list": {
+      "title": "Vos exercices",
+      "filter": "Afficher les exercices de",
+      "all": "Toutes les catégories",
+      "loading": "Chargement…",
+      "empty": "Aucun exercice pour l'instant. Créez le premier ci-dessus.",
+      "emptyFiltered": "Aucun exercice dans cette catégorie pour l'instant.",
+      "count_one": "{{count}} exercice",
+      "count_other": "{{count}} exercices",
+      "date": "Date",
+      "category": "Catégorie",
+      "score": "Score",
+      "state": "État",
+      "scoreValue": "{{correct}} sur {{total}}",
+      "notStarted": "Pas commencé",
+      "inProgress": "En cours ({{answered}} sur {{total}})",
+      "completed": "Terminé"
+    },
+    "player": {
+      "title": "Exercice",
+      "loading": "Chargement de l'exercice…",
+      "back": "Tous les exercices",
+      "rule": "La règle",
+      "showFrench": "Afficher la règle en français",
+      "hideFrench": "Masquer le français",
+      "item": "Question {{n}} sur {{total}}",
+      "blank": "blanc",
+      "answer": "Votre réponse",
+      "choices": "Choisissez la bonne réponse",
+      "check": "Vérifier",
+      "dontKnow": "Je ne sais pas",
+      "sending": "Vérification…",
+      "next": "Suivant",
+      "seeScore": "Voir le score",
+      "retry": "Réessayer"
+    },
+    "keys": {
+      "next": "suivant",
+      "seeScore": "voir le score"
+    },
+    "result": {
+      "label": "Résultat",
+      "exact": "Correct",
+      "wrong": "Faux",
+      "empty": "Pas de réponse",
+      "given": "Votre réponse",
+      "noneGiven": "aucune",
+      "expected": "Bonne réponse",
+      "accepted": "Aussi accepté",
+      "why": "Pourquoi",
+      "showFrench": "Afficher l'explication en français",
+      "hideFrench": "Masquer le français",
+      "rightOption": "bonne réponse",
+      "yourOption": "votre choix",
+      "errorLogged": "Ajouté à votre journal d'erreurs.",
+      "errorLink": "Voir l'erreur",
+      "errorNote": "La correction est exacte. Si vous pensez que votre réponse était correcte, vous pouvez supprimer cette erreur de votre journal."
+    },
+    "summary": {
+      "title": "Exercice terminé",
+      "score": "Score : {{correct}} bonnes réponses sur {{total}}",
+      "detail": "{{correct}} correctes, {{wrong}} fausses, {{empty}} sans réponse.",
+      "recap": "Vos réponses",
+      "item": "Question",
+      "sentence": "Phrase",
+      "result": "Résultat",
+      "expectedAnswer": "Bonne réponse : {{expected}}",
+      "newDrill": "Nouvel exercice sur cette catégorie",
+      "seeErrors": "Voir ces erreurs",
+      "backToSession": "Retour à la séance du jour",
+      "allDrills": "Tous les exercices"
+    },
+    "reasons": {
+      "level": "Choisissez une catégorie plus précise (niveau 2 ou plus).",
+      "pronunciation": "La prononciation ne peut pas être travaillée à l'écrit.",
+      "proposed": "Cette catégorie est seulement proposée : acceptez-la d'abord dans la page des catégories.",
+      "rejected": "Cette catégorie a été rejetée."
     }
   }
 }

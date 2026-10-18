@@ -43,3 +43,21 @@ describe('describeError: transcripts', () => {
     expect(describeError(t, refusal(409, 'transcript_mismatch')).text).toContain('does not match the turns saved')
   })
 })
+
+describe('describeError: drills', () => {
+  it('says why a category cannot be drilled, in the interface language', () => {
+    const described = describeError(t, refusal(422, 'not_drillable', { reason: 'pronunciation' }))
+    expect(described.text).toBe('This category cannot be practised.')
+    expect(described.reasons).toEqual(['Pronunciation cannot be practised in writing.'])
+  })
+
+  it('keeps the backend sentence for a reason it does not know', () => {
+    const described = describeError(t, refusal(422, 'not_drillable', { reason: 'brand_new' }))
+    expect(described.reasons).toEqual(['English text'])
+  })
+
+  it('has a sentence for an unknown drill and an item answered twice', () => {
+    expect(describeError(t, refusal(404, 'drill_not_found')).text).toBe('This drill does not exist (any more).')
+    expect(describeError(t, refusal(409, 'already_answered')).text).toBe('This item was already answered.')
+  })
+})

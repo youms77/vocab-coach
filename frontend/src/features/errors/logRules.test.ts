@@ -16,10 +16,14 @@ describe('productionLink', () => {
     expect(productionLink(row({ source: 'transcript', production_attempt_id: 9 }))).toBe('/transcripts/9')
   })
 
+  it('opens the drill of a drill error', () => {
+    expect(productionLink(row({ source: 'drill', production_attempt_id: 3 }))).toBe('/drills/3')
+    expect(productionLink(row({ source: 'drill', production_attempt_id: null }))).toBeNull()
+  })
+
   it('has no link without a production or for the sources that have no page yet', () => {
     expect(productionLink(row({ source: 'transcript', production_attempt_id: null }))).toBeNull()
     expect(productionLink(row({ source: 'manual', production_attempt_id: null }))).toBeNull()
-    expect(productionLink(row({ source: 'drill', production_attempt_id: 3 }))).toBeNull()
     expect(productionLink(row({ source: 'speaking', production_attempt_id: 3 }))).toBeNull()
   })
 })

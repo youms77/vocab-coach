@@ -3,6 +3,8 @@ import type { RouteObject } from 'react-router'
 import { Layout } from './components/Layout'
 import { NotFoundPage } from './components/NotFoundPage'
 import { EnrichmentPage } from './features/enrichment/EnrichmentPage'
+import { DrillPage } from './features/drills/DrillPage'
+import { DrillsPage } from './features/drills/DrillsPage'
 import { CategoriesPage } from './features/errors/CategoriesPage'
 import { ErrorDetailPage } from './features/errors/ErrorDetailPage'
 import { ErrorsPage } from './features/errors/ErrorsPage'
@@ -46,6 +48,8 @@ export const routes: RouteObject[] = [
       { path: 'transcripts', element: <TranscriptPage /> },
       { path: 'transcripts/history', element: <TranscriptHistoryPage /> },
       { path: 'transcripts/:id', element: <TranscriptDetailPage /> },
+      { path: 'drills', element: <DrillsPage /> },
+      { path: 'drills/:id', element: <DrillPage /> },
       { path: 'errors', element: <ErrorsPage /> },
       { path: 'errors/new', element: <ManualErrorPage /> },
       { path: 'errors/categories', element: <CategoriesPage /> },

@@ -275,7 +275,9 @@ export function ErrorDetailPage() {
             {text !== null && (
               <>
                 {' · '}
-                <Link to={text}>{t('errorLog.detail.openText')}</Link>
+                <Link to={text}>
+                  {error.source === 'drill' ? t('errorLog.detail.openDrill') : t('errorLog.detail.openText')}
+                </Link>
               </>
             )}
           </p>

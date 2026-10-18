@@ -148,6 +148,7 @@ export function ErrorsPage() {
         <p className="link-row">
           <Link to="/errors/new">{t('errorLog.addLink')}</Link>
           <Link to="/errors/categories">{t('errorLog.categoriesLink')}</Link>
+          <Link to="/drills">{t('errorLog.drillsLink')}</Link>
         </p>
       </section>
 
@@ -246,7 +247,13 @@ export function ErrorsPage() {
                             )}
                           </td>
                           <td>
-                            {text !== null ? <Link to={text}>{t('errorLog.list.openText')}</Link> : '—'}
+                            {text !== null ? (
+                              <Link to={text}>
+                                {error.source === 'drill' ? t('errorLog.list.openDrill') : t('errorLog.list.openText')}
+                              </Link>
+                            ) : (
+                              '—'
+                            )}
                           </td>
                         </tr>
                       )

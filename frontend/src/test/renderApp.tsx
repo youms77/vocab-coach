@@ -4,14 +4,18 @@ import type { ReactElement } from 'react'
 import {
   createBrowserRouter,
   createMemoryRouter,
+  type InitialEntry,
   MemoryRouter,
   RouterProvider,
 } from 'react-router'
 
 import { routes } from '../routes'
 
-/** Renders the whole app at a given URL, with a fresh query cache and no retries. Returns the router too. */
-export function renderApp(initialPath = '/') {
+/**
+ * Renders the whole app at a given URL (or entry, to start with a navigation state), with a fresh
+ * query cache and no retries. Returns the router too.
+ */
+export function renderApp(initialPath: InitialEntry = '/') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })

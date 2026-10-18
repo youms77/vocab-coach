@@ -163,7 +163,7 @@ export const unavailableResult = (reason: string | null = 'no_provider_configure
     errors: [],
   })
 
-function node(
+export function node(
   code: string,
   label_en: string,
   label_fr: string,

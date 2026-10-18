@@ -252,7 +252,10 @@
     "category_exists": "A category with this code already exists.",
     "transcript_mismatch": "The conversation you pasted does not match the turns saved for this transcript. Paste the same conversation and choose the same turns as the first time. Your text is kept below.",
     "invalid_transcript": "This conversation cannot be used.",
-    "text_too_long_transcript": "This conversation is too long: at most 60,000 pasted characters and 6,000 characters in your own turns."
+    "text_too_long_transcript": "This conversation is too long: at most 60,000 pasted characters and 6,000 characters in your own turns.",
+    "drill_not_found": "This drill does not exist (any more).",
+    "already_answered": "This item was already answered.",
+    "not_drillable": "This category cannot be practised."
   },
   "home": {
     "title": "Welcome",
@@ -769,7 +772,7 @@
     "noDeck": "No deck",
     "unknownDeck": "Deck {{id}}",
     "minutes": "About {{minutes}} min, for a daily budget of {{budget}} min",
-    "targeted": "Targeted practice: {{category}} ({{count}} recent errors), for information only",
+    "targeted": "Targeted practice: {{category}} ({{count}} recent errors)",
     "consolidation": "A consolidation task is ready, for information only",
     "empty": "Nothing to review or discover today. Import a word list or add terms to your library.",
     "start": "Start today's session",
@@ -832,8 +835,9 @@
     "practice": {
       "targeted": "Targeted practice on your most frequent errors: {{category}} ({{count}} errors in the last 14 days).",
       "consolidation": "A consolidation task (a talk using your deck's terms) is ready.",
-      "later": "These exercises are available in a later version of the app.",
-      "continue": "Continue"
+      "later": "The consolidation task is available in a later version of the app.",
+      "continue": "Continue",
+      "now": "Practise now"
     },
     "summary": {
       "title": "Session summary",
@@ -1384,7 +1388,8 @@
       "date": "Date",
       "term": "Term",
       "text": "Text",
-      "openText": "Open the text"
+      "openText": "Open the text",
+      "openDrill": "Open the drill"
     },
     "detail": {
       "title": "An error in your log",
@@ -1419,7 +1424,8 @@
       "deleteConfirm": "Delete this error from your log? The statistics will no longer count it.",
       "deleteYes": "Yes, delete it",
       "deleteKeep": "Keep it",
-      "deleting": "Deleting…"
+      "deleting": "Deleting…",
+      "openDrill": "Open the drill it comes from"
     },
     "manual": {
       "title": "Add an error",
@@ -1486,7 +1492,109 @@
       "slugInvalid": "The code name must follow the rule below the field.",
       "create": "Create the category",
       "creating": "Creating…",
-      "created": "Created “{{label}}” ({{code}})."
+      "created": "Created “{{label}}” ({{code}}).",
+      "practise": "Practise this category",
+      "practiseNamed": "Practise this category: {{label}}"
+    },
+    "drillsLink": "Targeted drills"
+  },
+  "drills": {
+    "title": "Targeted drills",
+    "intro": "Short exercises on one error category, written by the AI from your own mistakes. A wrong answer is added to your error log.",
+    "errorLogLink": "Error log",
+    "form": {
+      "title": "New drill",
+      "category": "Category",
+      "chooseCategory": "Choose a category",
+      "count": "Number of items",
+      "countHint": "From 5 to 15.",
+      "countInvalid": "Choose a number from 5 to 15.",
+      "create": "Create the drill",
+      "preparing": "Preparing your exercises… {{seconds}} s",
+      "preparingStatus": "Preparing your exercises…",
+      "preparingHint": "The AI is writing them; this takes a few seconds.",
+      "noCategories": "No category can be practised yet.",
+      "fromSession": "This drill is part of today's session.",
+      "unavailable": "The drill could not be created: {{reason}}. Nothing was saved; you can try again.",
+      "incomplete": "The AI's answer could not be used. Nothing was saved; you can try again."
+    },
+    "list": {
+      "title": "Your drills",
+      "filter": "Show the drills of",
+      "all": "All categories",
+      "loading": "Loading…",
+      "empty": "No drill yet. Create the first one above.",
+      "emptyFiltered": "No drill in this category yet.",
+      "count_one": "{{count}} drill",
+      "count_other": "{{count}} drills",
+      "date": "Date",
+      "category": "Category",
+      "score": "Score",
+      "state": "State",
+      "scoreValue": "{{correct}} of {{total}}",
+      "notStarted": "Not started",
+      "inProgress": "In progress ({{answered}} of {{total}})",
+      "completed": "Completed"
+    },
+    "player": {
+      "title": "Drill",
+      "loading": "Loading the drill…",
+      "back": "All drills",
+      "rule": "The rule",
+      "showFrench": "Show the rule in French",
+      "hideFrench": "Hide the French",
+      "item": "Item {{n}} of {{total}}",
+      "blank": "blank",
+      "answer": "Your answer",
+      "choices": "Choose the right answer",
+      "check": "Check",
+      "dontKnow": "I don't know",
+      "sending": "Checking…",
+      "next": "Next",
+      "seeScore": "See the score",
+      "retry": "Retry"
+    },
+    "keys": {
+      "next": "next",
+      "seeScore": "see the score"
+    },
+    "result": {
+      "label": "Result",
+      "exact": "Correct",
+      "wrong": "Wrong",
+      "empty": "No answer",
+      "given": "Your answer",
+      "noneGiven": "none",
+      "expected": "Right answer",
+      "accepted": "Also accepted",
+      "why": "Why",
+      "showFrench": "Show the explanation in French",
+      "hideFrench": "Hide the French",
+      "rightOption": "right answer",
+      "yourOption": "your choice",
+      "errorLogged": "Added to your error log.",
+      "errorLink": "See the error",
+      "errorNote": "The correction is exact. If you think your answer was correct, you can delete this error from your log."
+    },
+    "summary": {
+      "title": "Drill finished",
+      "score": "Score: {{correct}} of {{total}} correct",
+      "detail": "{{correct}} correct, {{wrong}} wrong, {{empty}} without an answer.",
+      "recap": "Your answers",
+      "item": "Item",
+      "sentence": "Sentence",
+      "result": "Result",
+      "expectedAnswer": "Right answer: {{expected}}",
+      "newDrill": "New drill on this category",
+      "seeErrors": "See these errors",
+      "backToSession": "Back to today's session",
+      "allDrills": "All drills"
+    },
+    "reasons": {
+      "level": "Choose a more precise category (level 2 or more).",
+      "pronunciation": "Pronunciation cannot be practised in writing.",
+      "proposed": "This category is only proposed: accept it in the categories page first.",
+      "rejected": "This category was rejected."
     }
   }
 }
