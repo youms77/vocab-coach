@@ -14,6 +14,7 @@ import {
 import { installFakeSpeech } from '../../test/fakeSpeech'
 import { apiErrorResponse, mockApi, type RecordedCall } from '../../test/mockApi'
 import { renderApp } from '../../test/renderApp'
+import { categoryTree } from '../../test/writingFixtures'
 
 const summary: SessionSummary = {
   format: 'session-1',
@@ -111,6 +112,45 @@ describe('Session page', () => {
     expect(summaryList).toHaveTextContent('Discoveries completed1')
     expect(summaryList).toHaveTextContent('Time spent13 min')
     expect(summaryList).toHaveTextContent('Time planned25 min')
+  })
+
+  it('names the targeted category by its label, and by its code when the tree is unavailable', async () => {
+    const practice = step({
+      type: 'practice_info',
+      practice: {
+        targeted_practice: { category_code: 'grammar.preposition', error_count: 5 },
+        consolidation_task_id: null,
+      },
+    })
+    mockApi({
+      ...base,
+      'GET /error-categories': categoryTree(),
+      'POST /session/start': () => Response.json(studySession(7), { status: 201 }),
+      'GET /session/7/next': practice,
+    })
+    renderApp('/session')
+    expect(
+      await screen.findByText(/Prepositions \(5 errors in the last 14 days\)/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/grammar\.preposition/)).toBeNull()
+  })
+
+  it('falls back to the category code when the tree cannot be loaded', async () => {
+    mockApi({
+      ...base,
+      'POST /session/start': () => Response.json(studySession(7), { status: 201 }),
+      'GET /session/7/next': step({
+        type: 'practice_info',
+        practice: {
+          targeted_practice: { category_code: 'grammar.preposition', error_count: 5 },
+          consolidation_task_id: null,
+        },
+      }),
+    })
+    renderApp('/session')
+    expect(
+      await screen.findByText(/grammar\.preposition \(5 errors in the last 14 days\)/),
+    ).toBeInTheDocument()
   })
 
   it('sends practice_seen=true after the practice information, then ends the session once', async () => {

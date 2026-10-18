@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import type { PracticeStep, SessionSummary as Summary } from '../../api/session'
+import { useCategoryName } from '../errors/useCategoryName'
 import { minutesOf } from './format'
 import { StepHeading } from './StepHeading'
 
@@ -76,6 +77,7 @@ export function PracticeInfoPanel({
   busy: boolean
 }) {
   const { t } = useTranslation()
+  const categoryName = useCategoryName()
   const targeted = practice.targeted_practice
   return (
     <>
@@ -84,7 +86,7 @@ export function PracticeInfoPanel({
         {targeted !== null && (
           <li>
             {t('session.practice.targeted', {
-              category: targeted.category_code,
+              category: categoryName(targeted.category_code),
               count: targeted.error_count,
             })}
           </li>

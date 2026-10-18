@@ -31,6 +31,7 @@ export function Layout() {
           <NavLink to="/session">{t('nav.today')}</NavLink>
           <NavLink to="/library">{t('nav.library')}</NavLink>
           <NavLink to="/writing">{t('nav.writing')}</NavLink>
+          <NavLink to="/errors">{t('nav.errors')}</NavLink>
           <NavLink to="/settings">{t('nav.settings')}</NavLink>
         </nav>
         {health.data?.demo === true && (

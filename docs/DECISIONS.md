@@ -1605,7 +1605,8 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   minutes against the budget, targeted practice and consolidation for information. The five plan warnings are
   translated with their data: `items_without_sheet` links each deck (`/library?deck=ID`) and `/enrichment`;
   `deadline_triage_pending` links `/triage?deck=ID` (its deadline comes from the plan's paces). The error
-  category of targeted practice is shown as its code: no route gives the taxonomy labels yet.
+  category of targeted practice is shown as its code: no route gave the taxonomy labels yet (since M5.a1
+  `GET /api/error-categories` does, and M5.b2 shows the label with the code as a fallback, D-150).
 - `/session` calls `start` once per visit (a ref guards React's development double effect; the route is
   idempotent anyway), then `next`. `next` is a query (`staleTime: Infinity`, no refetch on focus) fetched
   again only when the page asks; `practice_seen` is part of its key. `done` ends the session by itself, once,
@@ -2187,3 +2188,77 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   no scroll; wrapping was already the design). "Errors" arrives with M5.b2.
 - Found in the browser: a grid track without `minmax(0, 1fr)` let the history table widen the page to 1 661 px;
   `.writing-page` now has it, like the library page.
+
+## D-146 — The error log page: state in the URL, dates, links (M5.b2)
+
+- `/errors` keeps every filter in the URL (`category`, `source`, `q`, `from`, `to`, `item_id`, `page`; empty values and
+  page 1 are left out), so Back, reload and sharing work. The form holds a draft and "Apply" writes the URL; the form
+  is remounted (`key`) when the URL changes, so it always shows the applied filters. A facet button writes `category`
+  at once; clicking the pressed one clears it (`aria-pressed`). 25 rows per page (the backend allows 100).
+- **Dates**: "From" and "To" are calendar days in the browser's time zone, sent as local midnights in UTC
+  (`occurred_from` = the start of the first day, `occurred_to` = the start of the day after the last day, because the
+  backend's bound is exclusive). The planner's study day (`day_start_hour`) is not used here: it is a scheduling
+  notion, and this is a log of what happened on a calendar day.
+- Rows link to `/errors/{id}` with the current search in the router state; the detail page's back link and the
+  redirect after a deletion use it, so the filters survive the round trip. Without state they fall back to `/errors`.
+- **Production link**: `ErrorOut` carries no production kind. A row links to `/writing/{production_attempt_id}` for the
+  sources `writing` and `review` (both are written productions) and has no link for `transcript`, `drill`,
+  `speaking` or `consolidation` (their screens arrive with M5.c).
+- The term chip of `item_id` shows the term's name (`GET /api/items/{id}`), "Term {id}" while it is unknown, and a
+  button that removes the filter.
+
+## D-147 — Category selectors (M5.b2)
+
+- A native `<select>` with the tree flattened and indented (recursively: the demo taxonomy has three levels, for
+  instance `grammar.preposition.time`). **Filter**: active and proposed categories (a rejected one holds no error);
+  a top-level category reads "X (all)" because the backend filters by code prefix; a proposed one is marked
+  "(proposed)". **Assign** (edit, manual entry, parent of a new category): active categories only, which is what the
+  backend accepts (`unknown_category` otherwise); in the edit form the error's current category stays selectable even
+  when it is only proposed. Any active category may be chosen, level 1 included (the backend allows it).
+- A category that is not in the list (not loaded yet) stays as an option with its label or its code, so the control
+  never shows a wrong value.
+
+## D-148 — Editing, deleting and entering errors by hand (M5.b2)
+
+- The edit form sends **only the changed fields** (`PATCH`); with nothing changed it says so and sends nothing.
+  `lexical_item_id: null` unlinks the term. Editing the explanation drops the stored French translation (a backend
+  rule), and the form says so while a French version is shown.
+- The edit form is not remounted after a save (a `mutate` callback of an unmounted component never runs): the "Saved."
+  state lives in the page, and the form compares against the refreshed error.
+- **Deletion** asks inline; focus goes to "Keep it" (D-067). `useDeleteError` invalidates the lists and the category
+  counts but not the error's own query, which is still mounted and would answer 404 before the navigation.
+- **Manual entry**: client checks that mirror the backend (`fragment.ts` is a look-alike of `find_fragment`: runs of
+  spaces, typographic apostrophes, NFC / NFD and, as a second try, case): the incorrect form must be in the sentence
+  when one is given, and must differ from the correction. The server stays the judge: `invalid_error` (with its
+  English detail), `unknown_category` and the others are shown. After a success the form empties and a link opens
+  the new error. An exotic case difference (such as "ß") could make the client check stricter than the server's; the
+  client check is a convenience and the message names the rule.
+- The term picker searches `GET /api/items?q=`, shows at most 8 results as buttons and lets the user unlink.
+
+## D-149 — The categories page (M5.b2)
+
+- The AI's proposals come first. Accept sends a rename only when a label differs from the proposal's. Reject is
+  explained before it is done ("its errors move to the parent category", focus on "Cancel"), then reports how many
+  errors moved. The result and the refusals are shown **at page level**, not inside the card: the reloaded tree
+  removes the card, and `category_not_proposed` (decided elsewhere) reloads the tree by itself.
+- `useResolveCategory` does not await its invalidation (so the card's own `mutate` callbacks still run), and
+  invalidates the Today plan when errors moved (targeted practice reads the counts).
+- The tree shows the label in the interface language, the code, the status and the origin **as text**, and the counts
+  (total and last 14 days) with a link to the filtered list. Rejected categories are folded in a `<details>`.
+- Creation: the parent defaults to the first active top-level category (a top-level category is an explicit choice
+  "None"); the code name follows the backend rule (`^[a-z][a-z0-9_]{1,40}$`), checked while typing; both labels are
+  required, descriptions optional; `category_exists` is shown.
+
+## D-150 — Labels, links and small conventions of M5.b2
+
+- `useCategoryName()` gives the label of a code in the interface language and falls back to the code (tree loading,
+  request failed, unknown code). The Today card and the `practice_info` step use it; `categoryLabels` returns an
+  empty map for anything that is not a list, so a label lookup cannot take a page down.
+- The term's page has a card "Errors linked to this term" that opens `/errors?item_id=ID`.
+- **Error codes**: six new ones in `errorMessage.ts` (`error_not_found`, `category_not_found`,
+  `category_not_proposed`, `unknown_category`, `invalid_error`, `category_exists`). The prompt counted nine and
+  listed five; `category_exists` was missing from it. `invalid_error` shows the English detail like `invalid_setting`.
+- The page strings live in `errorLog.*`: `errors.*` already holds the messages by code.
+- **Navigation**: "Errors" is the sixth top link; the links wrap to two rows at 375 px in English and in French, with
+  no horizontal scroll (measured: `scrollWidth` 375 on every new page).
+- Page layouts use `grid-template-columns: minmax(0, 1fr)`, so a wide table scrolls in its frame (D-145).

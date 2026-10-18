@@ -59,6 +59,12 @@ const KNOWN_CODES = [
   'text_too_long',
   'invalid_production',
   'not_correctable',
+  'error_not_found',
+  'category_not_found',
+  'category_not_proposed',
+  'unknown_category',
+  'invalid_error',
+  'category_exists',
 ] as const
 
 // These say *why* a value was refused (never the value itself): the English detail is kept.
@@ -66,6 +72,7 @@ const DETAILED_CODES: readonly string[] = [
   'invalid_credential',
   'invalid_setting',
   'invalid_production',
+  'invalid_error',
 ]
 
 type KnownCode = (typeof KNOWN_CODES)[number]

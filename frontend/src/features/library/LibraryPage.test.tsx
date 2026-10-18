@@ -229,6 +229,15 @@ describe('item page', () => {
     expect(screen.getByText('We account for fixed effects.', { exact: false })).toBeInTheDocument()
   })
 
+  it('links to the errors logged for the term', async () => {
+    mockApi({ 'GET /items/1': detail, 'GET /decks': decks })
+    renderApp('/library/items/1')
+    expect(await screen.findByRole('link', { name: 'Errors linked to this term' })).toHaveAttribute(
+      'href',
+      '/errors?item_id=1',
+    )
+  })
+
   it('refuses to delete a term with history and explains why', async () => {
     mockApi({
       'GET /items/1': detail,

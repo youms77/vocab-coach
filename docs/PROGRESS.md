@@ -4,13 +4,96 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M5.b1 — writing and corrections (frontend), on branch `feat/m5b-writing-errors`
-  (committed, not pushed, no PR yet). `main` has M1.a to M5.a2 (M5.a2 as `8bb866a`, PR #16).
-- **Next**: M5.b2 (the error log and the categories, same branch), then M5.a3 (backend), then M5.c (transcripts and
-  drills screens). Order revised by the owner, see D-138 (amendment).
+- **Last milestone completed**: M5.b2 - the error log and the categories (frontend), on branch
+  `feat/m5b-writing-errors` with M5.b1 (committed, not pushed, no PR yet). `main` has M1.a to M5.a2 (M5.a2 as
+  `8bb866a`, PR #16).
+- **Next**: M5.a3 (backend), then M5.c (transcripts and drills screens). Order revised by the owner, see D-138
+  (amendment). The branch `feat/m5b-writing-errors` can get its PR before or after M5.a3.
 - Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. The
-  owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, and now M5.b1) are still to run.
+  owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1 and M5.b2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M5.b2 — Error log and categories (frontend)
+
+Second part of branch `feat/m5b-writing-errors`. **No backend change** (`git diff --stat main -- backend` is empty), no
+migration, no new dependency, SPEC.md unchanged. Decisions D-146 to D-150 (and an edit of D-114).
+
+### Done
+
+- **API layer** (`api/errors.ts`): `useErrors(filters)`, `useError`, `useCreateError`, `usePatchError`,
+  `useDeleteError`, `useCreateCategory`, `useResolveCategory`; the filter helpers `parseFilters`, `filtersToParams`,
+  `errorsQuery`, `localMidnight`; `SLUG_PATTERN`. `useItems` takes an optional `enabled`.
+- **`/errors`** (`ErrorsPage`): filters (category, source with the seven values, search, from / to), the term chip of
+  `item_id`, clickable level-2 facets with counts, a table of 25 per page, a pager; everything is in the URL.
+- **`/errors/:id`** (`ErrorDetailPage`): the original sentence with the incorrect form marked (bold, wavy underline,
+  and named in words), an edit form that sends only the changed fields, a term picker with "Unlink", and a deletion
+  with an inline confirmation whose focus goes to "Keep it".
+- **`/errors/new`** (`ManualErrorPage`): the manual entry with the client checks, then "Added to your error log" and
+  a link; the form empties for the next one.
+- **`/errors/categories`** (`CategoriesPage`): the AI's proposals first (accept with an optional rename, reject
+  after an explanation, then "n errors moved"), the tree with counts (total and 14 days), statuses and origins as
+  text, the rejected ones folded, and a creation form.
+- **Elsewhere**: the "Errors" top link, labels instead of codes in the Today card and in `practice_info` (the code
+  stays as a fallback), "Errors linked to this term" on a term's page, six new `errors.*` codes.
+- **Pure helpers**: `fragment.ts` (a look-alike of the backend's `find_fragment`), `logRules.ts` (`problemOf`,
+  `productionLink`).
+- **i18n** (EN + FR, same keys): `errorLog.*` (list, detail, manual, categories), `nav.errors`,
+  `library.item.errorsTitle` / `errorsLink`. **CSS**: tokens only, `minmax(0, 1fr)` on the page grid.
+- **Tests**: 332 in total (283 before; 26 → 31 files). `fragment.test.ts` (9), `ErrorsPage.test.tsx` (10),
+  `ErrorDetailPage.test.tsx` (12), `ManualErrorPage.test.tsx` (6), `CategoriesPage.test.tsx` (8), plus label tests in
+  `TodayCard` and `SessionPage`, and the term-page link.
+
+### Verified (Windows 11, 2026-10-18)
+
+- `npm --prefix frontend run check` (typecheck, oxlint `--deny-warnings`, 332 vitest tests): green.
+  `npm --prefix frontend run build` passes (same chunk-size warning). `git diff --stat main -- backend`: empty.
+- **In the in-app browser** (EN and FR; dark and light; 375 px), on a temporary demo database in the session's
+  scratchpad (`VOCAB_DATA_DIR`, `VOCAB_DEMO=1`, AI keys emptied, backend on port 8011; the Vite already running on
+  5173 proxies there; two proposed categories added through `propose_category`; `data/` and `.env` not touched):
+  1. `/errors`: 234 demo errors, the facets, 25 per page, the category label with its code, a filter by category.
+  2. `/errors/234`: the incorrect form marked in the sentence, the edit form, the alternatives.
+  3. `/errors/categories`: two proposals; "Accept" (active at once, announced), "Reject" then "Yes, reject it"
+     ("no error had to move", folded under "Rejected categories (1)").
+  4. 375 px: `/errors`, `/errors/234`, `/errors/new`, `/errors/categories` and Home, in English and French: no
+     horizontal scroll (`scrollWidth` 375). The six top links wrap to two rows in both languages.
+  5. The request bodies of the pages were replayed against the real backend with `curl` (list with the
+     local-midnight dates, `POST /errors`, `PATCH`, `DELETE`, `POST /error-categories` and the duplicate code): the
+     answers match what the pages expect (`invalid_error`, `category_exists`, 204).
+- Not checked in the browser by clicking: the creation form of a category, the edit and delete buttons and the manual
+  form (covered by the tests and by the `curl` replay of their bodies).
+
+### Owner's manual scenario (about 3 minutes, no AI needed)
+
+1. `/errors`: the list and the facets; choose the category "Prepositions" in the filter, "Apply": the URL holds
+   `?category=grammar.preposition`; click a facet to narrow, click it again to clear.
+2. Open one error: the incorrect form is marked. Change its category, "Save" ("Saved."); come back with the link
+   (the filters are kept). Open another one and delete it ("Keep it" has the focus; "Yes, delete it").
+3. `/errors/new`: type a sentence, an incorrect form that is in it, a correction and a category: "Add to my log".
+   Try an incorrect form that is not in the sentence: the page refuses it without a request.
+4. `/errors/categories`: create a subcategory (a code name such as `time_words`, both labels); if the AI proposed
+   one (after a correction with a key), accept it, then reject another.
+5. A term's page: "Errors linked to this term" opens `/errors?item_id=…` with its chip.
+
+### Departures from the prompt
+
+- **Six error codes more, not "nine"**: the prompt listed five. The backend also answers `category_exists` (409),
+  added here; `invalid_error` shows the backend's English detail under the sentence (like `invalid_setting`).
+- **Namespace `errorLog.*`** instead of `errors.*` for the page strings: `errors.*` already holds the error
+  messages by code, so the page strings would have shared one flat namespace with them.
+- **The "from / to" fields are calendar days** in the browser's time zone, sent as local midnights (D-146).
+- A production link on a row only exists for the sources `writing` and `review` (D-146).
+- The taxonomy has three levels in the demo (`grammar.preposition.time`): the selectors and the tree are recursive,
+  not limited to two (D-147).
+
+### Left / notes
+
+- The detail page shows the stored original sentence only, not the whole production around it.
+- The review result still has only the single "Added to your error log" announcement of M5.b1.
+
+### Known issues
+
+- Long category codes make the list table scroll sideways inside its frame (it never widens the page).
+- A reloaded `/errors/:id` of a deleted error shows the "not in your log" message after a short wait.
 
 ## M5.b1 — Writing and corrections (frontend)
 
@@ -1665,16 +1748,13 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M5.b2, then M5.a3
+## Next step: M5.a3, then M5.c
 
-- **M5.b2** (frontend, same branch `feat/m5b-writing-errors`): the error log `/errors` (list, filters, facets,
-  pagination), `/errors/:id` (edit, delete), `/errors/new`, `/errors/categories` (tree, creation, the AI's proposals),
-  the category labels in "Today" and `practice_info`, "Errors linked to this term", the "Errors" top link. Start
-  with a plan and wait for approval.
-- Then **M5.a3** (backend): cards made from errors, suggestions for recurring errors, the demo's errors through the
+- **M5.a3** (backend): cards made from errors, suggestions for recurring errors, the demo's errors through the
   services (D-138). Then **M5.c**: transcripts, drills and the link from `practice_info`.
-- Before or alongside: the owner's real calls (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1 scenarios) and the D-056 "to
-  confirm" list.
+- Before or alongside: the owner's real calls (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1 and M5.b2 scenarios) and the
+  D-056 "to confirm" list. The branch `feat/m5b-writing-errors` (M5.b1 and M5.b2) is ready for a PR once the
+  owner has read it.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅

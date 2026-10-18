@@ -3,6 +3,10 @@ import type { RouteObject } from 'react-router'
 import { Layout } from './components/Layout'
 import { NotFoundPage } from './components/NotFoundPage'
 import { EnrichmentPage } from './features/enrichment/EnrichmentPage'
+import { CategoriesPage } from './features/errors/CategoriesPage'
+import { ErrorDetailPage } from './features/errors/ErrorDetailPage'
+import { ErrorsPage } from './features/errors/ErrorsPage'
+import { ManualErrorPage } from './features/errors/ManualErrorPage'
 import { HomePage } from './features/home/HomePage'
 import { DecksPage } from './features/library/DecksPage'
 import { DuplicatesPage } from './features/library/DuplicatesPage'
@@ -36,6 +40,10 @@ export const routes: RouteObject[] = [
       { path: 'writing', element: <WritingPage /> },
       { path: 'writing/history', element: <WritingHistoryPage /> },
       { path: 'writing/:id', element: <WritingDetailPage /> },
+      { path: 'errors', element: <ErrorsPage /> },
+      { path: 'errors/new', element: <ManualErrorPage /> },
+      { path: 'errors/categories', element: <CategoriesPage /> },
+      { path: 'errors/:id', element: <ErrorDetailPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

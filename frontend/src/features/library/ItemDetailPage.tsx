@@ -215,6 +215,14 @@ export function ItemDetailPage() {
               </ul>
             )}
           </section>
+          <section className="card" aria-labelledby="item-errors-title">
+            <h2 id="item-errors-title">{t('library.item.errorsTitle')}</h2>
+            <p>
+              <Link to={`/errors?${new URLSearchParams({ item_id: String(item.data.id) }).toString()}`}>
+                {t('library.item.errorsLink')}
+              </Link>
+            </p>
+          </section>
           <Actions item={item.data} />
         </>
       )}
