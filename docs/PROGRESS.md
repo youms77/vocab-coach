@@ -4,12 +4,13 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M5.a3 - cards made from errors, suggestions for recurring errors, and the demo's
-  module E through the services (backend), on branch `claude/m5a3-error-cards-fa8d12`, cut from the tip of
-  `feat/m5c-transcripts-drills` (M5.c1 + M5.c2, both committed, not pushed, no PR yet). `main` has M1.a to M5.b2
-  (M5.b as PR #17, `bab1a95`). No migration; M5.c is frontend only and M5.a3 backend only.
-- **Next**: the pull request of M5.c, then the one of M5.a3 (in that order), then the screens for cards from errors and
-  suggestions (not planned yet) or M6 (speaking). Order of M5.c before M5.a3: D-151.
+- **Last milestone completed**: M5 (module E). `main` (`7904aa3`, CI green) has M1.a to M5.a3: M5.b as PR #17, M5.c
+  (M5.c1 + M5.c2, frontend) as PR #18, M5.a3 (backend) as PR #19, all merged on 2026-10-18. No migration since `0002`.
+- **Next**: **M6 — Speaking** (module F, SPEC section 9): recording, Groq transcription, shadowing, word-by-word
+  comparison, spoken answers in reviews, corrected free speaking, optional Azure hook. It also removes the last direct
+  write of the demo (`direct_writes.record_oral_production`, D-166).
+- **Left from M5, not scheduled**: the screens for cards from errors and suggestions ("M5.d", API in the M5.a3 section
+  below) and an undo for a dismissed suggestion. The owner decides when they come.
 - Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. M5.a3 needs no
   AI. The owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1 and M5.c2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
@@ -97,9 +98,7 @@ card per error, approved). Decisions D-163 to D-167.
 ### Left / notes
 
 - **The screens** for cards from errors and suggestions (not planned yet: "M5.d"), and an undo for a dismissal.
-- **The M5.c pull request** (frontend only): this branch is cut from its tip, so open M5.c's PR first, then this one
-  (backend, `content/demo`, docs); `docs/PROGRESS.md` and `docs/DECISIONS.md` will need a textual merge if both are
-  based on `main`.
+- The pull requests: done, M5.c as PR #18 then this branch as PR #19, both merged into `main` on 2026-10-18.
 - **M6**: speaking, which removes the last direct write of the demo.
 - The owner's manual scenarios (M2.c2 to M5.c2) and the one above.
 
@@ -2057,14 +2056,13 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M5.c2, then M5.a3
+## Next step: M6 (speaking)
 
-- **M5.c2** (frontend): the drills screens (`/drills`, `/drills/:id`), the "Practise now" link of `practice_info` and of
-  the Today card, "Practise this category", and the `drill` link of the error log (D-151).
-- **M5.a3** (backend): cards made from errors, suggestions for recurring errors, the demo's errors through the
-  services (D-138).
-- Before or alongside: the owner's real calls (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1, M5.b2 and M5.c1 scenarios) and the
-  D-056 "to confirm" list.
+- M5.c2 and M5.a3 are done and merged (PR #18, PR #19); see "Current state" at the top.
+- **M6** (module F): see SPEC section 9 and "Current state". "M5.d" (screens for cards from errors and suggestions) is
+  left unscheduled.
+- Before or alongside: the owner's real calls (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1 and M5.c2
+  scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅
