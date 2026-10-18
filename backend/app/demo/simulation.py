@@ -14,6 +14,12 @@ The learner goes through the app's own paths (D-111): sessions from `study_sessi
 (`session-1`, the plan frozen at the start, the summary computed from the logs), exercise types
 from `exercise_choice`, discoveries through `begin_discovery` / `finish_discovery` (no initial
 ratings, D-104). Each term gets its demo sheet (`content/demo/sheets.yaml`) when it is created.
+
+Module E goes through its services too (D-163): written productions are recorded then corrected,
+transcripts are recorded then analysed, drills are stored then answered, errors are recorded by
+`error_log`, and cards are made from recurring errors. The "AI" results come from
+`app.demo.fictional_ai` (validated by the real output schemas); no AI is called. Speaking has no
+service before M6 and is the one direct write left (`direct_writes`).
 """
 
 import random
@@ -25,13 +31,15 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Card, Deck, ExerciseTemplate, LexicalItem
+from app.db.models import Card, Deck, ErrorCategory, ExerciseTemplate, LexicalItem
 from app.db.settings_store import get_setting
 from app.demo import direct_writes as writes
+from app.demo import fictional_ai
 from app.demo.dataset import (
     Confusion,
     DemoDataset,
     DemoDeck,
+    DemoDrill,
     DemoSheet,
     DemoTerm,
     DemoTermRef,
@@ -39,6 +47,7 @@ from app.demo.dataset import (
     Fate,
 )
 from app.demo.learner import Learner, poisson
+from app.domain import drills as drill_rules
 from app.domain import exercises as ex
 from app.domain.enums import (
     CardDirection,
@@ -49,18 +58,27 @@ from app.domain.enums import (
     ProductionKind,
     SrsState,
 )
-from app.domain.events import ItemOrigin, TriageDecision
+from app.domain.events import ItemOrigin, ProductionOrigin, TriageDecision
 from app.domain.exercise_choice import TemplateRef, choose_exercise
 from app.domain.fsrs_engine import FsrsEngine
 from app.domain.item_status import REVIEWABLE_STATUSES
-from app.domain.planner import BlockKind, NewItemEntry, ReviewEntry, SessionPlan
+from app.domain.planner import (
+    BlockKind,
+    NewItemEntry,
+    ReviewEntry,
+    SessionPlan,
+    TargetedPracticeEntry,
+)
 from app.domain.srs import Rating, SrsEngine
 from app.domain.study_day import study_day_bounds
-from app.services import library
+from app.domain.transcript_import import UserByLabel, chunk_units
+from app.services import corrections, drills, error_cards, error_log, library, transcripts
+from app.services import productions as production_service
 from app.services.decks import change_deck_status, reorder_queue
 from app.services.discovery import begin_discovery, finish_discovery
 from app.services.enrichment import Provenance, add_templates, save_sheet
 from app.services.items import mark_active, transition_item
+from app.services.library import LibraryError
 from app.services.reviews import card_state, record_review
 from app.services.study_sessions import end_session, frozen_plan, start_session
 from app.services.triage import apply_triage
@@ -97,6 +115,23 @@ ERROR_SOURCE = {
     ProductionKind.SPEAKING: ErrorSource.SPEAKING,
     ProductionKind.TRANSCRIPT_ANALYSIS: ErrorSource.TRANSCRIPT,
 }
+# A conversation is the learner's turns of 2 to 4 sentences, one tutor line between two of them.
+TURN_SENTENCES = (2, 4)
+TRANSCRIPT_LABEL = "You"
+TUTOR_LABEL = "Tutor"
+# The text of a production has at most this many sentences (`MAX_SENTENCES`).
+MAX_PRODUCTION_SENTENCES = 40
+# A targeted drill every few worked days; the learner's score rises over the history.
+DRILL_EVERY_DAYS = (6, 10)
+DRILL_SCORE = (0.5, 0.85)
+DRILL_ANSWER_MS = (4000, 14000)
+# The last session leaves one drill half done.
+UNFINISHED_DRILL_ANSWERS = 3
+# Days (relative, scaled) when the learner makes cards from their recurring errors, how many each
+# time, and the day they dismiss one suggestion.
+ERROR_CARD_DAYS = (-30, -12)
+ERROR_CARDS_PER_DAY = 2
+DISMISS_DAY = -12
 WRITING_WORDS_PER_MINUTE = 15
 SPEAKING_WORDS_PER_SECOND = 2.0
 MAX_REVIEW_ERRORS = 10
@@ -122,6 +157,9 @@ class _State:
     review_errors: Counter[int] = field(default_factory=Counter)
     templates: dict[int, list[TemplateRef]] = field(default_factory=dict)  # item id -> templates
     next_production_day: int = 0
+    next_drill_day: int = 0
+    drills_made: int = 0
+    last_drill: str | None = None
 
 
 class Simulation:
@@ -138,11 +176,14 @@ class Simulation:
         self._calendar = random.Random(root.getrandbits(64))  # noqa: S311
         self._choices = random.Random(root.getrandbits(64))  # noqa: S311
         self._writing = random.Random(root.getrandbits(64))  # noqa: S311
+        self._drills = random.Random(root.getrandbits(64))  # noqa: S311
         self._engines: dict[float, SrsEngine] = {}
         self.tz = ZoneInfo(get_setting(session, "timezone"))
         self.day_start_hour: int = get_setting(session, "day_start_hour")
         self.state = _State()
-        self.categories = writes.CategoryIds(session)
+        self.categories: dict[str, ErrorCategory] = {
+            category.code: category for category in error_log.active_categories(session)
+        }
         self._templates_by_code: dict[str, list[ErrorTemplate]] = {}
         for template in dataset.error_templates:
             self._templates_by_code.setdefault(template.code, []).append(template)
@@ -185,6 +226,7 @@ class Simulation:
         days = self.config.days
         breaks = {self.scaled(day) for day in FORCED_BREAK_DAYS}
         self.state.next_production_day = -days + self._writing.randint(1, 3)
+        self.state.next_drill_day = -days + 4 + self._drills.randint(*DRILL_EVERY_DAYS)
         for offset in range(-days, 0):
             day = self.study_day(offset)
             final = offset == -1
@@ -217,6 +259,8 @@ class Simulation:
             for event in spec.status_events:
                 if self.scaled(event.day) == offset:
                     change_deck_status(self.session, self.state.decks[spec.key], event.to, at)
+        if offset in {self.scaled(day) for day in ERROR_CARD_DAYS}:
+            self._error_cards(at, dismiss=offset == self.scaled(DISMISS_DAY))
         if offset == self.scaled(ARCHIVE_DAY):
             for item in self._fated(Fate.ARCHIVED):
                 transition_item(self.session, item, ItemStatus.ARCHIVED, at)
@@ -318,6 +362,9 @@ class Simulation:
                 origin=ContentOrigin.DEMO,
                 prompt_version=version,
             )
+        self._register_templates(item)
+
+    def _register_templates(self, item: LexicalItem) -> None:
         self.state.templates[item.id] = [
             TemplateRef(template_id, kind)
             for template_id, kind in self.session.execute(
@@ -326,6 +373,23 @@ class Simulation:
                 .order_by(ExerciseTemplate.id)
             )
         ]
+
+    def _error_cards(self, at: datetime, *, dismiss: bool) -> None:
+        """The learner makes cards from their recurring errors (module E, M5.a3) and, once,
+        dismisses a suggestion they do not want."""
+        views = error_cards.list_suggestions(self.session, limit=10)
+        for view in [v for v in views if v.cardable][:ERROR_CARDS_PER_DAY]:
+            try:
+                made = error_cards.create_card_from_error(
+                    self.session, view.error_id, at=at, engine_factory=self.engine_factory
+                )
+            except LibraryError:
+                continue  # the term appeared in the library meanwhile: nothing to learn twice
+            self._register_templates(made.item)
+        if dismiss:
+            left = error_cards.list_suggestions(self.session, limit=10)
+            if left:
+                error_cards.dismiss_suggestion(self.session, left[-1].suggestion.key, at=at)
 
     def _triage_batch(self, spec: DemoDeck, count: int, *, first: bool, at: datetime) -> None:
         pending = [
@@ -361,6 +425,9 @@ class Simulation:
         if offset >= self.state.next_production_day and t < stop:
             t = self._production(offset, study.id, t)
             self.state.next_production_day = offset + self._writing.randint(*PRODUCTION_EVERY_DAYS)
+        if self.dataset.drills and (final or (offset >= self.state.next_drill_day and t < stop)):
+            t = self._drill(offset, plan, study.id, t, unfinished=final)
+            self.state.next_drill_day = offset + self._drills.randint(*DRILL_EVERY_DAYS)
         end_session(self.session, study, t)
         self.session.flush()
 
@@ -425,19 +492,17 @@ class Simulation:
         )
         if confusion is not None:
             term = self.state.terms[item.id]
-            writes.record_error(
+            error_log.record_error(
                 self.session,
-                self.categories,
-                code=confusion.code,
                 source=ErrorSource.REVIEW,
-                original=confusion.prompt,
-                wrong=confusion.wrong,
+                category=self.categories[confusion.code],
+                erroneous_text=confusion.wrong,
                 correction=term.sentence or term.term,
-                alternatives=[],
-                explanation=confusion.explanation,
                 at=t,
-                review_log_id=log.id,
+                original_text=confusion.prompt,
+                explanation=confusion.explanation,
                 lexical_item_id=item.id,
+                review_log_id=log.id,
                 study_session_id=study_id,
             )
             self.state.review_errors[item.id] += 1
@@ -575,24 +640,76 @@ class Simulation:
         for code in sorted(self._templates_by_code):
             mean = self._error_rate(code, progress) * target_words / 100
             for _ in range(poisson(rng, mean)):
-                made.append(rng.choice(self._templates_by_code[code]))
+                template = rng.choice(self._templates_by_code[code])
+                # The analysis of a conversation leaves spelling out (the AI task does too).
+                if kind != ProductionKind.TRANSCRIPT_ANALYSIS or not template.code.startswith(
+                    transcripts.EXCLUDED_CODE_PREFIXES
+                ):
+                    made.append(template)
+        made = made[:MAX_PRODUCTION_SENTENCES]
         sentences = [template.original for template in made]
         words = sum(len(sentence.split()) for sentence in sentences)
         fillers = list(self.dataset.fillers)
         rng.shuffle(fillers)
         for filler in fillers * 3:
-            if words >= target_words:
+            if words >= target_words or len(sentences) >= MAX_PRODUCTION_SENTENCES:
                 break
             sentences.append(filler)
             words += len(filler.split())
         rng.shuffle(sentences)
-        text = " ".join(sentences)
 
-        oral = kind != ProductionKind.WRITING
-        audio_seconds = round(words / SPEAKING_WORDS_PER_SECOND, 1) if oral else None
-        attempt = writes.record_production(
+        audio_seconds = round(words / SPEAKING_WORDS_PER_SECOND, 1)
+        if kind == ProductionKind.WRITING:
+            word_count = self._written(prompt, " ".join(sentences), made, t, study_id)
+            duration = timedelta(minutes=word_count / WRITING_WORDS_PER_MINUTE)
+        else:
+            if kind == ProductionKind.TRANSCRIPT_ANALYSIS:
+                self._transcript(prompt, sentences, made, t, study_id)
+            else:
+                self._spoken(prompt, " ".join(sentences), made, t, audio_seconds, study_id)
+            duration = timedelta(seconds=audio_seconds * 2.5)
+        return self._pause(t + duration)
+
+    def _written(
+        self, prompt: str, text: str, made: list[ErrorTemplate], t: datetime, study_id: int
+    ) -> int:
+        """A writing exercise, recorded then corrected like the app does it; returns its words."""
+        attempt = production_service.record_written_production(
             self.session,
-            kind,
+            text=text,
+            prompt=prompt,
+            targets={},
+            at=t,
+            kind=ProductionKind.WRITING,
+            study_session_id=study_id,
+            origin=ProductionOrigin.WRITING,
+        )
+        prepared = corrections.prepare(self.session, attempt.id)
+        corrections.store_correction(
+            self.session,
+            prepared,
+            fictional_ai.correction_output(prepared, made),
+            source=ErrorSource.WRITING,
+            provenance=fictional_ai.CORRECTION_PROVENANCE,
+            ai_call_id=None,
+            at=t,
+        )
+        return attempt.word_count
+
+    def _spoken(
+        self,
+        prompt: str,
+        text: str,
+        made: list[ErrorTemplate],
+        t: datetime,
+        audio_seconds: float,
+        study_id: int,
+    ) -> None:
+        """A spoken answer: no service before M6, so the production is written directly (see
+        `direct_writes`); its errors go through the error log like every other."""
+        attempt = writes.record_oral_production(
+            self.session,
+            ProductionKind.SPEAKING,
             prompt,
             text,
             t,
@@ -600,14 +717,134 @@ class Simulation:
             study_session_id=study_id,
         )
         for template in made:
-            writes.record_template_error(
-                self.session, self.categories, template, ERROR_SOURCE[kind], t, attempt.id, study_id
+            error_log.record_error(
+                self.session,
+                source=ErrorSource.SPEAKING,
+                category=self.categories[template.code],
+                erroneous_text=template.wrong,
+                correction=template.correction,
+                at=t,
+                original_text=template.original,
+                alternatives=template.alternatives,
+                explanation=template.explanation,
+                production_attempt_id=attempt.id,
+                study_session_id=study_id,
             )
-        if oral:
-            duration = timedelta(seconds=(audio_seconds or 0) * 2.5)
-        else:
-            duration = timedelta(minutes=attempt.word_count / WRITING_WORDS_PER_MINUTE)
-        return self._pause(t + duration)
+
+    def _transcript(
+        self,
+        title: str,
+        sentences: list[str],
+        made: list[ErrorTemplate],
+        t: datetime,
+        study_id: int,
+    ) -> None:
+        """A pasted conversation: its learner turns are recorded, then analysed (like the app)."""
+        rng = self._writing
+        lines: list[str] = [f"{TUTOR_LABEL}: {rng.choice(self.dataset.tutor_lines)}"]
+        remaining = list(sentences)
+        while remaining:
+            size = rng.randint(*TURN_SENTENCES)
+            lines.append(f"{TRANSCRIPT_LABEL}: {' '.join(remaining[:size])}")
+            remaining = remaining[size:]
+            if remaining:
+                lines.append(f"{TUTOR_LABEL}: {rng.choice(self.dataset.tutor_lines)}")
+        conversation = "\n".join(lines)
+        user = UserByLabel(label=TRANSCRIPT_LABEL)
+        attempt = transcripts.record_transcript(
+            self.session,
+            text=conversation,
+            user=user,
+            title=title,
+            occurred_on=None,
+            study_session_id=study_id,
+            at=t,
+        )
+        prepared = transcripts.prepare(
+            self.session, attempt.id, transcripts.TranscriptSource(conversation, user)
+        )
+        results = [
+            transcripts.ChunkResult(
+                output=fictional_ai.transcript_chunk(prepared, chunk, made),
+                provider=fictional_ai.TRANSCRIPT_PROVENANCE[0],
+                model=fictional_ai.TRANSCRIPT_PROVENANCE[1],
+                prompt_version=fictional_ai.TRANSCRIPT_PROVENANCE[2],
+                call_id=None,
+                units=chunk,
+            )
+            for chunk in chunk_units(prepared.units)
+        ]
+        found = sum(len(result.output.errors) for result in results)
+        if found != len(made):
+            raise ValueError(f"demo transcript: {len(made)} errors expected, {found} placed")
+        transcripts.store_analysis(self.session, prepared, results, at=t)
+
+    # --- targeted drills -----------------------------------------------------------------------
+
+    def _choose_drill(self, plan: SessionPlan) -> DemoDrill:
+        """The drill of the plan's targeted category when the dataset has one, else the next one."""
+        banks = self.dataset.drills
+        block = plan.block(BlockKind.TARGETED_PRACTICE)
+        entry = next(
+            (e for e in (block.entries if block else []) if isinstance(e, TargetedPracticeEntry)),
+            None,
+        )
+        if entry is not None:
+            for bank in banks:
+                if (
+                    entry.category_code == bank.code
+                    or entry.category_code.startswith(bank.code + ".")
+                ) and bank.code != self.state.last_drill:
+                    return bank
+        # Never the same drill twice in a row: the next one in the file.
+        following = [bank for bank in banks if bank.code != self.state.last_drill]
+        return following[self.state.drills_made % len(following)]
+
+    def _drill(
+        self, offset: int, plan: SessionPlan, study_id: int, t: datetime, *, unfinished: bool
+    ) -> datetime:
+        """A drill, stored then answered item by item like the app does it. The learner's score
+        rises over the history; an unfinished drill stops after a few items."""
+        bank = self._choose_drill(plan)
+        self.state.drills_made += 1
+        self.state.last_drill = bank.code
+        rng = self._drills
+        codes = {c for c in self.categories if c == bank.code or c.startswith(bank.code + ".")}
+        attempt = drills.store_drill(
+            self.session,
+            bank.code,
+            fictional_ai.drill_output(bank, codes),
+            provenance=fictional_ai.DRILL_PROVENANCE,
+            ai_call_id=None,
+            study_session_id=study_id,
+            at=t,
+        )
+        progress = (offset + self.config.days) / max(self.config.days - 1, 1)
+        score = DRILL_SCORE[0] + (DRILL_SCORE[1] - DRILL_SCORE[0]) * progress
+        answered = UNFINISHED_DRILL_ANSWERS if unfinished else len(bank.items)
+        for index, item in enumerate(bank.items[:answered]):
+            right = rng.random() < score
+            elapsed_ms = rng.randint(*DRILL_ANSWER_MS)
+            t += timedelta(milliseconds=elapsed_ms)
+            answer: str | None = None
+            choice: int | None = None
+            if item.kind == "gap_fill":
+                answer = item.answer if right else item.wrong
+            else:
+                shown = drill_rules.options_order(attempt.id, index, list(item.options or []))
+                wanted = item.answer if right else next(o for o in shown if o != item.answer)
+                choice = shown.index(wanted)
+            drills.answer_item(
+                self.session,
+                attempt.id,
+                index,
+                answer=answer,
+                choice_index=choice,
+                response_time_ms=elapsed_ms,
+                at=t,
+            )
+            t += timedelta(seconds=rng.uniform(2, 6))
+        return t
 
 
 def simulate(session: Session, dataset: DemoDataset, config: SimulationConfig) -> None:

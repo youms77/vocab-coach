@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from datetime import date
 from enum import StrEnum
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -101,6 +101,7 @@ class ErrorTemplate(_Strict):
     correction: str
     alternatives: Annotated[list[str], Field(min_length=1, max_length=2)]
     explanation: str
+    explanation_fr: str
 
 
 class ProductionPrompt(_Strict):
@@ -108,6 +109,45 @@ class ProductionPrompt(_Strict):
         ProductionKind.WRITING, ProductionKind.SPEAKING, ProductionKind.TRANSCRIPT_ANALYSIS
     ]
     text: str
+
+
+class DemoDrillItem(_Strict):
+    """An item of the `targeted_drill` schema plus what the simulated learner types when they
+    miss it (`wrong`, gap-fill only)."""
+
+    kind: Literal["gap_fill", "choice"]
+    sentence: str
+    answer: str
+    accepted: list[str] = []
+    options: list[str] | None = None
+    category_code: str
+    theme: Literal["campus", "data_economics", "everyday"]
+    explanation_en: str
+    explanation_fr: str
+    wrong: str | None = None
+
+    @model_validator(mode="after")
+    def a_gap_fill_has_a_wrong_answer(self) -> "DemoDrillItem":
+        if self.kind == "gap_fill" and not self.wrong:
+            raise ValueError(f"gap-fill item {self.sentence!r} needs a `wrong` answer")
+        return self
+
+
+class DemoDrill(_Strict):
+    """A drill as the AI would have written it (`TargetedDrillOutput`), for one category."""
+
+    code: str
+    rule_en: str
+    rule_fr: str
+    items: Annotated[list[DemoDrillItem], Field(min_length=5, max_length=15)]
+
+    def output(self) -> dict[str, Any]:
+        """The `targeted_drill` output (the demo-only `wrong` left out)."""
+        return {
+            "rule_en": self.rule_en,
+            "rule_fr": self.rule_fr,
+            "items": [item.model_dump(exclude={"wrong"}) for item in self.items],
+        }
 
 
 class DemoExercises(_Strict):
@@ -140,7 +180,9 @@ class DemoDataset(_Strict):
     default_error_rate: float
     prompts: list[ProductionPrompt]
     fillers: list[str]
+    tutor_lines: Annotated[list[str], Field(min_length=1)]
     sheets: list[DemoSheet] = []
+    drills: list[DemoDrill] = []
 
     @model_validator(mode="after")
     def check_consistency(self) -> "DemoDataset":
@@ -166,6 +208,13 @@ class DemoDataset(_Strict):
         unknown = sorted(set(sheet_terms) - defined)
         if unknown:
             raise ValueError(f"sheets.yaml: terms not in the dataset: {', '.join(unknown)}")
+        codes = [drill.code for drill in self.drills]
+        if len(codes) != len(set(codes)):
+            raise ValueError("drills.yaml: a category has two drills")
+        for drill in self.drills:
+            wrong_codes = {i.category_code for i in drill.items if i.category_code != drill.code}
+            if wrong_codes:
+                raise ValueError(f"drills.yaml: items of {drill.code} use {sorted(wrong_codes)}")
         days = [deck.created_day for deck in self.decks]
         if days != sorted(days):
             raise ValueError("decks must be listed in creation order")
@@ -175,6 +224,7 @@ class DemoDataset(_Strict):
         """Every taxonomy code the dataset uses, sorted."""
         codes = {t.code for t in self.error_templates} | set(self.error_rates)
         codes |= {term.confusion.code for term in self.all_terms() if term.confusion}
+        codes |= {drill.code for drill in self.drills}
         return sorted(codes)
 
     def sheet_of(self, term: str) -> DemoSheet | None:
@@ -197,16 +247,18 @@ def _read(path: Path) -> dict:
 
 
 def load_dataset(directory: Path = DEMO_CONTENT_DIR) -> DemoDataset:
-    """Read the four demo files; they must share the same `dataset_version`."""
+    """Read the five demo files; they must share the same `dataset_version`."""
     decks = _read(directory / "dataset.yaml")
     errors = _read(directory / "errors.yaml")
     prompts = _read(directory / "prompts.yaml")
     sheets = _read(directory / "sheets.yaml")
+    drills = _read(directory / "drills.yaml")
     versions = {
         decks["dataset_version"],
         errors["dataset_version"],
         prompts["dataset_version"],
         sheets["dataset_version"],
+        drills["dataset_version"],
     }
     if len(versions) != 1:
         raise ValueError(f"content/demo files disagree on dataset_version: {sorted(versions)}")
@@ -218,7 +270,9 @@ def load_dataset(directory: Path = DEMO_CONTENT_DIR) -> DemoDataset:
         default_error_rate=errors["default_rate"],
         prompts=prompts["prompts"],
         fillers=prompts["fillers"],
+        tutor_lines=prompts["tutor_lines"],
         sheets=sheets["sheets"],
+        drills=drills["drills"],
     )
 
 
