@@ -206,6 +206,9 @@ function Body({
     const range = model.ranges.findIndex((r) => r.errors.includes(index))
     return range >= 0 ? `${uid}-mark-${range}` : null
   }
+  // "Sentence n" for a text, "Your turn n" for a transcript.
+  const unitName = (n: number) =>
+    model.kind === 'transcript' ? t('correction.turn', { n }) : t('correction.sentence', { n })
   const labelFor = (entry: ErrorEntry) => {
     const category = entry.logged?.category ?? byCode?.get(entry.categoryCode)
     return category !== undefined ? labelOf(category, i18n.language) : null
@@ -227,7 +230,14 @@ function Body({
       )}
 
       <section className="correction-section">
-        <Heading level={level}>{t('correction.yourText')}</Heading>
+        <Heading level={level}>
+          {model.kind === 'transcript' ? t('correction.yourTurns') : t('correction.yourText')}
+        </Heading>
+        {model.contextSent !== null && (
+          <p className="muted">
+            {model.contextSent ? t('correction.contextSent') : t('correction.contextNotSent')}
+          </p>
+        )}
         <p lang="en" className="correction-text">
           {model.segments.map((part, index) =>
             part.kind === 'text' ? (
@@ -260,7 +270,11 @@ function Body({
         </p>
         {model.entries.length === 0 && (
           <p className="form-message form-message--ok" role="status">
-            {model.sentenceCount === 1 ? t('correction.sentenceCorrect') : t('correction.noErrors')}
+            {model.kind === 'transcript'
+              ? t('correction.noErrorsTurns')
+              : model.sentenceCount === 1
+                ? t('correction.sentenceCorrect')
+                : t('correction.noErrors')}
           </p>
         )}
       </section>
@@ -269,9 +283,9 @@ function Body({
         <section className="correction-section">
           <Heading level={level}>{t('correction.errorsTitle')}</Heading>
           {model.groups.map((group) => (
-            <div key={group.sentenceIndex} className="correction-group">
+            <div key={group.number} className="correction-group">
               <p className="correction-group__title">
-                <strong>{t('correction.sentence', { n: group.sentenceIndex })}</strong>
+                <strong>{unitName(group.number)}</strong>
               </p>
               <ul className="correction-errors">
                 {group.errors.map((entry) => (
@@ -297,7 +311,7 @@ function Body({
           <ul className="correction-notes">
             {model.notes.map((note, index) => (
               <li key={index}>
-                <strong>{t('correction.sentence', { n: note.sentence_index })}</strong>:{' '}
+                <strong>{unitName(model.numberOf(note.sentence_index))}</strong>:{' '}
                 <span lang="en">“{note.text}”</span> · {t('correction.suggestion')}:{' '}
                 <span lang="en">“{note.suggestion}”</span>
                 {note.note.trim() !== '' && (

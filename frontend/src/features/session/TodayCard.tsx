@@ -3,6 +3,8 @@ import { Link } from 'react-router'
 
 import { useDecks } from '../../api/library'
 import { entriesOf, useToday } from '../../api/session'
+import { isDrillableCode } from '../drills/drillRules'
+import { sessionState } from '../drills/fromSession'
 import { useCategoryName } from '../errors/useCategoryName'
 import { ErrorText } from '../settings/ErrorText'
 import { minutesOf } from './format'
@@ -79,6 +81,17 @@ export function TodayCard() {
                   category: categoryName(targeted.category_code),
                   count: targeted.error_count,
                 })}
+                {isDrillableCode(targeted.category_code) && (
+                  <>
+                    {' '}
+                    <Link
+                      to={`/drills?${new URLSearchParams({ category: targeted.category_code }).toString()}`}
+                      state={sessionState(open?.id ?? null)}
+                    >
+                      {t('session.practice.now')}
+                    </Link>
+                  </>
+                )}
               </li>
             )}
             {consolidation !== undefined && <li className="muted">{t('today.consolidation')}</li>}

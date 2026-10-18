@@ -214,6 +214,7 @@ export function SessionPage() {
     content = (
       <PracticeInfoPanel
         practice={step.practice}
+        sessionId={step.session_id}
         onContinue={() => setPracticeSeen(true)}
         busy={busy}
       />

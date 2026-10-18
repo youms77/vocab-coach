@@ -249,7 +249,13 @@
     "category_not_proposed": "This category is no longer waiting for a decision.",
     "unknown_category": "This category cannot be used: choose an active one.",
     "invalid_error": "This error cannot be saved.",
-    "category_exists": "A category with this code already exists."
+    "category_exists": "A category with this code already exists.",
+    "transcript_mismatch": "The conversation you pasted does not match the turns saved for this transcript. Paste the same conversation and choose the same turns as the first time. Your text is kept below.",
+    "invalid_transcript": "This conversation cannot be used.",
+    "text_too_long_transcript": "This conversation is too long: at most 60,000 pasted characters and 6,000 characters in your own turns.",
+    "drill_not_found": "This drill does not exist (any more).",
+    "already_answered": "This item was already answered.",
+    "not_drillable": "This category cannot be practised."
   },
   "home": {
     "title": "Welcome",
@@ -766,7 +772,7 @@
     "noDeck": "No deck",
     "unknownDeck": "Deck {{id}}",
     "minutes": "About {{minutes}} min, for a daily budget of {{budget}} min",
-    "targeted": "Targeted practice: {{category}} ({{count}} recent errors), for information only",
+    "targeted": "Targeted practice: {{category}} ({{count}} recent errors)",
     "consolidation": "A consolidation task is ready, for information only",
     "empty": "Nothing to review or discover today. Import a word list or add terms to your library.",
     "start": "Start today's session",
@@ -829,8 +835,9 @@
     "practice": {
       "targeted": "Targeted practice on your most frequent errors: {{category}} ({{count}} errors in the last 14 days).",
       "consolidation": "A consolidation task (a talk using your deck's terms) is ready.",
-      "later": "These exercises are available in a later version of the app.",
-      "continue": "Continue"
+      "later": "The consolidation task is available in a later version of the app.",
+      "continue": "Continue",
+      "now": "Practise now"
     },
     "summary": {
       "title": "Session summary",
@@ -1142,7 +1149,12 @@
     "targetDisagreement": "The AI and the text search disagree about whether this term was used.",
     "proposedTitle": "The AI proposed a new category",
     "proposedBody": "“{{label}}” ({{code}}) is waiting for your decision.",
-    "proposedLink": "Review the proposed categories"
+    "proposedLink": "Review the proposed categories",
+    "yourTurns": "Your turns, with the errors marked",
+    "turn": "Your turn {{n}}",
+    "contextSent": "Analysed with the other speaker's context: the end of the turn before each of yours was read.",
+    "contextNotSent": "Analysed without the other speaker's context.",
+    "noErrorsTurns": "No errors found in your turns."
   },
   "writing": {
     "title": "Writing",
@@ -1210,6 +1222,121 @@
       "corrected": "Corrected",
       "notCorrected": "Not corrected",
       "mixed": "This list also holds the personal sentences of the discovery and the sentences you wrote in reviews: the topic column tells them apart."
+    },
+    "transcriptLink": "Analyse a conversation transcript"
+  },
+  "transcripts": {
+    "title": "Conversation transcript",
+    "intro": "Paste a conversation, for example a voice session with ChatGPT, and say which turns are yours. Only your own errors are analysed, turn by turn, and added to your error log.",
+    "historyLink": "My analysed conversations",
+    "writingLink": "Write a text instead",
+    "paste": {
+      "label": "The conversation",
+      "chars": "{{chars}} / {{max}} characters",
+      "tooLong": "This text has {{chars}} characters and the limit is {{max}}. Shorten it before the preview.",
+      "preview": "Preview",
+      "previewing": "Reading…",
+      "stale": "The text changed since the preview. Preview it again."
+    },
+    "picker": {
+      "legend": "Which turns are yours?",
+      "labelsHint": "Choose the speaker label that is you.",
+      "modesHint": "This text has no speaker labels, so each paragraph is a turn. Say which turns are yours.",
+      "choose": "Choose one to continue.",
+      "labelMeta_one": "{{count}} turn · {{words}} words",
+      "labelMeta_other": "{{count}} turns · {{words}} words",
+      "known": {
+        "user": "usually you",
+        "other": "usually the other speaker"
+      },
+      "modes": {
+        "alternating_user_first": "I speak first",
+        "alternating_user_second": "I speak second",
+        "all_mine": "All of it is mine"
+      },
+      "single": "“{{label}}” has only one turn. A line that starts with a word and a colon, such as “Note:”, opens a new turn. If “{{label}}” is not a speaker, remove the colon in your text and preview it again."
+    },
+    "preview": {
+      "problemsTitle": "Things to know",
+      "turnsTitle": "Turns",
+      "turn": "Turn {{n}}",
+      "you": "You",
+      "other": "Other speaker",
+      "line": "line {{line}}",
+      "severity": {
+        "info": "Note",
+        "warning": "Warning",
+        "error": "Error"
+      },
+      "yours": "Your turns: {{turns}} · {{words}} words · {{chars}} / {{max}} characters"
+    },
+    "problems": {
+      "empty_text": "There is no text to analyse.",
+      "too_large": "The text is too long: at most 60,000 pasted characters, and at most 6,000 characters in your own turns.",
+      "no_speaker_labels": "No speaker labels were found: each paragraph is a turn. Say which turns are yours.",
+      "single_speaker": "Only one speaker was found.",
+      "unlabelled_text": "Some text comes before the first speaker label. It is kept as a turn that is not yours.",
+      "empty_turn": "This turn is empty and is ignored.",
+      "unknown_label": "The speaker label you chose is not in the text.",
+      "no_user_turns": "None of the turns is yours with this choice."
+    },
+    "reasons": {
+      "future_date": "The date of the conversation is in the future.",
+      "title_too_long": "The title is too long."
+    },
+    "meta": {
+      "title": "Details (optional)",
+      "titleLabel": "Title",
+      "titleChars": "{{chars}} / {{max}} characters",
+      "date": "Date of the conversation",
+      "dateHint": "Leave it empty for today.",
+      "dateFuture": "This date is in the future."
+    },
+    "privacy": {
+      "title": "Before you save",
+      "body": "Only your turns are saved. To analyse them, your turns and the end of the other speaker's turn that comes before each of them ({{chars}} characters at most) are sent to the AI provider. On a free plan, this content may be used to improve its models."
+    },
+    "save": "Save and analyse",
+    "saving": "Saving…",
+    "saveHint": "Preview the text and choose your turns first; then you can save.",
+    "detail": {
+      "title": "Your conversation and its analysis",
+      "loading": "Loading…",
+      "words_one": "{{count}} word of yours",
+      "words_other": "{{count}} words of yours",
+      "onlyYours": "Only your turns are saved.",
+      "analyseAnother": "Analyse another conversation",
+      "allTranscripts": "All my conversations",
+      "statusTitle": "Analysis status",
+      "analysing": "Analysing your turns… {{seconds}} s",
+      "analysingShort": "Analysing… {{seconds}} s",
+      "analysingHint": "A long conversation needs several AI calls and can take a few minutes. Your turns are saved: you can wait here.",
+      "notAnalysed": "Your turns are saved but were not analysed.",
+      "notAnalysedIncomplete": "Your turns are saved but were not analysed: the AI's answer could not be used.",
+      "notAnalysedReason": "Your turns are saved but were not analysed: {{reason}}.",
+      "tryAgain": "Try again",
+      "noMemory": "The conversation you pasted is not kept after a reload, so the other speaker's turns cannot be sent as context. Analyse your turns without that context, or paste the conversation again.",
+      "withoutContext": "Analyse without the other speaker's context",
+      "pasteAgain": "Paste the conversation again",
+      "analyseWithPaste": "Analyse with this conversation",
+      "analysisLabel": "Analysis",
+      "ready_one": "Analysis ready: {{count}} error found.",
+      "ready_other": "Analysis ready: {{count}} errors found.",
+      "readyNoErrors": "Analysis ready: no errors found."
+    },
+    "history": {
+      "title": "My conversations",
+      "intro": "The conversations you recorded, newest first.",
+      "empty": "No conversation yet. Paste the first one.",
+      "count_one": "{{count}} conversation",
+      "count_other": "{{count}} conversations",
+      "date": "Date",
+      "titleColumn": "Title",
+      "words": "Your words",
+      "status": "Status",
+      "analysed": "Analysed",
+      "notAnalysed": "Not analysed",
+      "untitled": "Untitled conversation"
     }
   },
   "errorLog": {
@@ -1261,7 +1388,8 @@
       "date": "Date",
       "term": "Term",
       "text": "Text",
-      "openText": "Open the text"
+      "openText": "Open the text",
+      "openDrill": "Open the drill"
     },
     "detail": {
       "title": "An error in your log",
@@ -1296,7 +1424,8 @@
       "deleteConfirm": "Delete this error from your log? The statistics will no longer count it.",
       "deleteYes": "Yes, delete it",
       "deleteKeep": "Keep it",
-      "deleting": "Deleting…"
+      "deleting": "Deleting…",
+      "openDrill": "Open the drill it comes from"
     },
     "manual": {
       "title": "Add an error",
@@ -1363,7 +1492,109 @@
       "slugInvalid": "The code name must follow the rule below the field.",
       "create": "Create the category",
       "creating": "Creating…",
-      "created": "Created “{{label}}” ({{code}})."
+      "created": "Created “{{label}}” ({{code}}).",
+      "practise": "Practise this category",
+      "practiseNamed": "Practise this category: {{label}}"
+    },
+    "drillsLink": "Targeted drills"
+  },
+  "drills": {
+    "title": "Targeted drills",
+    "intro": "Short exercises on one error category, written by the AI from your own mistakes. A wrong answer is added to your error log.",
+    "errorLogLink": "Error log",
+    "form": {
+      "title": "New drill",
+      "category": "Category",
+      "chooseCategory": "Choose a category",
+      "count": "Number of items",
+      "countHint": "From 5 to 15.",
+      "countInvalid": "Choose a number from 5 to 15.",
+      "create": "Create the drill",
+      "preparing": "Preparing your exercises… {{seconds}} s",
+      "preparingStatus": "Preparing your exercises…",
+      "preparingHint": "The AI is writing them; this takes a few seconds.",
+      "noCategories": "No category can be practised yet.",
+      "fromSession": "This drill is part of today's session.",
+      "unavailable": "The drill could not be created: {{reason}}. Nothing was saved; you can try again.",
+      "incomplete": "The AI's answer could not be used. Nothing was saved; you can try again."
+    },
+    "list": {
+      "title": "Your drills",
+      "filter": "Show the drills of",
+      "all": "All categories",
+      "loading": "Loading…",
+      "empty": "No drill yet. Create the first one above.",
+      "emptyFiltered": "No drill in this category yet.",
+      "count_one": "{{count}} drill",
+      "count_other": "{{count}} drills",
+      "date": "Date",
+      "category": "Category",
+      "score": "Score",
+      "state": "State",
+      "scoreValue": "{{correct}} of {{total}}",
+      "notStarted": "Not started",
+      "inProgress": "In progress ({{answered}} of {{total}})",
+      "completed": "Completed"
+    },
+    "player": {
+      "title": "Drill",
+      "loading": "Loading the drill…",
+      "back": "All drills",
+      "rule": "The rule",
+      "showFrench": "Show the rule in French",
+      "hideFrench": "Hide the French",
+      "item": "Item {{n}} of {{total}}",
+      "blank": "blank",
+      "answer": "Your answer",
+      "choices": "Choose the right answer",
+      "check": "Check",
+      "dontKnow": "I don't know",
+      "sending": "Checking…",
+      "next": "Next",
+      "seeScore": "See the score",
+      "retry": "Retry"
+    },
+    "keys": {
+      "next": "next",
+      "seeScore": "see the score"
+    },
+    "result": {
+      "label": "Result",
+      "exact": "Correct",
+      "wrong": "Wrong",
+      "empty": "No answer",
+      "given": "Your answer",
+      "noneGiven": "none",
+      "expected": "Right answer",
+      "accepted": "Also accepted",
+      "why": "Why",
+      "showFrench": "Show the explanation in French",
+      "hideFrench": "Hide the French",
+      "rightOption": "right answer",
+      "yourOption": "your choice",
+      "errorLogged": "Added to your error log.",
+      "errorLink": "See the error",
+      "errorNote": "The correction is exact. If you think your answer was correct, you can delete this error from your log."
+    },
+    "summary": {
+      "title": "Drill finished",
+      "score": "Score: {{correct}} of {{total}} correct",
+      "detail": "{{correct}} correct, {{wrong}} wrong, {{empty}} without an answer.",
+      "recap": "Your answers",
+      "item": "Item",
+      "sentence": "Sentence",
+      "result": "Result",
+      "expectedAnswer": "Right answer: {{expected}}",
+      "newDrill": "New drill on this category",
+      "seeErrors": "See these errors",
+      "backToSession": "Back to today's session",
+      "allDrills": "All drills"
+    },
+    "reasons": {
+      "level": "Choose a more precise category (level 2 or more).",
+      "pronunciation": "Pronunciation cannot be practised in writing.",
+      "proposed": "This category is only proposed: accept it in the categories page first.",
+      "rejected": "This category was rejected."
     }
   }
 }

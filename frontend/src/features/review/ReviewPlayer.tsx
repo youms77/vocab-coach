@@ -15,6 +15,7 @@ import {
   useRevealReview,
 } from '../../api/reviews'
 import type { ReviewStep } from '../../api/session'
+import { KeyHints } from '../../components/KeyHints'
 import { useSpeech } from '../../speech/useSpeech'
 import { StepHeading } from '../session/StepHeading'
 import { ErrorText } from '../settings/ErrorText'
@@ -99,27 +100,6 @@ function CheckingPanel({ onSkip }: { onSkip: () => void }) {
         </button>
       )}
     </div>
-  )
-}
-
-function KeyHints({ items }: { items: [string, string][] }) {
-  const { t } = useTranslation()
-  if (items.length === 0) return null
-  return (
-    <p className="key-hints">
-      <span className="visually-hidden">{t('review.keys.label')}: </span>
-      {items.map(([keys, action]) => (
-        <span key={keys} className="key-hints__item">
-          {keys.split('|').map((key, i) => (
-            <span key={key}>
-              {i > 0 && ' / '}
-              <kbd>{key}</kbd>
-            </span>
-          ))}{' '}
-          {action}
-        </span>
-      ))}
-    </p>
   )
 }
 

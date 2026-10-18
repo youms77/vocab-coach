@@ -52,6 +52,7 @@ export function WritingPage() {
         <p className="muted">{t('writing.intro')}</p>
         <p className="link-row">
           <Link to="/writing/history">{t('writing.historyLink')}</Link>
+          <Link to="/transcripts">{t('writing.transcriptLink')}</Link>
         </p>
       </section>
 

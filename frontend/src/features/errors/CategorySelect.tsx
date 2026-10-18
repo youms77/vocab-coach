@@ -1,12 +1,14 @@
 import { useTranslation } from 'react-i18next'
 
 import { type CategoryNode, labelOf } from '../../api/errors'
+import { isDrillableNode } from '../drills/drillRules'
 
 interface Option {
   code: string
   label: string
   depth: number
   status: string
+  disabled: boolean
 }
 
 /** The tree flattened, parents before children. `keep` filters the nodes (and so their subtrees). */
@@ -19,13 +21,24 @@ function flatten(
   const out: Option[] = []
   for (const node of nodes) {
     if (!keep(node)) continue
-    out.push({ code: node.code, label: labelOf(node, language), depth, status: node.status })
+    out.push({
+      code: node.code,
+      label: labelOf(node, language),
+      depth,
+      status: node.status,
+      disabled: false,
+    })
     out.push(...flatten(node.children, keep, language, depth + 1))
   }
   return out
 }
 
-const INDENT = '   '
+/** A node that can be drilled, or holds one below it (so the tree around it stays readable). */
+function holdsDrillable(node: CategoryNode): boolean {
+  return isDrillableNode(node) || node.children.some(holdsDrillable)
+}
+
+const INDENT ='   '
 
 /**
  * A native `<select>` of the error categories, the tree flattened and indented.
@@ -34,6 +47,8 @@ const INDENT = '   '
  * "all"; a top-level category stands for all of its subcategories (the backend filters by code
  * prefix). `assign`: active categories only, which is what the backend accepts; `current` keeps
  * the category of an error visible even when it is only proposed, so the form can show it.
+ * `drill`: the categories a targeted drill can be made on (active, level 2 or more, not
+ * pronunciation); their level-1 ancestors stay in the list, greyed out and not selectable.
  */
 export function CategorySelect({
   id,
@@ -49,7 +64,7 @@ export function CategorySelect({
   tree: CategoryNode[]
   value: string
   onChange: (code: string) => void
-  mode: 'filter' | 'assign'
+  mode: 'filter' | 'assign' | 'drill'
   current?: { code: string; label_en: string; label_fr: string; status: string }
   required?: boolean
   /** The text of the empty option, when it is not "All categories" / "Choose a category". */
@@ -57,10 +72,14 @@ export function CategorySelect({
 }) {
   const { t, i18n } = useTranslation()
   const language = i18n.language
-  const options = flatten(
-    tree,
-    mode === 'filter' ? (n) => n.status !== 'rejected' : (n) => n.status === 'active',
-    language,
+  const keep =
+    mode === 'filter'
+      ? (n: CategoryNode) => n.status !== 'rejected'
+      : mode === 'drill'
+        ? holdsDrillable
+        : (n: CategoryNode) => n.status === 'active'
+  const options = flatten(tree, keep, language).map((option) =>
+    mode === 'drill' ? { ...option, disabled: !isDrillableNode(option) } : option,
   )
   const known = options.some((option) => option.code === value)
 
@@ -86,7 +105,9 @@ export function CategorySelect({
         {placeholder ??
           (mode === 'filter'
             ? t('errorLog.filters.allCategories')
-            : t('errorLog.manual.chooseCategory'))}
+            : mode === 'drill'
+              ? t('drills.form.chooseCategory')
+              : t('errorLog.manual.chooseCategory'))}
       </option>
       {/* A category that is not in the list (proposed, or not loaded yet) stays selectable as is. */}
       {!known && value !== '' && (
@@ -95,7 +116,7 @@ export function CategorySelect({
         </option>
       )}
       {options.map((option) => (
-        <option key={option.code} value={option.code}>
+        <option key={option.code} value={option.code} disabled={option.disabled}>
           {text(option)}
         </option>
       ))}

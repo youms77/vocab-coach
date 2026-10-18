@@ -249,7 +249,13 @@
     "category_not_proposed": "Cette catégorie n'attend plus de décision.",
     "unknown_category": "Cette catégorie ne peut pas être utilisée : choisissez-en une active.",
     "invalid_error": "Cette erreur ne peut pas être enregistrée.",
-    "category_exists": "Une catégorie avec ce code existe déjà."
+    "category_exists": "Une catégorie avec ce code existe déjà.",
+    "transcript_mismatch": "La conversation que vous avez collée ne correspond pas aux tours enregistrés pour cette transcription. Collez la même conversation et choisissez les mêmes tours que la première fois. Votre texte est conservé ci-dessous.",
+    "invalid_transcript": "Cette conversation ne peut pas être utilisée.",
+    "text_too_long_transcript": "Cette conversation est trop longue : 60 000 caractères collés au plus, et 6 000 caractères dans vos propres tours.",
+    "drill_not_found": "Cet exercice n'existe pas (ou plus).",
+    "already_answered": "Vous avez déjà répondu à cette question.",
+    "not_drillable": "Vous ne pouvez pas vous entraîner sur cette catégorie."
   },
   "home": {
     "title": "Bienvenue",
@@ -766,7 +772,7 @@
     "noDeck": "Sans paquet",
     "unknownDeck": "Paquet {{id}}",
     "minutes": "Environ {{minutes}} min, pour un budget quotidien de {{budget}} min",
-    "targeted": "Exercice ciblé : {{category}} ({{count}} erreurs récentes), pour information",
+    "targeted": "Exercice ciblé : {{category}} ({{count}} erreurs récentes)",
     "consolidation": "Une tâche de consolidation est prête, pour information",
     "empty": "Rien à réviser ni à découvrir aujourd'hui. Importez une liste ou ajoutez des termes à votre bibliothèque.",
     "start": "Démarrer la séance du jour",
@@ -829,8 +835,9 @@
     "practice": {
       "targeted": "Exercice ciblé sur vos erreurs les plus fréquentes : {{category}} ({{count}} erreurs ces 14 derniers jours).",
       "consolidation": "Une tâche de consolidation (un exposé avec les termes de votre paquet) est prête.",
-      "later": "Ces exercices seront disponibles dans une prochaine version de l'application.",
-      "continue": "Continuer"
+      "later": "La tâche de consolidation sera disponible dans une prochaine version de l'application.",
+      "continue": "Continuer",
+      "now": "S'entraîner maintenant"
     },
     "summary": {
       "title": "Résumé de la séance",
@@ -1142,7 +1149,12 @@
     "targetDisagreement": "L'IA et la recherche dans le texte ne sont pas d'accord sur l'emploi de ce terme.",
     "proposedTitle": "L'IA a proposé une nouvelle catégorie",
     "proposedBody": "« {{label}} » ({{code}}) attend votre décision.",
-    "proposedLink": "Voir les catégories proposées"
+    "proposedLink": "Voir les catégories proposées",
+    "yourTurns": "Vos tours de parole, avec les erreurs marquées",
+    "turn": "Votre tour {{n}}",
+    "contextSent": "Analysé avec le contexte de l'interlocuteur : la fin du tour qui précède chacun des vôtres a été lue.",
+    "contextNotSent": "Analysé sans le contexte de l'interlocuteur.",
+    "noErrorsTurns": "Aucune erreur trouvée dans vos tours."
   },
   "writing": {
     "title": "Écriture",
@@ -1210,6 +1222,121 @@
       "corrected": "Corrigé",
       "notCorrected": "Non corrigé",
       "mixed": "Cette liste contient aussi les phrases personnelles de la découverte et les phrases écrites en révision : la colonne « Sujet » permet de les distinguer."
+    },
+    "transcriptLink": "Analyser la transcription d'une conversation"
+  },
+  "transcripts": {
+    "title": "Transcription d'une conversation",
+    "intro": "Collez une conversation, par exemple une session vocale avec ChatGPT, et indiquez quels tours sont les vôtres. Seules vos propres erreurs sont analysées, tour par tour, puis ajoutées à votre journal d'erreurs.",
+    "historyLink": "Mes conversations analysées",
+    "writingLink": "Écrire un texte à la place",
+    "paste": {
+      "label": "La conversation",
+      "chars": "{{chars}} / {{max}} caractères",
+      "tooLong": "Ce texte compte {{chars}} caractères et la limite est de {{max}}. Raccourcissez-le avant l'aperçu.",
+      "preview": "Aperçu",
+      "previewing": "Lecture…",
+      "stale": "Le texte a changé depuis l'aperçu. Relancez l'aperçu."
+    },
+    "picker": {
+      "legend": "Quels tours sont les vôtres ?",
+      "labelsHint": "Choisissez l'étiquette de locuteur qui vous correspond.",
+      "modesHint": "Ce texte n'a pas d'étiquettes de locuteur : chaque paragraphe est un tour. Indiquez quels tours sont les vôtres.",
+      "choose": "Faites un choix pour continuer.",
+      "labelMeta_one": "{{count}} tour · {{words}} mots",
+      "labelMeta_other": "{{count}} tours · {{words}} mots",
+      "known": {
+        "user": "en général vous",
+        "other": "en général l'interlocuteur"
+      },
+      "modes": {
+        "alternating_user_first": "Je parle en premier",
+        "alternating_user_second": "Je parle en second",
+        "all_mine": "Tout est de moi"
+      },
+      "single": "« {{label}} » n'a qu'un seul tour. Une ligne qui commence par un mot suivi de deux-points, comme « Note : », ouvre un nouveau tour. Si « {{label}} » n'est pas un locuteur, retirez les deux-points dans votre texte et relancez l'aperçu."
+    },
+    "preview": {
+      "problemsTitle": "À savoir",
+      "turnsTitle": "Tours de parole",
+      "turn": "Tour {{n}}",
+      "you": "Vous",
+      "other": "Interlocuteur",
+      "line": "ligne {{line}}",
+      "severity": {
+        "info": "Remarque",
+        "warning": "Avertissement",
+        "error": "Erreur"
+      },
+      "yours": "Vos tours : {{turns}} · {{words}} mots · {{chars}} / {{max}} caractères"
+    },
+    "problems": {
+      "empty_text": "Il n'y a aucun texte à analyser.",
+      "too_large": "Le texte est trop long : 60 000 caractères collés au plus, et 6 000 caractères au plus dans vos propres tours.",
+      "no_speaker_labels": "Aucune étiquette de locuteur trouvée : chaque paragraphe est un tour. Indiquez quels tours sont les vôtres.",
+      "single_speaker": "Un seul locuteur a été trouvé.",
+      "unlabelled_text": "Du texte précède la première étiquette de locuteur. Il est gardé comme un tour qui n'est pas le vôtre.",
+      "empty_turn": "Ce tour est vide et il est ignoré.",
+      "unknown_label": "L'étiquette de locuteur que vous avez choisie n'est pas dans le texte.",
+      "no_user_turns": "Aucun des tours n'est le vôtre avec ce choix."
+    },
+    "reasons": {
+      "future_date": "La date de la conversation est dans le futur.",
+      "title_too_long": "Le titre est trop long."
+    },
+    "meta": {
+      "title": "Détails (facultatif)",
+      "titleLabel": "Titre",
+      "titleChars": "{{chars}} / {{max}} caractères",
+      "date": "Date de la conversation",
+      "dateHint": "Laissez vide pour aujourd'hui.",
+      "dateFuture": "Cette date est dans le futur."
+    },
+    "privacy": {
+      "title": "Avant d'enregistrer",
+      "body": "Seuls vos tours sont enregistrés. Pour les analyser, vos tours et la fin du tour de l'interlocuteur qui précède chacun d'eux ({{chars}} caractères au plus) sont envoyés au fournisseur d'IA. Avec une offre gratuite, ce contenu peut servir à améliorer ses modèles."
+    },
+    "save": "Enregistrer et analyser",
+    "saving": "Enregistrement…",
+    "saveHint": "Lancez d'abord l'aperçu et choisissez vos tours ; ensuite vous pourrez enregistrer.",
+    "detail": {
+      "title": "Votre conversation et son analyse",
+      "loading": "Chargement…",
+      "words_one": "{{count}} mot de vous",
+      "words_other": "{{count}} mots de vous",
+      "onlyYours": "Seuls vos tours sont enregistrés.",
+      "analyseAnother": "Analyser une autre conversation",
+      "allTranscripts": "Toutes mes conversations",
+      "statusTitle": "État de l'analyse",
+      "analysing": "Analyse de vos tours… {{seconds}} s",
+      "analysingShort": "Analyse… {{seconds}} s",
+      "analysingHint": "Une longue conversation demande plusieurs appels à l'IA et peut prendre quelques minutes. Vos tours sont enregistrés : vous pouvez attendre ici.",
+      "notAnalysed": "Vos tours sont enregistrés mais n'ont pas été analysés.",
+      "notAnalysedIncomplete": "Vos tours sont enregistrés mais n'ont pas été analysés : la réponse de l'IA n'a pas pu être utilisée.",
+      "notAnalysedReason": "Vos tours sont enregistrés mais n'ont pas été analysés : {{reason}}.",
+      "tryAgain": "Réessayer",
+      "noMemory": "La conversation que vous avez collée n'est pas conservée après un rechargement : les tours de l'interlocuteur ne peuvent donc pas être envoyés comme contexte. Analysez vos tours sans ce contexte, ou collez de nouveau la conversation.",
+      "withoutContext": "Analyser sans le contexte de l'interlocuteur",
+      "pasteAgain": "Coller de nouveau la conversation",
+      "analyseWithPaste": "Analyser avec cette conversation",
+      "analysisLabel": "Analyse",
+      "ready_one": "Analyse prête : {{count}} erreur trouvée.",
+      "ready_other": "Analyse prête : {{count}} erreurs trouvées.",
+      "readyNoErrors": "Analyse prête : aucune erreur trouvée."
+    },
+    "history": {
+      "title": "Mes conversations",
+      "intro": "Les conversations que vous avez enregistrées, les plus récentes d'abord.",
+      "empty": "Aucune conversation pour l'instant. Collez la première.",
+      "count_one": "{{count}} conversation",
+      "count_other": "{{count}} conversations",
+      "date": "Date",
+      "titleColumn": "Titre",
+      "words": "Vos mots",
+      "status": "État",
+      "analysed": "Analysée",
+      "notAnalysed": "Non analysée",
+      "untitled": "Conversation sans titre"
     }
   },
   "errorLog": {
@@ -1261,7 +1388,8 @@
       "date": "Date",
       "term": "Terme",
       "text": "Texte",
-      "openText": "Ouvrir le texte"
+      "openText": "Ouvrir le texte",
+      "openDrill": "Ouvrir l'exercice"
     },
     "detail": {
       "title": "Une erreur de votre journal",
@@ -1296,7 +1424,8 @@
       "deleteConfirm": "Supprimer cette erreur de votre journal ? Les statistiques ne la compteront plus.",
       "deleteYes": "Oui, la supprimer",
       "deleteKeep": "La garder",
-      "deleting": "Suppression…"
+      "deleting": "Suppression…",
+      "openDrill": "Ouvrir l'exercice d'où elle vient"
     },
     "manual": {
       "title": "Ajouter une erreur",
@@ -1363,7 +1492,109 @@
       "slugInvalid": "Le nom de code doit suivre la règle indiquée sous le champ.",
       "create": "Créer la catégorie",
       "creating": "Création…",
-      "created": "« {{label}} » créée ({{code}})."
+      "created": "« {{label}} » créée ({{code}}).",
+      "practise": "S'entraîner sur cette catégorie",
+      "practiseNamed": "S'entraîner sur cette catégorie : {{label}}"
+    },
+    "drillsLink": "Exercices ciblés"
+  },
+  "drills": {
+    "title": "Exercices ciblés",
+    "intro": "De courts exercices sur une catégorie d'erreurs, écrits par l'IA à partir de vos propres fautes. Une réponse fausse est ajoutée à votre journal d'erreurs.",
+    "errorLogLink": "Journal d'erreurs",
+    "form": {
+      "title": "Nouvel exercice",
+      "category": "Catégorie",
+      "chooseCategory": "Choisissez une catégorie",
+      "count": "Nombre de questions",
+      "countHint": "De 5 à 15.",
+      "countInvalid": "Choisissez un nombre de 5 à 15.",
+      "create": "Créer l'exercice",
+      "preparing": "Préparation de vos exercices… {{seconds}} s",
+      "preparingStatus": "Préparation de vos exercices…",
+      "preparingHint": "L'IA les écrit ; cela prend quelques secondes.",
+      "noCategories": "Aucune catégorie ne peut être travaillée pour l'instant.",
+      "fromSession": "Cet exercice fait partie de la séance du jour.",
+      "unavailable": "L'exercice n'a pas pu être créé : {{reason}}. Rien n'a été enregistré ; vous pouvez réessayer.",
+      "incomplete": "La réponse de l'IA n'a pas pu être utilisée. Rien n'a été enregistré ; vous pouvez réessayer."
+    },
+    "list": {
+      "title": "Vos exercices",
+      "filter": "Afficher les exercices de",
+      "all": "Toutes les catégories",
+      "loading": "Chargement…",
+      "empty": "Aucun exercice pour l'instant. Créez le premier ci-dessus.",
+      "emptyFiltered": "Aucun exercice dans cette catégorie pour l'instant.",
+      "count_one": "{{count}} exercice",
+      "count_other": "{{count}} exercices",
+      "date": "Date",
+      "category": "Catégorie",
+      "score": "Score",
+      "state": "État",
+      "scoreValue": "{{correct}} sur {{total}}",
+      "notStarted": "Pas commencé",
+      "inProgress": "En cours ({{answered}} sur {{total}})",
+      "completed": "Terminé"
+    },
+    "player": {
+      "title": "Exercice",
+      "loading": "Chargement de l'exercice…",
+      "back": "Tous les exercices",
+      "rule": "La règle",
+      "showFrench": "Afficher la règle en français",
+      "hideFrench": "Masquer le français",
+      "item": "Question {{n}} sur {{total}}",
+      "blank": "blanc",
+      "answer": "Votre réponse",
+      "choices": "Choisissez la bonne réponse",
+      "check": "Vérifier",
+      "dontKnow": "Je ne sais pas",
+      "sending": "Vérification…",
+      "next": "Suivant",
+      "seeScore": "Voir le score",
+      "retry": "Réessayer"
+    },
+    "keys": {
+      "next": "suivant",
+      "seeScore": "voir le score"
+    },
+    "result": {
+      "label": "Résultat",
+      "exact": "Correct",
+      "wrong": "Faux",
+      "empty": "Pas de réponse",
+      "given": "Votre réponse",
+      "noneGiven": "aucune",
+      "expected": "Bonne réponse",
+      "accepted": "Aussi accepté",
+      "why": "Pourquoi",
+      "showFrench": "Afficher l'explication en français",
+      "hideFrench": "Masquer le français",
+      "rightOption": "bonne réponse",
+      "yourOption": "votre choix",
+      "errorLogged": "Ajouté à votre journal d'erreurs.",
+      "errorLink": "Voir l'erreur",
+      "errorNote": "La correction est exacte. Si vous pensez que votre réponse était correcte, vous pouvez supprimer cette erreur de votre journal."
+    },
+    "summary": {
+      "title": "Exercice terminé",
+      "score": "Score : {{correct}} bonnes réponses sur {{total}}",
+      "detail": "{{correct}} correctes, {{wrong}} fausses, {{empty}} sans réponse.",
+      "recap": "Vos réponses",
+      "item": "Question",
+      "sentence": "Phrase",
+      "result": "Résultat",
+      "expectedAnswer": "Bonne réponse : {{expected}}",
+      "newDrill": "Nouvel exercice sur cette catégorie",
+      "seeErrors": "Voir ces erreurs",
+      "backToSession": "Retour à la séance du jour",
+      "allDrills": "Tous les exercices"
+    },
+    "reasons": {
+      "level": "Choisissez une catégorie plus précise (niveau 2 ou plus).",
+      "pronunciation": "La prononciation ne peut pas être travaillée à l'écrit.",
+      "proposed": "Cette catégorie est seulement proposée : acceptez-la d'abord dans la page des catégories.",
+      "rejected": "Cette catégorie a été rejetée."
     }
   }
 }

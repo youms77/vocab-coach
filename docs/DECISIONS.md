@@ -2062,6 +2062,7 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   for recurring errors, the demo's errors) follows; M5.c (transcripts, drills, the `practice_info` link) comes last,
   on the complete API. M5.b itself is two parts on one branch: M5.b1 (writing and corrections) and M5.b2 (error log
   and categories).
+- **Second amendment (M5.c1, owner's decision): M5.c comes before M5.a3**, see D-151.
 
 ## D-139 — Small conventions met in M5.a2
 
@@ -2262,3 +2263,183 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - **Navigation**: "Errors" is the sixth top link; the links wrap to two rows at 375 px in English and in French, with
   no horizontal scroll (measured: `scrollWidth` 375 on every new page).
 - Page layouts use `grid-template-columns: minmax(0, 1fr)`, so a wide table scrolls in its frame (D-145).
+
+## D-151 — M5.c before M5.a3, and M5.c in two parts (amends D-138, M5.c1, 2026-10-18)
+
+- **Owner's decision**: the order is M5.b (done), then **M5.c, then M5.a3**. The transcript and drill screens need no
+  new backend, and the real analyses of the owner's conversations are worth having before the backend of M5.a3.
+  M5.a3 keeps its content (cards made from errors, suggestions for recurring errors, the demo's errors through the
+  services); nothing of it enters M5.c.
+- M5.c is two parts on one branch (`feat/m5c-transcripts-drills`): **M5.c1** transcripts (`/transcripts`,
+  `/transcripts/:id`, `/transcripts/history`, `transcript-1` in the correction view, the error log's transcript link),
+  **M5.c2** drills (`/drills`, `/drills/:id`, "Practise now", "Practise this category", the error log's drill link).
+- No backend change in M5.c (`git diff --stat main -- backend` is empty); a need found on the way stops the session.
+
+## D-152 — The pasted conversation lives in memory only (M5.c1)
+
+- The server stores your turns, not the other speaker's, so `/correct` needs the paste again to give the AI the
+  context (D-134). `features/transcripts/transcriptMemory.ts` is a module-level `Map<productionId, {text, user}>`:
+  `remember` after saving, `recall` for the analysis, `forget` after success. It is **never** in `localStorage`,
+  `sessionStorage`, the router state (react-router writes it to `history.state`) or the URL, and there is no draft.
+- Saving navigates to `/transcripts/{id}` with `replace: true` and the state `{autoAnalyse: true}` only. The detail
+  page clears it at once (a ref guard makes this safe in StrictMode) and starts `/correct` once, with `{transcript}`
+  when the memory has it, without a body otherwise. A reload therefore never creates a production and never starts an
+  analysis by itself.
+- `useAnalyseTranscript(onDone)` forgets in the **hook's** callbacks (`ok`, or `409 already_corrected`): the
+  callbacks of `mutate()` are dropped when the page is left, and a long analysis can outlive it. An AI failure
+  (`unavailable`, `incomplete`) keeps the paste: "Try again" calls only `/correct`, with the same body.
+- After a reload the memory is empty. The page then offers **"Analyse without the other speaker's context"** (no body,
+  `context_sent: false`) and **"Paste the conversation again"** (the same paste, preview and choice as the first page;
+  the body is `{transcript: {text, user}}`). `409 transcript_mismatch` shows a sentence and keeps the pasted text.
+- The privacy test uses a `createBrowserRouter` variant (`renderAppInBrowser`), because the memory router never writes
+  `history.state` and the test would prove nothing. It records `window.history.state`, the router state and the URL at
+  **every** navigation (the state that carries the flag is cleared a moment later, so a final check would miss it),
+  then the two storages. Breaking check (a) in PROGRESS.
+
+## D-153 — Preview and choice of your turns (M5.c1)
+
+- The preview belongs to the text it was made from: editing the text hides the preview and the choice and disables
+  saving until "Preview" is run again, so what is saved is what was previewed. The latest answer wins when two
+  previews overlap.
+- "Preview" sends `{text}`; the parser's suggestion (`suggested_user_label`, echoed as `designation`) pre-chooses the
+  label. Changing the choice reads the text again with `{text, user}`. **Without labels no mode is pre-chosen** (the
+  prompt only listed the three modes): the parser already warns that each paragraph is a turn, and a wrong guess would
+  silently analyse the other speaker's sentences.
+- Limits as the server's: 60 000 pasted characters, counted in code points. Over it: a visible message, "Preview" and
+  saving disabled, no request, **no `maxLength`** (it would cut a paste without saying so). The 6 000 characters of
+  your turns come back from the parser as a `too_large` error problem.
+- Problems: one i18n key per code (`transcripts.problems.*`); an unknown code falls back to the backend's English
+  message; the severity is written (Note, Warning, Error), never by colour alone (D-087). A label with one turn and no
+  known role gets the D-133 explanation ("Note:" opens a turn).
+- Your turns are marked "You" in words and by a border; the others "Other speaker". The pasted text is shown with
+  `white-space: pre-wrap`.
+
+## D-154 — Date and title (M5.c1)
+
+- The server refuses `occurred_on` after the **study day** (`study_today()`: the `timezone` and `day_start_hour`
+  settings), not after the browser's calendar day. The date field's `max` and the client check use the plan's
+  `study_day` (`GET /api/session/today`), with `localDay()` while it loads. The comparison is on `YYYY-MM-DD`
+  strings. The server stays the judge (`invalid_transcript` with `future_date`).
+- The title is optional, at most 200 code points (a counter and a disabled button; no `maxLength`). Empty fields are
+  sent as `null`; `study_session_id` is `null` (transcripts are not part of a study session in M5.c1).
+
+## D-155 — `transcript-1` in the correction model and the view (M5.c1; amends D-140 and D-141)
+
+- `readFeedback` has a second branch. Both formats go through one function; the model gained `kind` (`text` or
+  `transcript`), `numberOf(sentenceIndex)` and `contextSent` (null for a text, `false` when the flag is missing).
+- Units play the part of sentences (the entries keep the unit index in `sentenceIndex`), but errors and naturalness
+  notes are **grouped by your turn**: `units[].turn + 1`, "Your turn k" with k the position among your turns. Two units
+  of one long turn are one group; an unknown unit keeps its own index rather than disappearing.
+- The spans are in the stored text (your turns joined by a blank line), in code points, converted as before
+  (`toUtf16Ranges`); the text is shown with `pre-wrap` so the turns stay apart.
+- There is no natural version (`natural_text` is null) and no target term, so those sections are already hidden. The
+  view shows "Your turns, with the errors marked", the mention "Analysed with / without the other speaker's context"
+  from `context_sent`, and "No errors found in your turns".
+- **Departure from D-140** ("without touching the view"): these three labels and the group headings needed a small change in
+  `CorrectionView`; the stored-format knowledge stays in `correction.ts`.
+
+## D-156 — Error codes and the transcript reasons (M5.c1)
+
+- `errorMessage.ts` knows `transcript_mismatch` (409) and `invalid_transcript` (422). `not_correctable` was known.
+- `invalid_transcript` and `text_too_long` carry `codes` (the parser's codes, `future_date`, `title_too_long`).
+  `describeError` returns them as translated `reasons` (`transcripts.reasons.*`, then `transcripts.problems.*`, then
+  the code itself), shown as a list under the sentence by `ErrorText`.
+- `text_too_long` **with** `codes` is a transcript (60 000 and 6 000 characters); without, it is a written text (4 000
+  characters and 40 sentences): two sentences for one code (`errors.text_too_long_transcript`).
+- The codes of the drills (`drill_not_found`, `already_answered`, `not_drillable`...) arrive with M5.c2.
+
+## D-157 — Small conventions met in M5.c1
+
+- `productionLink` (D-146): the source `transcript` links to `/transcripts/{production_attempt_id}`; `drill` follows in
+  M5.c2 (the drill id must be checked against the production id in the service then).
+- `applyCorrection` and `applyCorrectionError` (in `api/productions.ts`) are the invalidations shared by the two
+  correction hooks.
+- `context` is a reserved option of i18next: the privacy sentence uses `{{chars}}`.
+- Found in the browser: a fieldset keeps its content's minimum width, so a 28 rem title field made the page 481 px wide
+  at 375 px. `.transcript-meta` and `.transcript-picker` have `min-width: 0` and the field is `min(28rem, 100%)` wide
+  (like D-145's table).
+- No new link in the top bar: the pages are reached from `/writing` ("Analyse a conversation transcript"), and the
+  history, the detail and the error log link to each other.
+
+## D-158 — The drills pages and `?category=` (M5.c2)
+
+- `/drills` is the list and the creation form; `/drills/:id` is the player. No new link in the top bar (D-157's rule):
+  the pages are reached from `/errors` ("Targeted drills"), `/errors/categories` ("Practise this category"), the Today
+  card and the session's `practice_info` step ("Practise now").
+- **One `?category=` parameter with two roles** (proposed in the plan, accepted): it filters the list by code prefix
+  and, on arrival, preselects the form's category when it can be drilled and scrolls to the form. Changing the filter
+  later does not move the form; nothing starts without a click. The page (`?page=`) is in the URL too (20 per page).
+- **Eligible categories** (`drillRules.ts`, same rule as `drillable_category`): active, a code with a dot (level 2 or
+  more), not `pronunciation`. `CategorySelect` got a mode `drill`: eligible nodes are selectable, their level-1
+  ancestors stay as greyed options so the tree stays readable, everything else is left out. A preset that the loaded
+  tree refuses (proposed, unknown) is not preselected; before the tree is loaded the code alone decides. The server
+  stays the judge (`not_drillable`).
+- **Creation**: number 5 to 15 (default 10) checked in the page; a ref guard so two clicks send one request; "Preparing
+  your exercises… n s" in the button, with a polite status; 201 opens the drill; `incomplete` / `unavailable` (HTTP
+  200) show the reason with `aiReasonText` and keep the form filled. `{fromSession}` in the navigation state becomes
+  `study_session_id` and is passed on to `/drills/{id}`.
+
+## D-159 — The drill player (M5.c2; builds on D-120, D-121, D-122)
+
+- `drillMachine.ts` is a pure reducer per item (`answering` → `sending` → `answered`, `failed` back to `answering` with
+  the typed answer kept; an action the phase refuses returns the same object). `DrillItemPlayer` keeps the state in a ref
+  as well and sends a request only when the reducer accepted the action: two Enter before React re-renders send one
+  answer (tested; removing the guard makes two tests fail, see PROGRESS).
+- **The page owns the index** (`DrillRun`, mounted once the drill is loaded, `useState(() => firstUnanswered(drill))`):
+  the answer replaces the cached drill, but the result stays in front of the user until "Next". Leaving an item is
+  guarded twice (a ref in the player, and a relative `setIndex`), so a double Enter or a double click cannot skip one.
+- Bodies: a gap-fill sends `{answer, response_time_ms}` (empty string for "I don't know"), a choice sends
+  `{choice_index, response_time_ms}` (`null` for "I don't know"); the server refuses the other field. The time runs from
+  the item being shown to the answer (D-121).
+- Keys: 1 to 4 choose (read from `key` or `Digit1`-`Digit4` / `Numpad1`-`Numpad4`, D-122), Enter goes to the next item
+  once the result is shown; ignored in fields, with Ctrl/Alt/Meta, on repeat, and Enter on a focused button or link.
+  `useDrillShortcuts` reuses `digitOf` and `activatesItself` (now exported from `useReviewShortcuts.ts`); `KeyHints`
+  moved to `components/KeyHints.tsx`. One hint line per phase.
+- **Enter does not send an empty gap-fill** (the "Check" button is disabled until something is typed): a held Enter that
+  reaches the next item's focused field must not answer it as "I don't know". After the first item the field of a
+  gap-fill takes the focus (keyboard flow); on the first item the page title keeps it.
+- Errors: `409 already_answered` reads the drill again and moves to its first item not answered; `exercise_mismatch`,
+  `item_not_found` and `drill_not_found` show the translated message and "Retry" (reads the drill again, the item starts
+  fresh); anything else (network) keeps the answer typed for another try.
+- The result shows a sign **and** a word (never colour alone), what was given, the right answer, the accepted forms, the
+  English explanation (French on request) and, when `error_event_id` is set, "Added to your error log" with a link and the
+  sentence "The correction is exact. If you think your answer was correct, you can delete this error." The recap of the
+  finished drill has no error link (`DrillOut` carries no `error_event_id`): "See these errors" covers it.
+
+## D-160 — Active recall in the drill screens (M5.c2; D-103, D-136)
+
+- Before the answer the page renders `index`, `kind`, the sentence (gap as a line plus the word "blank" for screen
+  readers) and the options in the order received. The rule is shown from the start (it is the rule SPEC asks for).
+  Nothing else comes from the server earlier: the player reads items from the `DrillOut`, which has no solution for an
+  unanswered item, and makes no request but `GET /drills/{id}` and the answer.
+- The recap and the results of the other items are only rendered on the final screen. Tested against `innerHTML` as a
+  whole with unguessable solution tokens (`ANSWER-TOKEN`...), for a gap-fill and a choice, and against the list of
+  requests.
+
+## D-161 — The links (M5.c2; amends D-107 / D-114 and D-146)
+
+- `productionLink`: a `drill` error opens `/drills/{production_attempt_id}`; `answer_item` gives the error the drill's own
+  id, checked in `services/drills.py`. The error log and the error detail say "Open the drill" / "Open the drill it comes
+  from" for it (`errorLog.list.openDrill`, `errorLog.detail.openDrill`).
+- **"Practise now"** (`session.practice.now`) in the `practice_info` step and on the Today card: shown when
+  `category_code` exists and passes `isDrillableCode` (the code alone, so the card does not wait for the tree). The step
+  passes `{fromSession: step.session_id}`; the card passes the open session's id, and nothing when none is open.
+  "Continue" is unchanged. Two texts changed because they said the exercises were not available:
+  `session.practice.later` now speaks of the consolidation task only and is shown only when there is one;
+  `today.targeted` lost "for information only".
+- Back to the session: `/session` resumes the open session, and the `practice_info` step is shown again (`practiceSeen`
+  is local to the page): "Continue" is enough. Not changed here (known issue).
+- `/errors/categories`: "Practise this category" on every active category of level 2 or more outside pronunciation, with
+  the accessible name "Practise this category: {label}" (the visible text is contained in it).
+
+## D-162 — Error codes and test helpers (M5.c2; follows D-156)
+
+- `errorMessage.ts` knows `drill_not_found` (404), `already_answered` (409) and `not_drillable` (422). The `reason` of
+  `not_drillable` (`level`, `pronunciation`, `proposed`, `rejected`) is shown as a translated line (`drills.reasons.*`),
+  falling back to the backend's English sentence for any other reason. The other codes the drills can answer were already
+  known (`category_not_found`, `item_not_found`, `exercise_mismatch`, `invalid_request`, `session_not_found`...).
+- Test helpers: `renderApp` takes a router entry (so a test can start with a navigation state), `node` of
+  `writingFixtures.ts` is exported, `test/drillFixtures.ts` has a small fake server that grades like `domain/drills.py`
+  and never shows a solution before an answer.
+- Run Vitest from `frontend/` (`npx vitest run ...`) or through `npm run check`: `npm --prefix frontend exec -- vitest`
+  from the repository root gave a jsdom setup error in this session.

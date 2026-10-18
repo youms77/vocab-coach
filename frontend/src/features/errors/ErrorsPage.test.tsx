@@ -48,8 +48,9 @@ describe('Error log page', () => {
       'href',
       '/library/items/7',
     )
-    // A written production has a link; a transcript and a manual entry have none.
-    expect(within(table).getAllByRole('link', { name: 'Open the text' })).toHaveLength(1)
+    // A written production and a transcript each have a link; a manual entry has none.
+    const textLinks = within(table).getAllByRole('link', { name: 'Open the text' })
+    expect(textLinks.map((link) => link.getAttribute('href'))).toEqual(['/writing/5', '/transcripts/8'])
     expect(screen.getByRole('button', { name: 'Fixed expression (7)' })).toBeInTheDocument()
     expect(lastQuery(calls).get('page')).toBe('1')
     expect(lastQuery(calls).get('page_size')).toBe('25')
