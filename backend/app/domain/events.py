@@ -397,13 +397,17 @@ class ProductionRecorded(Event):
 
 
 class ProductionCorrected(Event):
-    """A production corrected by the AI (written once: a second correction is refused)."""
+    """A production corrected by the AI (written once: a second correction is refused). Version 2
+    (M6.a2) adds the production's `kind` (writing, transcript_analysis, speaking), optional so
+    version 1 payloads still read."""
 
     event_type = EventType.PRODUCTION_CORRECTED
+    payload_version = 2
     entity_type = "production_attempt"
     entity_id_field = "production_attempt_id"
 
     production_attempt_id: Id
+    kind: ProductionKind | None = None
     word_count: Annotated[int, Field(ge=0)]
     sentence_count: Annotated[int, Field(ge=0)]
     error_count: Annotated[int, Field(ge=0)]
