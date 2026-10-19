@@ -9,6 +9,8 @@ production is only checked for the term.
 
 Proposed rating: exact or form -> Good (Hard when slower than twice the estimate of its duration
 class, D-028); typo -> Hard; wrong or empty -> Again. Easy is never proposed (the user may pick it).
+A production checked by the AI (a typed sentence, a spoken answer) is rated from its stored
+correction (`production_rating`).
 """
 
 import difflib
@@ -40,6 +42,10 @@ class Outcome(StrEnum):
 
 class GradeWarning(StrEnum):
     TERM_MISSING = "term_missing"
+    # A spoken answer whose transcription lacks the term: the learner may have left it out, or the
+    # recogniser may not have understood it, so no rating is proposed (speech recognition is not a
+    # pronunciation judge, D-174).
+    TERM_NOT_HEARD = "term_not_heard"
 
 
 class ConfusionKind(StrEnum):
@@ -267,24 +273,44 @@ def check_production(term: str, text: str | None, forms: Sequence[str] = ()) -> 
     return GradeResult(outcome=None, proposed_rating=None, expected=None, warnings=warnings)
 
 
-def production_rating(feedback: Mapping[str, Any] | None, lexical_item_id: int) -> Rating | None:
-    """The rating proposed for a `sentence_production` checked by the AI, from the stored
-    `correction-1` feedback (D-128): Good when the term was used correctly and no error concerns
-    it, Again when it is absent, misused or has an error. None when the check is missing or
-    unusable (the review is then self-graded). Easy and Hard are never proposed."""
-    if not feedback or feedback.get("format") != "correction-1":
+WRITTEN_FEEDBACK = "correction-1"  # a typed production (`app/services/corrections.py`)
+SPOKEN_FEEDBACK = "speaking-1"  # a transcribed spoken production (`app/services/speaking.py`)
+
+
+def _target_check(
+    feedback: Mapping[str, Any] | None, lexical_item_id: int
+) -> dict[str, Any] | None:
+    if not feedback or feedback.get("format") not in (WRITTEN_FEEDBACK, SPOKEN_FEEDBACK):
         return None
-    check = next(
+    return next(
         (t for t in feedback.get("targets") or [] if t.get("lexical_item_id") == lexical_item_id),
         None,
     )
-    if check is None:
+
+
+def production_rating(feedback: Mapping[str, Any] | None, lexical_item_id: int) -> Rating | None:
+    """The rating proposed for a production checked by the AI, from its stored feedback (D-128):
+    Good when the term was used correctly and no error concerns it, Again when it is misused or
+    has an error. A term absent from a written sentence (`correction-1`) is Again; absent from a
+    transcription (`speaking-1`) it gives no rating, since the recogniser may have missed it
+    (`production_warnings`). None when the check is missing or unusable (the review is then
+    self-graded). Easy and Hard are never proposed."""
+    check = _target_check(feedback, lexical_item_id)
+    if feedback is None or check is None:
         return None
     if not check.get("used"):
-        return Rating.AGAIN
+        return Rating.AGAIN if feedback.get("format") == WRITTEN_FEEDBACK else None
     errors = (feedback.get("output") or {}).get("errors") or []
     if any(error.get("target_ref") == check.get("ref") for error in errors):
         return Rating.AGAIN
     if check.get("used_correctly") is None:
         return None
     return Rating.GOOD if check["used_correctly"] else Rating.AGAIN
+
+
+def production_warnings(feedback: Mapping[str, Any] | None, lexical_item_id: int) -> list[str]:
+    """`term_not_heard` when a transcription checked by the AI (`speaking-1`) lacks the term."""
+    check = _target_check(feedback, lexical_item_id)
+    if feedback is None or check is None or feedback.get("format") != SPOKEN_FEEDBACK:
+        return []
+    return [] if check.get("used") else [GradeWarning.TERM_NOT_HEARD.value]
