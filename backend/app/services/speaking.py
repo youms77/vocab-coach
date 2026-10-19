@@ -68,7 +68,8 @@ class NothingToCorrect(LibraryError):
 # --- Recording -----------------------------------------------------------------------------------
 
 
-def _checked_prompt(prompt_text: str | None) -> str | None:
+def check_prompt(prompt_text: str | None) -> str | None:
+    """The topic, stripped (None when empty). Raises InvalidProduction."""
     prompt = (prompt_text or "").strip() or None
     if prompt is not None and len(prompt) > productions.MAX_PROMPT_CHARS:
         raise InvalidProduction(
@@ -114,7 +115,7 @@ def record_speaking(
     recording = speech.Recording(
         kind=ProductionKind.SPEAKING,
         bounds=bounds,
-        prompt_text=_checked_prompt(prompt_text),
+        prompt_text=check_prompt(prompt_text),
         item_ids=_checked_targets(target_item_ids),
         origin=origin,
         study_session_id=study_session_id,
