@@ -148,7 +148,7 @@ def test_a_transcribed_shadowing_is_stored_and_compared(
                 EventLog.event_type == EventType.PRODUCTION_RECORDED.value
             )
         ).all()
-        assert versions == [4]
+        assert versions == [5]
         assert speech.transcription_state(session, attempt) == "ok"
         assert speech.comparison_of(session, attempt) == comparison
         assert count(session, EventLog) == 3  # no error event: recognition is not a judge
