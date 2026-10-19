@@ -23,6 +23,7 @@ from app.db.models import (
     Enrichment,
     ErrorCategory,
     ErrorEvent,
+    EventLog,
     ExerciseTemplate,
     LexicalItem,
     ProductionAttempt,
@@ -32,7 +33,15 @@ from app.db.models import (
 from app.db.settings_store import get_setting
 from app.domain import exercises as ex
 from app.domain.durations import DurationClass, DurationEstimates, duration_class
-from app.domain.enums import CardDirection, ErrorSource, ItemStatus, ItemType, SrsState
+from app.domain.enums import (
+    CardDirection,
+    ErrorSource,
+    ItemStatus,
+    ItemType,
+    ProductionKind,
+    SrsState,
+)
+from app.domain.events import EventType, ProductionOrigin
 from app.domain.exercise_choice import TemplateRef, choose_exercise
 from app.domain.fsrs_engine import default_engine_factory
 from app.domain.grading import (
@@ -432,6 +441,15 @@ class Recorded:
     error_event_id: int | None = None
 
 
+def require_due(session: Session, card: Card, now: datetime) -> None:
+    """The card is due before the end of the current study day. Raises NotDue."""
+    tz = ZoneInfo(get_setting(session, "timezone"))
+    hour = get_setting(session, "day_start_hour")
+    _, day_end = study_day_bounds(study_day_of(as_utc(now), tz, hour), tz, hour)
+    if card.due >= day_end:
+        raise NotDue(f"Card {card.id} is not due today.", due=card.due.isoformat())
+
+
 def record(
     session: Session,
     ctx: ExerciseContext,
@@ -447,7 +465,8 @@ def record(
     engine_factory: EngineFactory = default_engine_factory,
 ) -> Recorded:
     """Record the user's final rating. The proposed rating is computed again here; for a
-    `sentence_production` it comes from the AI check of `production_attempt_id` (D-128)."""
+    `sentence_production` or a `spoken_answer` it comes from the AI check of
+    `production_attempt_id` (D-128), whose recording, if any, goes into `audio_path`."""
     now = as_utc(now)
     card, item = ctx.card, ctx.item
     assert card is not None  # noqa: S101 (a review is always of a card)
@@ -458,11 +477,7 @@ def record(
         )
     if item.status not in REVIEWABLE_STATUSES:
         raise ReviewRefused(f"Term {item.id} is {item.status}: its cards are not reviewed.")
-    tz = ZoneInfo(get_setting(session, "timezone"))
-    hour = get_setting(session, "day_start_hour")
-    _, day_end = study_day_bounds(study_day_of(now, tz, hour), tz, hour)
-    if card.due >= day_end:
-        raise NotDue(f"Card {card.id} is not due today.", due=card.due.isoformat())
+    require_due(session, card, now)
 
     response_time_ms = clamp_response_time(response_time_ms)
     graded = grade(
@@ -474,9 +489,11 @@ def record(
         now=now,
     )
     auto_rating = graded.result.proposed_rating
+    audio_path = None
     if production_attempt_id is not None:
         attempt = _checked_production(session, ctx, production_attempt_id, study_session_id)
         auto_rating = production_rating(attempt.ai_feedback, item.id)
+        audio_path = attempt.audio_path
     status_before = ItemStatus(item.status)
     try:
         log = record_review(
@@ -490,6 +507,7 @@ def record(
             auto_rating=auto_rating,
             study_session_id=study_session_id,
             exercise_template_id=ctx.template.id if ctx.template is not None else None,
+            audio_path=audio_path,
             production_attempt_id=production_attempt_id,
             engine_factory=engine_factory,
         )
@@ -507,16 +525,47 @@ def record(
     )
 
 
+# The exercises checked by the AI, and the kind of production that holds their answer.
+CHECKED_TYPES = {
+    ex.SENTENCE_PRODUCTION: ProductionKind.WRITING,
+    ex.SPOKEN_ANSWER: ProductionKind.SPEAKING,
+}
+
+
+def _recorded_origin(session: Session, attempt_id: int) -> str | None:
+    """The `origin` of a production's `production.recorded` event (as
+    `corrections.recorded_origin`, which cannot be imported here: it would be a cycle through
+    `study_sessions`)."""
+    payload = session.scalar(
+        select(EventLog.payload).where(
+            EventLog.event_type == EventType.PRODUCTION_RECORDED.value,
+            EventLog.entity_type == "production_attempt",
+            EventLog.entity_id == attempt_id,
+        )
+    )
+    return payload.get("origin") if payload is not None else None
+
+
 def _checked_production(
     session: Session, ctx: ExerciseContext, production_attempt_id: int, study_session_id: int
 ) -> ProductionAttempt:
     """The production a review rated: it must be the one checked for this term, in this session,
-    and not already used by another review. Raises ExerciseMismatch, ProductionMismatch."""
-    if ctx.exercise_type != ex.SENTENCE_PRODUCTION:
-        raise ExerciseMismatch("`production_attempt_id` only goes with a sentence production.")
+    and not already used by another review; a written sentence for a `sentence_production`, the
+    recording of `POST /speech/review-answer` for a `spoken_answer`. Raises ExerciseMismatch,
+    ProductionMismatch."""
+    if ctx.exercise_type not in CHECKED_TYPES:
+        raise ExerciseMismatch(
+            "`production_attempt_id` only goes with a sentence production or a spoken answer."
+        )
     attempt = session.get(ProductionAttempt, production_attempt_id)
     if attempt is None:
         raise ProductionMismatch(f"There is no production {production_attempt_id}.")
+    if attempt.kind is not CHECKED_TYPES[ctx.exercise_type]:
+        raise ProductionMismatch(f"This production is not the answer of a {ctx.exercise_type}.")
+    if attempt.kind is ProductionKind.SPEAKING and (
+        _recorded_origin(session, attempt.id) != ProductionOrigin.REVIEW.value
+    ):
+        raise ProductionMismatch("This recording was not made as the answer of a review.")
     if attempt.study_session_id != study_session_id:
         raise ProductionMismatch("This production was written in another study session.")
     is_target = session.scalar(

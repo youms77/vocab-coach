@@ -225,6 +225,39 @@ def test_an_audio_upload_from_another_site_fails_its_preflight(api_client: TestC
     assert "access-control-allow-origin" not in response.headers
 
 
+@pytest.mark.parametrize("path", ["/api/speech/speaking", "/api/speech/review-answer"])
+def test_the_new_upload_routes_keep_every_rule(api_client: TestClient, path: str) -> None:
+    """M6.a2a: free speaking and the spoken answer take audio under `/api/speech/` only, and the
+    Host, Origin and fetch-metadata rules apply to them as to the shadowing."""
+    audio = {"Content-Type": "audio/wav"}
+    rules = [
+        ({"Origin": "https://evil.example"}, 403, "forbidden_origin"),
+        ({"Sec-Fetch-Site": "cross-site"}, 403, "cross_site_request"),
+        ({"Host": "evil.example"}, 403, "forbidden_host"),
+    ]
+    for headers, status, error in rules:
+        response = api_client.post(path, content=b"RIFF", headers=audio | headers)
+        assert (response.status_code, _code(response)) == (status, error), headers
+    preflight = api_client.options(
+        path,
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert preflight.status_code == 400
+    assert "access-control-allow-origin" not in preflight.headers
+
+
+@pytest.mark.parametrize("path", ["/api/reviews", "/api/reviews/check-production"])
+def test_a_spoken_answer_is_never_uploaded_to_the_review_routes(
+    api_client: TestClient, path: str
+) -> None:
+    response = api_client.post(path, content=b"RIFF", headers={"Content-Type": "audio/wav"})
+    assert (response.status_code, _code(response)) == (415, "unsupported_media_type")
+
+
 @pytest.mark.parametrize("content_type", ["text/plain", "application/x-www-form-urlencoded"])
 def test_fastapi_alone_would_answer_422_to_a_form_body(content_type: str) -> None:
     """Why the explicit 415 exists: it does not depend on FastAPI's own behaviour."""
