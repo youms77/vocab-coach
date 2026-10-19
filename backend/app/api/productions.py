@@ -27,7 +27,7 @@ from app.db.models import ErrorCategory, ErrorEvent, ProductionAttempt
 from app.domain.enums import Modality, ProductionKind
 from app.domain.events import ProductionOrigin
 from app.domain.transcript_import import MAX_PASTED_CHARS, UserByLabel, UserByMode
-from app.services import corrections, productions, speech, transcripts
+from app.services import corrections, productions, speaking, speech, transcripts
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
@@ -61,8 +61,9 @@ class ProductionOut(BaseModel):
     # `format: "correction-1"`: `output` (the AI's validated answer), `spans` (position of each
     # `wrong` in `text`, Unicode code points), `error_event_ids` (same order as `output.errors`),
     # `targets` (checks and disagreements), `prompt_version`, `provider`, `model`. A transcript
-    # has `format: "transcript-1"` with the same keys (units as `sentences`); a drill has none
-    # here (read it with `/api/drills/{id}`).
+    # has `format: "transcript-1"` with the same keys (units as `sentences`), a spoken production
+    # `format: "speaking-1"` with the same keys and `output.structure`; a drill has none here
+    # (read it with `/api/drills/{id}`).
     feedback: dict[str, Any] | None
     ai_call_id: int | None
     study_session_id: int | None
@@ -256,9 +257,10 @@ def correct(
 ) -> CorrectionOut:
     """Correct a production with the AI: its errors are classified and logged. Takes a few
     seconds (a long transcript, several calls). A written production uses `production_correction`,
-    a transcript `transcript_analysis`; other kinds get 422 `not_correctable`. 409
-    `already_corrected` when it was corrected before; with `status` `unavailable` or `incomplete`
-    nothing was written and you can try again."""
+    a transcript `transcript_analysis`, a spoken production `speaking_correction` (409
+    `not_transcribed` before its transcription, 422 `nothing_to_correct` for silence); other kinds
+    get 422 `not_correctable`. 409 `already_corrected` when it was corrected before; with `status`
+    `unavailable` or `incomplete` nothing was written and you can try again."""
     factory = _factory(engine)
     with factory() as session:
         kind = productions.get_production(session, production_id).kind
@@ -273,9 +275,11 @@ def correct(
             else None,
             clock=lambda: now,
         )
+    elif transcript is not None:
+        raise transcripts.NotATranscript("Only a transcript takes a transcript body.")
+    elif kind is ProductionKind.SPEAKING:
+        result = speaking.correct_speaking(factory, gateway, production_id, clock=lambda: now)
     else:
-        if transcript is not None:
-            raise transcripts.NotATranscript("Only a transcript takes a transcript body.")
         result = corrections.correct_production(
             factory,
             gateway,

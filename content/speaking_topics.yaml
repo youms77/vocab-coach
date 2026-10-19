@@ -1,0 +1,115 @@
+# Free-speaking topics (docs/SPEC.md module F, "a topic, 1 to 2 minutes of recording").
+#
+# Read by `GET /api/speaking/topics` (app/services/speaking_topics.py): a deterministic rotation per
+# study day that skips the topics used as a spoken prompt in the last 7 days. No AI call.
+# Tags: interview, presenting, academic, data_science, everyday, campus. Ids are stable: never
+# reuse one. Every topic is fictional and fits one to two minutes of speech.
+# Bump `version` whenever this file changes.
+
+version: 1
+
+topics:
+  - id: tell_me_about_yourself
+    en: "Answer the interview question: \"Tell me about yourself.\""
+    fr: "Répondez à la question d'entretien : « Parlez-moi de vous. »"
+    tags: [interview]
+  - id: present_main_result
+    en: Present the main result of a study you did, as if you were opening a short talk.
+    fr: Présentez le résultat principal d'une étude que vous avez faite, comme pour ouvrir un court exposé.
+    tags: [presenting, data_science]
+  - id: where_you_study
+    en: Describe where you study and for how long, and what you like about it.
+    fr: Décrivez où vous étudiez et depuis combien de temps, et ce qui vous plaît.
+    tags: [campus, everyday]
+  - id: why_this_job
+    en: "Answer the interview question: \"Why do you want this position?\""
+    fr: "Répondez à la question d'entretien : « Pourquoi voulez-vous ce poste ? »"
+    tags: [interview]
+  - id: explain_regression
+    en: Explain to a friend who does not study statistics what a regression tells you.
+    fr: Expliquez à un ami qui n'étudie pas la statistique ce que vous apprend une régression.
+    tags: [academic, data_science]
+  - id: describe_a_chart
+    en: "Describe a chart you made recently: what it shows and what the audience should remember."
+    fr: "Décrivez un graphique que vous avez fait récemment : ce qu'il montre et ce que le public doit retenir."
+    tags: [presenting, data_science]
+  - id: greatest_strength
+    en: "Answer the interview question: \"What is your greatest strength?\" Give one example."
+    fr: "Répondez à la question d'entretien : « Quelle est votre plus grande qualité ? » Donnez un exemple."
+    tags: [interview]
+  - id: typical_day_campus
+    en: Describe a typical day on campus, from the morning to the evening.
+    fr: Décrivez une journée type sur le campus, du matin au soir.
+    tags: [campus, everyday]
+  - id: thesis_in_two_minutes
+    en: Present your master's thesis in two minutes to people outside your field.
+    fr: Présentez votre mémoire de master en deux minutes à des personnes extérieures à votre domaine.
+    tags: [presenting, academic]
+  - id: difficult_project
+    en: "Answer the interview question: \"Tell me about a difficult project and how you handled it.\""
+    fr: "Répondez à la question d'entretien : « Parlez-moi d'un projet difficile et de la façon dont vous l'avez géré. »"
+    tags: [interview, data_science]
+  - id: limits_of_a_study
+    en: Present the limits of a study you know and how a better design could address them.
+    fr: Présentez les limites d'une étude que vous connaissez et comment un meilleur protocole pourrait y répondre.
+    tags: [presenting, academic]
+  - id: favourite_place_city
+    en: Talk about your favourite place in your city and why you go there.
+    fr: Parlez de votre endroit préféré dans votre ville et de la raison pour laquelle vous y allez.
+    tags: [everyday]
+  - id: weakness_question
+    en: "Answer the interview question: \"What is one weakness you are working on?\""
+    fr: "Répondez à la question d'entretien : « Quel est un point faible sur lequel vous travaillez ? »"
+    tags: [interview]
+  - id: missing_data
+    en: Explain what you do when a dataset has missing values, with one example.
+    fr: Expliquez ce que vous faites quand un jeu de données a des valeurs manquantes, avec un exemple.
+    tags: [data_science, academic]
+  - id: group_work
+    en: Describe the last group project you did at university and your role in it.
+    fr: Décrivez le dernier projet de groupe que vous avez fait à l'université et votre rôle.
+    tags: [campus, academic]
+  - id: five_years
+    en: "Answer the interview question: \"Where do you see yourself in five years?\""
+    fr: "Répondez à la question d'entretien : « Où vous voyez-vous dans cinq ans ? »"
+    tags: [interview]
+  - id: compare_two_groups
+    en: Present the comparison of two groups in a survey, as if you were showing one slide.
+    fr: Présentez la comparaison de deux groupes dans une enquête, comme si vous montriez une diapositive.
+    tags: [presenting, data_science]
+  - id: learning_english
+    en: Explain how you learn English and what you find the most difficult.
+    fr: Expliquez comment vous apprenez l'anglais et ce que vous trouvez le plus difficile.
+    tags: [everyday]
+  - id: campus_change
+    en: Describe one thing you would change on your campus and why.
+    fr: Décrivez une chose que vous changeriez sur votre campus et pourquoi.
+    tags: [campus]
+  - id: a_course_you_recommend
+    en: Recommend a course you have taken to a new student, and say what they will learn.
+    fr: Recommandez un cours que vous avez suivi à un nouvel étudiant, et dites ce qu'il apprendra.
+    tags: [academic, campus]
+  - id: questions_from_audience
+    en: You have just presented your results. Answer the question "How reliable are these numbers?"
+    fr: Vous venez de présenter vos résultats. Répondez à la question « Ces chiffres sont-ils fiables ? »
+    tags: [presenting, data_science]
+  - id: weekend_plans
+    en: Talk about what you did last weekend and what you plan to do next weekend.
+    fr: Parlez de ce que vous avez fait le week-end dernier et de ce que vous prévoyez le week-end prochain.
+    tags: [everyday]
+  - id: data_job_interest
+    en: "Answer the interview question: \"Why are you interested in working with data?\""
+    fr: "Répondez à la question d'entretien : « Pourquoi le travail avec les données vous intéresse-t-il ? »"
+    tags: [interview, data_science]
+  - id: introduce_your_team
+    en: Open a team meeting by introducing the agenda and the goal of the meeting.
+    fr: Ouvrez une réunion d'équipe en présentant l'ordre du jour et l'objectif de la réunion.
+    tags: [presenting]
+  - id: correlation_example
+    en: Explain why correlation is not causation, with an example from everyday life.
+    fr: Expliquez pourquoi la corrélation n'est pas la causalité, avec un exemple de la vie quotidienne.
+    tags: [academic, data_science, everyday]
+  - id: library_or_home
+    en: Say whether you prefer to study at the library or at home, and give two reasons.
+    fr: Dites si vous préférez étudier à la bibliothèque ou chez vous, et donnez deux raisons.
+    tags: [campus, everyday]

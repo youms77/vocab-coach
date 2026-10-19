@@ -370,6 +370,7 @@ class ProductionOrigin(StrEnum):
     REVIEW = "review"  # a `sentence_production` review checked by the AI (module C)
     TRANSCRIPT = "transcript"  # the user's turns of a pasted conversation transcript (M5.a2)
     SHADOWING = "shadowing"  # a sentence repeated after the speech synthesis (module F, M6.a1)
+    SPEAKING = "speaking"  # free speaking on a topic (module F, M6.a2)
 
 
 class ProductionRecorded(Event):
@@ -377,10 +378,11 @@ class ProductionRecorded(Event):
     adds the `transcript` origin and, for a transcript, its turn and word counts and the date of
     the conversation (never any text). Version 4 (M6.a1) adds the `shadowing` origin, and the
     `discovery` origin on a spoken production; `audio_seconds` is the duration the recorder
-    measured."""
+    measured. Version 5 (M6.a2) adds the `speaking` origin (free speaking); a spoken answer in a
+    review is a `speaking` production with the `review` origin."""
 
     event_type = EventType.PRODUCTION_RECORDED
-    payload_version = 4
+    payload_version = 5
     entity_type = "production_attempt"
     entity_id_field = "production_attempt_id"
 
