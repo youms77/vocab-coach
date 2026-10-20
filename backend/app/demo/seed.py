@@ -1,13 +1,23 @@
 """`python -m app demo seed`: build the demo database atomically, behind safety checks (D-033).
 
 The database is built in a temporary file next to the target (migrations, taxonomy, simulation,
-marker), then moved over the target. A failure leaves the previous file untouched and removes the
-temporary one. The command never targets the personal database: the CLI always passes the demo
-path; tests pass an explicit temporary URL.
+marker), and the demo's recordings in a temporary folder next to `audio-demo/` (D-188). Then:
+
+1. the previous `audio-demo/` is renamed `audio-demo.old-<pid>` (refused while a program holds one
+   of its files open on Windows: nothing has changed yet);
+2. the new database is moved over the target (refused while the app holds it open on Windows: the
+   previous recordings are put back);
+3. the temporary folder becomes `audio-demo/`, and the old one is deleted.
+
+A failure leaves the previous database and recordings untouched and removes the temporary file and
+folder. `audio_path` is relative to the folder, so it stays valid once the folder is renamed. The
+command never targets the personal database: the CLI always passes the demo path; tests pass an
+explicit temporary URL.
 """
 
 import contextlib
 import os
+import shutil
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -28,7 +38,7 @@ from app.db.taxonomy import sync_taxonomy
 from app.demo.dataset import DemoDataset, load_dataset
 from app.demo.simulation import SimulationConfig, simulate
 from app.domain.study_day import study_day_of
-from app.speech.audio_store import AudioStore
+from app.speech.audio_store import DEMO_AUDIO_DIR
 
 DEFAULT_SEED = 42
 DEFAULT_DAYS = 60
@@ -51,6 +61,8 @@ class SeedSummary:
     cards_by_state: dict[str, int] = field(default_factory=dict)
     errors_by_top_category: dict[str, int] = field(default_factory=dict)
     errors_by_category: dict[str, int] = field(default_factory=dict)
+    audio_dir: Path | None = None
+    recordings: int = 0
 
 
 def sqlite_url(path: Path) -> str:
@@ -65,6 +77,12 @@ def _remove_quietly(path: Path) -> None:
     for candidate in (path, *_side_files(path)):
         with contextlib.suppress(OSError):
             candidate.unlink(missing_ok=True)
+
+
+def _remove_tree(path: Path) -> None:
+    """Delete a folder; a file another program holds open on Windows stays behind."""
+    if path.is_dir():
+        shutil.rmtree(path, ignore_errors=True)
 
 
 def user_data_tables(engine: Engine) -> list[str]:
@@ -120,7 +138,14 @@ def is_seeded(path: Path) -> bool:
         engine.dispose()
 
 
-def _build(url: str, dataset: DemoDataset, seed: int, days: int, anchor: date | None) -> DemoMarker:
+def _build(
+    url: str,
+    dataset: DemoDataset,
+    seed: int,
+    days: int,
+    anchor: date | None,
+    audio_dir: Path,
+) -> DemoMarker:
     migrate.upgrade(url)
     engine = create_db_engine(url)
     try:
@@ -133,7 +158,8 @@ def _build(url: str, dataset: DemoDataset, seed: int, days: int, anchor: date | 
             marker = DemoMarker(
                 dataset_version=dataset.dataset_version, seed=seed, days=days, anchor=anchor
             )
-            simulate(session, dataset, SimulationConfig(seed=seed, days=days, anchor=anchor))
+            config = SimulationConfig(seed=seed, days=days, anchor=anchor)
+            simulate(session, dataset, config, audio_dir=audio_dir)
             write_demo_marker(session, marker)
             session.commit()
         with engine.connect() as connection:
@@ -157,6 +183,40 @@ def _replace(temporary: Path, target: Path) -> None:
         ) from exc
 
 
+def _swap(db_temporary: Path, db_target: Path, audio_temporary: Path, audio_dir: Path) -> None:
+    """Put the new database and the new recordings in place, or neither (see the docstring)."""
+    old = audio_dir.with_name(f"{audio_dir.name}.old-{os.getpid()}")
+    _remove_tree(old)
+    set_aside = False
+    if audio_dir.exists():
+        try:
+            os.replace(audio_dir, old)
+        except PermissionError as exc:
+            raise DemoSeedError(
+                f"Cannot replace {audio_dir}: a recording is in use ({exc}). Close the program "
+                "playing it, or stop the app, and run the command again. The previous demo "
+                "database and recordings are unchanged."
+            ) from exc
+        set_aside = True
+    try:
+        _replace(db_temporary, db_target)
+    except BaseException:
+        if set_aside:
+            os.replace(old, audio_dir)
+        raise
+    if audio_temporary.exists():
+        try:
+            os.replace(audio_temporary, audio_dir)
+        except OSError as exc:  # rare: the folder was locked between the two renames
+            if set_aside:
+                os.replace(old, audio_dir)
+            raise DemoSeedError(
+                f"The new demo database is in place, but its recordings could not be moved into "
+                f"{audio_dir} ({exc}). Run `demo seed --reset` again."
+            ) from exc
+    _remove_tree(old)
+
+
 def seed_demo(
     target: Path,
     *,
@@ -165,29 +225,34 @@ def seed_demo(
     anchor: date | None = None,
     reset: bool = False,
     dataset: DemoDataset | None = None,
-    audio_store: AudioStore | None = None,
+    audio_dir: Path | None = None,
 ) -> SeedSummary:
-    """Build the demo database at `target` (a SQLite file). Raises DemoSeedError when refused.
-    Once the new database is in place, `audio_store` (the demo's recordings) is emptied: its files
-    belonged to productions that no longer exist."""
+    """Build the demo database at `target` (a SQLite file) and its recordings in `audio_dir`
+    (default: `audio-demo/` next to the database). Raises DemoSeedError when refused."""
     started = time.perf_counter()
     target = target.resolve()
     check_target(target, reset=reset)
     dataset = dataset or load_dataset()
+    audio_dir = (audio_dir or target.parent / DEMO_AUDIO_DIR).resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f"{target.name}.tmp-{os.getpid()}")
+    audio_temporary = audio_dir.with_name(f"{audio_dir.name}.tmp-{os.getpid()}")
     _remove_quietly(temporary)
+    _remove_tree(audio_temporary)
     try:
-        marker = _build(sqlite_url(temporary), dataset, seed, days, anchor)
+        marker = _build(sqlite_url(temporary), dataset, seed, days, anchor, audio_temporary)
         for side in _side_files(temporary):
             side.unlink(missing_ok=True)
-        _replace(temporary, target)
+        _swap(temporary, target, audio_temporary, audio_dir)
     finally:
         _remove_quietly(temporary)
-    if audio_store is not None:
-        audio_store.clear()
+        _remove_tree(audio_temporary)
     summary = summarize(sqlite_url(target), marker)
     summary.path = target
+    summary.audio_dir = audio_dir
+    summary.recordings = (
+        sum(1 for p in audio_dir.rglob("*") if p.is_file()) if audio_dir.is_dir() else 0
+    )
     summary.seconds = time.perf_counter() - started
     return summary
 
@@ -238,6 +303,10 @@ def render_summary(summary: SeedSummary) -> str:
         f"Demo database ready: {summary.path}",
         f"Dataset v{marker.dataset_version}, seed {marker.seed}, {marker.days} days up to "
         f"{marker.anchor.isoformat()} (anchor study day), built in {summary.seconds:.1f} s.",
+    ]
+    if summary.audio_dir is not None:
+        lines.append(f"Recordings: {summary.recordings} files in {summary.audio_dir}")
+    lines += [
         "",
         "Rows per table:",
         *(f"  {name:<26}{count:>7}" for name, count in summary.rows.items() if count),

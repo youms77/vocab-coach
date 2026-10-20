@@ -26,6 +26,7 @@ import random
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import exists, select
@@ -163,12 +164,20 @@ class _State:
 
 
 class Simulation:
-    def __init__(self, session: Session, dataset: DemoDataset, config: SimulationConfig) -> None:
+    def __init__(
+        self,
+        session: Session,
+        dataset: DemoDataset,
+        config: SimulationConfig,
+        *,
+        audio_dir: Path,
+    ) -> None:
         if config.days < 7:
             raise ValueError("the demo history needs at least 7 days")
         self.session = session
         self.dataset = dataset
         self.config = config
+        self.audio_dir = audio_dir
         root = random.Random(config.seed)  # noqa: S311 (simulation, not security)
         # Fixed derivation order: adding a generator at the end keeps the others unchanged.
         self._fsrs_rng = random.Random(root.getrandbits(64))  # noqa: S311
@@ -847,6 +856,9 @@ class Simulation:
         return t
 
 
-def simulate(session: Session, dataset: DemoDataset, config: SimulationConfig) -> None:
-    """Fill `session` with the demo history; the caller commits."""
-    Simulation(session, dataset, config).run()
+def simulate(
+    session: Session, dataset: DemoDataset, config: SimulationConfig, *, audio_dir: Path
+) -> None:
+    """Fill `session` with the demo history and `audio_dir` with its recordings; the caller
+    commits (and moves the folder into place)."""
+    Simulation(session, dataset, config, audio_dir=audio_dir).run()

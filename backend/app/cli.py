@@ -443,7 +443,7 @@ def _demo_seed(args: argparse.Namespace, settings: Settings) -> int:
             days=args.days,
             anchor=args.anchor,
             reset=args.reset,
-            audio_store=AudioStore.demo(settings),
+            audio_dir=AudioStore.demo(settings).root,
         )
     except DemoSeedError as exc:
         print(str(exc), file=sys.stderr)

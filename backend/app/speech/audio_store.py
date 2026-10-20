@@ -14,7 +14,6 @@ stored path against the naming pattern and that it resolves inside the folder (n
 import contextlib
 import os
 import re
-import shutil
 import uuid
 from collections.abc import Callable
 from datetime import datetime
@@ -135,12 +134,6 @@ class AudioStore:
         """Remove a file; quiet when it is already gone or still open (Windows)."""
         with contextlib.suppress(InvalidAudioPath, OSError):
             self.resolve(relative_path).unlink(missing_ok=True)
-
-    def clear(self) -> None:
-        """Empty the folder (the demo, after a new seed). A file another program holds open on
-        Windows is left behind."""
-        if self.root.is_dir():
-            shutil.rmtree(self.root, ignore_errors=True)
 
 
 def get_audio_store() -> AudioStore:

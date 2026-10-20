@@ -148,14 +148,6 @@ def test_exists_and_delete(store: AudioStore) -> None:
     assert not store.exists(None)
 
 
-def test_clear_empties_the_folder(store: AudioStore) -> None:
-    store.save(b"one", "wav", at=AT)
-    store.save(b"two", "webm", at=datetime(2025, 1, 2, tzinfo=UTC))
-    store.clear()
-    assert not store.root.exists()
-    store.clear()  # nothing there: quiet
-
-
 def test_demo_recordings_have_their_own_folder(tmp_path: Path) -> None:
     personal = AudioStore.for_settings(Settings(data_dir=tmp_path))
     demo = AudioStore.for_settings(Settings(data_dir=tmp_path, demo=True))
