@@ -4,21 +4,120 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M6.a2a (module F, backend: corrected free speaking, spoken answers in reviews), on
-  branch `feat/m6a2-speaking-correction`, cut from `feat/m6a1-recordings-transcription` (M6.a1, PR #21, **not merged
-  into `main` yet**). Not pushed. `main` (`7904aa3`, CI green) has M1.a to M5.a3. No migration since `0002`.
+- **Last milestone completed**: M6.a2b (module F, backend: the demo through the speech services), on branch
+  `feat/m6a2-speaking-correction` after M6.a2a, cut from `feat/m6a1-recordings-transcription` (M6.a1, PR #21, **not
+  merged into `main` yet**). Not pushed. `main` (`7904aa3`, CI green) has M1.a to M5.a3. No migration since `0002`.
 - **M6 — Speaking** (module F, SPEC section 9) is cut in five (D-168), M6.a2 in two (D-178): **M6.a1** (done: local
   recordings, Groq Whisper, shadowing, comparison, playback, CLI), **M6.a2a** (done: free speaking corrected by
-  `speaking_correction`, spoken answers in reviews, CLI), **M6.a2b** (next: the demo through the services, which
-  removes `direct_writes.record_oral_production` and closes D-035), **M6.b1** and **M6.b2** (frontend: the recorder
-  and the screens; API references in the M6.a1 and M6.a2a sections), **M6.c** (Azure AI Speech, optional).
-- **Next**: M6.a2b on the same branch, with the owner's go-ahead.
+  `speaking_correction`, spoken answers in reviews, CLI), **M6.a2b** (done: the demo through the services,
+  `direct_writes.py` removed, D-035 closed), **M6.b1** and **M6.b2** (frontend: the recorder and the screens; API
+  references in the M6.a1 and M6.a2a sections; the demo now has every case to show), **M6.c** (Azure AI Speech,
+  optional).
+- **Next**: the owner's review of M6.a2 (M6.a2a and M6.a2b), then push and the pull request with the owner's go-ahead
+  (after PR #21); then M6.b1.
 - **Left from M5, not scheduled**: the screens for cards from errors and suggestions ("M5.d", API in the M5.a3 section
   below) and an undo for a dismissed suggestion. The owner decides when they come.
 - Gemini (`gemini-3.5-flash-lite`) and Groq are configured in the owner's `.env`; the M5.a1, M5.a2 and M6.a2a live tests
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
-  scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1 and M6.a2a) are still to run.
+  scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a and M6.a2b) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M6.a2b — The demo through the speech services (backend)
+
+Same branch as M6.a2a (`feat/m6a2-speaking-correction`). Commits in the order of the approved plan: injectable file
+names, the speech flows in the caller's transaction, the atomic `audio-demo/`, the fictional AI and the clips with
+dataset v4, the simulation (and `direct_writes.py` deleted), the docs. **No migration** (`alembic check`: no new
+upgrade operation), **no frontend change**, no new dependency, no new setting. SPEC.md unchanged. Decisions D-187 to
+D-192; D-035 closed, D-169 annotated.
+
+### Done
+
+- **Names** (D-187): `AudioStore(root, names=...)`, `uuid4().hex` by default; a name must be 32 hexadecimal
+  characters. The demo draws its names from its seed: same seed, same `audio_path`.
+- **The speech flows in the caller's transaction** (D-189): `speech.store_recording`, `speaking.store_speaking`,
+  `spoken_review.store_spoken_answer` (with an injected corrector): the same checks, a given transcription, no AI call,
+  no commit. The AI paths are unchanged.
+- **Atomic `audio-demo/`** (D-188): the clips are written into `audio-demo.tmp-<pid>/`; the old folder is set aside,
+  the database replaced, the new folder moved in, the old one deleted. A failure leaves the previous database and
+  recordings intact; on Windows a recording or the database held open is reported and changes nothing.
+- **Fictional AI and clips** (D-190): transcriptions (segments, a silent take), mishearings of 0 to 2 words, spoken
+  corrections validated by `SpeakingCorrectionOutput` and its real context; provenance `demo`, `demo-speaking-v1`,
+  model `demo-transcription-v1`; one-second WAV clips made with `wave` (`app/demo/clips.py`).
+- **Dataset v4 and the history** (D-191): free speeches recorded, transcribed and corrected (errors of source
+  `speaking`), shadowings of the terms' original sentences through the real comparator, every `spoken_answer` review
+  checked by `store_spoken_answer` then recorded with its `production_attempt_id`, and in the last session a silent
+  take and a speech not corrected yet. `app/demo/direct_writes.py` is deleted (`grep -r direct_writes backend` is
+  empty). Seed 42 over 60 days: 17 recordings (6 corrected free speeches, 3 spoken answers, 6 shadowings with 8
+  unrecognised words, 1 silent take, 1 speech not corrected).
+- **Tests**: 2 425 backend tests (2 335 after M6.a2a): `test_audio_store.py` (names), `test_speech_service.py`,
+  `test_speaking_service.py`, `api/test_spoken_review_api.py` (the caller's-transaction flows), `test_demo_seed.py`
+  (the swap, a failing build, a recording and a database in use on Windows), `test_demo_fictional_ai.py`
+  (transcriptions, mishearings checked by the comparator, spoken corrections, clips), `test_demo_data.py` (every
+  recording has its file, free speeches, shadowings, spoken answers linked, playback through the API).
+
+### Verified (Windows 11, 2026-10-21)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **2 425 pytest passed** (14 live deselected),
+  then the frontend: typecheck, oxlint `--deny-warnings`, 447 vitest tests. Exit code 0. `alembic check` on a fresh
+  database: no new upgrade operation. `git diff --stat feat/m6a1-recordings-transcription -- frontend` is empty;
+  `git ls-files | grep -E '\.(wav|webm|mp3|m4a|ogg|flac|opus|aac|mp4)$'` is empty; `grep -r direct_writes backend`
+  finds nothing (after `ruff clean`; `.venv` aside).
+- **Seed time**, 60 days, seed 42, three fresh runs: 4.4 to 4.6 s (4.3 s before M6.a2b on this machine; target 7 s).
+- **Seeds 1 to 12** (60 days): 13 to 24 recordings, 5 or 6 shadowings with 3 to 9 unrecognised words, one silent take
+  each, every spoken answer linked; seed 2 has no `spoken_answer` review.
+- **CLI on a temporary data folder** (`VOCAB_DATA_DIR`): `demo seed --anchor 2026-09-01` prints "Dataset v4" and
+  "Recordings: 17 files in ...udio-demo" (exit 0); again without `--reset`: refused, nothing changed; with
+  `--reset`: rebuilt, `audio-demo/` replaced, no `.tmp-` or `.old-` folder left.
+- **Real server** (`python -m app --demo`, port 8765, that folder): `/api/health` says `demo: true`;
+  `GET /api/productions?kind=shadowing` lists 6 shadowings (one: "previous studies" heard "previous study", reported
+  as unrecognised); `?kind=speaking` lists 11; `GET /api/productions/{id}/audio` answers 200 `audio/wav` with
+  `accept-ranges: bytes`.
+- Not run by me: `start.ps1 -Demo` with the browser, and the owner's scenario below.
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+1. Stop the app if it runs. In `backend`: `uv run python -m app demo seed --reset`. The summary says "Dataset v4" and
+   "Recordings: N files in ...\data\audio-demo" (17 for seed 42 and the anchor 2026-09-01; about as many with
+   today's anchor).
+2. At the root: `.\start.ps1 -Demo` (or `start.cmd -Demo`). The app opens with the "Demo data" badge.
+3. Open `http://127.0.0.1:8000/docs`:
+   - `GET /api/productions` with `kind=speaking`: free speeches (`audio_url`, `transcription_status: ok`, a
+     `speaking-1` feedback), spoken answers (their prompt is the card's question), one `silence` and one speech without
+     feedback (not corrected yet);
+   - `GET /api/productions` with `kind=shadowing`: five or six shadowings, each with a `comparison` whose `unrecognized` lists
+     0 to 2 words;
+   - `GET /api/productions/{id}/audio` with one of the ids: the response is a short WAV (one second of a soft tone, or
+     of silence for the silent take). Every clip lasts one second whatever `audio_seconds` says (D-190).
+4. While the app runs, `uv run python -m app demo seed --reset` is refused ("the file is in use"), and nothing changes.
+
+### Departures from the prompt (for the whole of M6.a2)
+
+- **M6.a2a** (see its section): 180 s and the SPEC sentence; `/correct` of a spoken answer in `answer` mode with the
+  source `review`; silence as `unavailable` / `silence`; `review_log.audio_path`; `sentence_production` refuses a spoken
+  production; the early checks also for the shadowing; 4 500 characters per corrected unit; `production.corrected` v2
+  for every kind; and, not planned (D-186): the solution always returned by `review-answer`, `text_too_long` for an
+  over-long spoken answer, the checks run three times, a private `_recorded_origin`, the prompt edited in place.
+- **M6.a2b**, approved with the plan: the demo uses the speech flows in the caller's transaction, not the entry points
+  that commit (D-189); the old `audio-demo/` is set aside **before** the database is replaced (D-188); `audio_dir`
+  instead of `audio_store`, `AudioStore.clear()` removed; the transcription version in `model`; "every oral
+  production has a file" read as every `speaking` and `shadowing` production (a pasted transcript is `oral` without a
+  recording); a failed spoken answer leaves the term out (no confusion error); the last session's silent take and
+  uncorrected speech; one-second clips with realistic declared durations.
+- **M6.a2b**, not in the plan: `demo seed` prints the number of recordings; two assertions of `test_demo_data` follow
+  the new rows (a spoken answer's proposed rating, a spoken production's word count).
+
+### Left / notes
+
+- M6.b1, M6.b2 (screens), M6.c (Azure). The owner's manual scenarios. Push and the pull request: with the owner's
+  go-ahead (after PR #21).
+
+### Known issues
+
+- The demo's clips last one second whatever `audio_seconds` declares (D-190).
+- With some seeds no `spoken_answer` review happens in 60 days (seed 2 of 1 to 12); the default seed 42 has three.
+- If a program opens an old demo recording between the two renames of the swap, `rmtree(ignore_errors=True)` leaves
+  it in `audio-demo.old-<pid>/` (harmless, deleted by hand).
+- Those of M6.a2a below still hold.
 
 ## M6.a2a — Corrected free speaking and spoken answers in reviews (backend)
 

@@ -20,7 +20,7 @@ Browser ── http://127.0.0.1:5173 ──> Vite dev server (frontend/)
 `scripts/wait-and-open.mjs`, which opens the browser once `/api/health` and the Vite page answer (M1.c).
 Host and ports of the dev servers live in `frontend/dev-server.json`, read by `vite.config.ts` and the
 opener. Demo mode (`VOCAB_DEMO=1`, `python -m app --demo`, `start.ps1 -Demo`) only changes the database
-file (and the recordings folder, `data/audio-demo/`); see D-033, D-169.
+file (and the recordings folder, `data/audio-demo/`); see D-033, D-169, D-188.
 Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/dist`.
 
 ## Backend (`backend/`)
@@ -47,12 +47,12 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/api/speech.py` | `POST /api/speech/shadowing` (raw recording as the body, query parameters), `POST /api/productions/{id}/transcribe`, `GET /api/productions/{id}/audio` (streamed, `Range`); `ComparisonOut`, also used by `ProductionOut`; `POST /api/speech/speaking`, `POST /api/speech/review-answer`, `GET /api/speaking/topics` (M6.a2a) | M6.a1, M6.a2a |
 | `app/services/env_file.py` | safe edit of the three AI variables of `.env` (D-062) | M2.c1 |
 | `app/services/ai_connection_test.py` | shared connection test, CLI and API (D-065) | M2.c1 |
-| `app/demo/` | fictional demo data (`content/demo/`: decks, errors, prompts, hand-typed sheets): dataset loader, simulated learner, 60-day simulation through the services (session service `session-1`, `choose_exercise`, discovery without initial ratings), module E through its services with fictional AI results validated by the real schemas (`fictional_ai.py`, D-163), the oral productions as the one direct write left, atomic `demo seed` (which also empties `data/audio-demo/`) | M1.c, M4.a2, M5.a3, M6.a1 |
+| `app/demo/` | fictional demo data (`content/demo/`: decks, errors, prompts, hand-typed sheets): dataset loader, simulated learner, 60-day simulation through the services only (session service `session-1`, `choose_exercise`, discovery without initial ratings; modules E and F with fictional AI results validated by the real schemas, `fictional_ai.py`, D-163, D-190; one-second WAV clips made with `wave`, `clips.py`), atomic `demo seed` (the database and `data/audio-demo/` replaced together, D-188) | M1.c, M4.a2, M5.a3, M6.a1, M6.a2b |
 | `app/domain/` | pure business logic (see "Domain and services" below) | M1.a, M1.b |
 | `app/services/` | operations that read and write the database, in the caller's transaction | M1.b |
 | `app/db/` | data layer (see below) | M1.a |
 | `app/ai/` | AI gateway, prompts, schemas, providers (see "AI gateway" below) | M2.a, M2.b1 (Groq, Ollama), M2.b2 (Gemini) |
-| `app/speech/audio_store.py` | local recordings: accepted media types, `YYYY/MM/<uuid4>.<ext>` names, atomic write, paths resolved inside the folder only, demo folder (D-169) | M6.a1 |
+| `app/speech/audio_store.py` | local recordings: accepted media types, `YYYY/MM/<32 hex>.<ext>` names (a random UUID4 by default, an injected factory for the demo, D-187), atomic write, paths resolved inside the folder only, demo folder (D-169) | M6.a1, M6.a2b |
 | `alembic.ini` | Alembic configuration (URL comes from the app settings) | M1.a |
 | `tests/` | pytest suite; database tests use a temporary SQLite file built by the migrations | M0, M1.a |
 
@@ -185,6 +185,9 @@ domain/                           pure: no session, no network, no clock (`now` 
   session and the recording before writing anything, then records (origin `review`), transcribes and corrects in
   `answer` mode in three short transactions; `POST /api/reviews` takes the production back and computes the proposed
   rating from `speaking-1` (D-183).
+- **The same flows in the caller's transaction** (M6.a2b, D-189): `speech.store_recording`, `speaking.store_speaking`
+  and `spoken_review.store_spoken_answer` take a transcription already obtained (and, for a spoken answer, a corrector
+  instead of the AI) and write without committing. Only the demo uses them, inside its one transaction.
 
 ## AI gateway (`backend/app/ai/`, M2.a, M2.b1, M2.b2)
 
