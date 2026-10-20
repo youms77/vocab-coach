@@ -1,9 +1,10 @@
 """Local storage of recordings (module F, D-169).
 
 Recordings live under `<data_dir>/audio/` (`<data_dir>/audio-demo/` in demo mode, so no demo file
-mixes with the owner's own and `demo seed` can empty the folder). The server names every file
-`YYYY/MM/<uuid4 hex>.<ext>`, never with the client's name; `production_attempt.audio_path` holds
-that path relative to the folder, and the served media type follows from the extension (no column).
+mixes with the owner's own and `demo seed` can replace the folder). The server names every file
+`YYYY/MM/<32 hex>.<ext>` (a random UUID4 by default), never with the client's name;
+`production_attempt.audio_path` holds that path relative to the folder, and the served media type
+follows from the extension (no column).
 
 Writing is atomic (a temporary file in the same folder, then `os.replace`), and done **before** the
 database transaction: the caller deletes the file if the transaction fails. Reading checks the
@@ -15,6 +16,7 @@ import os
 import re
 import shutil
 import uuid
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -42,6 +44,7 @@ SERVED_TYPES: dict[str, str] = {
     "mp3": "audio/mpeg",
 }
 
+_NAME = re.compile(r"[0-9a-f]{32}")
 _STORED_PATH = re.compile(r"\d{4}/\d{2}/[0-9a-f]{32}\.(?:" + "|".join(SERVED_TYPES) + r")")
 
 
@@ -63,9 +66,19 @@ def served_type(relative_path: str) -> str:
     return SERVED_TYPES.get(Path(relative_path).suffix.lstrip("."), "application/octet-stream")
 
 
+def random_name() -> str:
+    """The default file name: a random UUID4 in hexadecimal."""
+    return uuid.uuid4().hex
+
+
 class AudioStore:
-    def __init__(self, root: Path) -> None:
+    """`names` makes the file names (32 lowercase hexadecimal characters). The default is
+    random; the demo passes a generator derived from its seed, so `audio_path` is reproducible
+    (D-187)."""
+
+    def __init__(self, root: Path, *, names: Callable[[], str] = random_name) -> None:
         self.root = root
+        self.names = names
 
     @classmethod
     def for_settings(cls, settings: Settings) -> "AudioStore":
@@ -82,7 +95,10 @@ class AudioStore:
         """Write a new file atomically; returns its path relative to the folder."""
         if extension not in SERVED_TYPES:
             raise ValueError(f"unsupported audio extension {extension!r}")
-        relative = f"{at:%Y}/{at:%m}/{uuid.uuid4().hex}.{extension}"
+        name = self.names()
+        if not _NAME.fullmatch(name):
+            raise ValueError(f"an audio file name is 32 hexadecimal characters, not {name!r}")
+        relative = f"{at:%Y}/{at:%m}/{name}.{extension}"
         final = self.root / relative
         final.parent.mkdir(parents=True, exist_ok=True)
         temporary = final.with_name(f".{final.name}.tmp")
