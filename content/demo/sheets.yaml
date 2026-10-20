@@ -15,7 +15,7 @@
 # Full sheets cover every term that ends queued, in triage or discovering with seed 42, and at
 # least 25 learning or consolidated terms. Draft and known terms have no sheet.
 
-dataset_version: 3
+dataset_version: 4
 
 sheets:
   # --- Causal inference reading ------------------------------------------------------------

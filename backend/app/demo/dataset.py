@@ -150,6 +150,28 @@ class DemoDrill(_Strict):
         }
 
 
+class StructureSuggestion(_Strict):
+    text_en: str
+    text_fr: str
+
+
+class StructureComment(_Strict):
+    """A fictional comment on how a free speech is organised (`speaking_correction.structure`)."""
+
+    comment_en: str
+    comment_fr: str
+    suggestions: Annotated[list[StructureSuggestion], Field(max_length=3)] = []
+
+
+class DemoSpeech(_Strict):
+    """What the fictional recogniser and corrector of spoken productions need (M6.a2b)."""
+
+    connectors: Annotated[list[str], Field(min_length=1)]
+    structure: Annotated[list[StructureComment], Field(min_length=1)]
+    # What the learner says in a spoken answer when the term does not come.
+    forgotten_answers: Annotated[list[str], Field(min_length=1)]
+
+
 class DemoExercises(_Strict):
     """The exercise templates of a full demo sheet (one of each type; listening reuses the
     recognition sentence, typed recall is derived from the sheet)."""
@@ -181,6 +203,7 @@ class DemoDataset(_Strict):
     prompts: list[ProductionPrompt]
     fillers: list[str]
     tutor_lines: Annotated[list[str], Field(min_length=1)]
+    speech: DemoSpeech
     sheets: list[DemoSheet] = []
     drills: list[DemoDrill] = []
 
@@ -271,6 +294,7 @@ def load_dataset(directory: Path = DEMO_CONTENT_DIR) -> DemoDataset:
         prompts=prompts["prompts"],
         fillers=prompts["fillers"],
         tutor_lines=prompts["tutor_lines"],
+        speech=prompts["speech"],
         sheets=sheets["sheets"],
         drills=drills["drills"],
     )
