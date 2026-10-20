@@ -12,11 +12,12 @@ from sqlalchemy.orm import Session
 from app.ai.gateway import Gateway
 from app.ai.providers.fake import FakeProvider, Success
 from app.ai.schemas import TranscriptionOutput
+from app.ai.schemas.speaking_correction import SpeakingCorrectionOutput, speaking_context
 from app.ai.types import AiResult, AiStatus, Capability
 from app.db.models import ErrorCategory, ErrorEvent, ProductionAttempt
 from app.db.taxonomy import sync_taxonomy
 from app.domain.speaking_topics import SpeakingTag
-from app.services import speaking, speaking_topics
+from app.services import corrections, speaking, speaking_topics
 from app.services.library import ItemNotFound
 from app.speech.audio_store import AudioStore
 from tests.library_support import count
@@ -135,3 +136,68 @@ def test_the_speaking_topics_file() -> None:
     assert len(interview) >= 5 and len(presenting) >= 5
     assert any("results" in t.en for t in presenting)
     assert all(t.en.strip() and t.fr.strip() and t.en != t.fr for t in topics)
+
+
+def test_store_speaking_then_its_correction_in_the_callers_transaction(
+    engine: Engine, factory: Callable[[], Session], store: AudioStore
+) -> None:
+    """The demo's path (D-189): no AI call, one transaction, the same rows as the AI path."""
+    with factory() as session:
+        result = speaking.store_speaking(
+            session,
+            store,
+            data=WAV,
+            content_type="audio/wav",
+            duration_s=None,
+            transcription=given(),
+            prompt_text=PROMPT,
+            at=RECORDED,
+        )
+        assert (result.transcription.status, result.audio_seconds) == ("ok", 42.0)
+        prepared = speaking.prepare_speaking(session, result.production_id)
+        assert prepared.mode == "monologue"
+        units = {u.index: u.text for u in prepared.correction.sentences}
+        output = SpeakingCorrectionOutput.model_validate(
+            speaking_output(),
+            context=speaking_context(
+                units, set(prepared.correction.taxonomy), set(), prepared.mode, SPEECH
+            ),
+        )
+        corrections.store_speaking_correction(
+            session,
+            prepared.correction,
+            output,
+            source=prepared.correction.source,
+            provenance=("demo", None, "demo-speaking-v1"),
+            ai_call_id=None,
+            at=RECORDED,
+        )
+        session.commit()
+    with factory() as session:
+        attempt = session.get_one(ProductionAttempt, result.production_id)
+        assert attempt.ai_feedback is not None
+        assert attempt.ai_feedback["format"] == "speaking-1"
+        assert attempt.ai_feedback["prompt_version"] == "demo-speaking-v1"
+        assert store.exists(attempt.audio_path)
+        errors = session.scalars(select(ErrorEvent).order_by(ErrorEvent.id)).all()
+        assert [session.get_one(ErrorCategory, e.category_id).code for e in errors] == (
+            EXPECTED_CODES
+        )
+        assert {str(e.source) for e in errors} == {"speaking"}
+
+
+def test_store_speaking_refuses_an_unknown_term_before_the_file(
+    engine: Engine, factory: Callable[[], Session], store: AudioStore
+) -> None:
+    with factory() as session, pytest.raises(ItemNotFound):
+        speaking.store_speaking(
+            session,
+            store,
+            data=WAV,
+            content_type="audio/wav",
+            duration_s=30.0,
+            transcription=given(),
+            target_item_ids=[999],
+            at=RECORDED,
+        )
+    assert not store.root.exists() or not any(store.root.rglob("*.wav"))

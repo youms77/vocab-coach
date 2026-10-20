@@ -7,11 +7,16 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai.providers.fake import Failure, FakeProvider, Success
+from app.ai.schemas import TranscriptionOutput
+from app.ai.schemas.speaking_correction import SpeakingCorrectionOutput, speaking_context
 from app.ai.types import (
+    AiResult,
+    AiStatus,
     Capability,
     ErrorKind,
     ProviderRequest,
@@ -20,6 +25,9 @@ from app.ai.types import (
 )
 from app.db.models import Card, LexicalItem, ProductionAttempt, ReviewLog
 from app.domain import exercises as ex
+from app.services import speaking, spoken_review
+from app.services.review_flow import ExerciseMismatch
+from app.speech.audio_store import AudioStore
 from tests.api.conftest import FakeAiEnv
 from tests.api.session_support import (
     DAY_2_START,
@@ -448,3 +456,97 @@ def output_sentence() -> dict[str, Any]:
         "targets": [CHECK],
         "overall_comment": "Good.",
     }
+
+
+# --- In the caller's transaction (the demo, D-189) -----------------------------------------------
+
+
+def _given(text: str) -> AiResult[TranscriptionOutput]:
+    return AiResult(
+        status=AiStatus.OK,
+        data=TranscriptionOutput(text=text, duration_s=6.4),
+        provider="demo",
+        model="demo-transcription-v1",
+    )
+
+
+def _corrector(output: dict[str, Any]) -> spoken_review.Corrector:
+    def correct(prepared: speaking.PreparedSpeech) -> SpeakingCorrectionOutput:
+        found = prepared.correction
+        return SpeakingCorrectionOutput.model_validate(
+            output,
+            context=speaking_context(
+                {u.index: u.text for u in found.sentences},
+                set(found.taxonomy),
+                {t.ref for t in found.targets},
+                prepared.mode,
+                found.text,
+            ),
+        )
+
+    return correct
+
+
+def _store(review: SpokenReview, session: Session, tmp_path: Path, **changes: Any) -> Any:
+    arguments: dict[str, Any] = {
+        "card_id": review.card_id,
+        "study_session_id": review.session_id,
+        "exercise_template_id": review.templates[ex.SPOKEN_ANSWER],
+        "data": WAV,
+        "content_type": "audio/wav",
+        "duration_s": None,
+        "transcription": _given(ANSWER),
+        "correct": _corrector(answer_output()),
+        "provenance": ("demo", None, "demo-speaking-v1"),
+        "at": review.env.clock.current,
+    } | changes
+    return spoken_review.store_spoken_answer(
+        session, AudioStore(tmp_path / "data" / "audio"), **arguments
+    )
+
+
+def test_store_spoken_answer_without_ai_then_the_review(
+    fake_env: FakeAiEnv, tmp_path: Path
+) -> None:
+    review = SpokenReview(fake_env)
+    with Session(fake_env.engine) as session:
+        checked = _store(review, session, tmp_path)
+        assert (checked.status, checked.proposed_rating, checked.warnings) == ("ok", 3, [])
+        assert checked.solution == {"example_answer": SPOKEN["example_answer"]}
+        session.commit()
+    recorded = review.record(production_attempt_id=checked.production_id)
+    assert recorded.status_code == 200, recorded.text
+    log = review.log()
+    assert (log.production_attempt_id, log.auto_rating) == (checked.production_id, 3)
+    assert log.audio_path is not None and len(audio_files(tmp_path)) == 1
+    with Session(fake_env.engine) as session:
+        attempt = session.get_one(ProductionAttempt, checked.production_id)
+        assert attempt.ai_feedback is not None
+        assert attempt.ai_feedback["provider"] == "demo"
+        assert [e["origin"] for e in events(session, "production.recorded")] == ["review"]
+
+
+def test_store_spoken_answer_term_not_heard_and_silence(
+    fake_env: FakeAiEnv, tmp_path: Path
+) -> None:
+    review = SpokenReview(fake_env)
+    text = "Sorry, I forgot the word."
+    not_heard = answer_output(text, targets=[CHECK | {"used": False, "used_correctly": False}])
+    with Session(fake_env.engine) as session:
+        checked = _store(
+            review, session, tmp_path, transcription=_given(text), correct=_corrector(not_heard)
+        )
+        assert (checked.proposed_rating, checked.warnings) == (None, ["term_not_heard"])
+        silent = _store(review, session, tmp_path, transcription=_given(""))
+        assert (silent.status, silent.reason, silent.correction) == ("unavailable", "silence", None)
+        session.rollback()
+
+
+def test_store_spoken_answer_refuses_before_any_file(fake_env: FakeAiEnv, tmp_path: Path) -> None:
+    review = SpokenReview(fake_env)
+    wrong = review.templates[ex.SENTENCE_PRODUCTION]
+    with Session(fake_env.engine) as session:
+        with pytest.raises(ExerciseMismatch):
+            _store(review, session, tmp_path, exercise_template_id=wrong)
+        session.rollback()
+    assert audio_files(tmp_path) == []

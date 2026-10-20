@@ -85,6 +85,61 @@ def _checked_targets(target_item_ids: Sequence[int]) -> tuple[int, ...]:
     return ids
 
 
+def speaking_recording(
+    *,
+    prompt_text: str | None,
+    target_item_ids: Sequence[int],
+    study_session_id: int | None,
+    bounds: RecordingKind = RecordingKind.SPEAKING,
+    origin: ProductionOrigin = ProductionOrigin.SPEAKING,
+) -> speech.Recording:
+    """What a spoken production is: free speaking by default, a spoken answer with the bounds and
+    the origin of a review. Raises InvalidProduction."""
+    return speech.Recording(
+        kind=ProductionKind.SPEAKING,
+        bounds=bounds,
+        prompt_text=check_prompt(prompt_text),
+        item_ids=_checked_targets(target_item_ids),
+        origin=origin,
+        study_session_id=study_session_id,
+    )
+
+
+def store_speaking(
+    session: Session,
+    store: AudioStore,
+    *,
+    data: bytes,
+    content_type: str | None,
+    duration_s: float | None,
+    transcription: AiResult[TranscriptionOutput],
+    prompt_text: str | None = None,
+    target_item_ids: Sequence[int] = (),
+    study_session_id: int | None = None,
+    at: datetime,
+) -> speech.SpeechResult:
+    """Free speaking and its transcription, already obtained, in the caller's transaction (no
+    commit, no AI call; the demo, D-189). `prepare_speaking` and
+    `corrections.store_speaking_correction` then correct it the same way. Raises as
+    `record_speaking`."""
+    speech.check_audio(data, content_type)
+    recording = speaking_recording(
+        prompt_text=prompt_text,
+        target_item_ids=target_item_ids,
+        study_session_id=study_session_id,
+    )
+    return speech.store_recording(
+        session,
+        store,
+        recording,
+        data=data,
+        content_type=content_type,
+        duration_s=duration_s,
+        transcription=transcription,
+        at=at,
+    )
+
+
 def record_speaking(
     session_factory: SessionFactory,
     gateway: Gateway,
@@ -112,13 +167,12 @@ def record_speaking(
     AudioTooShort, AudioTooLong, ItemNotFound, SessionNotFound, SessionClosed (and whatever
     `check` raises); nothing is stored then."""
     speech.check_audio(data, content_type)
-    recording = speech.Recording(
-        kind=ProductionKind.SPEAKING,
-        bounds=bounds,
-        prompt_text=check_prompt(prompt_text),
-        item_ids=_checked_targets(target_item_ids),
-        origin=origin,
+    recording = speaking_recording(
+        prompt_text=prompt_text,
+        target_item_ids=target_item_ids,
         study_session_id=study_session_id,
+        bounds=bounds,
+        origin=origin,
     )
     return speech.record(
         session_factory,

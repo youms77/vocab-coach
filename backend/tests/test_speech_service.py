@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.ai.gateway import Gateway
 from app.ai.providers.fake import Failure, FakeProvider, Success
+from app.ai.schemas import TranscriptionOutput
 from app.ai.types import (
     AiResult,
     AiStatus,
@@ -522,3 +523,96 @@ def test_an_unknown_production(
 ) -> None:
     with pytest.raises(ProductionNotFound):
         speech.transcribe_production(factory, gateway_for(engine, fake()), store, 42)
+
+
+# --- In the caller's transaction (the demo, D-189) -----------------------------------------------
+
+
+def given(text: str = HEARD, duration_s: float | None = 3.4) -> AiResult[TranscriptionOutput]:
+    return AiResult(
+        status=AiStatus.OK,
+        data=TranscriptionOutput(text=text, duration_s=duration_s),
+        provider="demo",
+        model="demo-transcription-v1",
+    )
+
+
+def test_store_recording_writes_in_the_callers_transaction(
+    engine: Engine, store: AudioStore
+) -> None:
+    with Session(engine) as session:
+        item = add_item(session, "fixed effects")
+        recording = speech.shadowing_recording(f"  {TARGET} ", item_id=item.id)
+        result = speech.store_recording(
+            session,
+            store,
+            recording,
+            data=WAV,
+            content_type="audio/wav",
+            duration_s=None,
+            transcription=given(),
+            at=NOW,
+        )
+        assert result.transcription.status == "ok"
+        assert result.transcription.comparison is not None
+        assert [u.word for u in result.transcription.comparison.unrecognized] == ["fixed"]
+        assert result.audio_seconds == 3.4
+        with Session(engine) as other:  # nothing committed yet
+            assert count(other, ProductionAttempt) == 0
+        session.commit()
+    with Session(engine) as session:
+        attempt = session.get_one(ProductionAttempt, result.production_id)
+        assert (attempt.prompt_text, attempt.text) == (TARGET, HEARD)
+        assert store.exists(attempt.audio_path)
+        assert count(session, PronunciationResult) == 1
+        recorded = events(session, EventType.PRODUCTION_RECORDED)
+        assert [e["origin"] for e in recorded] == ["shadowing"]
+        assert [e["provider"] for e in events(session, EventType.PRODUCTION_TRANSCRIBED)] == [
+            "demo"
+        ]
+
+
+def test_store_recording_without_a_transcription_leaves_it_pending(
+    engine: Engine, store: AudioStore
+) -> None:
+    failed: AiResult[TranscriptionOutput] = AiResult(status=AiStatus.UNAVAILABLE)
+    with Session(engine) as session:
+        result = speech.store_recording(
+            session,
+            store,
+            speech.shadowing_recording(TARGET),
+            data=WAV,
+            content_type="audio/wav",
+            duration_s=2.0,
+            transcription=failed,
+            at=NOW,
+        )
+        assert result.transcription.status == "unavailable"
+        attempt = session.get_one(ProductionAttempt, result.production_id)
+        assert speech.transcription_state(session, attempt) == "pending"
+
+
+def test_store_recording_refuses_before_the_file_and_deletes_it_on_failure(
+    engine: Engine, store: AudioStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    arguments: dict[str, object] = {
+        "data": WAV,
+        "content_type": "audio/wav",
+        "duration_s": 2.0,
+        "transcription": given(),
+        "at": NOW,
+    }
+    with Session(engine) as session:
+        with pytest.raises(ItemNotFound):
+            speech.store_recording(
+                session, store, speech.shadowing_recording(TARGET, item_id=999), **arguments
+            )  # type: ignore[arg-type]
+        assert files(store) == []
+
+        def broken(*args: object, **kwargs: object) -> None:
+            raise RuntimeError("disk full")
+
+        monkeypatch.setattr(speech, "store_transcription", broken)
+        with pytest.raises(RuntimeError, match="disk full"):
+            speech.store_recording(session, store, speech.shadowing_recording(TARGET), **arguments)  # type: ignore[arg-type]
+        assert files(store) == []
