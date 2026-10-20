@@ -33,7 +33,7 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/cli_plan.py` | `plan today`: builds the plan read-only (`PRAGMA query_only`) and renders it as text or JSON | M1.b |
 | `app/cli_ai.py` | `ai status` (providers, models, order; never a key), `ai test` (one real call per configured provider, optional Whisper clip, writes `ai_call_log`), `ai usage` (read-only) | M2.b1 |
 | `app/cli_library.py` | `library import <file> [--deck-id] [--no-triage] [--commit]`: read-only preview, or import of the clear lines with default choices | M3.a |
-| `app/cli_speech.py` | `speech shadow --file --target [--item] [--duration]`, `speech transcribe <id>`, `speech compare "<target>" "<heard>"` (no AI); exit codes 0 / 1 / 2 (D-176) | M6.a1 |
+| `app/cli_speech.py` | `speech shadow --file --target [--item] [--duration]`, `speech transcribe <id>`, `speech compare "<target>" "<heard>"` (no AI); `speech speak --file [--prompt] [--duration] [--no-correct]`, `speech correct <id>` (M6.a2a, D-184); exit codes 0 / 1 / 2 (D-176) | M6.a1, M6.a2a |
 | `app/api/health.py` | `GET /api/health` → `{status, version, database: {ok, revision, at_head}, demo}` | M0, M1.a, M1.c |
 | `app/api/guard.py` | ASGI middleware: Host / Origin / Sec-Fetch-Site / JSON-only checks (D-061); an `audio/*` body is accepted under `/api/speech/` only (D-170) | M2.c1, M6.a1 |
 | `app/api/errors.py` | `{"detail": {"code", "message"}}` errors, 422 without `input` (D-063) | M2.c1 |
@@ -44,7 +44,7 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/api/session.py` | `/api/session/today`, `/start`, `/{id}/next`, `/{id}/end` | M4.a1 |
 | `app/api/reviews.py` | `/api/reviews/grade` (writes nothing), `/api/reviews` (record), `/api/reviews/reveal` | M4.a1 |
 | `app/api/discovery.py` | `/api/discovery/{item_id}/start`, `/exercises`, `/complete` | M4.a1 |
-| `app/api/speech.py` | `POST /api/speech/shadowing` (raw recording as the body, query parameters), `POST /api/productions/{id}/transcribe`, `GET /api/productions/{id}/audio` (streamed, `Range`); `ComparisonOut`, also used by `ProductionOut` | M6.a1 |
+| `app/api/speech.py` | `POST /api/speech/shadowing` (raw recording as the body, query parameters), `POST /api/productions/{id}/transcribe`, `GET /api/productions/{id}/audio` (streamed, `Range`); `ComparisonOut`, also used by `ProductionOut`; `POST /api/speech/speaking`, `POST /api/speech/review-answer`, `GET /api/speaking/topics` (M6.a2a) | M6.a1, M6.a2a |
 | `app/services/env_file.py` | safe edit of the three AI variables of `.env` (D-062) | M2.c1 |
 | `app/services/ai_connection_test.py` | shared connection test, CLI and API (D-065) | M2.c1 |
 | `app/demo/` | fictional demo data (`content/demo/`: decks, errors, prompts, hand-typed sheets): dataset loader, simulated learner, 60-day simulation through the services (session service `session-1`, `choose_exercise`, discovery without initial ratings), module E through its services with fictional AI results validated by the real schemas (`fictional_ai.py`, D-163), the oral productions as the one direct write left, atomic `demo seed` (which also empties `data/audio-demo/`) | M1.c, M4.a2, M5.a3, M6.a1 |
@@ -116,7 +116,11 @@ services/                         read/write the database; never commit (D-023)
   corrections.py / transcripts.py / drills.py  + store_correction() / store_analysis() / store_drill(): write an
                   already validated result in the caller's transaction; the AI paths and the demo use them (M5.a3, D-165)
   speech.py       record_shadowing() (file, then a short transaction, then the transcription), transcribe_production(),
-                  store_transcription(), transcription_state(), comparison_of() (M6.a1, D-169 to D-175)
+                  store_transcription(), transcription_state(), comparison_of() (M6.a1, D-169 to D-175); record(): the
+                  recording core shared with free speaking and spoken answers (checks before the file, M6.a2a, D-182)
+  speaking.py     record_speaking(), prepare_speaking(), correct_speaking() (`speaking_correction`, `speaking-1`) (M6.a2a)
+  spoken_review.py  check_spoken_answer(): refusals first, then recording, transcription, correction (M6.a2a, D-183)
+  speaking_topics.py  todays_topics(): the speaking topics, skipping the spoken prompts of 7 days (M6.a2a)
    │
 domain/                           pure: no session, no network, no clock (`now` is a parameter)
   study_day.py    as_utc(), study_day_of(), study_day_bounds()        (timezone + day_start_hour)
@@ -135,7 +139,9 @@ domain/                           pure: no session, no network, no clock (`now` 
   review_steps.py build_prompt() (never a solution), build_solution(), shuffled_options() seeded by card + reps (M4.a1)
   speech_compare.py  words(), compare(): word alignment by dynamic programming (match, close, substituted, missing,
                   extra), contractions / numbers / hyphens tolerated (M6.a1, D-173)
-  speech_rules.py audio size and target limits, duration bounds per production kind, Whisper's silence rule (M6.a1)
+  speech_rules.py audio size and target limits, duration bounds per production kind, Whisper's silence rule (M6.a1);
+                  RecordingKind and its bounds, speech_units() (at most 40 units of whole sentences) (M6.a2a)
+  topics.py       topic file format and daily pick, shared by writing_topics.py and speaking_topics.py (M6.a2a)
 ```
 
 - **Flow of a review**: `record_review` loads the item, refuses archived/known items and out-of-order
@@ -169,6 +175,16 @@ domain/                           pure: no session, no network, no clock (`now` 
   stores the text, the `pronunciation_result` and `production.transcribed` + `pronunciation.checked`. An AI failure
   writes nothing more: the recording stays and `POST /productions/{id}/transcribe` runs it again. Reads compute the
   comparison again from `pronunciation_result`; no error is ever recorded from it (D-174).
+- **Flow of free speaking** (M6.a2a): `POST /api/speech/speaking` goes through the same core (`speech.record`, the
+  terms and the session checked before the file is written and again in the transaction) with `kind=speaking` and
+  the topic as `prompt_text`; the transcription sets `word_count` to the words heard. `POST /productions/{id}/correct`
+  then reads it (transcribed, not silent, at most 4 000 characters), cuts it into units (`speech_units`), calls
+  `speaking_correction` with no session open, and `store_speaking_correction` writes `speaking-1`, the errors (source
+  `speaking`, dated at the recording) and `production.corrected` in one short transaction (D-180 to D-182).
+- **Flow of a spoken answer** (M6.a2a): `POST /api/speech/review-answer` checks the card, its due date, the term, the
+  session and the recording before writing anything, then records (origin `review`), transcribes and corrects in
+  `answer` mode in three short transactions; `POST /api/reviews` takes the production back and computes the proposed
+  rating from `speaking-1` (D-183).
 
 ## AI gateway (`backend/app/ai/`, M2.a, M2.b1, M2.b2)
 

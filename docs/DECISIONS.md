@@ -1415,6 +1415,10 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   prompt with nothing to show (no sheet, no sentence) carries the warning `no_cue`.
 - `sentence_production` and `spoken_answer` are self-graded too until AI correction (M5) and recording (M6):
   a typed sentence is only checked for the term (`term_missing`).
+- *Updated in M6.a2a*: `sentence_production` is checked by the AI since M5.a1 (D-129) and `spoken_answer` since
+  M6.a2a (D-183): neither is self-graded any more when the check is available. Without it (no key, no network, a
+  failed transcription or correction, or the user skipping the check) both stay self-graded exactly as above.
+  The "nothing is recorded yet" note of D-123 is for the M6.b screens.
 
 ## D-102 — Grading rules (M4.a1)
 
@@ -2715,3 +2719,194 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   with `wave`, or use a few fake bytes when the provider is fake.
 - No migration (the schema already had `audio_path`, `audio_seconds`, `pronunciation_result`), no new dependency, no
   new setting, no frontend change.
+
+## D-178 — M6.a2 is cut in two; facts checked (M6.a2a, 2026-10-19)
+
+- **M6.a2a** (this milestone, backend): corrected free speaking, spoken answers in reviews checked by
+  transcription and the AI, the CLI. **M6.a2b** (next, same branch): the demo through the services (injectable audio
+  names, atomic `audio-demo/`, short WAV clips, fictional `speaking_correction` outputs and transcriptions in
+  `fictional_ai.py`, dataset v4), which removes `direct_writes.py` and closes D-035. The services of M6.a2a already
+  take an injected `AudioStore` and a given transcription (`transcription=`) for that.
+- Branch `feat/m6a2-speaking-correction`, cut from `feat/m6a1-recordings-transcription` (M6.a1 is not merged into
+  `main` yet: PR #21). No migration, no new dependency, no new setting, no frontend change.
+- **Checked on 2026-10-19** on the official models page (ai.google.dev/gemini-api/docs/models): `gemini-3.5-flash-lite`
+  is listed under Gemini 3, "Stable". Groq's limits were not read again: nothing surprising happened.
+
+## D-179 — Recording kinds, their bounds and the units of a spoken text (M6.a2a)
+
+- `domain/speech_rules.py`: `RecordingKind` = `shadowing` / `speaking` / `spoken_answer`; `DURATION_BOUNDS` is keyed
+  by it, and since `shadowing` and `speaking` have the values of `ProductionKind`,
+  `DURATION_BOUNDS[ProductionKind.SHADOWING]` still reads the M6.a1 bounds (its tests are unchanged). Bounds:
+  shadowing 0.5 to 30 s; free speaking 5 to 180 s (the screen asks for 1 to 2 minutes: 180 s is a technical ceiling
+  so a take that runs over is not lost; SPEC module F says "up to 3 accepted", **approved by the owner** with the
+  plan); spoken answer 1 to 90 s.
+- `MAX_SPEAKING_CHARS = 4000`, as a written text: about three minutes of a learner's speech is 2 500 characters.
+- `speech_units(text)`: the sentences of `split_sentences(max_sentences=None)`; beyond 40 they are grouped into 40
+  units of consecutive whole sentences, balanced (the first `n % 40` units hold one sentence more). A unit is the
+  original text from the start of its first sentence to the end of its last, so `spans` stay exact. Tested on 200
+  random texts (every sentence in exactly one unit, in order, positions exact, sizes balanced).
+- `grading.production_rating` also reads `speaking-1`: Good when the term was heard and judged correct with no error
+  tied to it; Again when it is misused or an error concerns it; **none when it was not heard** (the learner may have
+  left it out, or the recogniser may have missed it: speech recognition is not a pronunciation judge, D-174), with
+  `production_warnings` giving `term_not_heard`. A written sentence without the term is still Again (D-129). Easy and
+  Hard are never proposed.
+- Topics: `domain/topics.py` holds the file format and the daily pick, shared by `writing_topics.py` (same names and
+  behaviour, its tests unchanged) and `speaking_topics.py` (`SpeakingTag` adds `presenting`).
+
+## D-180 — The `speaking_correction` task (M6.a2a)
+
+- **Task** `speaking_correction` v1. Inputs as `production_correction` (D-128): `mode` (`answer` | `monologue`) and
+  `taxonomy` are `plain`; the units (sent as numbered `sentences`), the task (cut to 500 characters) and at most 15
+  targets are `data`. The taxonomy is `transcripts.allowed_taxonomy`: active codes **without `spelling` and
+  `pronunciation.*`** (the recogniser wrote the spelling; pronunciation cannot be judged from a transcription).
+- **Prompt rules**: real errors only (D-132); the recogniser's punctuation, capitals, spelling and homophones,
+  hesitations, repetitions, false starts and self-corrections (only the final version counts), contractions and
+  normal spoken style are ignored; register is an error only when it is clearly wrong for the task (an interview, a
+  presentation), otherwise a note; `discourse.*` only for a connector that says the wrong thing or a clear break in
+  logic, everything else about organisation goes in `structure`; the most specific subcategory ("at university"; a
+  duration with "since" is one by/for/since error, D-134). Tuned once against the real model (D-185).
+- **Schema**: `SpeakingCorrectionOutput` **inherits** `ProductionCorrectionOutput`, so every validator of D-128 runs
+  (indices, `wrong` in its unit, codes, proposals, targets, notes, 30 errors). Changes: a unit's `corrected` may hold
+  4 500 characters (a spoken unit without punctuation can be long); `structure` (nullable) = `comment_en`,
+  `comment_fr` (1 to 3 sentences, at most 600 characters each), `connectors_used` (at most 10, each found in the
+  transcription with `find_fragment`), `suggestions` (at most 3 `{text_en, text_fr}`); `structure` is required in
+  `monologue` mode. Validation context: `speaking_context(units, codes, refs, mode, text)`. `production_correction`,
+  its schema and its tests are untouched.
+- **Budgets** (`tasks.py`): input 20 000 characters (text 4 000, 40 units as JSON about 800, task 500, 15 targets of
+  about 250, about 33 taxonomy lines of at most about 230: about 16 600); output `1 200 + 250 x units`, ceiling
+  10 000 (the base is 400 tokens above D-128, for `structure`); timeout 60 s. As in D-128, 10 000 tokens are more
+  than Groq's 8 000 per minute in a fallback: accepted.
+
+## D-181 — One store for written and spoken corrections; `production.corrected` v2 (M6.a2a)
+
+- `corrections.store_correction`'s body is now a private `_store`, set by the feedback format and the date of the
+  errors; `store_correction` calls it unchanged (the whole suite is the proof). `store_speaking_correction` (D-165:
+  the caller's transaction, no commit) writes `format: "speaking-1"` with **exactly the keys of `correction-1`**
+  (`prompt_version`, `provider`, `model`, `output`, `spans`, `error_event_ids`, `targets`), so the M6.b screens reuse
+  the highlighted view; `output` keeps `structure`.
+- Spoken errors: `original_text` = the unit, `occurred_at` = **the time of the recording** (`attempt.created_at`),
+  since a correction can come days later; `spans` are code points into the transcription.
+- `production.corrected` **version 2** adds `kind` (optional, so version 1 reads), written by written corrections,
+  transcripts and spoken corrections: M9 can count corrected speech apart.
+- `recorded_origin`, `targets_for`, `prompt_line` and `task_inputs` of `corrections.py` are shared with the spoken
+  correction.
+
+## D-182 — Free speaking (M6.a2a)
+
+- **Recording core** (`speech.record`, a `Recording` = kind, bounds, prompt, targets, origin, study session): used
+  by the shadowing (`record_shadowing` keeps its signature), free speaking and the spoken answer. Order: the upload
+  and its duration, then a short read that checks the terms, the session and the caller's own checks (`check`),
+  **before the file is written**; the same checks again in the creating transaction; the file is deleted if that
+  transaction fails (D-169). The shadowing gains the early read too: same results, but a refused term no longer
+  writes and deletes a file (approved with the plan).
+- `services/speaking.py`: `record_speaking` creates `kind = speaking`, `modality = oral`, `prompt_text` = the topic,
+  targets with `used = null`, `production.recorded` **version 5** (new origin `speaking`). The topic is never a
+  Whisper prompt (D-172; tested). After the transcription, a spoken production's `word_count` = the words heard
+  (`speech_compare.words`), the denominator of the error rates; a shadowing keeps 0 (D-175).
+- `prepare_speaking` refuses before any AI call, in this order: 422 `not_correctable` (not a speaking production; a
+  shadowing is compared, never corrected), 409 `already_corrected`, 409 `not_transcribed` (no
+  `production.transcribed`: transcribe it first), 422 `nothing_to_correct` (silence), 422 `text_too_long` (over 4 000
+  characters). `correct_speaking`: short read, the AI with no session open, one short write that checks again (D-038;
+  tested with a second writer taking `BEGIN IMMEDIATE` during both calls). A failure writes nothing and can be retried.
+- **Mode and source come from the origin** of `production.recorded`: `review` gives `answer` and the source `review`,
+  anything else `monologue` and `speaking`. A retry of a spoken answer through `/correct` keeps them.
+- API: `POST /api/speech/speaking` (raw body, the shadowing's dependency, D-170; query `duration_s`, `prompt_text?`,
+  `target_item_ids?` repeated, `study_session_id?`; lengths checked by the service, 422 `invalid_production`) answers
+  201 `SpeechOut` with `comparison: null`; nothing is corrected until `POST /api/productions/{id}/correct`, which now
+  sends a speaking production to `speaking_correction`.
+- **Topics**: `content/speaking_topics.yaml` (26 fictional topics, EN and FR, tags `interview`, `presenting`,
+  `academic`, `data_science`, `everyday`, `campus`; 7 interview questions and 7 presentation topics, results among
+  them). `GET /api/speaking/topics?count=3&tag=` (in `api/speech.py`, the module F router): deterministic per study
+  day, skipping the **spoken** prompts of the last 7 days (`recent_prompts(modality=oral)`); the writing topics keep
+  skipping every prompt, as before.
+
+## D-183 — Spoken answers in reviews (M6.a2a; extends D-129)
+
+- `POST /api/speech/review-answer` (under `/api/speech/`, the only paths that take `audio/*`, D-170; never under
+  `/api/reviews/`). Query: `card_id`, `session_id`, `exercise_template_id`, `duration_s` (1 to 90), `response_time_ms`
+  (>= 0, validated, not stored: the final call times the card).
+- `spoken_review.check_spoken_answer`: every refusal **before any write and any AI call**, in this order:
+  `card_context(..., "spoken_answer", template)` (404 `card_not_found`, 422 `exercise_mismatch` for the type, the
+  template or the card's direction), `review_flow.require_due` (extracted from `record`, 409 `not_due`), a reviewable
+  term (409 `review_not_allowed`), `require_open` (404 `session_not_found`, 409 `session_closed`), then the recording
+  (422 `audio_empty`, `audio_too_short`, `audio_too_long`; 413 and 415 even earlier, while reading the body). Tested
+  by counting the rows, the files and the provider calls.
+- Then **three short transactions**, none open during the two AI calls: the recording (prompt = the question,
+  target = the term, origin `review`, its checks run again), the transcription, the correction in `answer` mode.
+  Neither the question nor the example answer reaches Whisper (tested).
+- Answer 200: `{production_attempt_id, transcription: {status, text, reason}, status, reason, feedback|null, errors,
+  proposed_rating: 1|3|null, warnings, solution: {example_answer}, sheet_summary}`. A failed transcription:
+  `status: unavailable` with its reason, the recording kept; silence: `unavailable` / `silence`; a transcription over
+  4 000 characters: `unavailable` / `text_too_long` (kept, not corrected); a failed correction: the transcription is
+  returned, no rating; `term_not_heard`: a warning and no rating. The solution and the sheet summary come in every
+  case, since the recording is the attempt (D-103; the anti-leak walk of `test_session_api` now calls this route on
+  every `spoken_answer` step and finds `example_answer` in `solution` only).
+- `POST /api/reviews` with `production_attempt_id` (`_checked_production`): the exercise types checked by the AI and
+  the kind of their production (`CHECKED_TYPES`: `sentence_production` -> `writing`, `spoken_answer` -> `speaking`);
+  409 `production_mismatch` for a production of another kind (so a sentence production now refuses a spoken one, and
+  the reverse, approved with the plan), a spoken production whose origin is not `review` (a free speech), another
+  term, another session, or one already used; other exercise types keep 422 `exercise_mismatch`. `auto_rating` is
+  computed again from the stored feedback (the client cannot send it); `review_log.audio_path` gets the production's
+  recording (the column exists since M1 for this). Errors keep the source `review` and `production_attempt_id`,
+  never `review_log_id` (D-127).
+- Two AI calls in one request: the M6.b client must allow about a minute and a half.
+
+## D-184 — `speech speak` and `speech correct` (M6.a2a; extends D-176)
+
+- `speech speak --file <clip> [--prompt TEXT] [--duration S] [--no-correct]`: without `--duration`, Groq measures
+  the clip first and that transcription is stored without a second call (D-176); then the bounds 5 to 180 s are
+  checked. `speech correct <id>` corrects a stored spoken production (refused before any gateway is built when it is
+  not correctable). `--demo` writes into `data/audio-demo/`.
+- Output: the transcription, the errors (`#id date source code`, `wrong -> correction`, the unit, the rule), the
+  notes, the corrected and natural versions, the structure (comment, connectors used, suggestions) and the sentence
+  saying that **the correction is about what speech recognition heard**. The written renderer is shared
+  (`cli_write.render_correction`).
+- Exit codes (D-053): 0 done (silence and `--no-correct` included), 1 the transcription or the correction is
+  unavailable (the production is kept; the message gives `speech transcribe <id>` and `speech correct <id>`), 2
+  usage (unreadable or refused clip, bounds, topic over 500 characters, unknown production, not transcribed yet,
+  already corrected, no duration without a provider).
+
+## D-185 — Tuning `speaking_correction` against the real model (M6.a2a)
+
+- Live runs with the owner's keys on 2026-10-20 (`gemini-3.5-flash-lite`; Groq `whisper-large-v3`). The example
+  (`content/examples/m6_speaking.txt`: hesitations, a self-correction "I present— I presented", "I live in campus",
+  "I study here since two years", "I never presented in English before") must give exactly
+  `grammar.preposition.fixed_expression`, `grammar.preposition.by_for_since` and
+  `grammar.tense.past_simple_vs_present_perfect`; the clean one (`m6_speaking_clean.txt`) no error.
+- **First prompt**: the example was right in 0 of 3 runs: the past simple was missed twice (taken for "normal spoken
+  style"), and once reported under the parent `grammar.tense`. The clean text gave 0 errors.
+- **Fix** (in the prompt, not in the tests, D-132; v1 was never released, so it was edited in place as D-132 did):
+  "spoken style never excuses a grammar mistake", with the past simple of an experience up to now as the example
+  (other sentences than the test's: "I never worked with R before", "I already sent the file"; the past simple stays
+  right with a finished time), and "a tense error never takes the parent tense code alone". The taxonomy was not
+  touched (still version 3).
+- **Result**: the example gave exactly the three codes in **9 of 9 runs** (3 probes, 3 passes of
+  `test_live_speaking.py`, the audio pass, 2 runs of the CLI on the transcribed clip); the clean text **0 errors in 7
+  of 7** (4 probes, with no naturalness note either, and 3 passes). No wrong form was a hesitation or a false start.
+  The two M5.a1 live tests still pass (`production_correction` untouched). A lite model is not deterministic: a run
+  may still miss or over-report; the user sees, edits and deletes any error.
+- **First real `verbose_json` answer** (D-171): a synthetic clip of the example (Windows System.Speech, voice
+  "Microsoft Zira Desktop", 33 s, made in a temporary folder and never committed) came back with `duration`
+  33.079437312 s; Whisper kept "Um", "uh" and the self-correction (as "I present I presented", the dash dropped), and
+  did not smooth over the three mistakes on this clear synthetic voice. A human voice may differ: the audio test only
+  requires `ok`.
+
+## D-186 — Small conventions and departures met in M6.a2a
+
+- Departures from the prompt and the plan, beyond those approved with the plan (180 s and the SPEC sentence,
+  `/correct` in `answer` mode for a review origin, silence as `unavailable` / `silence`, `review_log.audio_path`, the
+  symmetric refusal of `sentence_production`, the early checks for the shadowing, 4 500 characters per unit,
+  `production.corrected` v2 for every kind, the demo fingerprint):
+  - `review-answer` returns `solution` and `sheet_summary` in every case once the recording exists, as
+    `check-production` does (D-129);
+  - a spoken answer whose transcription is over 4 000 characters gives `unavailable` / `text_too_long` (not planned);
+  - the review checks of a spoken answer run three times (once to order the refusals and read the question and the
+    solution, once before the file is written, once in the creating transaction), through `speech.Check`;
+  - `review_flow` keeps a private `_recorded_origin`: importing `corrections.recorded_origin` would be an import cycle
+    through `study_sessions`;
+  - a spoken production's `word_count` counts words as the comparator does (`speech_compare.words`), a written one
+    as `len(text.split())`; they agree on ordinary speech.
+- The example files are fictional ("Alex"); `content/speaking_topics.yaml` quotes the values that hold `: `.
+- In `--demo`, the hint printed after a failure omits `--demo` (as in M6.a1).
+- The demo fingerprint changes (payload versions 2 and 5, `kind`); determinism is still tested. The demo's spoken
+  productions are still direct writes until M6.a2b.
