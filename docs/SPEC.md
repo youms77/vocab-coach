@@ -180,8 +180,8 @@ A progressive method, once per term:
 - **Fine-grained pronunciation assessment** (per-word and per-phoneme scores): optional module, **disabled by
   default**, plugged into a specialised service (see section 7).
 - **Spoken answers** in reviews (mature productive cards) and **free speaking**: a topic, 1 to 2 minutes of
-  recording, transcription, AI correction (grammar, vocabulary, structure, connectors), errors logged in
-  module E, playback.
+  recording (up to 3 accepted) *(approved by owner, M6.a2a)*, transcription, AI correction (grammar,
+  vocabulary, structure, connectors), errors logged in module E, playback.
 - Real-time voice conversation with a tutor stays outside the app: the user keeps using ChatGPT voice mode and
   then pastes the transcript into module E.
 

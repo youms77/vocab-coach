@@ -1,8 +1,10 @@
 """`demo seed`: determinism, safety checks, atomic replacement, CLI and demo mode (D-033)."""
 
+import os
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -15,9 +17,9 @@ from app.db.demo_marker import DEMO_MARKER_KEY, has_demo_marker, read_demo_marke
 from app.db.engine import create_db_engine
 from app.db.models import Deck
 from app.db.settings_store import get_all_settings, get_setting, set_setting
+from app.demo import simulation
 from app.demo.seed import DemoSeedError, seed_demo, sqlite_url
 from app.domain.settings_defaults import SettingError
-from app.speech.audio_store import AudioStore
 from tests.demo_support import DEMO_ANCHOR, fingerprint
 
 # Safety and CLI tests only need a small demo database; determinism uses three weeks.
@@ -147,21 +149,97 @@ def _recording(folder: Path) -> Path:
     return path
 
 
-def test_a_seed_empties_the_demo_recordings(tmp_path: Path) -> None:
-    store = AudioStore(tmp_path / "audio-demo")
-    old = _recording(store.root)
-    seed_demo(tmp_path / "demo.sqlite3", days=SHORT_DAYS, anchor=DEMO_ANCHOR, audio_store=store)
+def _leftovers(folder: Path) -> list[str]:
+    return sorted(p.name for p in folder.iterdir() if ".tmp-" in p.name or ".old-" in p.name)
+
+
+def _writing_clips(written: list[Path], *, fail: bool = False) -> Callable[..., None]:
+    """A simulation that also writes one clip into its folder, then fails if asked."""
+    real = simulation.simulate
+
+    def simulate(*args: Any, audio_dir: Path, **kwargs: Any) -> None:
+        real(*args, audio_dir=audio_dir, **kwargs)
+        clip = audio_dir / "2026" / "08" / ("b" * 32 + ".wav")
+        clip.parent.mkdir(parents=True, exist_ok=True)
+        clip.write_bytes(b"new demo recording")
+        written.append(clip)
+        if fail:
+            raise RuntimeError("simulated failure")
+
+    return simulate
+
+
+def test_the_new_recordings_replace_the_old_ones(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    audio = tmp_path / "audio-demo"
+    old = _recording(audio)
+    written: list[Path] = []
+    monkeypatch.setattr("app.demo.seed.simulate", _writing_clips(written))
+    summary = seed_demo(tmp_path / "demo.sqlite3", days=SHORT_DAYS, anchor=DEMO_ANCHOR)
+
     assert not old.exists()
+    assert (audio / "2026" / "08" / ("b" * 32 + ".wav")).read_bytes() == b"new demo recording"
+    assert [p.parent.parent.parent.name for p in written] == [f"audio-demo.tmp-{os.getpid()}"]
+    assert summary.audio_dir == audio.resolve()
+    clips = sorted(audio.rglob("*.wav"))
+    assert summary.recordings == len(clips) >= 2  # the simulation's clips and the extra one
+    assert _leftovers(tmp_path) == []
+
+
+def test_a_failed_build_keeps_the_previous_recordings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "vocab-coach-demo.sqlite3"
+    seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR)
+    before = _fingerprint(path)
+    old = _recording(tmp_path / "audio-demo")
+    written: list[Path] = []
+    monkeypatch.setattr("app.demo.seed.simulate", _writing_clips(written, fail=True))
+    with pytest.raises(RuntimeError, match="simulated failure"):
+        seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR, reset=True)
+
+    assert written and not written[0].exists()  # the temporary folder is gone
+    assert old.read_bytes() == b"old demo recording"
+    assert _fingerprint(path) == before
+    assert _leftovers(tmp_path) == []
 
 
 def test_a_refused_seed_keeps_the_demo_recordings(tmp_path: Path) -> None:
     path = tmp_path / "demo.sqlite3"
     seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR)
-    store = AudioStore(tmp_path / "audio-demo")
-    old = _recording(store.root)
+    old = _recording(tmp_path / "audio-demo")
     with pytest.raises(DemoSeedError):
-        seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR, audio_store=store)
+        seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR)
     assert old.exists()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows locks open files")
+def test_a_recording_in_use_is_reported_and_nothing_changes(tmp_path: Path) -> None:
+    path = tmp_path / "vocab-coach-demo.sqlite3"
+    seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR)
+    before = _fingerprint(path)
+    old = _recording(tmp_path / "audio-demo")
+
+    with old.open("rb"), pytest.raises(DemoSeedError, match="recording is in use"):
+        seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR, reset=True)
+
+    assert _fingerprint(path) == before
+    assert old.read_bytes() == b"old demo recording"
+    assert _leftovers(tmp_path) == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows locks open files")
+def test_a_database_in_use_keeps_the_previous_recordings(tmp_path: Path) -> None:
+    path = tmp_path / "vocab-coach-demo.sqlite3"
+    seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR)
+    old = _recording(tmp_path / "audio-demo")
+
+    with path.open("rb"), pytest.raises(DemoSeedError, match="in use"):
+        seed_demo(path, days=SHORT_DAYS, anchor=DEMO_ANCHOR, reset=True)
+
+    assert old.read_bytes() == b"old demo recording"
+    assert _leftovers(tmp_path) == []
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows locks open files")
@@ -238,7 +316,7 @@ def test_cli_seed_never_touches_the_personal_database(
     assert (env / "vocab-coach-demo.sqlite3").exists()
 
 
-def test_cli_seed_empties_audio_demo_but_never_the_personal_recordings(env: Path) -> None:
+def test_cli_seed_replaces_audio_demo_but_never_the_personal_recordings(env: Path) -> None:
     demo = _recording(env / "audio-demo")
     personal = _recording(env / "audio")
     args = ["demo", "seed", "--days", str(SHORT_DAYS), "--anchor", DEMO_ANCHOR.isoformat()]

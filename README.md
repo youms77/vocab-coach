@@ -234,6 +234,23 @@ uv run python -m app speech compare "We account for fixed effects." "we account 
 were not recognised. Speech recognition is not a pronunciation judge: a flagged word is a possible intelligibility
 issue, nothing more, and no error is recorded automatically. Without a key, add `--duration <seconds>`.
 
+Free speaking: talk for one to two minutes on a topic (up to three are accepted), then let the AI correct what
+was heard. Your errors go into the error log with the source `speaking`, with a comment on the structure of what
+you said (organisation, connectors) and a more natural version:
+
+```powershell
+uv run python -m app speech speak --file C:\path\to\talk.m4a --prompt "Describe where you study and for how long."
+uv run python -m app speech correct 12           # correct again (after a failure, or `--no-correct`)
+uv run python -m app errors list                 # the errors found
+```
+
+The recording goes to **Groq** (speech-to-text), then the transcribed text goes to **Gemini** (the correction),
+both on their free tiers, so your voice and your words leave your computer; the recording itself stays in
+`data/audio/`. The correction is about what the recogniser heard: it may smooth over a mistake or mishear a word,
+and any error can be edited or deleted. Without a key the recording is kept: `speech transcribe <id>` then
+`speech correct <id>` once the key is there. In reviews, a mature productive card can be answered aloud in the
+same way (the screens come with M6.b).
+
 ## Backup
 
 Your data lives in the `data/` folder (database and audio recordings), which is never committed.

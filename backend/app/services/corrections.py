@@ -14,7 +14,9 @@ session open; then **one short write transaction**:
 
 `ai_feedback` (`format: "correction-1"`) keeps the validated output as is, the position of each
 `wrong` in the original text (`spans`, in Unicode code points), the id of the error event of each
-error (`error_event_ids`, same order as `output.errors`) and the check of each target.
+error (`error_event_ids`, same order as `output.errors`) and the check of each target. A spoken
+production corrected by `speaking_correction` is stored by the same code with `format:
+"speaking-1"` and the same keys (`store_speaking_correction`, called by `app/services/speaking.py`).
 """
 
 import json
@@ -33,6 +35,7 @@ from app.ai.schemas.production_correction import (
     TargetCheck,
     correction_context,
 )
+from app.ai.schemas.speaking_correction import SpeakingCorrectionOutput
 from app.ai.schemas.transcript_analysis import TranscriptError
 from app.ai.tasks import correction_output_budget
 from app.ai.types import AiStatus, UnavailableReason
@@ -52,6 +55,7 @@ from app.services.productions import ProductionNotFound, TextTooLongError
 
 TASK = "production_correction"
 FEEDBACK_FORMAT = "correction-1"
+SPOKEN_FEEDBACK_FORMAT = "speaking-1"  # same keys; `output` adds `structure`
 PROMPT_MAX_CHARS = productions.MAX_PROMPT_CHARS
 DESCRIPTION_MAX_CHARS = 200  # one line of the taxonomy in the prompt
 
@@ -95,11 +99,8 @@ def _one_line(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
-def source_of(session: Session, attempt_id: int) -> ErrorSource:
-    """Where the errors of a production come from, which follows its context: `review` for a
-    sentence production checked in a review (`production.recorded` has `origin: review`), else
-    `writing` (free writing, and the personal sentence of a discovery: `ErrorSource` has no
-    separate value for it)."""
+def recorded_origin(session: Session, attempt_id: int) -> str | None:
+    """The `origin` of a production's `production.recorded` event (None before version 2)."""
     payload = session.scalar(
         select(EventLog.payload).where(
             EventLog.event_type == EventType.PRODUCTION_RECORDED.value,
@@ -107,9 +108,34 @@ def source_of(session: Session, attempt_id: int) -> ErrorSource:
             EventLog.entity_id == attempt_id,
         )
     )
-    if payload is not None and payload.get("origin") == ProductionOrigin.REVIEW.value:
+    return payload.get("origin") if payload is not None else None
+
+
+def source_of(session: Session, attempt_id: int) -> ErrorSource:
+    """Where the errors of a production come from, which follows its context: `review` for a
+    sentence production checked in a review (`production.recorded` has `origin: review`), else
+    `writing` (free writing, and the personal sentence of a discovery: `ErrorSource` has no
+    separate value for it)."""
+    if recorded_origin(session, attempt_id) == ProductionOrigin.REVIEW.value:
         return ErrorSource.REVIEW
     return ErrorSource.WRITING
+
+
+def targets_for(session: Session, attempt_id: int) -> list[Target]:
+    """The target terms of a production as sent to the AI (`ref` = their position)."""
+    targets: list[Target] = []
+    for ref, (_, item) in enumerate(productions.targets_of(session, attempt_id)):
+        sheet = current_sheet(session, item.id)
+        definition = read_sheet(dict(sheet.content)).definition_simple if sheet else None
+        targets.append(
+            Target(ref, item.id, item.term, str(item.item_type), _one_line(definition or "", 200))
+        )
+    return targets
+
+
+def prompt_line(prompt_text: str | None) -> str:
+    """The task given to the learner, on one line and cut as it is sent."""
+    return _one_line(prompt_text or "", PROMPT_MAX_CHARS)
 
 
 def prepare(session: Session, attempt_id: int) -> Prepared:
@@ -126,13 +152,6 @@ def prepare(session: Session, attempt_id: int) -> Prepared:
         raise TextTooLongError(str(exc)) from exc
     if not sentences:
         raise NotCorrectable("There is nothing to correct: the text is empty.")
-    targets: list[Target] = []
-    for ref, (_, item) in enumerate(productions.targets_of(session, attempt.id)):
-        sheet = current_sheet(session, item.id)
-        definition = read_sheet(dict(sheet.content)).definition_simple if sheet else None
-        targets.append(
-            Target(ref, item.id, item.term, str(item.item_type), _one_line(definition or "", 200))
-        )
     taxonomy = {
         category.code: _one_line(
             category.description_en or category.label_en, DESCRIPTION_MAX_CHARS
@@ -142,10 +161,10 @@ def prepare(session: Session, attempt_id: int) -> Prepared:
     return Prepared(
         attempt_id=attempt.id,
         text=attempt.text,
-        prompt=_one_line(attempt.prompt_text or "", PROMPT_MAX_CHARS),
+        prompt=prompt_line(attempt.prompt_text),
         source=source_of(session, attempt.id),
         sentences=sentences,
-        targets=targets,
+        targets=targets_for(session, attempt.id),
         taxonomy=taxonomy,
     )
 
@@ -154,7 +173,8 @@ def _json_lines(rows: list[dict[str, Any]]) -> str:
     return "\n".join(json.dumps(row, ensure_ascii=False) for row in rows)
 
 
-def _inputs(prepared: Prepared, mode: Mode) -> dict[str, str]:
+def task_inputs(prepared: Prepared, mode: str) -> dict[str, str]:
+    """The placeholders of `production_correction`, also those of `speaking_correction`."""
     return {
         "mode": mode,
         "sentences": _json_lines([{"index": s.index, "text": s.text} for s in prepared.sentences]),
@@ -265,18 +285,21 @@ def category_for(
     return outcome.category
 
 
-def store_correction(
+def _store(
     session: Session,
     prepared: Prepared,
     output: ProductionCorrectionOutput,
     *,
+    feedback_format: str,
     source: ErrorSource,
     provenance: tuple[str | None, str | None, str | None],
     ai_call_id: int | None,
     at: datetime,
+    errors_at: datetime,
 ) -> Written:
-    """Write a correction in the caller's transaction (no commit). The AI path and the demo's
-    fictional corrections both come through here. Raises ProductionNotFound, AlreadyCorrected."""
+    """The write step shared by written and spoken productions (no commit). `errors_at` dates the
+    error events: the correction for a written text, the recording for a spoken one. Raises
+    ProductionNotFound, AlreadyCorrected."""
     provider, model, prompt_version = provenance
     written = Written()
     attempt = session.get(ProductionAttempt, prepared.attempt_id)
@@ -294,7 +317,7 @@ def store_correction(
             category=category,
             erroneous_text=error.wrong,
             correction=error.correction,
-            at=at,
+            at=errors_at,
             original_text=sentence_text[error.sentence_index],
             alternatives=error.alternatives,
             explanation=error.explanation_en,
@@ -307,7 +330,7 @@ def store_correction(
         written.error_ids.append(event.id)
     target_report = _check_targets(attempt, session, output.targets, prepared.text)
     attempt.ai_feedback = {
-        "format": FEEDBACK_FORMAT,
+        "format": feedback_format,
         "prompt_version": prompt_version,
         "provider": provider,
         "model": model,
@@ -322,6 +345,7 @@ def store_correction(
         session,
         ProductionCorrected(
             production_attempt_id=attempt.id,
+            kind=attempt.kind,
             word_count=attempt.word_count,
             sentence_count=len(prepared.sentences),
             error_count=len(output.errors),
@@ -337,6 +361,60 @@ def store_correction(
         study_session_id=attempt.study_session_id,
     )
     return written
+
+
+def store_correction(
+    session: Session,
+    prepared: Prepared,
+    output: ProductionCorrectionOutput,
+    *,
+    source: ErrorSource,
+    provenance: tuple[str | None, str | None, str | None],
+    ai_call_id: int | None,
+    at: datetime,
+) -> Written:
+    """Write a correction in the caller's transaction (no commit). The AI path and the demo's
+    fictional corrections both come through here. Raises ProductionNotFound, AlreadyCorrected."""
+    return _store(
+        session,
+        prepared,
+        output,
+        feedback_format=FEEDBACK_FORMAT,
+        source=source,
+        provenance=provenance,
+        ai_call_id=ai_call_id,
+        at=at,
+        errors_at=at,
+    )
+
+
+def store_speaking_correction(
+    session: Session,
+    prepared: Prepared,
+    output: SpeakingCorrectionOutput,
+    *,
+    source: ErrorSource,
+    provenance: tuple[str | None, str | None, str | None],
+    ai_call_id: int | None,
+    at: datetime,
+) -> Written:
+    """Write the correction of a transcription in the caller's transaction (no commit), with the
+    `correction-1` keys under `format: "speaking-1"`: the units are the `sentences`, `spans` are
+    Unicode code points into the transcription, and `output` keeps `structure`. The errors are
+    dated at the recording, when they were made. Raises ProductionNotFound, AlreadyCorrected."""
+    attempt = session.get(ProductionAttempt, prepared.attempt_id)
+    recorded_at = as_utc(attempt.created_at) if attempt is not None else at
+    return _store(
+        session,
+        prepared,
+        output,
+        feedback_format=SPOKEN_FEEDBACK_FORMAT,
+        source=source,
+        provenance=provenance,
+        ai_call_id=ai_call_id,
+        at=at,
+        errors_at=recorded_at,
+    )
 
 
 def _write(
@@ -394,7 +472,7 @@ def correct_production(
     mode = mode or ("sentence" if len(prepared.sentences) == 1 else "paragraph")
     result = gateway.generate_json(
         TASK,
-        _inputs(prepared, mode),
+        task_inputs(prepared, mode),
         ProductionCorrectionOutput,
         validation_context=correction_context(
             {s.index: s.text for s in prepared.sentences},

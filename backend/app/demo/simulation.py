@@ -18,14 +18,20 @@ ratings, D-104). Each term gets its demo sheet (`content/demo/sheets.yaml`) when
 Module E goes through its services too (D-163): written productions are recorded then corrected,
 transcripts are recorded then analysed, drills are stored then answered, errors are recorded by
 `error_log`, and cards are made from recurring errors. The "AI" results come from
-`app.demo.fictional_ai` (validated by the real output schemas); no AI is called. Speaking has no
-service before M6 and is the one direct write left (`direct_writes`).
+`app.demo.fictional_ai` (validated by the real output schemas); no AI is called.
+
+Module F too (D-191): free speaking, shadowings and the spoken answers of reviews are recorded by
+the speech services in this transaction (`store_speaking`, `store_recording`,
+`store_spoken_answer`, D-189), with a short WAV clip (`clips.py`) written into `audio_dir` under a
+name drawn from the seed, and a fictional transcription. The last session leaves a silent take and
+a free speech not corrected yet. Nothing is written directly any more (D-035 is closed).
 """
 
 import random
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import exists, select
@@ -33,8 +39,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Card, Deck, ErrorCategory, ExerciseTemplate, LexicalItem
 from app.db.settings_store import get_setting
-from app.demo import direct_writes as writes
-from app.demo import fictional_ai
+from app.demo import clips, fictional_ai
 from app.demo.dataset import (
     Confusion,
     DemoDataset,
@@ -59,7 +64,7 @@ from app.domain.enums import (
     SrsState,
 )
 from app.domain.events import ItemOrigin, ProductionOrigin, TriageDecision
-from app.domain.exercise_choice import TemplateRef, choose_exercise
+from app.domain.exercise_choice import ExerciseChoice, TemplateRef, choose_exercise
 from app.domain.fsrs_engine import FsrsEngine
 from app.domain.item_status import REVIEWABLE_STATUSES
 from app.domain.planner import (
@@ -72,7 +77,18 @@ from app.domain.planner import (
 from app.domain.srs import Rating, SrsEngine
 from app.domain.study_day import study_day_bounds
 from app.domain.transcript_import import UserByLabel, chunk_units
-from app.services import corrections, drills, error_cards, error_log, library, transcripts
+from app.services import (
+    corrections,
+    drills,
+    error_cards,
+    error_log,
+    library,
+    review_flow,
+    speaking,
+    speech,
+    spoken_review,
+    transcripts,
+)
 from app.services import productions as production_service
 from app.services.decks import change_deck_status, reorder_queue
 from app.services.discovery import begin_discovery, finish_discovery
@@ -82,6 +98,7 @@ from app.services.library import LibraryError
 from app.services.reviews import card_state, record_review
 from app.services.study_sessions import end_session, frozen_plan, start_session
 from app.services.triage import apply_triage
+from app.speech.audio_store import AudioStore
 
 # Length of history the dataset's day offsets are written for; shorter runs scale them.
 REFERENCE_DAYS = 60
@@ -134,6 +151,20 @@ ERROR_CARDS_PER_DAY = 2
 DISMISS_DAY = -12
 WRITING_WORDS_PER_MINUTE = 15
 SPEAKING_WORDS_PER_SECOND = 2.0
+# The declared length of a free speech stays inside its bounds (5 to 180 s, D-179).
+SPEAKING_SECONDS = (5.0, 178.0)
+# A shadowing every few days, on the original sentence of a discovered term; the recogniser
+# misses 0 to 2 of its words.
+SHADOWING_EVERY_DAYS = (7, 11)
+SHADOWING_WORDS_PER_SECOND = 2.5
+MISHEARD_WORDS = ((0, 1, 2), (1, 2, 2))
+SHADOWED_STATUSES = (ItemStatus.LEARNING, ItemStatus.CONSOLIDATED, ItemStatus.ACTIVE)
+# A spoken answer lasts its words at this pace, inside its bounds (1 to 90 s).
+ANSWER_WORDS_PER_SECOND = 2.0
+ANSWER_SECONDS = (1.5, 90.0)
+# The last session leaves a silent take and a free speech of a few sentences not corrected yet.
+SILENT_TAKE_SECONDS = 6.0
+UNCORRECTED_SENTENCES = 4
 MAX_REVIEW_ERRORS = 10
 MAX_REVIEW_ERRORS_PER_TERM = 2
 # Activities stop this long before the end of the study day.
@@ -158,17 +189,26 @@ class _State:
     templates: dict[int, list[TemplateRef]] = field(default_factory=dict)  # item id -> templates
     next_production_day: int = 0
     next_drill_day: int = 0
+    next_shadowing_day: int = 0
     drills_made: int = 0
     last_drill: str | None = None
 
 
 class Simulation:
-    def __init__(self, session: Session, dataset: DemoDataset, config: SimulationConfig) -> None:
+    def __init__(
+        self,
+        session: Session,
+        dataset: DemoDataset,
+        config: SimulationConfig,
+        *,
+        audio_dir: Path,
+    ) -> None:
         if config.days < 7:
             raise ValueError("the demo history needs at least 7 days")
         self.session = session
         self.dataset = dataset
         self.config = config
+        self.audio_dir = audio_dir
         root = random.Random(config.seed)  # noqa: S311 (simulation, not security)
         # Fixed derivation order: adding a generator at the end keeps the others unchanged.
         self._fsrs_rng = random.Random(root.getrandbits(64))  # noqa: S311
@@ -177,6 +217,10 @@ class Simulation:
         self._choices = random.Random(root.getrandbits(64))  # noqa: S311
         self._writing = random.Random(root.getrandbits(64))  # noqa: S311
         self._drills = random.Random(root.getrandbits(64))  # noqa: S311
+        self._speech = random.Random(root.getrandbits(64))  # noqa: S311
+        names = random.Random(root.getrandbits(64))  # noqa: S311
+        # File names drawn from the seed, so `audio_path` is reproducible (D-187).
+        self.audio = AudioStore(audio_dir, names=lambda: f"{names.getrandbits(128):032x}")
         self._engines: dict[float, SrsEngine] = {}
         self.tz = ZoneInfo(get_setting(session, "timezone"))
         self.day_start_hour: int = get_setting(session, "day_start_hour")
@@ -227,6 +271,7 @@ class Simulation:
         breaks = {self.scaled(day) for day in FORCED_BREAK_DAYS}
         self.state.next_production_day = -days + self._writing.randint(1, 3)
         self.state.next_drill_day = -days + 4 + self._drills.randint(*DRILL_EVERY_DAYS)
+        self.state.next_shadowing_day = -days + 2 + self._speech.randint(*SHADOWING_EVERY_DAYS)
         for offset in range(-days, 0):
             day = self.study_day(offset)
             final = offset == -1
@@ -422,12 +467,17 @@ class Simulation:
             t = self._ensure_relearning(study.id, t)
         if final or self._choices.random() >= NO_NEW_TERMS_SHARE:
             t = self._new_terms(offset, plan, study.id, t, stop, final=final)
+        if offset >= self.state.next_shadowing_day and t < stop:
+            t = self._shadowing(study.id, t)
+            self.state.next_shadowing_day = offset + self._speech.randint(*SHADOWING_EVERY_DAYS)
         if offset >= self.state.next_production_day and t < stop:
             t = self._production(offset, study.id, t)
             self.state.next_production_day = offset + self._writing.randint(*PRODUCTION_EVERY_DAYS)
         if self.dataset.drills and (final or (offset >= self.state.next_drill_day and t < stop)):
             t = self._drill(offset, plan, study.id, t, unfinished=final)
             self.state.next_drill_day = offset + self._drills.randint(*DRILL_EVERY_DAYS)
+        if final:
+            t = self._unfinished_speaking(study.id, t)
         end_session(self.session, study, t)
         self.session.flush()
 
@@ -462,17 +512,15 @@ class Simulation:
         direction = CardDirection(card.direction)
         state = card_state(card)
         engine = self.engine_factory(get_setting(self.session, "target_retention"))
-        choice = choose_exercise(
-            direction,
-            state.state,
-            state.stability,
-            card.reps or 0,
-            self.state.templates.get(item.id, []),
-        )
+        choice = self._choice(card, item.id)
         outcome = self.learner.review(
             item.id, direction, state.state, engine.retrievability(state, t), choice.exercise_type
         )
         final = Rating.AGAIN if force_again else outcome.final_rating
+        if choice.exercise_type == ex.SPOKEN_ANSWER and choice.template_id is not None:
+            elapsed = outcome.response_time_ms
+            self._spoken_answer(card, choice.template_id, final, elapsed, study_id, t)
+            return self._pause(t + timedelta(milliseconds=outcome.response_time_ms))
         auto = outcome.auto_rating
         if force_again and auto is not None:
             auto = Rating.AGAIN
@@ -508,6 +556,66 @@ class Simulation:
             self.state.review_errors[item.id] += 1
         return self._pause(t + timedelta(milliseconds=outcome.response_time_ms))
 
+    def _choice(self, card: Card, item_id: int) -> ExerciseChoice:
+        state = card_state(card)
+        return choose_exercise(
+            CardDirection(card.direction),
+            state.state,
+            state.stability,
+            card.reps or 0,
+            self.state.templates.get(item_id, []),
+        )
+
+    def _spoken_answer(
+        self,
+        card: Card,
+        template_id: int,
+        final: Rating,
+        response_time_ms: int,
+        study_id: int,
+        t: datetime,
+    ) -> None:
+        """A spoken answer, checked like the app does it (`spoken_review`): recorded, transcribed,
+        corrected, then rated with the production. A success says the example answer; a failure
+        leaves the term out (not heard: no proposed rating)."""
+        template = self.session.get_one(ExerciseTemplate, template_id)
+        success = final != Rating.AGAIN
+        text = (
+            str(template.content["example_answer"])
+            if success
+            else self._speech.choice(self.dataset.speech.forgotten_answers)
+        )
+        low, high = ANSWER_SECONDS
+        duration = round(min(max(len(text.split()) / ANSWER_WORDS_PER_SECOND, low), high), 1)
+        checked = spoken_review.store_spoken_answer(
+            self.session,
+            self.audio,
+            card_id=card.id,
+            study_session_id=study_id,
+            exercise_template_id=template_id,
+            data=clips.tone(),
+            content_type=clips.CONTENT_TYPE,
+            duration_s=duration,
+            transcription=fictional_ai.transcription(text, duration),
+            correct=lambda prepared: fictional_ai.speaking_output(prepared, [], term_used=success),
+            provenance=fictional_ai.SPEAKING_PROVENANCE,
+            at=t,
+        )
+        ctx = review_flow.card_context(self.session, card.id, ex.SPOKEN_ANSWER, template_id)
+        review_flow.record(
+            self.session,
+            ctx,
+            answer=None,
+            choice_index=None,
+            response_time_ms=response_time_ms,
+            final_rating=final,
+            expected_reps=card.reps or 0,
+            study_session_id=study_id,
+            now=t,
+            production_attempt_id=checked.production_id,
+            engine_factory=self.engine_factory,
+        )
+
     def _confusion_for(self, item: LexicalItem, direction: CardDirection) -> Confusion | None:
         term = self.state.terms.get(item.id)
         if (
@@ -527,7 +635,7 @@ class Simulation:
         )
         if relearning:
             return t
-        card = self.session.scalars(
+        cards = self.session.scalars(
             select(Card)
             .join(LexicalItem, LexicalItem.id == Card.lexical_item_id)
             .where(
@@ -536,8 +644,13 @@ class Simulation:
                 Card.last_review_at <= t,
             )
             .order_by(Card.id)
-            .limit(1)
-        ).first()
+        )
+        # A card that may not be due: never one whose exercise is a spoken answer, which is only
+        # checked when the card is due (D-183).
+        spoken = ex.SPOKEN_ANSWER
+        card = next(
+            (c for c in cards if self._choice(c, c.lexical_item_id).exercise_type != spoken), None
+        )
         if card is None:
             return t
         return self._review(card, study_id, t, force_again=True)
@@ -641,8 +754,8 @@ class Simulation:
             mean = self._error_rate(code, progress) * target_words / 100
             for _ in range(poisson(rng, mean)):
                 template = rng.choice(self._templates_by_code[code])
-                # The analysis of a conversation leaves spelling out (the AI task does too).
-                if kind != ProductionKind.TRANSCRIPT_ANALYSIS or not template.code.startswith(
+                # A conversation or a speech leaves spelling out (the AI tasks do too).
+                if kind == ProductionKind.WRITING or not template.code.startswith(
                     transcripts.EXCLUDED_CODE_PREFIXES
                 ):
                     made.append(template)
@@ -705,31 +818,96 @@ class Simulation:
         audio_seconds: float,
         study_id: int,
     ) -> None:
-        """A spoken answer: no service before M6, so the production is written directly (see
-        `direct_writes`); its errors go through the error log like every other."""
-        attempt = writes.record_oral_production(
+        """A free speech, recorded, transcribed and corrected like the app does it (D-182)."""
+        low, high = SPEAKING_SECONDS
+        duration = min(max(audio_seconds, low), high)
+        recorded = speaking.store_speaking(
             self.session,
-            ProductionKind.SPEAKING,
-            prompt,
-            text,
-            t,
-            audio_seconds=audio_seconds,
+            self.audio,
+            data=clips.tone(),
+            content_type=clips.CONTENT_TYPE,
+            duration_s=duration,
+            transcription=fictional_ai.transcription(text, duration),
+            prompt_text=prompt,
             study_session_id=study_id,
+            at=t,
         )
-        for template in made:
-            error_log.record_error(
-                self.session,
-                source=ErrorSource.SPEAKING,
-                category=self.categories[template.code],
-                erroneous_text=template.wrong,
-                correction=template.correction,
-                at=t,
-                original_text=template.original,
-                alternatives=template.alternatives,
-                explanation=template.explanation,
-                production_attempt_id=attempt.id,
-                study_session_id=study_id,
-            )
+        prepared = speaking.prepare_speaking(self.session, recorded.production_id)
+        corrections.store_speaking_correction(
+            self.session,
+            prepared.correction,
+            fictional_ai.speaking_output(
+                prepared,
+                made,
+                structure=self._speech.choice(self.dataset.speech.structure),
+                connectors=self.dataset.speech.connectors,
+            ),
+            source=prepared.correction.source,
+            provenance=fictional_ai.SPEAKING_PROVENANCE,
+            ai_call_id=None,
+            at=t,
+        )
+
+    def _shadowing(self, study_id: int, t: datetime) -> datetime:
+        """The learner repeats the original sentence of a term they know; the recogniser misses 0
+        to 2 of its words, which the comparator reports (D-173)."""
+        rng = self._speech
+        known = [
+            (item_id, term.sentence)
+            for item_id, term in self.state.terms.items()
+            if term.sentence
+            and self.session.get_one(LexicalItem, item_id).status in SHADOWED_STATUSES
+        ]
+        if not known:
+            return t
+        item_id, sentence = rng.choice(known)
+        missed = rng.choices(MISHEARD_WORDS[0], weights=MISHEARD_WORDS[1])[0]
+        heard = fictional_ai.misheard(sentence, rng, missed)
+        duration = round(min(max(len(sentence.split()) / SHADOWING_WORDS_PER_SECOND, 1.0), 30.0), 1)
+        speech.store_recording(
+            self.session,
+            self.audio,
+            speech.shadowing_recording(sentence, item_id=item_id, study_session_id=study_id),
+            data=clips.tone(),
+            content_type=clips.CONTENT_TYPE,
+            duration_s=duration,
+            transcription=fictional_ai.transcription(heard, duration),
+            at=t,
+        )
+        return self._pause(t + timedelta(seconds=duration * 3))
+
+    def _unfinished_speaking(self, study_id: int, t: datetime) -> datetime:
+        """The last session: a take where nothing was said (silence), then a short free speech
+        transcribed but not corrected yet, so the screens have both cases."""
+        rng = self._speech
+        prompts = [p.text for p in self.dataset.prompts if p.kind == ProductionKind.SPEAKING]
+        speaking.store_speaking(
+            self.session,
+            self.audio,
+            data=clips.silence(),
+            content_type=clips.CONTENT_TYPE,
+            duration_s=SILENT_TAKE_SECONDS,
+            transcription=fictional_ai.transcription("", SILENT_TAKE_SECONDS),
+            prompt_text=rng.choice(prompts),
+            study_session_id=study_id,
+            at=t,
+        )
+        t = self._pause(t + timedelta(seconds=SILENT_TAKE_SECONDS * 2))
+        text = " ".join(rng.sample(list(self.dataset.fillers), UNCORRECTED_SENTENCES))
+        low, high = SPEAKING_SECONDS
+        duration = round(min(max(len(text.split()) / SPEAKING_WORDS_PER_SECOND, low), high), 1)
+        speaking.store_speaking(
+            self.session,
+            self.audio,
+            data=clips.tone(),
+            content_type=clips.CONTENT_TYPE,
+            duration_s=duration,
+            transcription=fictional_ai.transcription(text, duration),
+            prompt_text=rng.choice(prompts),
+            study_session_id=study_id,
+            at=t,
+        )
+        return self._pause(t + timedelta(seconds=duration * 2))
 
     def _transcript(
         self,
@@ -847,6 +1025,9 @@ class Simulation:
         return t
 
 
-def simulate(session: Session, dataset: DemoDataset, config: SimulationConfig) -> None:
-    """Fill `session` with the demo history; the caller commits."""
-    Simulation(session, dataset, config).run()
+def simulate(
+    session: Session, dataset: DemoDataset, config: SimulationConfig, *, audio_dir: Path
+) -> None:
+    """Fill `session` with the demo history and `audio_dir` with its recordings; the caller
+    commits (and moves the folder into place)."""
+    Simulation(session, dataset, config, audio_dir=audio_dir).run()

@@ -78,6 +78,22 @@ def test_save_writes_a_server_named_file(store: AudioStore) -> None:
     assert store.save(b"RIFF-data", "wav", at=AT) != relative  # a new name every time
 
 
+def test_names_come_from_the_injected_factory(tmp_path: Path) -> None:
+    names = iter(["0" * 32, "ab" * 16])
+    store = AudioStore(tmp_path / "audio", names=lambda: next(names))
+
+    assert store.save(b"RIFF", "wav", at=AT) == "2026/10/" + "0" * 32 + ".wav"
+    assert store.save(b"RIFF", "wav", at=AT) == "2026/10/" + "ab" * 16 + ".wav"
+
+
+@pytest.mark.parametrize("name", ["", "ABCDEF" + "0" * 26, "0" * 31, "../" + "0" * 29, "g" * 32])
+def test_a_name_outside_the_pattern_is_refused(tmp_path: Path, name: str) -> None:
+    store = AudioStore(tmp_path / "audio", names=lambda: name)
+    with pytest.raises(ValueError, match="32 hexadecimal"):
+        store.save(b"RIFF", "wav", at=AT)
+    assert not store.root.exists()
+
+
 def test_save_refuses_an_unknown_extension(store: AudioStore) -> None:
     with pytest.raises(ValueError, match="unsupported audio extension"):
         store.save(b"x", "exe", at=AT)
@@ -130,14 +146,6 @@ def test_exists_and_delete(store: AudioStore) -> None:
     store.delete(relative)  # already gone: quiet
     store.delete("../not-a-recording")  # refused path: quiet, nothing touched
     assert not store.exists(None)
-
-
-def test_clear_empties_the_folder(store: AudioStore) -> None:
-    store.save(b"one", "wav", at=AT)
-    store.save(b"two", "webm", at=datetime(2025, 1, 2, tzinfo=UTC))
-    store.clear()
-    assert not store.root.exists()
-    store.clear()  # nothing there: quiet
 
 
 def test_demo_recordings_have_their_own_folder(tmp_path: Path) -> None:

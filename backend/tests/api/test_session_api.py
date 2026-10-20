@@ -22,6 +22,7 @@ from tests.api.session_support import (
     write_sheet,
 )
 from tests.factories import add_category
+from tests.speech_support import wav_bytes
 
 
 def _record(env: ApiEnv, session_id: int, step: dict, rating: int = 3, answer: str = "") -> dict:
@@ -38,6 +39,25 @@ def _record(env: ApiEnv, session_id: int, step: dict, rating: int = 3, answer: s
             "final_rating": rating,
             "expected_reps": review["expected_reps"],
         },
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def _answer_aloud(env: ApiEnv, session_id: int, step: dict) -> dict:
+    """Record a spoken answer for a `spoken_answer` step (`POST /api/speech/review-answer`)."""
+    review = step["review"]
+    response = env.client.post(
+        "/api/speech/review-answer",
+        params={
+            "card_id": review["card_id"],
+            "session_id": session_id,
+            "exercise_template_id": review["exercise_template_id"],
+            "duration_s": 4.0,
+            "response_time_ms": 5000,
+        },
+        content=wav_bytes(1.0),
+        headers={"Content-Type": "audio/wav"},
     )
     assert response.status_code == 200, response.text
     return response.json()
@@ -229,6 +249,7 @@ def test_review_steps_never_carry_a_solution(env: ApiEnv, monkeypatch: pytest.Mo
     session_id = start_session(env.client)
     seen_types: set[str] = set()
     steps: list[dict] = []
+    answers: list[dict] = []  # the answers of `POST /speech/review-answer` (M6.a2a)
     for item_id in item_ids:
         started = env.client.post(
             f"/api/discovery/{item_id}/start", json={"session_id": session_id}
@@ -248,6 +269,8 @@ def test_review_steps_never_carry_a_solution(env: ApiEnv, monkeypatch: pytest.Mo
             if step["type"] != "review":
                 break
             seen_types.add(step["review"]["exercise_type"])
+            if step["review"]["exercise_type"] == ex.SPOKEN_ANSWER:
+                answers.append(_answer_aloud(env, session_id, step))
             _record(env, session_id, step, rating=3)
         with Session(env.engine) as session:
             next_due = session.scalar(select(func.min(Card.due)))
@@ -263,5 +286,12 @@ def test_review_steps_never_carry_a_solution(env: ApiEnv, monkeypatch: pytest.Mo
 
     for step in steps:
         assert not keys(step) & SOLUTION_KEYS, step
+    # A spoken answer gets its example answer after the recording, in `solution` only (no
+    # provider here: the transcription is unavailable and the review stays self-graded).
+    assert answers
+    for answer in answers:
+        assert answer["status"] == "unavailable" and "example_answer" in answer["solution"]
+        rest = {key: value for key, value in answer.items() if key != "solution"}
+        assert not keys(rest) & SOLUTION_KEYS, answer
     assert {ex.RECOGNITION, ex.LISTENING, ex.TYPED_RECALL, ex.GAP_FILL} <= seen_types
     assert {ex.SENTENCE_PRODUCTION, ex.SPOKEN_ANSWER} <= seen_types

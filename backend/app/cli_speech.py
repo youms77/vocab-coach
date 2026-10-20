@@ -1,4 +1,4 @@
-"""`python -m app speech shadow | transcribe | compare` (module F, M6.a1).
+"""`python -m app speech shadow | transcribe | compare | speak | correct` (module F, M6.a1, M6.a2a).
 
 `shadow --file <clip> --target "<sentence>" [--item <id>] [--duration <s>]` stores the recording
 under `data/audio/` (`data/audio-demo/` with `--demo`), transcribes it with Groq Whisper and prints
@@ -7,9 +7,16 @@ measure is used; with no provider (or no duration in its answer) nothing is stor
 asks for `--duration`. `transcribe <id>` runs the transcription again; `compare "<target>"
 "<heard>"` is the pure comparison, without AI.
 
-Exit codes, in the spirit of D-053: 0 done (silence included), 1 the transcription is unavailable
-(the recording is kept: `speech transcribe <id>` later), 2 usage error (no database, unreadable or
-refused clip, invalid sentence, unknown production, already transcribed).
+`speak --file <clip> [--prompt TEXT] [--duration S] [--no-correct]` stores free speaking (5 to 180
+s), transcribes it, then has the AI correct what was heard (`speaking_correction`): the errors
+(also in `errors list`, source `speaking`), the notes, the natural version and the comment on the
+structure. Without `--duration`, Groq measures the clip first, as for `shadow`. `correct <id>`
+corrects a stored spoken production again (after a failure, or `--no-correct`).
+
+Exit codes, in the spirit of D-053: 0 done (silence included), 1 the transcription or the
+correction is unavailable (the recording is kept: the message gives the command to run later), 2
+usage error (no database, unreadable or refused clip, invalid sentence or topic, unknown
+production, already transcribed or corrected, not transcribed yet).
 """
 
 import sys
@@ -18,6 +25,9 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
+from app.ai.gateway import Gateway
+from app.ai.schemas import TranscriptionOutput
+from app.ai.types import AiResult
 from app.cli_errors import _console_safe
 from app.cli_library import (
     EXIT_FAILED,
@@ -27,10 +37,11 @@ from app.cli_library import (
     _build_gateway,
     _open,
 )
+from app.cli_write import render_correction
 from app.domain.enums import ProductionKind
 from app.domain.speech_compare import Comparison, Op, compare
-from app.domain.speech_rules import MAX_HEARD_CHARS
-from app.services import productions, speech
+from app.domain.speech_rules import MAX_HEARD_CHARS, RecordingKind
+from app.services import productions, speaking, speech
 from app.services.library import LibraryError
 from app.speech.audio_store import AudioStore
 
@@ -49,6 +60,11 @@ FILE_TYPES = {
 NOT_A_JUDGE = (
     "Speech recognition is not a pronunciation judge: a word it did not recognise is a possible "
     "intelligibility issue, nothing more."
+)
+WHAT_WAS_HEARD = (
+    "This correction is about what speech recognition heard: it may have smoothed over a mistake "
+    "or misheard a word. Listen to your recording if an error looks wrong: any error can be edited "
+    "or deleted in the error log."
 )
 
 
@@ -136,6 +152,40 @@ def run_speech_compare(target: str, heard: str) -> int:
     return EXIT_OK
 
 
+def _read_clip(file: Path) -> tuple[bytes, str] | None:
+    """The bytes and the media type of a clip, or None (the message is printed)."""
+    content_type = FILE_TYPES.get(file.suffix.lower())
+    if content_type is None:
+        print(
+            f"{file.name}: not an accepted recording. Use one of {', '.join(FILE_TYPES)}.",
+            file=sys.stderr,
+        )
+        return None
+    try:
+        return file.read_bytes(), content_type
+    except OSError as exc:
+        print(f"Cannot read {file}: {exc}", file=sys.stderr)
+        return None
+
+
+def _measure_first(
+    gateway: Gateway, data: bytes, extension: str
+) -> AiResult[TranscriptionOutput] | None:
+    """Transcribe before storing, to take Groq's duration (D-176); None when it cannot."""
+    print("No --duration: transcribing first to measure the recording...", flush=True)
+    first = speech.transcribe_clip(gateway, data, extension)
+    measured = first.data.duration_s if first.ok and first.data is not None else None
+    if measured is None:
+        why = "no duration in the answer" if first.ok else str(first.reason or "failed")
+        print(
+            f"Groq could not measure the recording ({why}). Nothing was stored. Give its "
+            "length with --duration <seconds>.",
+            file=sys.stderr,
+        )
+        return None
+    return first
+
+
 def run_speech_shadow(
     url: str,
     settings: "Settings",
@@ -147,18 +197,10 @@ def run_speech_shadow(
     gateway_factory: GatewayFactory | None = None,
 ) -> int:
     _console_safe()
-    content_type = FILE_TYPES.get(file.suffix.lower())
-    if content_type is None:
-        print(
-            f"{file.name}: not an accepted recording. Use one of {', '.join(FILE_TYPES)}.",
-            file=sys.stderr,
-        )
+    clip = _read_clip(file)
+    if clip is None:
         return EXIT_USAGE
-    try:
-        data = file.read_bytes()
-    except OSError as exc:
-        print(f"Cannot read {file}: {exc}", file=sys.stderr)
-        return EXIT_USAGE
+    data, content_type = clip
     try:  # refuse before any AI call
         extension = speech.check_audio(data, content_type)
         target = speech.check_target(target)
@@ -176,16 +218,8 @@ def run_speech_shadow(
         gateway = (gateway_factory or (lambda e: _build_gateway(e, settings)))(engine)
         first = None
         if duration is None:
-            print("No --duration: transcribing first to measure the recording...", flush=True)
-            first = speech.transcribe_clip(gateway, data, extension)
-            measured = first.data.duration_s if first.ok and first.data is not None else None
-            if measured is None:
-                why = "no duration in the answer" if first.ok else str(first.reason or "failed")
-                print(
-                    f"Groq could not measure the recording ({why}). Nothing was stored. Give its "
-                    "length with --duration <seconds>.",
-                    file=sys.stderr,
-                )
+            first = _measure_first(gateway, data, extension)
+            if first is None:
                 return EXIT_USAGE
         else:
             print("Transcribing...", flush=True)
@@ -234,5 +268,156 @@ def run_speech_transcribe(
         with factory() as session:
             target = productions.get_production(session, production_id).prompt_text or ""
         return _report(result, target, None)
+    finally:
+        engine.dispose()
+
+
+# --- Free speaking (M6.a2a) ----------------------------------------------------------------------
+
+
+def _structure_lines(output: dict[str, object]) -> list[str]:
+    structure = output.get("structure")
+    if not isinstance(structure, dict):
+        return []
+    lines = ["", "Structure:", f"  {structure.get('comment_en', '')}"]
+    connectors = structure.get("connectors_used") or []
+    if connectors:
+        lines.append(f"  Connectors you used: {', '.join(str(c) for c in connectors)}")
+    for suggestion in structure.get("suggestions") or []:
+        lines.append(f"  - {suggestion.get('text_en', '')}")
+    return lines
+
+
+def _report_correction(
+    factory: speech.SessionFactory,
+    gateway: Gateway,
+    production_id: int,
+) -> int:
+    print("Asking the AI to correct what was heard...", flush=True)
+    try:
+        result = speaking.correct_speaking(factory, gateway, production_id)
+    except LibraryError as exc:
+        print(exc.message, file=sys.stderr)
+        return EXIT_USAGE
+    if result.status != "ok":
+        reason = f" ({result.reason.value})" if result.reason else ""
+        print(
+            f"The AI could not correct this recording: {result.status}{reason}. Production "
+            f"#{production_id} is kept; run `python -m app speech correct {production_id}` later.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    with factory() as session:
+        attempt = productions.get_production(session, production_id)
+        output = (attempt.ai_feedback or {}).get("output") or {}
+        print(render_correction(session, production_id, result))
+        print("\n".join(_structure_lines(output)))
+        session.rollback()
+    print("")
+    print(WHAT_WAS_HEARD)
+    return EXIT_OK
+
+
+def run_speech_speak(
+    url: str,
+    settings: "Settings",
+    file: Path,
+    *,
+    prompt: str | None = None,
+    duration: float | None = None,
+    correct: bool = True,
+    gateway_factory: GatewayFactory | None = None,
+) -> int:
+    _console_safe()
+    clip = _read_clip(file)
+    if clip is None:
+        return EXIT_USAGE
+    data, content_type = clip
+    try:  # refuse before any AI call
+        extension = speech.check_audio(data, content_type)
+        prompt = speaking.check_prompt(prompt)
+        if duration is not None:
+            speech.check_duration(RecordingKind.SPEAKING, duration)
+    except LibraryError as exc:
+        print(exc.message, file=sys.stderr)
+        return EXIT_USAGE
+    engine = _open(url)
+    if engine is None:
+        return EXIT_USAGE
+    factory = lambda: Session(engine, expire_on_commit=False)  # noqa: E731
+    store = AudioStore.for_settings(settings)
+    try:
+        gateway = (gateway_factory or (lambda e: _build_gateway(e, settings)))(engine)
+        first = None
+        if duration is None:
+            first = _measure_first(gateway, data, extension)
+            if first is None:
+                return EXIT_USAGE
+        else:
+            print("Transcribing...", flush=True)
+        try:
+            result = speaking.record_speaking(
+                factory,
+                gateway,
+                store,
+                data=data,
+                content_type=content_type,
+                duration_s=duration,
+                prompt_text=prompt,
+                transcription=first,
+            )
+        except LibraryError as exc:
+            print(exc.message, file=sys.stderr)
+            return EXIT_USAGE
+        with factory() as session:
+            audio_path = productions.get_production(session, result.production_id).audio_path
+        seconds = f"{result.audio_seconds:g} s" if result.audio_seconds is not None else "length ?"
+        print(f"Production #{result.production_id} ({seconds}).", flush=True)
+        if audio_path:
+            print(f"Recording: {store.root / audio_path}", flush=True)
+        outcome = result.transcription
+        if outcome.status == "unavailable":
+            print(
+                f"Transcription unavailable ({outcome.reason}). The recording is kept: run "
+                f"`python -m app speech transcribe {result.production_id}`, then "
+                f"`python -m app speech correct {result.production_id}` later.",
+                file=sys.stderr,
+            )
+            return EXIT_FAILED
+        if outcome.status == "silence":
+            print("Nothing was heard (silence): nothing to correct.")
+            return EXIT_OK
+        print(f"Heard: {outcome.text}", flush=True)
+        if not correct:
+            print(f"Not corrected yet: run `python -m app speech correct {result.production_id}`.")
+            return EXIT_OK
+        return _report_correction(factory, gateway, result.production_id)
+    finally:
+        engine.dispose()
+
+
+def run_speech_correct(
+    url: str,
+    settings: "Settings",
+    production_id: int,
+    *,
+    gateway_factory: GatewayFactory | None = None,
+) -> int:
+    _console_safe()
+    engine = _open(url)
+    if engine is None:
+        return EXIT_USAGE
+    factory = lambda: Session(engine, expire_on_commit=False)  # noqa: E731
+    try:
+        try:
+            with factory() as session:
+                text = speaking.prepare_speaking(session, production_id).correction.text
+                session.rollback()
+        except LibraryError as exc:  # refused before building a gateway
+            print(exc.message, file=sys.stderr)
+            return EXIT_USAGE
+        print(f"Heard: {text}", flush=True)
+        gateway = (gateway_factory or (lambda e: _build_gateway(e, settings)))(engine)
+        return _report_correction(factory, gateway, production_id)
     finally:
         engine.dispose()

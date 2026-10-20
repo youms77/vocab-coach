@@ -1,23 +1,29 @@
-"""Shadowing recordings, their transcription and their word-by-word comparison (module F, M6.a1).
+"""Recordings, their transcription and the word-by-word comparison of a shadowing (module F).
 
-Order of operations (D-038, D-169):
+`record` is the core shared by the shadowing (M6.a1), free speaking and the spoken answer of a
+review (M6.a2a, `app/services/speaking.py`). Order of operations (D-038, D-169):
 
-1. validate the upload (media type, size, duration bounds, target sentence) before anything is
-   written;
-2. write the file (`AudioStore`), then in **one short transaction** the oral production
-   (`kind=shadowing`, `prompt_text` = the target, `text=""`, `word_count=0`: a repeated sentence
-   holds none of the user's own words, the denominator of the error rates), its target term and
-   `production.recorded`; if that transaction fails the file is deleted;
+1. validate the upload (media type, size, duration bounds; the target sentence of a shadowing)
+   before anything is written, then check the terms, the study session and the caller's own
+   checks in a short read;
+2. write the file (`AudioStore`), then in **one short transaction**, after the same checks again,
+   the oral production (`prompt_text` = the target or the topic, `text=""`, `word_count=0`), its
+   target terms and `production.recorded`; if that transaction fails the file is deleted;
 3. call `gateway.transcribe` with no session open. The clip is sent under its generated name and
    **never with the target sentence as a prompt** (D-172);
 4. in a second short transaction (the production is re-checked: still there, not transcribed
-   yet), store the text, the `pronunciation_result` and the events `production.transcribed` and
-   `pronunciation.checked`.
+   yet), store the text and `production.transcribed`; for a shadowing, the `pronunciation_result`
+   and `pronunciation.checked`. A shadowing keeps `word_count = 0` (a repeated sentence holds none
+   of the user's own words, the denominator of the error rates); a spoken production gets the
+   number of words heard.
 
 An AI failure is a result, not an error (D-081): the production and its audio stay, and
 `transcribe_production` can be called again. Silence (no word, or Whisper's segments say so) stores
 no text and no comparison. Nothing here records an error: speech recognition is not a
 pronunciation judge (D-174).
+
+`store_recording` does steps 1, 2 and 4 in the **caller's** transaction, with a transcription
+already obtained (no AI call, no commit): the demo builds its history that way (D-189, as D-165).
 """
 
 from collections.abc import Callable
@@ -49,6 +55,7 @@ from app.domain.speech_rules import (
     MAX_AUDIO_BYTES,
     MAX_TARGET_CHARS,
     DurationProblem,
+    RecordingKind,
     duration_problem,
     is_silence,
 )
@@ -65,6 +72,9 @@ from app.speech.audio_store import (
 )
 
 SessionFactory = Callable[[], Session]
+# A caller's own checks of a recording (a spoken answer: the card is due...), run before the file is
+# written and again inside the transaction that creates the production.
+Check = Callable[[Session], object]
 TranscriptionState = Literal["pending", "ok", "silence"]
 ShadowingOrigin = Literal["shadowing", "discovery"]
 
@@ -147,7 +157,7 @@ def check_audio(data: bytes, content_type: str | None) -> str:
     return extension
 
 
-def check_duration(kind: ProductionKind, seconds: float) -> None:
+def check_duration(kind: RecordingKind | ProductionKind, seconds: float) -> None:
     """Raises AudioTooShort, AudioTooLong (with the bounds, for the screen)."""
     problem = duration_problem(kind, seconds)
     if problem is None:
@@ -251,49 +261,79 @@ def comparison_of(session: Session, attempt: ProductionAttempt) -> Comparison | 
 # --- Writing -------------------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class Recording:
+    """What a new recording is: its production kind, the bounds of its duration, its prompt (the
+    target sentence of a shadowing, the topic or the question of a spoken production), its target
+    terms and its origin."""
+
+    kind: ProductionKind
+    bounds: RecordingKind
+    prompt_text: str | None
+    item_ids: tuple[int, ...]
+    origin: ProductionOrigin
+    study_session_id: int | None
+
+
+def _check(session: Session, recording: Recording, check: Check | None) -> None:
+    """The checks that read the database. Raises ItemNotFound, SessionNotFound, SessionClosed."""
+    for item_id in recording.item_ids:
+        get_item(session, item_id)
+    if recording.study_session_id is not None:
+        require_open(session, recording.study_session_id)
+    if check is not None:
+        check(session)
+
+
 def _create(
     session: Session,
+    recording: Recording,
     *,
-    target: str,
     audio_path: str,
     duration_s: float,
-    item_id: int | None,
-    origin: ProductionOrigin,
-    study_session_id: int | None,
+    check: Check | None,
     at: datetime,
 ) -> ProductionAttempt:
-    if item_id is not None:
-        get_item(session, item_id)
-    if study_session_id is not None:
-        require_open(session, study_session_id)
+    _check(session, recording, check)
+    return _insert(session, recording, audio_path=audio_path, duration_s=duration_s, at=at)
+
+
+def _insert(
+    session: Session,
+    recording: Recording,
+    *,
+    audio_path: str,
+    duration_s: float,
+    at: datetime,
+) -> ProductionAttempt:
     attempt = ProductionAttempt(
-        kind=ProductionKind.SHADOWING,
+        kind=recording.kind,
         modality=Modality.ORAL,
-        prompt_text=target,
+        prompt_text=recording.prompt_text,
         text="",
         audio_path=audio_path,
         audio_seconds=duration_s,
         word_count=0,
-        study_session_id=study_session_id,
+        study_session_id=recording.study_session_id,
         created_at=at,
         updated_at=at,
     )
     session.add(attempt)
     session.flush()
-    if item_id is not None:
+    for item_id in recording.item_ids:
         session.add(ProductionTarget(production_attempt_id=attempt.id, lexical_item_id=item_id))
     record_event(
         session,
         ProductionRecorded(
             production_attempt_id=attempt.id,
-            kind=ProductionKind.SHADOWING,
+            kind=recording.kind,
             modality=Modality.ORAL,
             word_count=0,
             audio_seconds=duration_s,
-            origin=origin,
+            origin=recording.origin,
         ),
         occurred_at=at,
-        study_session_id=study_session_id,
+        study_session_id=recording.study_session_id,
     )
     session.flush()
     return attempt
@@ -321,6 +361,8 @@ def store_transcription(
     if output.duration_s is not None:
         attempt.audio_seconds = output.duration_s  # the provider's measure wins (D-171)
     attempt.text = "" if silence else text
+    if attempt.kind is ProductionKind.SPEAKING:  # the learner's own words (D-175: not a shadowing)
+        attempt.word_count = 0 if silence else len(heard)
     attempt.updated_at = at
     provider = result.provider or "unknown"
     record_event(
@@ -394,10 +436,126 @@ def _write_transcription(
 # --- Entry points --------------------------------------------------------------------------------
 
 
+def _validated(
+    recording: Recording,
+    data: bytes,
+    content_type: str | None,
+    duration_s: float | None,
+    transcription: AiResult[TranscriptionOutput] | None,
+) -> tuple[str, float]:
+    """The extension and the duration of an acceptable upload (the given transcription's duration
+    when none is given). Raises UnsupportedAudio, AudioEmpty, AudioTooLarge, DurationRequired,
+    AudioTooShort, AudioTooLong."""
+    extension = check_audio(data, content_type)
+    if duration_s is None and transcription is not None and transcription.data is not None:
+        duration_s = transcription.data.duration_s
+    if duration_s is None:
+        raise DurationRequired("Give the duration of the recording.")
+    check_duration(recording.bounds, duration_s)
+    return extension, duration_s
+
+
+def shadowing_recording(
+    target_text: str,
+    *,
+    item_id: int | None = None,
+    origin: ShadowingOrigin = "shadowing",
+    study_session_id: int | None = None,
+) -> Recording:
+    """What a shadowing is: its target sentence (stripped), its term and its origin. Raises
+    InvalidTarget."""
+    return Recording(
+        kind=ProductionKind.SHADOWING,
+        bounds=RecordingKind.SHADOWING,
+        prompt_text=check_target(target_text),
+        item_ids=(item_id,) if item_id is not None else (),
+        origin=_ORIGINS[origin],
+        study_session_id=study_session_id,
+    )
+
+
+def store_recording(
+    session: Session,
+    store: AudioStore,
+    recording: Recording,
+    *,
+    data: bytes,
+    content_type: str | None,
+    duration_s: float | None,
+    transcription: AiResult[TranscriptionOutput],
+    check: Check | None = None,
+    at: datetime,
+) -> SpeechResult:
+    """A recording and its transcription, already obtained, in the caller's transaction (no commit,
+    no AI call; the demo, D-189). The same checks as `record` run before the file is written; if a
+    later write raises, the file is deleted (the caller rolls its transaction back). A failed
+    `transcription` leaves the recording to transcribe. Raises as `record`."""
+    extension, duration_s = _validated(recording, data, content_type, duration_s, transcription)
+    at = as_utc(at)
+    _check(session, recording, check)
+    audio_path = store.save(data, extension, at=at)
+    try:
+        attempt = _insert(session, recording, audio_path=audio_path, duration_s=duration_s, at=at)
+        if transcription.status is not AiStatus.OK or transcription.data is None:
+            return SpeechResult(attempt.id, attempt.audio_seconds, _failure(transcription))
+        outcome = store_transcription(session, attempt.id, transcription, at=at)
+    except BaseException:
+        store.delete(audio_path)
+        raise
+    return SpeechResult(attempt.id, attempt.audio_seconds, outcome)
+
+
 def transcribe_clip(gateway: Gateway, data: bytes, extension: str) -> AiResult[TranscriptionOutput]:
     """Transcribe an upload before anything is stored (the CLI without `--duration`). The clip goes
     under a neutral generated name."""
     return gateway.transcribe(clip_of(data, extension, f"recording.{extension}"), language=LANGUAGE)
+
+
+def record(
+    session_factory: SessionFactory,
+    gateway: Gateway,
+    store: AudioStore,
+    recording: Recording,
+    *,
+    data: bytes,
+    content_type: str | None,
+    duration_s: float | None,
+    transcription: AiResult[TranscriptionOutput] | None = None,
+    check: Check | None = None,
+    clock: Callable[[], datetime] = utcnow,
+) -> SpeechResult:
+    """Store a recording, then transcribe it (and compare a shadowing): see the module docstring.
+
+    `transcription` is a result already obtained for these bytes (`transcribe_clip`): it is stored
+    instead of calling the provider again. Without `duration_s`, its duration is used. Raises
+    UnsupportedAudio, AudioEmpty, AudioTooLarge, DurationRequired, AudioTooShort, AudioTooLong,
+    ItemNotFound, SessionNotFound, SessionClosed (and whatever `check` raises); nothing is stored
+    then."""
+    extension, duration_s = _validated(recording, data, content_type, duration_s, transcription)
+    with session_factory() as session:  # refuse before the file is written
+        _check(session, recording, check)
+        session.rollback()
+    at = as_utc(clock())
+    audio_path = store.save(data, extension, at=at)
+    try:
+        with session_factory() as session:
+            attempt = _create(
+                session,
+                recording,
+                audio_path=audio_path,
+                duration_s=duration_s,
+                check=check,
+                at=at,
+            )
+            attempt_id = attempt.id
+            session.commit()
+    except BaseException:
+        store.delete(audio_path)
+        raise
+    if transcription is None:
+        clip = clip_of(data, extension, Path(audio_path).name)
+        transcription = gateway.transcribe(clip, language=LANGUAGE)
+    return _finish(session_factory, attempt_id, transcription, duration_s, clock)
 
 
 def record_shadowing(
@@ -421,36 +579,21 @@ def record_shadowing(
     instead of calling the provider again. Without `duration_s`, its duration is used. Raises
     UnsupportedAudio, AudioEmpty, AudioTooLarge, InvalidTarget, DurationRequired, AudioTooShort,
     AudioTooLong, ItemNotFound, SessionNotFound, SessionClosed; nothing is stored then."""
-    extension = check_audio(data, content_type)
-    target = check_target(target_text)
-    if duration_s is None and transcription is not None and transcription.data is not None:
-        duration_s = transcription.data.duration_s
-    if duration_s is None:
-        raise DurationRequired("Give the duration of the recording.")
-    check_duration(ProductionKind.SHADOWING, duration_s)
-    at = as_utc(clock())
-    audio_path = store.save(data, extension, at=at)
-    try:
-        with session_factory() as session:
-            attempt = _create(
-                session,
-                target=target,
-                audio_path=audio_path,
-                duration_s=duration_s,
-                item_id=item_id,
-                origin=_ORIGINS[origin],
-                study_session_id=study_session_id,
-                at=at,
-            )
-            attempt_id = attempt.id
-            session.commit()
-    except BaseException:
-        store.delete(audio_path)
-        raise
-    if transcription is None:
-        clip = clip_of(data, extension, Path(audio_path).name)
-        transcription = gateway.transcribe(clip, language=LANGUAGE)
-    return _finish(session_factory, attempt_id, transcription, duration_s, clock)
+    check_audio(data, content_type)
+    recording = shadowing_recording(
+        target_text, item_id=item_id, origin=origin, study_session_id=study_session_id
+    )
+    return record(
+        session_factory,
+        gateway,
+        store,
+        recording,
+        data=data,
+        content_type=content_type,
+        duration_s=duration_s,
+        transcription=transcription,
+        clock=clock,
+    )
 
 
 def transcribe_production(

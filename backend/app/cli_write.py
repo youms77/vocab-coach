@@ -85,14 +85,17 @@ def run_write_correct(
             )
             return EXIT_FAILED
         with factory() as session:
-            print(_render(session, attempt_id, result))
+            print(render_correction(session, attempt_id, result))
             session.rollback()
         return EXIT_OK
     finally:
         engine.dispose()
 
 
-def _render(session: Session, attempt_id: int, result: corrections.CorrectionResult) -> str:
+def render_correction(
+    session: Session, attempt_id: int, result: corrections.CorrectionResult
+) -> str:
+    """The errors, notes, corrected and natural texts of a correction (also used for speech)."""
     attempt = productions.get_production(session, attempt_id)
     feedback = attempt.ai_feedback or {}
     output = feedback.get("output") or {}

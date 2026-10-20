@@ -10,7 +10,9 @@ and edits the error log (`card` makes a review card from an error) and
 your errors in a conversation transcript; `drill new <code>` and `drill list` are targeted drills.
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
-texts without AI. `--demo` (before the command) works on the demo database."""
+texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
+the AI correct what was heard, `speech correct <id>` corrects it again. `--demo` (before the
+command) works on the demo database."""
 
 import argparse
 import os
@@ -289,6 +291,27 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     compare.add_argument("target", help="the sentence to say")
     compare.add_argument("heard", help="what speech recognition wrote")
+    speak = speech_commands.add_parser(
+        "speak", help="store free speaking (5 to 180 s), transcribe it and correct what was heard"
+    )
+    speak.add_argument(
+        "--file", type=Path, required=True, help="the clip (.m4a, .webm, .ogg, .wav, .mp3)"
+    )
+    speak.add_argument("--prompt", help="the topic you spoke about (at most 500 characters)")
+    speak.add_argument(
+        "--duration",
+        type=float,
+        help="length in seconds (without it, the duration measured by Groq is used)",
+    )
+    speak.add_argument(
+        "--no-correct",
+        action="store_true",
+        help="transcribe only; correct it later with `speech correct <id>`",
+    )
+    correct = speech_commands.add_parser(
+        "correct", help="have the AI correct a transcribed free speaking (or a spoken answer)"
+    )
+    correct.add_argument("production_id", type=_positive)
     return parser
 
 
@@ -420,7 +443,7 @@ def _demo_seed(args: argparse.Namespace, settings: Settings) -> int:
             days=args.days,
             anchor=args.anchor,
             reset=args.reset,
-            audio_store=AudioStore.demo(settings),
+            audio_dir=AudioStore.demo(settings).root,
         )
     except DemoSeedError as exc:
         print(str(exc), file=sys.stderr)
@@ -488,6 +511,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             return cli_speech.run_speech_compare(args.target, args.heard)
         if args.speech_command == "transcribe":
             return cli_speech.run_speech_transcribe(url, settings, args.production_id)
+        if args.speech_command == "speak":
+            return cli_speech.run_speech_speak(
+                url,
+                settings,
+                args.file,
+                prompt=args.prompt,
+                duration=args.duration,
+                correct=not args.no_correct,
+            )
+        if args.speech_command == "correct":
+            return cli_speech.run_speech_correct(url, settings, args.production_id)
         return cli_speech.run_speech_shadow(
             url, settings, args.file, target=args.target, item_id=args.item, duration=args.duration
         )

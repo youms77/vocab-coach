@@ -1,7 +1,10 @@
-"""Speaking (module F, M6.a1): shadowing recordings, their transcription and their playback.
+"""Speaking (module F): shadowing (M6.a1), free speaking, today's speaking topics and the spoken
+answer of a review (M6.a2a), the transcription and the playback of a recording.
 
-`POST /speech/shadowing` takes the **raw recording as the request body** (`Content-Type` = its media
-type; no multipart, so no `python-multipart`) and everything else as query parameters (D-170). An
+`POST /speech/shadowing`, `POST /speech/speaking` and `POST /speech/review-answer` take the **raw
+recording as the request body**
+(`Content-Type` = its media type; no multipart, so no `python-multipart`) and everything else as
+query parameters (D-170). An
 async dependency reads the body and stops at 10 MB (413 from `Content-Length`, else while
 streaming); the routes are plain `def` with **no database session in their dependencies**, so none
 is open while the provider answers (D-038). A transcription that fails is a result (200/201 with
@@ -16,16 +19,25 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import Engine
+from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
 from app.ai import Gateway, get_gateway
 from app.api.clock import NowDep
+from app.api.error_log import ErrorOut, errors_out
 from app.api.errors import require_database
-from app.db.engine import get_engine
+from app.db.engine import get_engine, get_session
+from app.db.models import ErrorEvent
+from app.domain.speaking_topics import SpeakingTag, SpeakingTopic
 from app.domain.speech_compare import Comparison, Op
-from app.domain.speech_rules import MAX_AUDIO_BYTES, MAX_TARGET_CHARS
-from app.services import productions, speech
+from app.domain.speech_rules import (
+    DURATION_BOUNDS,
+    MAX_AUDIO_BYTES,
+    MAX_TARGET_CHARS,
+    RecordingKind,
+)
+from app.domain.topics import DEFAULT_COUNT, MAX_COUNT
+from app.services import productions, speaking, speaking_topics, speech, spoken_review
 from app.speech.audio_store import (
     ACCEPTED_TYPES,
     AudioStore,
@@ -40,6 +52,7 @@ router = APIRouter(dependencies=[Depends(require_database)])
 GatewayDep = Annotated[Gateway, Depends(get_gateway)]
 EngineDep = Annotated[Engine, Depends(get_engine)]
 StoreDep = Annotated[AudioStore, Depends(get_audio_store)]
+SessionDep = Annotated[Session, Depends(get_session)]
 
 
 def _factory(engine: Engine) -> Callable[[], Session]:
@@ -210,6 +223,160 @@ def create_shadowing(
         clock=lambda: now,
     )
     return speech_out(result)
+
+
+_SPEAKING = DURATION_BOUNDS[RecordingKind.SPEAKING]
+
+
+@router.post("/speech/speaking", status_code=201, tags=["speech"], openapi_extra=UPLOAD_OPENAPI)
+def create_speaking(
+    upload: Annotated[Upload, Depends(read_upload)],
+    engine: EngineDep,
+    gateway: GatewayDep,
+    store: StoreDep,
+    now: NowDep,
+    duration_s: Annotated[
+        float,
+        Query(
+            allow_inf_nan=False,
+            description=(
+                f"Duration measured by the recorder, in seconds ({_SPEAKING.min_s:g} to "
+                f"{_SPEAKING.max_s:g})."
+            ),
+        ),
+    ],
+    prompt_text: Annotated[
+        str | None,
+        Query(description=f"The topic (at most {productions.MAX_PROMPT_CHARS} characters)."),
+    ] = None,
+    target_item_ids: Annotated[
+        list[int] | None,
+        Query(description=f"Terms to use, repeated (at most {productions.MAX_TARGETS})."),
+    ] = None,
+    study_session_id: int | None = None,
+) -> SpeechOut:
+    """Free speaking on a topic: stored, then transcribed (Groq Whisper). Nothing is corrected
+    yet: call `POST /productions/{id}/correct` (the AI correction of a spoken production). The
+    topic is never sent to the recogniser. Without a provider the recording is kept:
+    `transcription.status` is `unavailable` and `/productions/{id}/transcribe` runs it again."""
+    result = speaking.record_speaking(
+        _factory(engine),
+        gateway,
+        store,
+        data=upload.data,
+        content_type=upload.content_type,
+        duration_s=duration_s,
+        prompt_text=prompt_text,
+        target_item_ids=target_item_ids or [],
+        study_session_id=study_session_id,
+        clock=lambda: now,
+    )
+    return speech_out(result)
+
+
+_ANSWER = DURATION_BOUNDS[RecordingKind.SPOKEN_ANSWER]
+
+
+class ReviewAnswerOut(BaseModel):
+    production_attempt_id: int
+    transcription: TranscriptionOut
+    status: Literal["ok", "incomplete", "unavailable"]
+    # Why there is no correction: the transcription's reason (`no_provider_configured`, `quota`,
+    # `network`..., `incomplete`), `silence`, `text_too_long`, or the correction's reason.
+    reason: str | None
+    # The stored correction (`speaking-1`, see `/productions`): corrected units, natural version,
+    # structure, notes, target check. None unless `status` is `ok`.
+    feedback: dict[str, Any] | None
+    errors: list[ErrorOut]  # source `review`
+    proposed_rating: int | None  # 1 (Again) or 3 (Good); None: rate it yourself
+    warnings: list[str]  # `term_not_heard`: the term is not in the transcription, no rating
+    solution: dict[str, Any]  # the example answer, shown now that the attempt was made (D-103)
+    sheet_summary: dict[str, Any] | None
+
+
+@router.post("/speech/review-answer", tags=["speech"], openapi_extra=UPLOAD_OPENAPI)
+def review_answer(
+    upload: Annotated[Upload, Depends(read_upload)],
+    engine: EngineDep,
+    gateway: GatewayDep,
+    store: StoreDep,
+    now: NowDep,
+    card_id: int,
+    session_id: int,
+    exercise_template_id: int,
+    duration_s: Annotated[
+        float,
+        Query(
+            allow_inf_nan=False,
+            description=(
+                f"Duration measured by the recorder, in seconds ({_ANSWER.min_s:g} to "
+                f"{_ANSWER.max_s:g})."
+            ),
+        ),
+    ],
+    response_time_ms: Annotated[
+        int, Query(ge=0, description="Kept for the final `POST /reviews`, which times the card.")
+    ],
+) -> ReviewAnswerOut:
+    """Check the spoken answer of a `spoken_answer` card: the recording is stored, transcribed
+    (Groq Whisper) and corrected (`speaking_correction`, `answer` mode), and a rating is proposed.
+    Two AI calls: allow up to about a minute and a half. Then send `production_attempt_id` with
+    `POST /api/reviews`. Refusals come before anything is stored. A failed transcription keeps the
+    recording (`status: unavailable`): rate it yourself."""
+    factory = _factory(engine)
+    checked = spoken_review.check_spoken_answer(
+        factory,
+        gateway,
+        store,
+        card_id=card_id,
+        study_session_id=session_id,
+        exercise_template_id=exercise_template_id,
+        data=upload.data,
+        content_type=upload.content_type,
+        duration_s=duration_s,
+        clock=lambda: now,
+    )
+    heard = checked.transcription
+    with factory() as session:
+        attempt = productions.get_production(session, checked.production_id)
+        feedback = (
+            dict(attempt.ai_feedback)
+            if checked.status == "ok" and attempt.ai_feedback is not None
+            else None
+        )
+        ids = checked.correction.error_ids if checked.correction is not None else []
+        errors = list(
+            session.scalars(
+                select(ErrorEvent).where(ErrorEvent.id.in_(ids)).order_by(ErrorEvent.id)
+            )
+        )
+        errors_listed = errors_out(session, errors)
+        session.rollback()
+    return ReviewAnswerOut(
+        production_attempt_id=checked.production_id,
+        transcription=TranscriptionOut(status=heard.status, text=heard.text, reason=heard.reason),
+        status=checked.status,
+        reason=checked.reason,
+        feedback=feedback,
+        errors=errors_listed,
+        proposed_rating=checked.proposed_rating,
+        warnings=checked.warnings,
+        solution=checked.solution,
+        sheet_summary=checked.sheet_summary,
+    )
+
+
+@router.get("/speaking/topics", tags=["speech"])
+def topics(
+    session: SessionDep,
+    now: NowDep,
+    count: Annotated[int, Query(ge=1, le=MAX_COUNT)] = DEFAULT_COUNT,
+    tag: SpeakingTag | None = None,
+) -> list[SpeakingTopic]:
+    """Today's speaking topics (`{id, en, fr, tags}`): the same all day, different the next day,
+    never a topic used as a spoken prompt in the last 7 days (unless every topic of the tag
+    was). No AI call."""
+    return speaking_topics.todays_topics(session, now, count=count, tag=tag)
 
 
 @router.post("/productions/{production_id}/transcribe", tags=["speech"])

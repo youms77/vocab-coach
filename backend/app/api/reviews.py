@@ -1,9 +1,10 @@
 """Review endpoints (module C, M4.a): grade an attempt, record the final rating, reveal.
 
 `grade` and `reveal` write nothing. `POST /reviews` grades the answer again on the server: the
-client never sends the proposed rating (an unknown field is refused). The only AI call is
+client never sends the proposed rating (an unknown field is refused). The only AI call here is
 `POST /reviews/check-production`, a plain `def` route with no database session in its dependencies
-(D-038): an AI failure is a result (`status`), not an HTTP error.
+(D-038): an AI failure is a result (`status`), not an HTTP error. A spoken answer is checked by
+`POST /speech/review-answer` (`app/api/speech.py`, the only routes that take a recording).
 """
 
 from collections.abc import Callable
@@ -133,9 +134,10 @@ class RecordRequest(BaseModel):
     response_time_ms: ResponseTime
     final_rating: Annotated[int, Field(ge=1, le=4)]
     expected_reps: Annotated[int, Field(ge=0)]
-    # The production returned by `check-production` (sentence production only): the server
-    # then proposes Good or Again from the stored correction. 409 `production_mismatch` when it
-    # is not this term's, not from this session, or already used by another review.
+    # The production returned by `check-production` (a sentence production) or by
+    # `POST /speech/review-answer` (a spoken answer): the server then proposes Good or Again from
+    # the stored correction. 409 `production_mismatch` when it is not this term's, not from this
+    # session, not the answer of this kind of exercise, or already used by another review.
     production_attempt_id: int | None = None
 
 

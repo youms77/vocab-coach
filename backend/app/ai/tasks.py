@@ -11,6 +11,7 @@ from app.ai.schemas.connection_test import ConnectionTestOutput
 from app.ai.schemas.enrichment import ENRICHMENT_BATCH_SIZE, EnrichmentBatchOutput
 from app.ai.schemas.list_extension import MAX_COUNT, ListExtensionOutput
 from app.ai.schemas.production_correction import ProductionCorrectionOutput
+from app.ai.schemas.speaking_correction import SpeakingCorrectionOutput
 from app.ai.schemas.targeted_drill import TargetedDrillOutput
 from app.ai.schemas.transcript_analysis import TranscriptAnalysisOutput
 
@@ -75,6 +76,25 @@ def transcript_output_budget(unit_count: int) -> int:
     return min(wanted, TRANSCRIPT_MAX_OUTPUT_TOKENS)
 
 
+# `speaking_correction` (M6.a2a), one call per transcription. Input: the text (4 000 characters,
+# `MAX_SPEAKING_CHARS`), its at most 40 units as JSON lines (about 800 more), the prompt (500), 15
+# targets (about 250 each) and about 33 taxonomy lines (spelling and pronunciation left out) of at
+# most about 230 characters: about 16 600 at most, plus room for categories the user adds.
+SPEAKING_MAX_INPUT_CHARS = 20000
+# Output: as `production_correction` (a unit is corrected like a sentence, 30 errors at most), with
+# a base 400 tokens larger for `structure` (two comments of at most 600 characters, 10 connectors,
+# 3 suggestions in two languages). Same ceiling as D-128.
+SPEAKING_MAX_OUTPUT_TOKENS = 10000
+SPEAKING_BASE_TOKENS = 1200
+SPEAKING_TOKENS_PER_UNIT = 250
+
+
+def speaking_output_budget(unit_count: int) -> int:
+    """Output tokens to ask for when correcting `unit_count` units (at most the ceiling)."""
+    wanted = SPEAKING_BASE_TOKENS + SPEAKING_TOKENS_PER_UNIT * unit_count
+    return min(wanted, SPEAKING_MAX_OUTPUT_TOKENS)
+
+
 # `targeted_drill` (D-135). Input: the category and its children (about 8 lines of at most 250
 # characters: 2 000), at most 5 recent errors (wrong form and correction, at most 600 each:
 # 3 000) and the count: about 5 200 characters at most.
@@ -137,6 +157,15 @@ TASKS: dict[str, TaskSpec] = {
             output_schema=TranscriptAnalysisOutput,
             max_input_chars=TRANSCRIPT_MAX_INPUT_CHARS,
             max_output_tokens=TRANSCRIPT_MAX_OUTPUT_TOKENS,
+            timeout_s=60.0,
+        ),
+        TaskSpec(
+            name="speaking_correction",
+            prompt_version=1,
+            output_schema=SpeakingCorrectionOutput,
+            max_input_chars=SPEAKING_MAX_INPUT_CHARS,
+            max_output_tokens=SPEAKING_MAX_OUTPUT_TOKENS,
+            # As `production_correction`: up to 10 000 tokens of output; the 90 s budget holds.
             timeout_s=60.0,
         ),
         TaskSpec(

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.config import REPO_ROOT
 from app.db.models import ProductionAttempt
 from app.db.settings_store import get_setting
+from app.domain.enums import Modality
 from app.domain.study_day import as_utc, study_day_of
 from app.domain.writing_topics import (
     DEFAULT_COUNT,
@@ -35,14 +36,22 @@ def load_topics(path: Path = TOPICS_FILE) -> tuple[WritingTopic, ...]:
         return tuple(parse_topics(yaml.safe_load(file)))
 
 
-def recent_prompts(session: Session, now: datetime, days: int = RECENT_DAYS) -> list[str]:
+def recent_prompts(
+    session: Session,
+    now: datetime,
+    days: int = RECENT_DAYS,
+    *,
+    modality: Modality | None = None,
+) -> list[str]:
+    """The prompts of the productions of the last `days` days, of one modality when given (the
+    speaking topics skip the spoken prompts only; the writing topics, every prompt)."""
     since = as_utc(now) - timedelta(days=days)
-    rows = session.scalars(
-        select(ProductionAttempt.prompt_text).where(
-            ProductionAttempt.created_at >= since, ProductionAttempt.prompt_text.is_not(None)
-        )
+    query = select(ProductionAttempt.prompt_text).where(
+        ProductionAttempt.created_at >= since, ProductionAttempt.prompt_text.is_not(None)
     )
-    return [prompt for prompt in rows if prompt]
+    if modality is not None:
+        query = query.where(ProductionAttempt.modality == modality)
+    return [prompt for prompt in session.scalars(query) if prompt]
 
 
 def todays_topics(
