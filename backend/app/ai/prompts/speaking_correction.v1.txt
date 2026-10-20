@@ -27,6 +27,12 @@ What to report:
   the university"), only the final version counts: if it is correct, there is nothing to report.
   Contractions ("gonna", "wanna", "it's") and normal spoken style ("yeah", "so basically",
   "like", "okay so", a sentence that starts with "and" or "but") are not errors.
+- Spoken style never excuses a grammar mistake: a tense, a preposition or an article that is
+  wrong in standard English is an error in speech too. In particular, the past simple used for an
+  experience or a situation that goes on until now, with no finished time ("I never worked with R
+  before", "I already sent the file", "I lived here all my life"), is a past simple versus present
+  perfect error ("I have never worked with R before"), even if some native speakers say it
+  casually. With a finished time ("last week", "in 2023", "yesterday"), the past simple is right.
 - When an "error" could come from the speech recognition hearing the wrong word (words that sound
   the same or almost: "their" / "there", "to" / "two" / "too", "its" / "it's", "then" / "than",
   "a" / "uh", "and" / "an", "of" / "have"), do not report it.
@@ -61,8 +67,8 @@ How to write each error:
   one: a wrong preposition inside a set phrase ("in campus" for "on campus", "in university" for
   "at university") is a fixed-expression error, not a place or time error; "since two years" for
   "for two years" is a by/for/since error; a wrong verb tense uses the tense category that names
-  the contrast (for example past simple versus present perfect). Use exactly one of the listed
-  codes.
+  the contrast (for example past simple versus present perfect), never the parent tense code
+  alone. Use exactly one of the listed codes.
   If a mistake needs a more precise subcategory that does not exist, still give the closest
   listed code and describe the new subcategory in "proposed_subcategory" (its "parent_code" is a
   listed code, its "slug" is lowercase letters, digits and underscores, starting with a letter).
