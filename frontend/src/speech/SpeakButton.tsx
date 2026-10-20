@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useIsRecording } from './activeRecording'
 import { speechKey, useSpeech } from './useSpeech'
 
 /**
@@ -14,11 +15,15 @@ export function SpeakButton({ text, label }: { text: string; label?: string }) {
   const hintId = useId()
   const what = label ?? text
 
+  // While the microphone is open nothing is said: it would be recorded (D-193).
+  const recording = useIsRecording()
   const reason = !speech.supported
     ? t('speech.unsupported')
     : speech.voice === null
       ? t('speech.noEnglishVoice')
-      : null
+      : recording
+        ? t('speech.disabledWhileRecording')
+        : null
   const normalSpeaking = speech.speaking === speechKey(text, false)
   const slowSpeaking = speech.speaking === speechKey(text, true)
 

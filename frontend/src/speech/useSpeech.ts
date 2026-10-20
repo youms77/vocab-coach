@@ -2,6 +2,7 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { useLocation } from 'react-router'
 
 import { useSettings } from '../api/settings'
+import { isRecording } from './activeRecording'
 import { englishVoices, pickVoice, rateFor } from './voices'
 
 /*
@@ -67,6 +68,11 @@ export interface SpeakOptions {
   slow?: boolean
   /** Use this voice name instead of the setting (the settings page's "Test" button). */
   voiceName?: string
+  /**
+   * Called once when this utterance ends: `true` when it was said to the end, `false` when it was
+   * cancelled, replaced or failed ("Play both" goes on to the recording only on `true`, D-195).
+   */
+  onDone?: (completed: boolean) => void
 }
 
 export function useSpeech() {
@@ -82,12 +88,13 @@ export function useSpeech() {
   const { voice, american } = pickVoice(allVoices, voiceName)
 
   const speak = useCallback(
-    (text: string, options: SpeakOptions = {}) => {
+    (text: string, options: SpeakOptions = {}): boolean => {
       const s = synth()
       const slow = options.slow ?? false
       const chosen =
         options.voiceName === undefined ? voice : pickVoice(allVoices, options.voiceName).voice
-      if (s === null || chosen === null) return
+      // Nothing is said while the microphone is open: it would be recorded (D-193).
+      if (s === null || chosen === null || isRecording()) return false
       // One utterance at a time.
       s.cancel()
       const utterance = new SpeechSynthesisUtterance(text)
@@ -95,13 +102,18 @@ export function useSpeech() {
       utterance.voice = chosen
       utterance.rate = rateFor(rate, slow)
       const mine = ++token
-      const done = () => {
+      let reported = false
+      const done = (completed: boolean) => {
         if (mine === token) setSpeaking(null)
+        if (reported) return
+        reported = true
+        options.onDone?.(completed)
       }
-      utterance.onend = done
-      utterance.onerror = done
+      utterance.onend = () => done(true)
+      utterance.onerror = () => done(false)
       setSpeaking(speechKey(text, slow))
       s.speak(utterance)
+      return true
     },
     [allVoices, rate, voice],
   )

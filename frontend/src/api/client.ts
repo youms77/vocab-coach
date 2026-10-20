@@ -71,3 +71,31 @@ export async function apiSend<T>(
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
+
+/**
+ * Uploads a recording: a POST whose body is the audio `Blob` itself, with its own type as
+ * `Content-Type` (the backend takes `audio/*` under `/api/speech/` only, D-170). Everything else
+ * travels in the query string. `signal` stops waiting for the answer; the server may still finish.
+ */
+export async function apiUpload<T>(
+  path: string,
+  blob: Blob,
+  query: Record<string, string | number | undefined> = {},
+  options: { signal?: AbortSignal } = {},
+): Promise<T> {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined) params.set(key, String(value))
+  }
+  const queryString = params.size > 0 ? `?${params.toString()}` : ''
+  const response = await fetch(`/api${path}${queryString}`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': blob.type },
+    body: blob,
+    signal: options.signal,
+  })
+  if (!response.ok) {
+    throw await errorFrom(response, `POST /api${path}`)
+  }
+  return (await response.json()) as T
+}

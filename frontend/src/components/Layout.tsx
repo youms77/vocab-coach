@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet } from 'react-router'
 
 import { useHealth } from '../api/health'
+import { useStopRecordingOnLeave } from '../speech/activeRecording'
 import { useCancelSpeechOnLeave } from '../speech/useSpeech'
 import { AiBanner } from './AiBanner'
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -11,6 +12,7 @@ export function Layout() {
   const { t } = useTranslation()
   const health = useHealth()
   useCancelSpeechOnLeave()
+  useStopRecordingOnLeave()
 
   return (
     <div className="shell">

@@ -2,11 +2,12 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { ApiError, apiGet, apiSend } from './client'
 import type { ErrorOut } from './errors'
+import type { Comparison } from './speech'
 
 // backend/app/api/productions.py, api/writing.py and the stored `correction-1` feedback
 // (app/services/corrections.py, D-128).
 
-export type ProductionKind = 'writing' | 'transcript_analysis' | 'drill' | string
+export type ProductionKind = 'writing' | 'transcript_analysis' | 'drill' | 'shadowing' | 'speaking' | string
 
 export interface ProductionTarget {
   lexical_item_id: number
@@ -112,6 +113,11 @@ export interface Production {
   targets: ProductionTarget[]
   created_at: string
   updated_at: string
+  /** Spoken productions (M6): the recording, whether it was transcribed, the comparison. */
+  audio_url: string | null
+  audio_seconds: number | null
+  transcription_status: 'pending' | 'ok' | 'silence' | null
+  comparison: Comparison | null
 }
 
 export interface ProposedCategory {

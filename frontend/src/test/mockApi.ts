@@ -21,7 +21,8 @@ export function mockApi(routes: Record<string, Handler | object>) {
     const path = url.pathname.replace(/^\/api/, '')
     const method = init?.method ?? 'GET'
     const headers = Object.fromEntries(new Headers(init?.headers).entries())
-    const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined
+    // A JSON body is parsed; a recording (a Blob) is kept as it was sent.
+    const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : (init?.body ?? undefined)
     const call = { method, path: path + url.search, headers, body }
     calls.push(call)
     const route = routes[`${method} ${path}`]

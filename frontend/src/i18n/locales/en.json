@@ -255,7 +255,17 @@
     "text_too_long_transcript": "This conversation is too long: at most 60,000 pasted characters and 6,000 characters in your own turns.",
     "drill_not_found": "This drill does not exist (any more).",
     "already_answered": "This item was already answered.",
-    "not_drillable": "This category cannot be practised."
+    "not_drillable": "This category cannot be practised.",
+    "audio_too_large": "The recording is larger than {{mb}} MB, so it cannot be sent. Record a shorter take.",
+    "unsupported_audio": "This audio format is not accepted. Use the recorder of this page.",
+    "audio_empty": "The recording is empty. Check your microphone and record again.",
+    "audio_too_short": "The recording is too short: it must last at least {{min}} s.",
+    "audio_too_long": "The recording is too long: {{max}} s at most.",
+    "invalid_target": "The sentence to repeat must have between 1 and 400 characters and contain at least one word.",
+    "no_audio": "There is no recording for this item (or its file is gone).",
+    "already_transcribed": "This recording was already transcribed.",
+    "not_transcribed": "This recording has no transcription yet: transcribe it first.",
+    "nothing_to_correct": "Nothing was heard, so there is nothing to correct."
   },
   "home": {
     "title": "Welcome",
@@ -558,7 +568,8 @@
     "quota": "the free quota is used up or the rate limit was hit; try again later",
     "auth": "the AI key was refused",
     "timeout": "the AI took too long to answer",
-    "all_failed": "the AI providers returned errors"
+    "all_failed": "the AI providers returned errors",
+    "incomplete": "the speech recognition returned no usable text"
   },
   "sheet": {
     "title": "Usage sheet and exercises",
@@ -751,6 +762,7 @@
     "unsupported": "This browser has no speech synthesis, so audio is not available.",
     "noEnglishVoice": "No English voice is installed in this browser, so audio is not available.",
     "nonAmerican": "Non-American voice ({{name}}): no en-US voice was found.",
+    "disabledWhileRecording": "Listening is off while you record.",
     "voice": {
       "legend": "Voice",
       "label": "Speech synthesis voice",
@@ -759,6 +771,33 @@
       "hint": "The voices come from this browser and its operating system; en-US voices are listed first.",
       "fallback": "This voice is not available in this browser: the automatic choice is used instead.",
       "test": "Test"
+    }
+  },
+  "recorder": {
+    "range": "Between {{min}} and {{max}} seconds.",
+    "rangeSpeaking": "Aim for 1 to 2 minutes.",
+    "start": "Start recording",
+    "stop": "Stop recording",
+    "cancel": "Cancel",
+    "requesting": "Waiting for the microphone permission…",
+    "recording": "Recording… {{time}}",
+    "started": "Recording started.",
+    "stopped": "Recording stopped: {{time}}.",
+    "length": "Length: {{time}}",
+    "listen": "Listen",
+    "again": "Record again",
+    "send": "Send",
+    "sending": "Sending…",
+    "longWarning": "This take is getting long: it stops by itself at {{max}} seconds.",
+    "tooShort": "This take is too short (at least {{min}} s). Record it again.",
+    "tooLarge": "This take is larger than {{mb}} MB and cannot be sent. Record a shorter one.",
+    "deniedHelp": "Allow the microphone for 127.0.0.1 in the site settings of your browser (the icon next to the address), then try again.",
+    "errors": {
+      "unsupported": "This browser cannot record sound (no MediaRecorder or no microphone access).",
+      "denied": "Access to the microphone was refused.",
+      "no_device": "No microphone was found.",
+      "busy": "The microphone is used by another program or tab.",
+      "failed": "The recording failed. Try again."
     }
   },
   "today": {

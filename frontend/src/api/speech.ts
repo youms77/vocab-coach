@@ -1,0 +1,166 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+
+import { ApiError, apiGet, apiSend, apiUpload } from './client'
+import type { ErrorOut } from './errors'
+import { type Feedback, productionsKey } from './productions'
+import type { SheetSummary, Solution } from './reviews'
+
+// backend/app/api/speech.py and app/services/speech.py (module F, D-170 to D-175, D-183).
+
+export type StepOp = 'match' | 'close' | 'substituted' | 'missing' | 'extra'
+
+/** Words `[target_start, target_end)` of the target were heard as `[heard_start, heard_end)`. */
+export interface ComparisonStep {
+  op: StepOp
+  target_start: number
+  target_end: number
+  heard_start: number
+  heard_end: number
+  target: string | null
+  heard: string | null
+}
+
+export interface UnrecognizedWord {
+  position: number
+  word: string
+  /** What was heard instead; null when nothing was. */
+  heard: string | null
+}
+
+export interface Comparison {
+  version: string
+  word_accuracy: number
+  target_word_count: number
+  heard_word_count: number
+  recognized_count: number
+  unrecognized: UnrecognizedWord[]
+  steps: ComparisonStep[]
+}
+
+export type TranscriptionStatus = 'ok' | 'silence' | 'unavailable'
+
+export interface Transcription {
+  status: TranscriptionStatus
+  text: string | null
+  /** `unavailable`: `no_provider_configured`, `quota`, `network`, `auth`, `timeout`, `all_failed`, `incomplete`. */
+  reason: string | null
+}
+
+export interface SpeechOut {
+  production_id: number
+  audio_url: string
+  audio_seconds: number | null
+  transcription: Transcription
+  comparison: Comparison | null
+}
+
+export interface ReviewAnswerOut {
+  production_attempt_id: number
+  transcription: Transcription
+  status: 'ok' | 'incomplete' | 'unavailable'
+  reason: string | null
+  feedback: Feedback | null
+  errors: ErrorOut[]
+  proposed_rating: 1 | 3 | null
+  warnings: string[]
+  solution: Solution
+  sheet_summary: SheetSummary | null
+}
+
+export const SPEAKING_TAGS = [
+  'interview',
+  'presenting',
+  'academic',
+  'data_science',
+  'everyday',
+  'campus',
+] as const
+export type SpeakingTag = (typeof SPEAKING_TAGS)[number]
+
+export interface SpeakingTopic {
+  id: string
+  en: string
+  fr: string
+  tags: SpeakingTag[]
+}
+
+export interface ShadowingBody {
+  blob: Blob
+  durationS: number
+  target: string
+  itemId?: number
+  origin?: 'shadowing' | 'discovery'
+  studySessionId?: number
+}
+
+/** Stores and transcribes a shadowing: a few seconds. A failed transcription is a 201 answer. */
+export function useShadowing() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: ShadowingBody) =>
+      apiUpload<SpeechOut>('/speech/shadowing', body.blob, {
+        target_text: body.target,
+        duration_s: body.durationS,
+        item_id: body.itemId,
+        origin: body.origin ?? 'shadowing',
+        study_session_id: body.studySessionId,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
+    },
+  })
+}
+
+export interface SpeakingBody {
+  blob: Blob
+  durationS: number
+  promptText?: string
+}
+
+/** Stores and transcribes a free speech (M6.b2 screens); the correction is a separate call. */
+export function useSpeaking() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: SpeakingBody) =>
+      apiUpload<SpeechOut>('/speech/speaking', body.blob, {
+        duration_s: body.durationS,
+        prompt_text: body.promptText,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
+    },
+  })
+}
+
+/** Runs the transcription again for a recording that has none (`pending`). */
+export function useTranscribe() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) =>
+      apiSend<SpeechOut>('POST', `/productions/${id}/transcribe`),
+    onSuccess: (result) => {
+      if (result.transcription.status === 'unavailable') return
+      void queryClient.invalidateQueries({
+        queryKey: [...productionsKey, 'detail', result.production_id],
+      })
+      void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
+    },
+    onError: (error, id) => {
+      // Transcribed meanwhile (another tab): show what is stored.
+      if (error instanceof ApiError && error.code === 'already_transcribed') {
+        void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'detail', id] })
+      }
+    },
+  })
+}
+
+export function useSpeakingTopics(tag: SpeakingTag | '') {
+  return useQuery({
+    queryKey: ['speaking-topics', tag],
+    queryFn: ({ signal }) =>
+      apiGet<SpeakingTopic[]>(`/speaking/topics?count=3${tag !== '' ? `&tag=${tag}` : ''}`, {
+        signal,
+      }),
+    staleTime: 5 * 60_000,
+  })
+}

@@ -104,6 +104,10 @@ export function production(overrides: Partial<Production> = {}): Production {
     targets: [],
     created_at: '2026-10-18T09:00:00Z',
     updated_at: '2026-10-18T09:00:00Z',
+    audio_url: null,
+    audio_seconds: null,
+    transcription_status: null,
+    comparison: null,
     ...overrides,
   }
 }

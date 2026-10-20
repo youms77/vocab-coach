@@ -255,7 +255,17 @@
     "text_too_long_transcript": "Cette conversation est trop longue : 60 000 caractères collés au plus, et 6 000 caractères dans vos propres tours.",
     "drill_not_found": "Cet exercice n'existe pas (ou plus).",
     "already_answered": "Vous avez déjà répondu à cette question.",
-    "not_drillable": "Vous ne pouvez pas vous entraîner sur cette catégorie."
+    "not_drillable": "Vous ne pouvez pas vous entraîner sur cette catégorie.",
+    "audio_too_large": "L'enregistrement dépasse {{mb}} Mo : il ne peut pas être envoyé. Enregistrez une prise plus courte.",
+    "unsupported_audio": "Ce format audio n'est pas accepté. Utilisez l'enregistreur de cette page.",
+    "audio_empty": "L'enregistrement est vide. Vérifiez votre micro et recommencez.",
+    "audio_too_short": "L'enregistrement est trop court : il doit durer au moins {{min}} s.",
+    "audio_too_long": "L'enregistrement est trop long : {{max}} s au plus.",
+    "invalid_target": "La phrase à répéter doit contenir entre 1 et 400 caractères et au moins un mot.",
+    "no_audio": "Il n'y a pas d'enregistrement pour cet élément (ou son fichier a disparu).",
+    "already_transcribed": "Cet enregistrement a déjà été transcrit.",
+    "not_transcribed": "Cet enregistrement n'a pas encore de transcription : transcrivez-le d'abord.",
+    "nothing_to_correct": "Rien n'a été entendu : il n'y a rien à corriger."
   },
   "home": {
     "title": "Bienvenue",
@@ -558,7 +568,8 @@
     "quota": "le quota gratuit est épuisé ou la limite de débit est atteinte ; réessayez plus tard",
     "auth": "la clé d'IA a été refusée",
     "timeout": "l'IA a mis trop de temps à répondre",
-    "all_failed": "les fournisseurs d'IA ont renvoyé des erreurs"
+    "all_failed": "les fournisseurs d'IA ont renvoyé des erreurs",
+    "incomplete": "la reconnaissance vocale n'a renvoyé aucun texte exploitable"
   },
   "sheet": {
     "title": "Fiche d'usage et exercices",
@@ -751,6 +762,7 @@
     "unsupported": "Ce navigateur n'a pas de synthèse vocale : l'audio n'est pas disponible.",
     "noEnglishVoice": "Aucune voix anglaise n'est installée dans ce navigateur : l'audio n'est pas disponible.",
     "nonAmerican": "Voix non américaine ({{name}}) : aucune voix en-US n'a été trouvée.",
+    "disabledWhileRecording": "L'écoute est désactivée pendant l'enregistrement.",
     "voice": {
       "legend": "Voix",
       "label": "Voix de la synthèse vocale",
@@ -759,6 +771,33 @@
       "hint": "Les voix viennent de ce navigateur et de son système ; les voix en-US sont en tête de liste.",
       "fallback": "Cette voix n'est pas disponible dans ce navigateur : le choix automatique s'applique.",
       "test": "Tester"
+    }
+  },
+  "recorder": {
+    "range": "Entre {{min}} et {{max}} secondes.",
+    "rangeSpeaking": "Visez 1 à 2 minutes.",
+    "start": "Démarrer l'enregistrement",
+    "stop": "Arrêter l'enregistrement",
+    "cancel": "Annuler",
+    "requesting": "En attente de l'autorisation du micro…",
+    "recording": "Enregistrement en cours… {{time}}",
+    "started": "Enregistrement démarré.",
+    "stopped": "Enregistrement arrêté : {{time}}.",
+    "length": "Durée : {{time}}",
+    "listen": "Écouter",
+    "again": "Réenregistrer",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "longWarning": "Cette prise s'allonge : elle s'arrête d'elle-même à {{max}} secondes.",
+    "tooShort": "Cette prise est trop courte (au moins {{min}} s). Réenregistrez-la.",
+    "tooLarge": "Cette prise dépasse {{mb}} Mo et ne peut pas être envoyée. Enregistrez-en une plus courte.",
+    "deniedHelp": "Autorisez le micro pour 127.0.0.1 dans les paramètres du site de votre navigateur (l'icône à côté de l'adresse), puis réessayez.",
+    "errors": {
+      "unsupported": "Votre navigateur ne peut pas enregistrer le son (pas de MediaRecorder ou d'accès au micro).",
+      "denied": "L'accès au micro a été refusé.",
+      "no_device": "Aucun micro n'a été trouvé.",
+      "busy": "Le micro est utilisé par un autre programme ou onglet.",
+      "failed": "L'enregistrement a échoué. Réessayez."
     }
   },
   "today": {
