@@ -181,7 +181,9 @@ def test_the_new_recordings_replace_the_old_ones(
     assert not old.exists()
     assert (audio / "2026" / "08" / ("b" * 32 + ".wav")).read_bytes() == b"new demo recording"
     assert [p.parent.parent.parent.name for p in written] == [f"audio-demo.tmp-{os.getpid()}"]
-    assert (summary.audio_dir, summary.recordings) == (audio.resolve(), 1)
+    assert summary.audio_dir == audio.resolve()
+    clips = sorted(audio.rglob("*.wav"))
+    assert summary.recordings == len(clips) >= 2  # the simulation's clips and the extra one
     assert _leftovers(tmp_path) == []
 
 

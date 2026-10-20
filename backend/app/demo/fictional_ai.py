@@ -199,9 +199,10 @@ def transcription(text: str, duration_s: float) -> AiResult[TranscriptionOutput]
 
 
 def misheard(sentence: str, rng: random.Random, count: int) -> str:
-    """`sentence` as a recogniser might have heard it, with `count` words (0 to 2) lost: a final
-    -s dropped ("effects" -> "effect") or the word missed altogether. Both are words the
-    comparator does not recognise (a final -s is never "close", D-173)."""
+    """`sentence` as a recogniser might have heard it, with `count` words (0 to 2) lost: a plural
+    heard as a singular ("effects" -> "effect", "studies" -> "study") or the word missed
+    altogether. Both are words the comparator does not recognise (a final -s is never "close",
+    D-173)."""
     tokens = sentence.split()
     words = [_WORD.search(token) for token in tokens]
     candidates = [i for i, word in enumerate(words) if word and len(word.group(0)) >= 3]
@@ -209,11 +210,24 @@ def misheard(sentence: str, rng: random.Random, count: int) -> str:
     for index in chosen:
         token = tokens[index]
         word = _WORD.findall(token)[0]
-        if word.lower().endswith("s") and not word.lower().endswith("ss") and len(word) >= 4:
-            tokens[index] = token.replace(word, word[:-1], 1)
+        singular = _singular(word)
+        if singular is not None:
+            tokens[index] = token.replace(word, singular, 1)
         else:
             del tokens[index]
     return " ".join(tokens)
+
+
+def _singular(word: str) -> str | None:
+    """The singular a recogniser may hear for a plain plural, else None."""
+    lower = word.lower()
+    if len(word) < 4 or "'" in word or lower.endswith(("ss", "us", "is")):
+        return None
+    if lower.endswith("ies"):
+        return word[:-3] + "y"
+    if lower.endswith("s"):
+        return word[:-1]
+    return None
 
 
 # --- Spoken production -------------------------------------------------------------------------
