@@ -1637,6 +1637,8 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 
 ## D-117 — Discovery flow (M4.b)
 
+> M6.b1 (D-199): the spoken repetition now has an optional recording (the "recording comes later" mention is gone).
+
 - `features/discovery/DiscoveryFlow.tsx` keyed by the term id, so a `next` that answers the same term does not
   reset it. Steps 1 and 2 share one screen (the sentence stays visible while guessing); then the sheet, the
   immediate exercises (typed recall, then gap-fill, each skipped silently when absent), the spoken repetition,
@@ -1721,6 +1723,10 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   the rating and option buttons show their number.
 
 ## D-123 — What is heard and shown before the answer (M4.c1)
+
+> M6.b1: still true for the review player ("nothing is recorded yet" stays on `spoken_answer` until M6.b2 replaces it with
+> the recorder, D-143 extended). The recorder (D-193) and its rule that the speech synthesis is cut before it records are
+> ready for it.
 
 - Listening comprehension: the sentence is never written in the DOM before the answer (no text, no hidden
   element, no attribute; the "Listen" buttons are labelled "the sentence"). The player speaks it as soon as a
@@ -3034,3 +3040,121 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - Not in the plan: `demo seed` prints the number of recordings; `test_demo_data` reads the proposed rating of a
   spoken answer from its check (it was always null before) and counts a spoken production's words as the comparator
   does (D-186).
+
+## D-193 — The voice recorder (M6.b1, 2026-10-21)
+
+- `frontend/src/speech/` gets the recorder next to the speech synthesis (D-112): `recorder.ts` (pure rules, unit-tested),
+  `useRecorder.ts` (the hook), `activeRecording.ts` (who holds the microphone), `RecorderPanel.tsx` (the `Recorder`
+  component). The component's file is **not** `Recorder.tsx`: on Windows' case-insensitive file system `./Recorder` resolves
+  to `recorder.ts` (the import gave `undefined`).
+- `navigator.mediaDevices` and `MediaRecorder` are read at every call, never cached: without them the recorder reports
+  `unsupported` (jsdom, an old browser). Failure reasons from the error name: `NotAllowedError` / `SecurityError` →
+  `denied`, `NotFoundError` / `OverconstrainedError` → `no_device`, `NotReadableError` / `AbortError` → `busy`, anything
+  else `failed`.
+- **Type**: the first accepted by `isTypeSupported` in the order `audio/webm;codecs=opus`, `audio/webm`,
+  `audio/ogg;codecs=opus`, `audio/mp4`; none accepted → the browser's default. The blob's type is its first chunk's, else the
+  recorder's `mimeType`. The backend ignores the parameters (D-169). `start(1000)` gives chunks as it goes.
+- **Duration**: measured by the client, `performance.now()` from the recorder's start to the click on stop (a
+  `MediaRecorder` webm often has no duration), sent as `duration_s`, rounded to 2 decimals and **capped at the maximum** (a
+  timer fires a few milliseconds late, and the server would refuse 30.04 s for a shadowing). The clock is read through one
+  function (`now()`), so the tests move it by hand.
+- **Bounds** (the backend's, D-179), with the automatic stop at the maximum: shadowing 0.5 to 30 s; free speaking 5 to 180 s
+  with a visible warning from 120 s (ready for M6.b2); spoken answer 1 to 90 s. A take that is too short is not sent (message,
+  "Send" off); over 10 MB is refused before sending. The server stays the judge (`audio_too_short`, `audio_too_long`).
+- **The microphone is released** (`track.stop()` on every track) when the recorder ends, when the take is cancelled, when
+  the component unmounts, on a route change (a `useEffect` in the layout, like the speech's), when `getUserMedia` or the
+  recorder fails, and when the user cancels while the browser is still asking (a late stream is stopped as it arrives).
+  Tracks are stopped at the click on stop as well as at the recorder's `stop` event, so the indicator goes out at once.
+- **One recording at a time** in the whole app (`claimRecording`), and **the speech synthesis is cut before the microphone
+  opens** (`cancelSpeech()`), or the synthetic voice would be recorded. While the microphone is open "Listen" is disabled
+  with a reason and `speak()` refuses to speak.
+- The local clip is listened to through a `blob:` URL, revoked when replaced, on "Record again" and on unmount. Nothing is
+  written to `localStorage`, `sessionStorage`, the URL or the router state (tested).
+- The state is said in words: a red dot **and** "Recording… 0:42"; a polite status says "Recording started" and
+  "Recording stopped: 0:12" once; the timer itself is not a live region.
+
+## D-194 — Upload layer, error codes and the spoken fields (M6.b1)
+
+- `apiUpload(path, blob, query, {signal})` (`api/client.ts`): a POST whose body is the `Blob` and whose `Content-Type` is its
+  type; the other values go through `URLSearchParams` (undefined ones left out); the errors are `apiSend`'s. The guard accepts
+  `audio/*` only under `/api/speech/` (D-170): audio is sent nowhere else.
+- `api/speech.ts` holds the types read from `app/api/speech.py` (`ComparisonStep`, `Comparison`, `SpeechOut`,
+  `ReviewAnswerOut`, `SpeakingTopic`) and the hooks (`useShadowing`, `useTranscribe`, `useSpeaking`, `useSpeakingTopics`;
+  the last two are used by M6.b2). `Production` gains `audio_url`, `audio_seconds`, `transcription_status`, `comparison`.
+- Ten codes join `errorMessage.ts`: `audio_too_large`, `unsupported_audio`, `audio_empty`, `audio_too_short`,
+  `audio_too_long`, `invalid_target`, `no_audio`, `already_transcribed`, `not_transcribed`, `nothing_to_correct` (the others
+  of the milestone were known). The bounds in the answer (`min_s`, `max_s`, `max_bytes`) go into the sentence. The reason of
+  an unavailable transcription goes through `aiReasonText`, which learns `incomplete`; `silence` has its own sentence.
+
+## D-195 — "Play both" and the end of an utterance (M6.b1; builds on D-112)
+
+- `useSpeech().speak` returns whether it started and takes `onDone(completed)`: called **once** per utterance, `true` at its
+  end, `false` when it was cancelled, replaced or failed. It is called even for a superseded utterance (the browsers fire
+  `error` for it after the next `speak`), which the speaking state itself ignores through its token.
+- "Play both" says the sentence, then plays the recording on `onDone(true)`; a run number makes a late end of a cancelled run
+  do nothing; "Stop" cancels the voice and pauses the audio; without speech synthesis or an English voice the recording
+  plays alone. It drives the page's own `<audio>` element. Seen working in the in-app browser: the voice, then the clip to its
+  end, the button back to "Play both".
+
+## D-196 — The shadowing pages and the router state read once (M6.b1; builds on D-142, D-152)
+
+- `/speaking/shadowing` (new take), `/speaking/shadowing/:id`, `/speaking/shadowing/history` (20 per page, the page in the
+  URL, `GET /api/productions?kind=shadowing`). The top bar's "Speaking" link points to the first for now (M6.b2: `/speaking`).
+- The sentence and the term of "Shadow this sentence" come in the navigation state `{target, itemId}`: read once into the
+  page's state, then the state is **cleared at once** (`navigate(..., {replace: true, state: null})`, a ref guard for
+  StrictMode), because the browser keeps the router state in `history.state` across a reload. A reload shows an empty field
+  (tested with the real history). The sentence is counted in code points (400), with no `maxLength`.
+- Sending goes to `/speaking/shadowing/{id}` with the history replaced. When the transcription is unavailable the reason (a
+  code, nothing else) goes along in the state, read once and cleared, so the next page says why without an extra request.
+- The detail page starts nothing by itself: "Transcribe" / "Try again" call `POST /productions/{id}/transcribe`;
+  `409 already_transcribed` reads the production again with no message; the focus goes to the result after a transcription.
+  A production that is not a shadowing gets a message and a link to the error log (the redirects are M6.b2's).
+- The history page repeats the page and the table of the written history; no recording text reaches any storage (tested at
+  every navigation, as in D-152).
+
+## D-197 — The comparison view (M6.b1)
+
+- `ComparisonView` is built only from the backend's `steps` (`speech-compare-1`); `comparison.ts` cuts them into the marks of
+  the two rows. "Target": `match` plain, `close` with "≈" (counted as recognised, with a hidden sentence), `substituted`
+  underlined with "(heard: X)", `missing` struck through with "(not heard)"; "Heard": the transcription with `extra` marked.
+  Every mark has a visible or hidden text, never the colour alone. The summary is in words ("5 of 6 words recognised"), with
+  no grade and no percentage. The list of unrecognised words comes from `unrecognized`.
+- **The warning is always shown**, compact or not, even when everything was recognised: speech recognition is not a
+  pronunciation judge. `compact` (discovery) leaves out the log buttons; the same component serves M6.b2.
+
+## D-198 — A misheard word logged by hand (M6.b1; builds on D-174)
+
+- For each `substituted` word the detail page has "Log as an intelligibility error", which opens `/errors/new` with the
+  state `{original_text: the transcription, erroneous_text: the word heard, correction: the target word, category_code:
+  pronunciation.intelligibility, explanation}`. No button for a `missing` word (no wrong form to quote). Nothing is created
+  without the user's click on "Add to my log" (tested: no `POST /errors` before it).
+- `ManualErrorPage` reads the state once, clears it, fills **the first form only** (the one after a successful add is empty)
+  and says it was filled in. `readPrefill` ignores any other state. The category label resolves once the tree is loaded.
+
+## D-199 — The optional recording of the discovery's step 4 (M6.b1; builds on D-117, D-144)
+
+- "Say it aloud" gets an optional `Recorder`: the take is sent as a shadowing of the sentence on screen (`origin=discovery`,
+  `item_id`, `study_session_id`), with a compact comparison. A refusal of the server, an unavailable transcription, silence and
+  a refused microphone are said and **never block** the way on. The recorder is mounted again after each take (empty), so the
+  same clip is not sent twice by mistake; the sheet is neither loaded nor shown (a test counts the `/sheet` requests).
+- The existing button "Done, I repeated it" stays the one way on, with or without a take (it is both "Continue" and "Skip"),
+  so the older tests and wording hold. This replaces "recording comes later" (D-117).
+
+## D-200 — "Shadow this sentence" on the term page (M6.b1; builds on D-091, D-118)
+
+- `SheetView` takes `shadowItemId`: each example gets a link to `/speaking/shadowing` with `{target, itemId}` (a `Link` styled
+  as a small button: it navigates). The discovery's `SheetView` and the versions list pass none.
+- The original sentence of a term was only shown in the edit form. It now also appears in the revealed sheet ("Original
+  sentence", with its link), so the whole feature stays behind the reveal button (D-091). Accessible names end with the
+  sentence they act on ("Shadow this sentence (example 1)").
+
+## D-201 — Small conventions and departures met in M6.b1
+
+- `fakeRecorder.ts` (the microphone, `MediaRecorder`, `URL.createObjectURL`, `play()`/`pause()`, and the clock of
+  `performance.now()` through `kit.advance`) and the shared `recordTake` helper; `setup.ts` removes it after each test, like the
+  fake speech. `mockApi` keeps a non-JSON body (a `Blob`) as it was sent.
+- The speech tests fake only the timers they need (`setTimeout`, `setInterval`): faking every timer made `findBy*` wait forever.
+- The recorder is not wired to a "choose the microphone" setting (excluded from the milestone).
+- Departures from the prompt: the component's file is `RecorderPanel.tsx` (D-193); the reason of an unavailable first
+  transcription travels in the router state (D-196); the original sentence is displayed in the revealed sheet (D-200); the one
+  "Done, I repeated it" button covers "Continue" and "Skip" (D-199).

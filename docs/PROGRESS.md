@@ -4,23 +4,118 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M6.a2b (module F, backend: the demo through the speech services), on branch
-  `feat/m6a2-speaking-correction` after M6.a2a, cut from `feat/m6a1-recordings-transcription` (M6.a1, PR #21, **not
+- **Last milestone completed**: M6.b1 (module F, frontend: the recorder and shadowing), on branch
+  `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (M6.a2, after M6.a1, PR #21, **not
   merged into `main` yet**). Not pushed. `main` (`7904aa3`, CI green) has M1.a to M5.a3. No migration since `0002`.
 - **M6 — Speaking** (module F, SPEC section 9) is cut in five (D-168), M6.a2 in two (D-178): **M6.a1** (done: local
   recordings, Groq Whisper, shadowing, comparison, playback, CLI), **M6.a2a** (done: free speaking corrected by
   `speaking_correction`, spoken answers in reviews, CLI), **M6.a2b** (done: the demo through the services,
-  `direct_writes.py` removed, D-035 closed), **M6.b1** and **M6.b2** (frontend: the recorder and the screens; API
-  references in the M6.a1 and M6.a2a sections; the demo now has every case to show), **M6.c** (Azure AI Speech,
-  optional).
-- **Next**: the owner's review of M6.a2 (M6.a2a and M6.a2b), then push and the pull request with the owner's go-ahead
-  (after PR #21); then M6.b1.
+  `direct_writes.py` removed, D-035 closed), **M6.b1** (done: the recorder, the shadowing pages, the comparison, the
+  optional recording of the discovery) and **M6.b2** (frontend: free speaking and spoken answers in reviews; API
+  references in the M6.a1 and M6.a2a sections), **M6.c** (Azure AI Speech, optional).
+- **Next**: the owner's review of M6.b1 and of M6.a2, then push and the pull request with the owner's go-ahead (after PR
+  #21); then M6.b2 on the same branch.
 - **Left from M5, not scheduled**: the screens for cards from errors and suggestions ("M5.d", API in the M5.a3 section
   below) and an undo for a dismissed suggestion. The owner decides when they come.
 - Gemini (`gemini-3.5-flash-lite`) and Groq are configured in the owner's `.env`; the M5.a1, M5.a2 and M6.a2a live tests
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
-  scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a and M6.a2b) are still to run.
+  scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b and M6.b1) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M6.b1 — The recorder and shadowing (frontend)
+
+Branch `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (`e5600ce`): `main` does not contain M6.a2
+(`git branch --contains e5600ce` lists only that branch). Not pushed. Three commits in the order of the approved plan: the recorder
+and the upload layer, the shadowing pages, the integrations (discovery, term page, manual error), then the docs. **No backend
+change** (`git diff --stat e5600ce -- backend` is empty), no migration, no new dependency. SPEC.md unchanged. Decisions D-193 to
+D-201; D-117 and D-123 annotated.
+
+### Done
+
+- **Recorder** (D-193): `src/speech/` gets `recorder.ts` (types, bounds, failure reasons), `useRecorder.ts`, `activeRecording.ts`
+  (one recording at a time, cut on a route change) and `RecorderPanel.tsx` (`Recorder`: Start / Stop, "Recording… 0:42" with a red dot
+  and the text, then Listen / Record again / Send). The speech synthesis is cut before the microphone opens; "Listen" is off while
+  recording; every track is stopped at the end, on cancel, on unmount and on a route change; the `blob:` URL is revoked.
+  Bounds: shadowing 0.5 to 30 s, free speaking 5 to 180 s (warning at 120 s), spoken answer 1 to 90 s; over 10 MB refused.
+- **Upload layer** (D-194): `apiUpload`, `api/speech.ts` (types read from the backend, hooks), the spoken fields of `Production`,
+  ten new error codes with their bounds, `incomplete` among the AI reasons.
+- **Shadowing** (D-196): `/speaking/shadowing` (sentence from the navigation state or typed, 1 to 400 code points, Listen and Listen
+  slowly, recorder, Send), `/speaking/shadowing/:id` (recording with `<audio controls>`, "Play both", Transcribe / silence /
+  unavailable and Try again / 409 re-read, comparison), `/speaking/shadowing/history` (20 per page, the page in the URL). "Speaking" in
+  the top bar. The privacy sentence (recording sent to Groq, kept in your data folder) is on every page that sends one.
+- **Comparison** (D-197): `ComparisonView` from the backend's `steps`: Target and Heard rows, marks that always have a text, a summary in
+  words, the list of unrecognised words, the warning that speech recognition is not a pronunciation judge, always shown.
+- **"Play both"** (D-195): the synthetic voice, then the recording; cancellable; `speak()` now reports its end.
+- **Manual error** (D-198): "Log as an intelligibility error" on a substituted word opens `/errors/new` filled in (category
+  `pronunciation.intelligibility`); nothing is created before the click on "Add to my log".
+- **Discovery step 4** (D-199): an optional recording of the sentence on screen (`origin=discovery`, term and session), compact
+  comparison; a failure never blocks the way on. **Term page** (D-200): "Shadow this sentence" on the examples and on the original
+  sentence, inside the revealed sheet.
+- **Tests**: 525 Vitest tests (447 before): the recorder's rules, its five failure reasons, the tracks stopped at the end, on
+  unmount, on cancel while asking and on a route change, the speech cut before recording, the blob URL revoked, the exact body and
+  `Content-Type`, the shadowing pages (every transcription state, "Play both" in order and cancelled), the comparison on hand-made steps,
+  the prefilled manual form, the discovery's optional recording and its failures, nothing in the storages or `history.state`, French.
+
+### Verified (Windows 11, 2026-10-21)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **2 425 pytest passed** (14 live deselected), then the frontend: typecheck, oxlint `--deny-warnings`, **525 vitest tests**; exit code 0. `npm --prefix frontend run build` passes. `git diff --stat e5600ce -- backend` is empty.
+- Break checks, applied then undone (`git checkout` of the file, the tree is clean):
+  - **(a)** both `track.stop()` calls of `useRecorder.ts` replaced by `void track`: **7 tests fail** (the six "microphone is released"
+    tests of `RecorderPanel.test.tsx` and the first test of `ShadowingPages.test.tsx`), all with
+    `AssertionError: expected false to be true`.
+  - **(b)** the `cancelSpeech()` call of `start` removed: **1 test fails**, "cuts the speech synthesis before it records"
+    (`AssertionError: expected 0 to be greater than 0`).
+- **In-app browser**, on a demo database made in a temporary folder (`VOCAB_DATA_DIR`, the keys emptied through the environment; the
+  repository's `data/` and `.env` untouched; the servers were stopped afterwards): the history (6 shadowings, "7 of 8 words recognised"...),
+  a detail (comparison, `<audio>` of 1 s that the server streams, ready state 4), "Play both" (the voice spoke, the clip played to its
+  end, the button went back), "Log as an intelligibility error" (form filled, category label "Intelligibility", router state cleared),
+  the manual-error form, the term page's "Shadow this sentence" on the original sentence (EN and FR); a `curl --data-binary @clip.wav -H
+  "Content-Type: audio/wav"` of a 3 s WAV made with `wave` to `/api/speech/shadowing` (201, no Groq key: `unavailable`,
+  `no_provider_configured`), then its page: "This recording is not transcribed yet" and, after "Transcribe", "The transcription is not
+  available: no AI provider is set up. Your recording is kept." with "Try again".
+- **375 px**, EN and FR: no horizontal scroll on the new pages, the term page and the error form (`scrollWidth` 375); the top bar's
+  seven links wrap to a second row in French ("Oral", "Erreurs", "Réglages"), as D-145 accepted.
+- **Not verified with a real microphone**: the in-app browser blocks the microphone (the permission request stays pending, and
+  "Cancel" works). The refusal state was shown by making `getUserMedia` reject in the page. So what a real `MediaRecorder` produces, its
+  `stop` timing, the browser's microphone indicator going out, a real take transcribed by Groq and the quality of the recording are
+  **untested** (only the fakes and the `curl` clip).
+
+### Owner's manual scenario (about 2 minutes, with your Groq key and a microphone)
+
+1. `.\start.ps1 -Demo` (or without `-Demo` for your data), open **Speaking**. Type "We account for regional fixed effects." Click
+   Listen, then Start recording (allow the microphone for 127.0.0.1 the first time), say it, Stop, Listen, Send.
+2. The page of the take shows the comparison within a few seconds. Click **Play both** (voice then your recording). If a word was
+   missed, "Log as an intelligibility error" opens the form filled in: read it, then add it or leave.
+3. Open a term in the library, **Show the usage sheet**, click "Shadow this sentence" on an example: the field is filled in. Reload the
+   page: it is empty again.
+4. In a session, at a term's "Say it aloud" step, record yourself (optional) and see the compact comparison; "Done, I repeated it" goes on.
+5. Without a Groq key the take is kept and its page says why, with "Try again".
+
+### Departures from the prompt
+
+- The component's file is `RecorderPanel.tsx` (a `Recorder.tsx` collides with `recorder.ts` on Windows, D-193).
+- The reason of an unavailable first transcription travels in the router state to the next page (D-196).
+- The original sentence of a term is displayed in the revealed sheet, with its "Shadow" link (it was only in the edit form, D-200).
+- The discovery keeps the single button "Done, I repeated it" for "Continue" and "Skip" (D-199).
+- Not planned: `useSpeech().speak` returns a boolean and takes `onDone` (D-195); `aiReason.ts` knows `incomplete`.
+
+### Left / notes
+
+- **M6.b2**: free speaking, the `speaking-1` branch of the correction model, spoken answers in the review player (extends D-143, replaces
+  the "nothing is recorded yet" mention of D-123), the redirects between `/writing/:id` and `/speaking/:id`, the "Speaking" link to
+  `/speaking`. `api/speech.ts` already has `useSpeaking`, `useSpeakingTopics` and the `ReviewAnswerOut` type.
+- M6.c (Azure AI Speech), the microphone choice in the settings. The owner's manual scenarios. Push and the pull request: with the
+  owner's go-ahead (after PR #21).
+
+### Known issues
+
+- A real recording was never made in this session (see "Not verified").
+- One full run of the Vitest suite, out of five, showed one failing test that I could not name (a run under load: the next four
+  passed, 525 of 525); the cause is probably a test with a 5 s timeout, not one of the new ones.
+- `history.state` is cleared by a `replace` navigation after the first render, so the router state is briefly in the browser's
+  history until the effect runs (the proposal is a sentence from the sheet, never a recording).
+- The comparison counts these / those as close (D-173, unchanged); the heard text of a substituted word comes from the transcription's
+  tokens, so the manual form may warn "not found in the sentence" if the recogniser's spelling had punctuation inside a word.
 
 ## M6.a2b — The demo through the speech services (backend)
 
