@@ -1,4 +1,6 @@
-import { vi } from 'vitest'
+import { act, screen } from '@testing-library/react'
+import type userEvent from '@testing-library/user-event'
+import { type MockInstance, vi } from 'vitest'
 
 /*
  * jsdom has no microphone. This fake stands in for `navigator.mediaDevices.getUserMedia`,
@@ -91,6 +93,8 @@ export interface RecorderKit {
   refuseNext: (name: string) => void
   /** The next `getUserMedia` waits until the test allows or refuses it. */
   holdNext: () => PendingPermission
+  /** Moves the recorder's clock (`performance.now()`) forward, in milliseconds. */
+  advance: (ms: number) => void
 }
 
 interface Saved {
@@ -101,6 +105,7 @@ interface Saved {
   revokeObjectURL: unknown
   play: unknown
   pause: unknown
+  clock: MockInstance<() => number> | null
 }
 
 let saved: Saved | null = null
@@ -119,6 +124,7 @@ export function installFakeRecorder(supported: string[] = [OPUS, 'audio/webm']):
     revokeObjectURL: URL.revokeObjectURL,
     play: media.play,
     pause: media.pause,
+    clock: null,
   }
 
   FakeMediaRecorder.supported = supported
@@ -162,6 +168,9 @@ export function installFakeRecorder(supported: string[] = [OPUS, 'audio/webm']):
   const pause = vi.fn()
   media.play = play
   media.pause = pause
+  // The recorder measures the duration with performance.now(): the tests move that clock by hand.
+  let clock = 0
+  saved.clock = vi.spyOn(performance, 'now').mockImplementation(() => clock)
 
   return {
     getUserMedia,
@@ -173,6 +182,9 @@ export function installFakeRecorder(supported: string[] = [OPUS, 'audio/webm']):
     recorder: () => FakeMediaRecorder.instances.at(-1) ?? null,
     refuseNext: (name) => {
       refusal = name
+    },
+    advance: (ms) => {
+      clock += ms
     },
     holdNext: () => {
       let allow = () => {}
@@ -205,6 +217,24 @@ export function uninstallFakeRecorder() {
   URL.revokeObjectURL = saved.revokeObjectURL as typeof URL.revokeObjectURL
   media.play = saved.play
   media.pause = saved.pause
+  saved.clock?.mockRestore()
   saved = null
   FakeMediaRecorder.instances = []
+}
+
+/**
+ * Starts a take, lets `ms` go by, stops it and lets the recorder end, so that the "Send" button
+ * is there (the page's own button, a test then clicks it).
+ */
+export async function recordTake(
+  user: ReturnType<typeof userEvent.setup>,
+  kit: RecorderKit,
+  options: { ms?: number; blob?: Blob } = {},
+) {
+  await user.click(screen.getByRole('button', { name: 'Start recording' }))
+  const stop = await screen.findByRole('button', { name: 'Stop recording' })
+  kit.advance(options.ms ?? 2000)
+  await user.click(stop)
+  act(() => kit.recorder()?.finish(options.blob))
+  await screen.findByRole('button', { name: 'Send' })
 }

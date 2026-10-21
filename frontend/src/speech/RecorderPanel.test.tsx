@@ -1,9 +1,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Link, MemoryRouter, Route, Routes } from 'react-router'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { installFakeRecorder, OPUS, type RecorderKit } from '../test/fakeRecorder'
+import { installFakeRecorder, OPUS, recordTake, type RecorderKit } from '../test/fakeRecorder'
 import { installFakeSpeech } from '../test/fakeSpeech'
 import { renderWithProviders } from '../test/renderApp'
 import { useStopRecordingOnLeave } from './activeRecording'
@@ -11,15 +11,7 @@ import { Recorder } from './RecorderPanel'
 import { SpeakButton } from './SpeakButton'
 import type { Clip } from './useRecorder'
 
-// The recorder's clock is `performance.now()`: the tests move it by hand.
-let clock = 0
-beforeEach(() => {
-  clock = 0
-  vi.spyOn(performance, 'now').mockImplementation(() => clock)
-})
-
 afterEach(() => {
-  vi.restoreAllMocks()
   vi.useRealTimers()
 })
 
@@ -33,20 +25,6 @@ function setup(props: Partial<React.ComponentProps<typeof Recorder>> = {}, suppo
 
 const start = (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: 'Start recording' }))
-
-/** Starts, lets `ms` go by, then stops and lets the recorder end. */
-async function recordTake(
-  user: ReturnType<typeof userEvent.setup>,
-  kit: RecorderKit,
-  options: { ms?: number; blob?: Blob } = {},
-) {
-  await start(user)
-  const stop = await screen.findByRole('button', { name: 'Stop recording' })
-  clock += options.ms ?? 2000
-  await user.click(stop)
-  act(() => kit.recorder()?.finish(options.blob))
-  await screen.findByRole('button', { name: 'Send' })
-}
 
 const allTracksStopped = (kit: RecorderKit) =>
   kit.streams.length > 0 && kit.streams.every((s) => s.tracks.every((track) => track.stopped))
@@ -84,7 +62,7 @@ describe('Recorder: a take', () => {
 
     await start(user)
     await screen.findByRole('button', { name: 'Stop recording' })
-    clock += 12_400
+    kit.advance(12_400)
     // The visible timer follows the clock (it is not a live region); the status says it once.
     expect(await screen.findByText('Recording… 0:12')).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('Recording started.')
@@ -106,11 +84,11 @@ describe('Recorder: a take', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Start recording' }))
     })
     expect(kit.recorder()?.state).toBe('recording')
-    clock = 29_900
+    kit.advance(29_900)
     await act(() => vi.advanceTimersByTimeAsync(29_900))
     expect(kit.recorder()?.state).toBe('recording')
     // The timer fires a little late: 30.3 s on the clock, the report is capped at 30.
-    clock = 30_300
+    kit.advance(400)
     await act(() => vi.advanceTimersByTimeAsync(400))
     expect(kit.recorder()?.state).toBe('inactive')
 

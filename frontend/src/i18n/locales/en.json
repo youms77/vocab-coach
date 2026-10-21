@@ -11,6 +11,7 @@
     "label": "Main",
     "today": "Today",
     "writing": "Writing",
+    "speaking": "Speaking",
     "errors": "Errors"
   },
   "demo": {
@@ -798,6 +799,73 @@
       "no_device": "No microphone was found.",
       "busy": "The microphone is used by another program or tab.",
       "failed": "The recording failed. Try again."
+    }
+  },
+  "speaking": {
+    "privacy": "Your recording is sent to Groq for transcription; it stays in your data folder, never in Git.",
+    "comparison": {
+      "summary_one": "{{recognized}} of {{count}} word recognised",
+      "summary_other": "{{recognized}} of {{count}} words recognised",
+      "target": "Target",
+      "heard": "Heard",
+      "nothing": "nothing",
+      "closeHidden": "close match, counted as recognised",
+      "heardAs": "heard: {{word}}",
+      "notHeard": "not heard",
+      "extra": "extra word",
+      "unrecognized": "Words not recognised",
+      "log": "Log as an intelligibility error",
+      "warning": "Speech recognition is not a pronunciation judge: a word it missed may be clear to a person (accent, noise, homophones). Treat these as hints."
+    }
+  },
+  "shadowing": {
+    "title": "Shadowing",
+    "intro": "Listen to a sentence, repeat it aloud, then compare what you said with what a speech recogniser heard.",
+    "historyLink": "Shadowing history",
+    "step1": "1. The sentence",
+    "step2": "2. Your voice",
+    "targetLabel": "Sentence to repeat",
+    "chars": "{{chars}} / {{max}} characters",
+    "tooLong": "The sentence is too long ({{chars}} of {{max}} characters).",
+    "sentenceLabel": "the sentence",
+    "needSentence": "Type or paste a sentence first: it unlocks the recorder.",
+    "sending": "Sending and transcribing…",
+    "detail": {
+      "title": "Your shadowing",
+      "another": "Shadow another sentence",
+      "allShadowings": "All shadowings",
+      "errorLog": "Open the error log",
+      "loading": "Loading…",
+      "target": "The sentence",
+      "recording": "Your recording",
+      "noAudio": "There is no recording for this shadowing (or its file is gone).",
+      "playBoth": "Play both",
+      "stopBoth": "Stop",
+      "playingVoice": "Playing the synthetic voice…",
+      "playingRecording": "Playing your recording…",
+      "result": "Transcription and comparison",
+      "notShadowing": "This recording is not a shadowing, so it has no page here.",
+      "notTranscribed": "This recording is not transcribed yet.",
+      "transcribe": "Transcribe",
+      "transcribing": "Transcribing… {{seconds}} s",
+      "tryAgain": "Try again",
+      "unavailable": "The transcription is not available: {{reason}}. Your recording is kept.",
+      "silence": "No speech was heard in this recording.",
+      "recordAgain": "Record again",
+      "ready": "Transcription ready: {{recognized}} of {{count}} words recognised.",
+      "logExplanation": "Speech recognition heard “{{heard}}” instead of “{{target}}”. Check how you say it before keeping this entry."
+    },
+    "history": {
+      "title": "Shadowing history",
+      "intro": "Your shadowing takes, newest first.",
+      "empty": "No shadowing yet.",
+      "count_one": "{{count}} shadowing",
+      "count_other": "{{count}} shadowings",
+      "date": "Date",
+      "sentence": "Sentence",
+      "result": "Result",
+      "silent": "No speech heard",
+      "notTranscribed": "Not transcribed"
     }
   },
   "today": {

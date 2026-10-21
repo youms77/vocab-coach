@@ -19,6 +19,9 @@ import { TriagePage } from './features/library/TriagePage'
 import { QueuePage } from './features/queue/QueuePage'
 import { SessionPage } from './features/session/SessionPage'
 import { SettingsPage } from './features/settings/SettingsPage'
+import { ShadowingDetailPage } from './features/speaking/ShadowingDetailPage'
+import { ShadowingHistoryPage } from './features/speaking/ShadowingHistoryPage'
+import { ShadowingPage } from './features/speaking/ShadowingPage'
 import { TranscriptDetailPage } from './features/transcripts/TranscriptDetailPage'
 import { TranscriptHistoryPage } from './features/transcripts/TranscriptHistoryPage'
 import { TranscriptPage } from './features/transcripts/TranscriptPage'
@@ -45,6 +48,9 @@ export const routes: RouteObject[] = [
       { path: 'writing', element: <WritingPage /> },
       { path: 'writing/history', element: <WritingHistoryPage /> },
       { path: 'writing/:id', element: <WritingDetailPage /> },
+      { path: 'speaking/shadowing', element: <ShadowingPage /> },
+      { path: 'speaking/shadowing/history', element: <ShadowingHistoryPage /> },
+      { path: 'speaking/shadowing/:id', element: <ShadowingDetailPage /> },
       { path: 'transcripts', element: <TranscriptPage /> },
       { path: 'transcripts/history', element: <TranscriptHistoryPage /> },
       { path: 'transcripts/:id', element: <TranscriptDetailPage /> },

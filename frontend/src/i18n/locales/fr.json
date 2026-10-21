@@ -11,6 +11,7 @@
     "label": "Principale",
     "today": "Aujourd'hui",
     "writing": "Écriture",
+    "speaking": "Oral",
     "errors": "Erreurs"
   },
   "demo": {
@@ -798,6 +799,73 @@
       "no_device": "Aucun micro n'a été trouvé.",
       "busy": "Le micro est utilisé par un autre programme ou onglet.",
       "failed": "L'enregistrement a échoué. Réessayez."
+    }
+  },
+  "speaking": {
+    "privacy": "Votre enregistrement est envoyé à Groq pour être transcrit ; il reste dans votre dossier de données, jamais dans Git.",
+    "comparison": {
+      "summary_one": "{{recognized}} mot reconnu sur {{count}}",
+      "summary_other": "{{recognized}} mots reconnus sur {{count}}",
+      "target": "Cible",
+      "heard": "Entendu",
+      "nothing": "rien",
+      "closeHidden": "proche, compté comme reconnu",
+      "heardAs": "entendu : {{word}}",
+      "notHeard": "non entendu",
+      "extra": "mot en trop",
+      "unrecognized": "Mots non reconnus",
+      "log": "Noter comme erreur d'intelligibilité",
+      "warning": "La reconnaissance vocale n'est pas un juge de prononciation : un mot qu'elle a manqué peut être parfaitement clair pour une personne (accent, bruit, homophones). Prenez cela comme des indices."
+    }
+  },
+  "shadowing": {
+    "title": "Shadowing",
+    "intro": "Écoutez une phrase, répétez-la à voix haute, puis comparez ce que vous avez dit avec ce que la reconnaissance vocale a entendu.",
+    "historyLink": "Historique des shadowings",
+    "step1": "1. La phrase",
+    "step2": "2. Votre voix",
+    "targetLabel": "Phrase à répéter",
+    "chars": "{{chars}} / {{max}} caractères",
+    "tooLong": "La phrase est trop longue ({{chars}} caractères sur {{max}}).",
+    "sentenceLabel": "la phrase",
+    "needSentence": "Saisissez ou collez d'abord une phrase : elle débloque l'enregistreur.",
+    "sending": "Envoi et transcription…",
+    "detail": {
+      "title": "Votre shadowing",
+      "another": "Répéter une autre phrase",
+      "allShadowings": "Tous les shadowings",
+      "errorLog": "Ouvrir le journal d'erreurs",
+      "loading": "Chargement…",
+      "target": "La phrase",
+      "recording": "Votre enregistrement",
+      "noAudio": "Il n'y a pas d'enregistrement pour ce shadowing (ou son fichier a disparu).",
+      "playBoth": "Écouter les deux",
+      "stopBoth": "Arrêter",
+      "playingVoice": "Lecture de la voix de synthèse…",
+      "playingRecording": "Lecture de votre enregistrement…",
+      "result": "Transcription et comparaison",
+      "notShadowing": "Cet enregistrement n'est pas un shadowing : il n'a pas de page ici.",
+      "notTranscribed": "Cet enregistrement n'est pas encore transcrit.",
+      "transcribe": "Transcrire",
+      "transcribing": "Transcription… {{seconds}} s",
+      "tryAgain": "Réessayer",
+      "unavailable": "La transcription n'est pas disponible : {{reason}}. Votre enregistrement est conservé.",
+      "silence": "Aucune parole n'a été entendue dans cet enregistrement.",
+      "recordAgain": "Réenregistrer",
+      "ready": "Transcription prête : {{recognized}} mots reconnus sur {{count}}.",
+      "logExplanation": "La reconnaissance vocale a entendu « {{heard}} » au lieu de « {{target}} ». Vérifiez comment vous le prononcez avant de garder cette entrée."
+    },
+    "history": {
+      "title": "Historique des shadowings",
+      "intro": "Vos prises de shadowing, les plus récentes d'abord.",
+      "empty": "Aucun shadowing pour l'instant.",
+      "count_one": "{{count}} shadowing",
+      "count_other": "{{count}} shadowings",
+      "date": "Date",
+      "sentence": "Phrase",
+      "result": "Résultat",
+      "silent": "Aucune parole entendue",
+      "notTranscribed": "Non transcrit"
     }
   },
   "today": {
