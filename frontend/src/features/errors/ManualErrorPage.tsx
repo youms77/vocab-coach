@@ -1,6 +1,6 @@
-import { useId, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 
 import {
   type ErrorOut,
@@ -13,19 +13,27 @@ import { PageTitle } from '../../components/PageTitle'
 import { ErrorText } from '../settings/ErrorText'
 import { CategorySelect } from './CategorySelect'
 import { problemOf } from './logRules'
+import { type ManualErrorPrefill, readPrefill } from './prefill'
 import { TermPicker } from './TermPicker'
 
-function ManualForm({ onAdded }: { onAdded: (error: ErrorOut) => void }) {
+function ManualForm({
+  onAdded,
+  initial,
+}: {
+  onAdded: (error: ErrorOut) => void
+  /** What a shadowing proposes (D-198): the form shows it, the user validates. */
+  initial: ManualErrorPrefill | null
+}) {
   const { t } = useTranslation()
   const id = useId()
   const categories = useErrorCategories()
   const create = useCreateError()
-  const [original, setOriginal] = useState('')
-  const [wrong, setWrong] = useState('')
-  const [correction, setCorrection] = useState('')
+  const [original, setOriginal] = useState(initial?.original_text ?? '')
+  const [wrong, setWrong] = useState(initial?.erroneous_text ?? '')
+  const [correction, setCorrection] = useState(initial?.correction ?? '')
   const [alternatives, setAlternatives] = useState<string[]>([])
-  const [category, setCategory] = useState('')
-  const [explanation, setExplanation] = useState('')
+  const [category, setCategory] = useState(initial?.category_code ?? '')
+  const [explanation, setExplanation] = useState(initial?.explanation ?? '')
   const [term, setTerm] = useState<TermRef | null>(null)
   const [attempted, setAttempted] = useState(false)
   const problem = problemOf(original, wrong, correction)
@@ -169,14 +177,29 @@ function ManualForm({ onAdded }: { onAdded: (error: ErrorOut) => void }) {
 /** Adds an error typed by hand (source `manual`). The form empties after each success. */
 export function ManualErrorPage() {
   const { t } = useTranslation()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [added, setAdded] = useState<ErrorOut | null>(null)
   const [round, setRound] = useState(0)
+  // The proposal of a shadowing is read once, then the router state is cleared: a reload (the
+  // browser keeps the state) must not fill the form again. Only the first form shows it.
+  const [prefill] = useState(() => readPrefill(location.state))
+  const consumed = useRef(false)
+  useEffect(() => {
+    if (consumed.current || location.state === null || location.state === undefined) return
+    consumed.current = true
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+  }, [location.state, location.pathname, location.search, navigate])
+  const initial = round === 0 ? prefill : null
 
   return (
     <div className="errors-page">
       <section className="hero">
         <PageTitle>{t('errorLog.manual.title')}</PageTitle>
         <p className="muted">{t('errorLog.manual.intro')}</p>
+        {initial !== null && (
+          <p className="form-message form-message--warn">{t('errorLog.manual.prefilled')}</p>
+        )}
         <p className="link-row">
           <Link to="/errors">{t('errorLog.back')}</Link>
         </p>
@@ -194,6 +217,7 @@ export function ManualErrorPage() {
         </h2>
         <ManualForm
           key={round}
+          initial={initial}
           onAdded={(error) => {
             setAdded(error)
             setRound(round + 1)

@@ -249,6 +249,8 @@ export function DiscoveryFlow({
       return (
         <RepetitionStep
           text={started.sentence?.text ?? started.term}
+          itemId={itemId}
+          sessionId={sessionId}
           onDone={() => setPhase('personal')}
         />
       )

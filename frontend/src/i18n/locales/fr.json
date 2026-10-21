@@ -677,7 +677,10 @@
       "open": "Ouvrir la version {{version}}",
       "close": "Fermer"
     },
-    "exampleLabel": "l’exemple {{index}}"
+    "exampleLabel": "l’exemple {{index}}",
+    "shadow": "Répéter cette phrase (shadowing)",
+    "originSentence": "Phrase d’origine",
+    "originLabel": "phrase d’origine"
   },
   "exercises": {
     "title": "Exercices",
@@ -1011,7 +1014,11 @@
     "repetition": {
       "title": "Dites-le à voix haute",
       "instructions": "Écoutez à vitesse normale, puis lentement, et répétez la phrase à voix haute.",
-      "recordingLater": "L'enregistrement de votre voix arrivera dans une prochaine version.",
+      "recordTitle": "Enregistrez-vous",
+      "recordingHint": "L'enregistrement est facultatif : envoyez une prise pour la comparer à la phrase, ou continuez sans.",
+      "yourTake": "Votre prise",
+      "unavailable": "La transcription n'est pas disponible : {{reason}}. Votre prise est conservée ; vous pouvez continuer.",
+      "silence": "Aucune parole n'a été entendue dans cette prise. Vous pouvez réessayer ou continuer.",
       "done": "C'est fait, je l'ai répétée"
     },
     "personal": {
@@ -1537,6 +1544,7 @@
     "manual": {
       "title": "Ajouter une erreur",
       "intro": "Notez une erreur que vous avez repérée vous-même. Elle rejoint votre journal comme les autres.",
+      "prefilled": "Pré-rempli depuis votre shadowing : relisez, corrigez ce qui ne va pas, puis ajoutez. Rien n'est enregistré tant que vous ne l'avez pas fait.",
       "original": "La phrase où vous l'avez faite (facultatif)",
       "wrong": "La forme incorrecte",
       "correction": "La correction",

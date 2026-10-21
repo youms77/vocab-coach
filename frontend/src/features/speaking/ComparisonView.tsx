@@ -104,7 +104,8 @@ function Unrecognized({
                   onClick={() => onLog({ target: word.word, heard: word.heard as string })}
                 >
                   {t('speaking.comparison.log')}
-                  <span className="visually-hidden"> — “{word.word}”</span>
+                  {' '}
+                  <span className="visually-hidden">— “{word.word}”</span>
                 </button>
               </>
             )}

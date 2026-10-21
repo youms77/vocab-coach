@@ -677,7 +677,10 @@
       "open": "Open version {{version}}",
       "close": "Close"
     },
-    "exampleLabel": "example {{index}}"
+    "exampleLabel": "example {{index}}",
+    "shadow": "Shadow this sentence",
+    "originSentence": "Original sentence",
+    "originLabel": "original sentence"
   },
   "exercises": {
     "title": "Exercises",
@@ -1011,7 +1014,11 @@
     "repetition": {
       "title": "Say it aloud",
       "instructions": "Listen at normal speed, then slowly, and repeat the sentence aloud.",
-      "recordingLater": "Recording your voice comes in a later version.",
+      "recordTitle": "Record yourself",
+      "recordingHint": "Recording yourself is optional: send a take to compare it with the sentence, or go on without.",
+      "yourTake": "Your take",
+      "unavailable": "The transcription is not available: {{reason}}. Your take is kept; you can go on.",
+      "silence": "No speech was heard in this take. You can try again or go on.",
       "done": "Done, I repeated it"
     },
     "personal": {
@@ -1537,6 +1544,7 @@
     "manual": {
       "title": "Add an error",
       "intro": "Note a mistake you noticed yourself. It joins your log like the others.",
+      "prefilled": "Filled in from your shadowing: read it, change what is wrong, then add it. Nothing is saved until you do.",
       "original": "The sentence where you made it (optional)",
       "wrong": "The incorrect form",
       "correction": "The correction",
