@@ -3158,3 +3158,52 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - Departures from the prompt: the component's file is `RecorderPanel.tsx` (D-193); the reason of an unavailable first
   transcription travels in the router state (D-196); the original sentence is displayed in the revealed sheet (D-200); the one
   "Done, I repeated it" button covers "Continue" and "Skip" (D-199).
+
+## D-202 — `speaking-1` in the correction model and the view (M6.b2.1; builds on D-140, D-141, D-155, D-181)
+
+- `readFeedback` gets a third branch next to `correction-1` and `transcript-1`: `speaking-1` gives `kind: 'speaking'`, the same
+  fields, and `structure` (`output.structure`, null for a missing key or in answer mode). The other two formats read exactly as
+  before (their tests are untouched). The model's `kind` is now `'text' | 'transcript' | 'speaking'`.
+- The units are numbered as they are (a unit may hold several sentences, D-179) and shown under "Part n" ("Passage n" in French).
+- `CorrectionView`: for a speech the text section is "What the speech recognition heard", followed by the note that the correction is
+  about what was heard (a mistake the recogniser smoothed over is not reported, a misheard word may be). A speech without error says
+  "No errors found." (never "Your sentence is correct"). The **Structure** section (comment, "Connectors you used" with a sentence
+  when there are none, suggestions) comes after the versions; the French of the comment and of each suggestion is on demand, with the
+  button of the explanations. It is absent when `structure` is null (answer mode) and in the compact view.
+
+## D-203 — The free speaking pages (M6.b2.1; builds on D-142, D-193, D-196)
+
+- `/speaking`: the subjects come from `GET /api/speaking/topics` (`count=3`, a "Topic theme" filter with "Presenting"), the prompt sent is
+  the English text of the subject or what the user typed (500 characters). A subject is **optional**: the recorder is never locked by its
+  absence (the server takes no `prompt_text`). The recorder is the 5 to 180 s one (warning at 120 s). Sending goes to `/speaking/{id}` with
+  the history replaced and the state `{autoCorrect: true}` (plus the reason of an unavailable first transcription, read once as in D-196).
+- `/speaking/:id` is keyed by the production, so moving from one to another starts afresh. The state is read into the page's state at
+  the first render and **cleared at once**, with a `ref` guard for StrictMode (tested in StrictMode): a reload never starts anything.
+  Order: a transcribed, not corrected speech with `autoCorrect` runs `POST /correct` once ("Correcting… n s", a polite status once);
+  `pending` shows "Transcribe", and a click on it (the user's own action) goes on to the correction when the transcription is `ok`; a speech
+  opened without the flag only shows what is stored and offers "Correct my speech".
+- Refusals: `silence` or `422 nothing_to_correct` say "No speech was heard" with a link to record again; `409 not_transcribed` reads the
+  production again (`applyCorrectionError` now handles it with `already_corrected`) and "Transcribe" appears; `409 already_corrected`
+  reads the stored correction, silently; `422 text_too_long` has its own sentence and no retry; an AI failure (HTTP 200) says its reason
+  (`aiReasonText`) or "could not be used" and offers "Try again"; another error is shown with "Try again". The transcription stays visible.
+- Not-corrected speeches show the heard text, the note and the status in a polite region; a corrected one shows `CorrectionView`
+  (marks, errors, versions, structure). The topic label is "Topic or question" (a spoken answer of a review has the question as prompt).
+- `/speaking/history` (`GET /api/productions?kind=speaking`, 20 per page, the page in the URL): date, topic, words heard, status; it says
+  that spoken answers of reviews are in the list.
+
+## D-204 — Redirects between the written and the spoken pages; the Speaking link (M6.b2.1)
+
+- `ErrorOut` has no production kind: a `review` error leads to `/writing/{id}` as before, and **both pages decide by the production's
+  `kind`**: `/writing/:id` of a `speaking` production and `/speaking/:id` of a `writing` one use `<Navigate replace>` once the production is
+  read (the same query, so no second request). Another kind on `/speaking/:id` gets a message and a link to the error log (`/writing/:id`
+  keeps its old behaviour for the other kinds, to keep its tests as they were).
+- `productionLink`: the source `speaking` leads to `/speaking/{id}` (it was `null`); its test changed accordingly.
+- The top bar's "Speaking" points to `/speaking` (it was `/speaking/shadowing`); the section stays marked on `/speaking/shadowing`.
+
+## D-205 — Small conventions met in M6.b2.1
+
+- `TopicPicker` takes a `source` (`topicSource.ts`: the strings' namespace, the themes, the label of a theme, the hook that fetches the
+  subjects); the writing page's source is the default, `features/speaking/topics.ts` has the speaking one. The strings of both
+  namespaces have the same keys (`writing.topics.*`, `speaking.topics.*`).
+- `speechFixtures.ts` gets `speakingFeedback`, `speech` / `correctedSpeech`, `speakingCorrection`, `speakingOut` (fictional data).
+- Departure from the prompt: decisions start at D-202 (D-201 was taken); the milestone is cut in two sessions (b2.1, b2.2), approved.

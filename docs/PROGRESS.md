@@ -4,23 +4,99 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M6.b1 (module F, frontend: the recorder and shadowing), on branch
+- **Last milestone completed**: M6.b2.1 (module F, frontend: free speaking and the `speaking-1` correction), on branch
   `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (M6.a2, after M6.a1, PR #21, **not
   merged into `main` yet**). Not pushed. `main` (`7904aa3`, CI green) has M1.a to M5.a3. No migration since `0002`.
 - **M6 — Speaking** (module F, SPEC section 9) is cut in five (D-168), M6.a2 in two (D-178): **M6.a1** (done: local
   recordings, Groq Whisper, shadowing, comparison, playback, CLI), **M6.a2a** (done: free speaking corrected by
   `speaking_correction`, spoken answers in reviews, CLI), **M6.a2b** (done: the demo through the services,
   `direct_writes.py` removed, D-035 closed), **M6.b1** (done: the recorder, the shadowing pages, the comparison, the
-  optional recording of the discovery) and **M6.b2** (frontend: free speaking and spoken answers in reviews; API
-  references in the M6.a1 and M6.a2a sections), **M6.c** (Azure AI Speech, optional).
-- **Next**: the owner's review of M6.b1 and of M6.a2, then push and the pull request with the owner's go-ahead (after PR
-  #21); then M6.b2 on the same branch.
+  optional recording of the discovery), **M6.b2.1** (done: free speaking and the `speaking-1` correction) and **M6.b2.2** (frontend:
+  spoken answers in reviews; API references in the M6.a1 and M6.a2a sections), **M6.c** (Azure AI Speech, optional).
+- **Next**: the owner's go for **M6.b2.2** (the oral answer in the review player, same branch); the owner's review of M6.b1, M6.b2.1 and
+  M6.a2, then push and the pull request with the owner's go-ahead (after PR #21).
 - **Left from M5, not scheduled**: the screens for cards from errors and suggestions ("M5.d", API in the M5.a3 section
   below) and an undo for a dismissed suggestion. The owner decides when they come.
 - Gemini (`gemini-3.5-flash-lite`) and Groq are configured in the owner's `.env`; the M5.a1, M5.a2 and M6.a2a live tests
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
-  scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b and M6.b1) are still to run.
+  scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1 and M6.b2.1) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M6.b2.1 — Free speaking and the `speaking-1` correction (frontend)
+
+First half of M6.b2 (the owner approved the cut with the plan: about 25 files in all). Same branch `feat/m6b-speaking-screens`
+(`git diff --stat e5600ce -- backend` is empty), two commits, then the docs. **No backend change**, no migration, no new dependency. SPEC.md
+unchanged. Decisions D-202 to D-205 (the prompt said "from D-193", which M6.b1 had used up to D-201). The oral answers in reviews are
+**M6.b2.2**, still to do.
+
+### Done
+
+- **`speaking-1` in the correction model** (D-202): `readFeedback` has a third branch (`kind: 'speaking'`, same keys as `correction-1` plus
+  `output.structure`). Errors are grouped under "Part n" ("Passage n" in French). `CorrectionView` titles the text "What the speech
+  recognition heard", adds the note that the correction is about what was heard, and shows the **Structure** section (comment, "Connectors
+  you used", suggestions, French on demand) when `structure` exists; it is absent in answer mode and in the compact view. `correction-1` and
+  `transcript-1` tests are unchanged.
+- **Free speaking** (D-203): `/speaking` (three subjects a day filtered by "Topic theme", your own subject up to 500 characters, or none;
+  recorder 5 to 180 s with the 120 s warning; `POST /speech/speaking` with `duration_s` and `prompt_text`), then `/speaking/:id` with the
+  state `{autoCorrect: true}` (history replaced). `/speaking/:id` runs the correction once, says "Correcting… n s", and tells every refusal
+  (`silence` / `nothing_to_correct`, `not_transcribed`, `already_corrected`, `text_too_long`, an AI failure with its reason and "Try again").
+  `/speaking/history`: 20 per page, the page in the URL, spoken answers of reviews included (the page says so).
+- **Redirects and links** (D-204): `/writing/:id` of a spoken production goes to `/speaking/:id` and back (`replace`), another kind on
+  `/speaking/:id` gets a message and a link to the error log; `productionLink` sends a `speaking` error to `/speaking/:id`; the top bar's
+  "Speaking" points to `/speaking`.
+- **`TopicPicker`** takes a `source` (D-205): the speaking page has its own themes (with "Presenting") and wording; the writing page is
+  unchanged.
+- **Tests**: 567 Vitest tests (525 before): `readFeedback` on `speaking-1` (monologue, answer mode, no key), the Structure section and its
+  French, the new-take page (exact request, history replaced, state consumed, subjects, own subject, no subject, too short, a refusal,
+  an unavailable transcription), the page of one speech (marks, versions, structure; reload without action; `autoCorrect` once even in
+  StrictMode; "Correcting… n s"; `pending` then Transcribe then the correction; `not_transcribed`; silence; `nothing_to_correct`;
+  `text_too_long`; AI failure then "Try again"; incomplete; `already_corrected`; network failure; French; unknown id), the redirects,
+  the history, the top bar, `productionLink`, nothing in the storages or `history.state`.
+
+### Verified (Windows 11, 2026-10-24)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **2 425 pytest passed** (14 live deselected), then the frontend:
+  typecheck, oxlint `--deny-warnings`, **567 vitest tests**; exit code 0. `git diff --stat e5600ce -- backend` is empty.
+- **In-app browser**, on a demo database made in a temporary folder (`VOCAB_DATA_DIR`, the keys emptied through the environment; the
+  repository's `data/` and `.env` untouched; both servers stopped afterwards): a corrected speech (structure, 11 errors in "Part n",
+  versions, French on demand), the silent take ("No speech was heard", "Record again"), the speech not corrected (the transcription, the
+  note, "Correct my speech", then the correction, which the demo's fictional AI answered), the history, the redirect `/writing/31` →
+  `/speaking/31` (a spoken answer), the error log's "Open the text" link → `/speaking/32`, the refused microphone (the message and the help
+  for 127.0.0.1), a real `curl --data-binary @clip.wav -H "Content-Type: audio/wav"` of a 6 s WAV to `/api/speech/speaking` (201; the demo's
+  recogniser calls a tone silence) then its page.
+- **375 px**, EN and FR: no horizontal scroll on `/speaking`, `/speaking/history`, `/speaking/:id` (corrected, not corrected, silent)
+  and `/speaking/shadowing` (`scrollWidth` 375); the top bar wraps to two rows in French, as in D-145. Dark theme (the browser's).
+- **Not verified**: a real microphone and Groq (as in M6.b1), the degraded mode without a key on the correction (the demo has a fictional AI;
+  the unavailable and incomplete answers are covered by the tests), a review error that comes from a spoken answer (the demo logs none: the
+  redirect was checked on the production's id).
+
+### Owner's manual scenario (about 2 minutes, with your Groq key and a microphone)
+
+1. `/speaking`, choose a subject, speak for a minute slipping in "I live in campus" and "I study here since two years", Stop, Listen, Send.
+2. The page of the speech shows "Correcting… n s", then the heard text with the marks, the errors by part, the corrected and the natural
+   versions, and the Structure section. Play your recording back from "Your recording".
+3. Reload the page: nothing starts by itself. Open **My previous speeches** and the error log: an error's link opens the speech.
+4. (M6.b2.2) In a session, a `spoken_answer` card: still the old "Show the example" path until the oral answer is done.
+
+### Departures from the prompt
+
+- The plan's cut in two (b2.1 and b2.2, approved): this section is b2.1 only.
+- Decisions start at D-202, not D-193 (D-201 was the last).
+- The subject is optional (the recorder works without one), a click on "Transcribe" goes on to the correction (the click is the user's
+  action), and `/writing/:id` only gains the redirect for `speaking` (D-203, D-204).
+- `applyCorrectionError` also reads the production again for `not_transcribed` (it did for `already_corrected`).
+
+### Left / notes
+
+- **M6.b2.2**: the oral answer in the review player (phases `capturing`, `captured`, `checking_spoken`, Space and Enter, the 5 s way out, the
+  `reveal` fallback, `term_not_heard`, the suggested rating), the break checks (c), (d), (e), then D-123 and D-117 annotated.
+- M6.c (Azure AI Speech), the microphone choice in the settings. The owner's manual scenarios. Push and the pull request: with the owner's
+  go-ahead (after PR #21).
+
+### Known issues
+
+- The page title of a missing production says "This text does not exist (any more)" (the shared `production_not_found` sentence).
+- A real recording was never made (see "Not verified").
 
 ## M6.b1 — The recorder and shadowing (frontend)
 
