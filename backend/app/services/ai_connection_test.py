@@ -20,8 +20,10 @@ from sqlalchemy.orm import Session
 from app.ai.gateway import Gateway
 from app.ai.redact import clean_message
 from app.ai.schemas.connection_test import ConnectionTestOutput
-from app.ai.types import AiResult, AiStatus, UnavailableReason
+from app.ai.types import AiResult, AiStatus, AudioClip, UnavailableReason
 from app.db.models import AICallLog
+from app.domain.pronunciation import silent_wav
+from app.domain.settings_defaults import KNOWN_SPEECH_PROVIDERS
 
 MESSAGE_LIMIT = 300
 
@@ -112,17 +114,27 @@ def run_connection_test(
     provider: str,
     secrets: Callable[[], Sequence[str]],
 ) -> ConnectionTestReport:
-    """Ask `provider` for a trivial JSON answer. Raises TestInProgress, or UnknownProvider (from the
-    gateway) for a name it does not know. A provider that is not configured is not called: the
-    gateway answers `unavailable(no_provider_configured)` without any request."""
+    """Ask `provider` for a trivial answer (a speech provider: assess one second of silence).
+    Raises TestInProgress, or UnknownProvider (from the gateway) for a name it does not know. A
+    provider that is not configured is not called: the gateway answers
+    `unavailable(no_provider_configured)` without any request."""
     lock = _lock_for(provider)
     if not lock.acquire(blocking=False):
         raise TestInProgress(provider)
     try:
         started = time.perf_counter()
-        result = gateway.generate_json(
-            "connection_test", {"text": "ping"}, ConnectionTestOutput, pin_provider=provider
-        )
+        result: AiResult
+        if provider in KNOWN_SPEECH_PROVIDERS:
+            # One second of silence against "Hello.": a 200 answer, even a "silence" one, proves
+            # the key, the region and the endpoint (M6.c1, D-214).
+            clip = AudioClip(data=silent_wav(1.0), filename="test.wav", content_type="audio/wav")
+            result = gateway.assess_pronunciation(
+                clip, reference_text="Hello.", pin_provider=provider
+            )
+        else:
+            result = gateway.generate_json(
+                "connection_test", {"text": "ping"}, ConnectionTestOutput, pin_provider=provider
+            )
         elapsed_ms = round((time.perf_counter() - started) * 1000)
         return report_from_result(result, provider, elapsed_ms, session_factory, secrets())
     finally:

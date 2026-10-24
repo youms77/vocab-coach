@@ -168,6 +168,26 @@ The free plan has limits. Approximate values from [Groq's rate-limits page](http
 **Privacy**: with a Groq key, your speaking recordings are sent to Groq to be transcribed, so they leave your
 computer. They are kept in `data/audio/` (never committed). Without a key they stay local, untranscribed.
 
+### Azure AI Speech: optional pronunciation scores (free tier only)
+
+Off by default; the app is unchanged without it. Azure scores a recording against its target sentence, word
+by word and phoneme by phoneme (screens come in a later milestone; this step adds the backend only).
+
+1. In the Azure portal create a *Speech* resource on the **F0 (free) tier, never S0** (S0 is billed). Copy a
+   key and the region of the resource (for example `westeurope`).
+2. In `.env`, add `VOCAB_AZURE_SPEECH_KEY=` and `VOCAB_AZURE_SPEECH_REGION=` (no quotes, no spaces), or save
+   them from the settings API (`PUT /api/ai/providers/azure/credential` with `value` and `region`).
+3. Check it: `uv run python -m app ai test --provider azure` sends one second of silence (a "no speech" answer
+   counts as success).
+
+Limits and caveats (read on Microsoft Learn on 2026-10-24; they change): F0 gives 5 audio hours a month and one
+request at a time, a clip may last 30 s at most, and Azure reads only WAV (PCM, 16 kHz, mono) or OGG Opus, not
+the browser's default webm. **Whether pronunciation assessment itself is included in F0 is not confirmed by the
+pricing page**: the first real request is the proof, and an F0 resource cannot be billed.
+
+**Privacy**: when this is configured and the `pronunciation_assessment` setting is `azure`, the recording of a
+take is sent to Microsoft and leaves your computer. Azure is not part of the AI provider order.
+
 ### Ollama: optional, local and offline
 
 Ollama runs a model on your own computer. It is slower and less accurate than the cloud models; it is
@@ -192,7 +212,7 @@ Run these from the `backend` folder:
 |---|---|
 | `uv run python -m app ai status` | providers, configured or not, models and order. Never prints a key. |
 | `uv run python -m app ai test` | one real request per configured provider: status, model, time, tokens. Exit code 0 = all fine, 1 = a test failed, 2 = nothing configured or a usage error. |
-| `uv run python -m app ai test --provider gemini` | tests only one provider (`gemini`, `groq` or `ollama`). |
+| `uv run python -m app ai test --provider gemini` | tests only one provider (`gemini`, `groq`, `ollama` or `azure`). `azure` is never part of a plain `ai test`: it spends free minutes. |
 | `uv run python -m app ai test --provider groq --audio my_clip.wav` | also transcribes a short clip (Groq Whisper) and prints the text. |
 | `uv run python -m app ai usage --days 7` | requests and tokens per study day, provider and model (read-only). |
 

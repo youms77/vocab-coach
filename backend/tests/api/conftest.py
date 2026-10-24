@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.ai import Gateway, get_gateway
 from app.ai.providers import Provider
+from app.ai.providers.azure_speech import AzureSpeechProvider
 from app.ai.providers.gemini import GeminiProvider
 from app.ai.providers.groq import GroqProvider
 from app.ai.providers.ollama import OllamaProvider
@@ -79,6 +80,7 @@ def servers(make_server: Callable[..., FakeServer]) -> dict[str, FakeServer]:  #
         "gemini": make_server(fixture_reply("gemini", "generate_ok")),
         "groq": make_server(fixture_reply("groq", "chat_ok")),
         "ollama": make_server(fixture_reply("ollama", "chat_ok")),
+        "azure": make_server(fixture_reply("azure", "success_flat")),
     }
 
 
@@ -104,6 +106,11 @@ def env(
                 base_url=servers["groq"].base_url,
             ),
             "ollama": OllamaProvider.from_settings(settings),
+            "azure": AzureSpeechProvider(
+                _secret(settings.azure_speech_key),
+                settings.azure_speech_region,
+                base_url=servers["azure"].base_url,
+            ),
         }
 
     gateway = Gateway(

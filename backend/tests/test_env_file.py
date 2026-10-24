@@ -25,7 +25,7 @@ def dotenv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A `.env` in a temporary folder, and no credential in the process environment."""
     path = tmp_path / ".env"
     monkeypatch.setitem(Settings.model_config, "env_file", path)
-    for name in env_file.EDITABLE.values():
+    for name in [*env_file.EDITABLE.values(), *env_file.REGION_VARIABLES.values()]:
         monkeypatch.delenv(name, raising=False)
     return path
 

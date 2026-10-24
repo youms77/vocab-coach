@@ -650,12 +650,13 @@ class SettingChanged(Event):
 
 
 class AiCredentialChanged(Event):
-    """An API key or the Ollama address was saved or removed in `.env` (never the value itself)."""
+    """An API key, the Ollama address or the Azure key and region were saved or removed in `.env`
+    (never the value itself)."""
 
     event_type = EventType.AI_CREDENTIAL_CHANGED
     entity_type = "ai_provider"
 
-    provider: Literal["gemini", "groq", "ollama"]
+    provider: Literal["gemini", "groq", "ollama", "azure"]
     action: Literal["set", "removed"]
 
 

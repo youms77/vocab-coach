@@ -31,7 +31,7 @@ from app.db import migrate
 from app.db.engine import create_db_engine, sqlite_file
 from app.db.taxonomy import SyncResult, sync_taxonomy
 from app.domain.enums import ErrorSource
-from app.domain.settings_defaults import KNOWN_AI_PROVIDERS
+from app.domain.settings_defaults import KNOWN_AI_PROVIDERS, KNOWN_SPEECH_PROVIDERS
 
 SQLITE_SIDE_FILES = ("-wal", "-shm")
 
@@ -146,7 +146,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "test",
         help="one real call per configured provider (uses free quota, writes ai_call_log)",
     )
-    test.add_argument("--provider", choices=KNOWN_AI_PROVIDERS, help="test this provider only")
+    test.add_argument(
+        "--provider",
+        choices=(*KNOWN_AI_PROVIDERS, *KNOWN_SPEECH_PROVIDERS),
+        help="test this provider only (azure: assess one second of silence)",
+    )
     test.add_argument(
         "--audio", type=Path, metavar="FILE", help="also transcribe this short clip (Groq Whisper)"
     )

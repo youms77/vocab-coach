@@ -1,4 +1,4 @@
-"""Edit the three AI variables of the repository-level `.env` file (D-062).
+"""Edit the five AI variables of the repository-level `.env` file (D-062, D-214).
 
 The settings page (M2.c2) writes keys through the API. Only a closed list of variables can be
 changed; everything else in the file (comments, other variables, order, line endings) is kept as it
@@ -29,8 +29,13 @@ EDITABLE = {
     "gemini": "VOCAB_GEMINI_API_KEY",
     "groq": "VOCAB_GROQ_API_KEY",
     "ollama": "VOCAB_OLLAMA_BASE_URL",
+    "azure": "VOCAB_AZURE_SPEECH_KEY",
 }
+# Azure also needs a region (the host of its API): the fifth variable, written with the key in one
+# atomic write.
+REGION_VARIABLES = {"azure": "VOCAB_AZURE_SPEECH_REGION"}
 
+REGION_PATTERN = re.compile(r"^[a-z0-9]{2,40}$")  # as the adapter's check (D-057, D-213)
 KEY_MIN_LENGTH = 8
 VALUE_MAX_LENGTH = 512
 WRITE_ATTEMPTS = 3
@@ -81,6 +86,17 @@ def clean_value(provider: str, raw: str) -> str:
             f"The key must be between {KEY_MIN_LENGTH} and {VALUE_MAX_LENGTH} characters."
         )
     _check_characters(value, "key", allow_equal=False)
+    return value
+
+
+def clean_region(raw: str) -> str:
+    """The region to store (lower case), or EnvFileError("invalid_region")."""
+    value = raw.strip().lower()
+    if not REGION_PATTERN.match(value):
+        raise EnvFileError(
+            "invalid_region",
+            "The region must be 2 to 40 lower-case letters or digits, like westeurope.",
+        )
     return value
 
 
@@ -147,22 +163,41 @@ class EnvUpdate:
 
 
 def update_credential(
-    provider: str, value: str | None, *, after_write: Callable[[], None] | None = None
+    provider: str,
+    value: str | None,
+    *,
+    region: str | None = None,
+    after_write: Callable[[], None] | None = None,
 ) -> EnvUpdate:
     """Save (or, with `value=None`, remove) the provider's credential in `.env`.
+
+    For a provider that also has a region variable (Azure), `region` is saved with the key in the
+    same write, and removing the key removes the region too. `region` is refused for any other
+    provider (`invalid_credential`). Every variable to change must be free of the process
+    environment (`set_in_environment`) before anything is written.
 
     `after_write` runs under the same lock when the file changed, so the caller can reload the
     settings and the gateway before another edit starts. Nothing is written when the content would
     be identical.
     """
-    name = EDITABLE[provider]
-    stored = "" if value is None else clean_value(provider, value)
-    ensure_not_in_environment(name)
+    region_variable = REGION_VARIABLES.get(provider)
+    if region is not None and region_variable is None:
+        raise _invalid("This provider has no region.")
+    changes = {EDITABLE[provider]: "" if value is None else clean_value(provider, value)}
+    if region_variable is not None:
+        if value is None:
+            changes[region_variable] = ""
+        elif region is not None:
+            changes[region_variable] = clean_region(region)
+    for name in changes:
+        ensure_not_in_environment(name)
     path = env_file_path()
     with _LOCK:
-        original = _read(path)
-        updated = set_variable(original or "", name, stored)
-        if updated == (original or ""):
+        original = _read(path) or ""
+        updated = original
+        for name, stored in changes.items():
+            updated = set_variable(updated, name, stored)
+        if updated == original:
             return EnvUpdate(changed=False)
         _write_atomically(path, updated)
         if after_write is not None:

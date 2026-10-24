@@ -307,3 +307,25 @@ def test_a_hostile_server_that_echoes_the_key_leaks_nothing(make_server: ServerF
     error = _error(provider)
     assert KEY not in error.message and "***" in error.message
     assert KEY not in repr(provider) and KEY not in str(error)
+
+
+# --- Settings ----------------------------------------------------------------------------
+
+
+def test_settings_read_the_variables_mask_the_key_and_treat_empty_as_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.ai.providers import build_providers
+    from app.config import Settings
+
+    settings = Settings(_env_file=None, azure_speech_key=KEY, azure_speech_region="westeurope")  # type: ignore[arg-type]
+    assert KEY in settings.secret_values() and KEY not in repr(settings)
+    provider = build_providers(settings)["azure"]
+    assert provider.is_configured() and KEY not in repr(provider)
+    empty = Settings(_env_file=None, azure_speech_key="  ", azure_speech_region="")  # type: ignore[arg-type]
+    assert empty.azure_speech_key is None and empty.azure_speech_region is None
+    monkeypatch.setenv("VOCAB_AZURE_SPEECH_KEY", KEY)
+    monkeypatch.setenv("VOCAB_AZURE_SPEECH_REGION", "swedencentral")
+    from_env = Settings(_env_file=None)
+    assert from_env.azure_speech_region == "swedencentral"
+    assert from_env.azure_speech_key is not None

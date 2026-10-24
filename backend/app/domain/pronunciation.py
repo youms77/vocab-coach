@@ -49,6 +49,15 @@ def audio_problem(data: bytes, extension: str = "") -> str | None:
     return None if audio_kind(data, extension) is not None else UNSUPPORTED_FOR_ASSESSMENT
 
 
+def silent_wav(seconds: float = 1.0) -> bytes:
+    """A silent WAV PCM 16 kHz mono 16-bit clip, built in memory (the connection test sends it)."""
+    audio = b"\x00\x00" * int(seconds * WAV_SAMPLE_RATE)
+    fmt = struct.pack("<HHIIHH", _WAVE_FORMAT_PCM, 1, WAV_SAMPLE_RATE, WAV_SAMPLE_RATE * 2, 2, 16)
+    body = b"WAVE" + b"fmt " + struct.pack("<I", len(fmt)) + fmt + b"data"
+    body += struct.pack("<I", len(audio)) + audio
+    return b"RIFF" + struct.pack("<I", len(body)) + body
+
+
 def audio_duration_s(data: bytes) -> float | None:
     """Duration of a WAV or Ogg Opus clip from its headers, or None when it cannot be told."""
     if _wav_kind(data):

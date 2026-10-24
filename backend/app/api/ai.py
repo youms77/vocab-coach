@@ -22,7 +22,7 @@ from app.config import get_settings
 from app.db.engine import get_engine
 from app.db.event_log import record_event
 from app.domain.events import AiCredentialChanged
-from app.domain.settings_defaults import KNOWN_AI_PROVIDERS
+from app.domain.settings_defaults import KNOWN_AI_PROVIDERS, KNOWN_SPEECH_PROVIDERS
 from app.services import env_file
 from app.services.ai_connection_test import (
     ConnectionTestReport,
@@ -41,6 +41,7 @@ EngineDep = Annotated[Engine, Depends(get_engine)]
 
 ENV_FILE_STATUS = {
     "invalid_credential": 422,
+    "invalid_region": 422,
     "set_in_environment": 409,
     "env_file_locked": 409,
     "env_file_write_failed": 500,
@@ -64,6 +65,8 @@ class ProviderState(BaseModel):
     # priority and blocks editing), "env_file" (editable) or "none".
     credential_source: Literal["env_file", "environment", "none"]
     credential_kind: Literal["api_key", "base_url"]
+    # Azure only: the region of the resource (a public name like "westeurope", not a secret).
+    region: str | None = None
 
 
 class AiStatusResponse(BaseModel):
@@ -72,12 +75,16 @@ class AiStatusResponse(BaseModel):
     demo: bool  # writes are refused
     order: list[str]
     providers: list[ProviderState]
+    # Providers of a single capability, outside the order (Azure, pronunciation). Kept apart from
+    # `providers` so the order screen never offers them.
+    speech_providers: list[ProviderState] = []
 
 
 class CredentialBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     value: SecretStr
+    region: str | None = None  # Azure only
 
 
 class TestBody(BaseModel):
@@ -132,7 +139,7 @@ class UsageResponse(BaseModel):
 
 
 def _check_provider(name: str) -> None:
-    if name not in KNOWN_AI_PROVIDERS:
+    if name not in KNOWN_AI_PROVIDERS and name not in KNOWN_SPEECH_PROVIDERS:
         raise api_error(404, "unknown_provider", "Unknown AI provider.")
 
 
@@ -143,16 +150,20 @@ def _refuse_in_demo(engine: Engine) -> None:
         )
 
 
-def _provider_states(gateway: Gateway) -> list[ProviderState]:
+def _provider_states(
+    gateway: Gateway, names: tuple[str, ...] = KNOWN_AI_PROVIDERS
+) -> list[ProviderState]:
     statuses = {status.name: status for status in gateway.status()}
     states = []
-    for name in KNOWN_AI_PROVIDERS:
+    for name in names:
         status = statuses.get(name)
         provider = gateway.providers.get(name)
         if status is None or provider is None:
             continue
         variable = env_file.EDITABLE[name]
-        in_environment = _in_environment(variable)
+        in_environment = _in_environment(variable) or _in_environment(
+            env_file.REGION_VARIABLES.get(name, variable)
+        )
         if in_environment:
             source: Literal["env_file", "environment", "none"] = "environment"
         elif status.configured:
@@ -176,6 +187,7 @@ def _provider_states(gateway: Gateway) -> list[ProviderState]:
                 },
                 credential_source=source,
                 credential_kind="base_url" if name == "ollama" else "api_key",
+                region=getattr(provider, "region", None),
             )
         )
     return states
@@ -190,7 +202,8 @@ def _in_environment(variable: str) -> bool:
 
 
 def _state_of(gateway: Gateway, name: str) -> ProviderState:
-    return next(state for state in _provider_states(gateway) if state.name == name)
+    states = _provider_states(gateway, (*KNOWN_AI_PROVIDERS, *KNOWN_SPEECH_PROVIDERS))
+    return next(state for state in states if state.name == name)
 
 
 def _record_credential_event(engine: Engine, name: str, action: Literal["set", "removed"]) -> None:
@@ -205,17 +218,22 @@ def _record_credential_event(engine: Engine, name: str, action: Literal["set", "
 
 
 def _change_credential(
-    name: str, value: str | None, gateway: Gateway, engine: Engine
+    name: str, value: str | None, gateway: Gateway, engine: Engine, region: str | None = None
 ) -> ProviderState:
     _check_provider(name)
     _refuse_in_demo(engine)
+    if region is not None and name not in env_file.REGION_VARIABLES:
+        raise api_error(422, "invalid_request", "This provider has no region.")
+    needs_region = value is not None and name in env_file.REGION_VARIABLES and region is None
+    if needs_region and get_settings().azure_speech_region is None:
+        raise api_error(422, "region_required", "Azure Speech needs a region with its key.")
 
     def reload() -> None:
         get_settings.cache_clear()
         gateway.reload()
 
     try:
-        update = env_file.update_credential(name, value, after_write=reload)
+        update = env_file.update_credential(name, value, region=region, after_write=reload)
     except env_file.EnvFileError as exc:
         raise api_error(ENV_FILE_STATUS.get(exc.code, 500), exc.code, exc.message) from None
     if update.changed:
@@ -236,6 +254,7 @@ def ai_status(gateway: GatewayDep, engine: EngineDep) -> AiStatusResponse:
         demo=is_demo(get_settings(), engine),
         order=order,
         providers=providers,
+        speech_providers=_provider_states(gateway, KNOWN_SPEECH_PROVIDERS),
     )
 
 
@@ -243,7 +262,7 @@ def ai_status(gateway: GatewayDep, engine: EngineDep) -> AiStatusResponse:
 def put_credential(
     name: str, body: CredentialBody, gateway: GatewayDep, engine: EngineDep
 ) -> ProviderState:
-    return _change_credential(name, body.value.get_secret_value(), gateway, engine)
+    return _change_credential(name, body.value.get_secret_value(), gateway, engine, body.region)
 
 
 @router.delete("/providers/{name}/credential", response_model=ProviderState)
