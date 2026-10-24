@@ -4,23 +4,106 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M6.b2.1 (module F, frontend: free speaking and the `speaking-1` correction), on branch
+- **Last milestone completed**: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
   `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (M6.a2, after M6.a1, PR #21, **not
   merged into `main` yet**). Not pushed. `main` (`7904aa3`, CI green) has M1.a to M5.a3. No migration since `0002`.
 - **M6 — Speaking** (module F, SPEC section 9) is cut in five (D-168), M6.a2 in two (D-178): **M6.a1** (done: local
   recordings, Groq Whisper, shadowing, comparison, playback, CLI), **M6.a2a** (done: free speaking corrected by
   `speaking_correction`, spoken answers in reviews, CLI), **M6.a2b** (done: the demo through the services,
   `direct_writes.py` removed, D-035 closed), **M6.b1** (done: the recorder, the shadowing pages, the comparison, the
-  optional recording of the discovery), **M6.b2.1** (done: free speaking and the `speaking-1` correction) and **M6.b2.2** (frontend:
-  spoken answers in reviews; API references in the M6.a1 and M6.a2a sections), **M6.c** (Azure AI Speech, optional).
-- **Next**: the owner's go for **M6.b2.2** (the oral answer in the review player, same branch); the owner's review of M6.b1, M6.b2.1 and
-  M6.a2, then push and the pull request with the owner's go-ahead (after PR #21).
+  optional recording of the discovery), **M6.b2.1** (done: free speaking and the `speaking-1` correction), **M6.b2.2** (done: the spoken answer in
+  reviews; API references in the M6.a1 and M6.a2a sections) and **M6.c** (Azure AI Speech, optional).
+- **Next**: the owner's review of M6.b1, M6.b2.1, M6.b2.2 and M6.a2 (the manual scenarios), then push and the pull request with the
+  owner's go-ahead (after PR #21); M6.c (optional) after that.
 - **Left from M5, not scheduled**: the screens for cards from errors and suggestions ("M5.d", API in the M5.a3 section
   below) and an undo for a dismissed suggestion. The owner decides when they come.
 - Gemini (`gemini-3.5-flash-lite`) and Groq are configured in the owner's `.env`; the M5.a1, M5.a2 and M6.a2a live tests
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
-  scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1 and M6.b2.1) are still to run.
+  scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M6.b2.2 — The spoken answer in the review player (frontend)
+
+Second half of M6.b2, same branch `feat/m6b-speaking-screens` (`git diff --stat e5600ce -- backend` is empty). Two code commits, then the docs.
+**No backend change**, no migration, no new dependency. SPEC.md unchanged. Decisions D-206 to D-210; D-123 and D-117 annotated.
+
+### Done
+
+- **The recorder in two parts** (D-206): `RecorderView` (presentation, takes the object returned by `useRecorder`) and `Recorder` (view + hook,
+  unchanged for its users: its 41 tests did not change). `useClipSender` (own file) holds the 10 MB check shared by the Send button and Enter.
+- **The machine** (D-206): phases `capturing` (microphone open), `captured` (clip ready), `checking_spoken` (`review-answer` running), actions
+  `startCapture`, `captured` (fixes `responseTimeMs`), `discardCapture`, `submitSpoken`, `spokenChecked` (refused outside `checking_spoken`: the
+  same state object), `spokenFailed` (back to `captured`), `spokenFallback` (to `checking`, the reveal of M4.c). The phase `recording` (rating
+  being saved) is not renamed. The result stays a `GradeResult` (`outcome` null, `proposed_rating` only with a correction, `term_not_heard`).
+- **The player** (D-206, D-208): owns `useRecorder('spoken_answer')`; `reviewAnswer()` in `api/speech.ts` (plain function over `apiUpload`, under an
+  `AbortController`); "Checking your answer… n s" (polite status said once), "Skip the check and rate myself" after 5 s; every fallback goes to
+  `reveal` **without** `production_attempt_id`; audio refusals go back to `captured`; `not_due`, `review_not_allowed`, `exercise_mismatch`,
+  `session_closed`, `session_not_found` as for `grade`. `409 production_mismatch` is the existing single resend.
+- **Keys** (D-207): Space starts and stops the take, Enter sends it; `KeyHints` follows the phase; nothing while `checking_spoken`.
+- **The prompt and the result** (D-209): the question alone, no "Show an example" and no `recordingLater` sentence; the result says what was
+  heard (the compact `CorrectionView`), `term_not_heard` in words, the example "one possibility among others", the sheet summary, the suggested
+  rating (1 or 3) or four plain buttons; transcription unavailable or silent and a failed correction are said, and the rating still carries the
+  production. The two-step sentence ("up to about 90 seconds") is under Send and during the wait.
+- **i18n** EN/FR under `review.spoken.*`, `review.keys.record|stop|send`, `review.result.term_not_heard`; `review.prompt.recordingLater` and
+  `review.showExample` removed. CSS: a few lines (`.spoken-answer`).
+- **Tests**: 619 Vitest tests (567 before): `ReviewPlayer.spoken.test.tsx` (41), 10 reducer tests, 2 shortcut tests; two older `spoken_answer`
+  tests rewritten (Space and Enter no longer reveal the example; the card is revealed by "Answer without recording").
+
+### Verified (Windows 11, 2026-10-24)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, pytest green, then typecheck, oxlint `--deny-warnings`, **619 vitest tests**;
+  `npm --prefix frontend run build` passes. `git diff --stat e5600ce -- backend` is empty; `frontend/package-lock.json` untouched.
+- **Checks by breaking the code** (each applied, run, then undone with `git checkout`):
+  - (c) the example answer written into the page while the take is `captured`: `shows nothing of the solution before the answer, in every phase`
+    fails with `expected '<div><div class="shell">…' not to contain 'drill down into'`.
+  - (d) the guard of `submitSpoken` removed from `sendSpoken`: `a double Enter sends one recording` fails with `expected [ … ] to have a length of 1 but got 2`.
+  - (e) the phase guard of `spokenChecked` removed (a late answer accepted after the way out, which would send the production): the reducer test
+    `a late answer, after the way out or in any other phase, changes nothing` fails (`expected { phase: 'answered', … } to be { phase: 'answering', … }`).
+    The player-level test of the late answer did **not** fail by itself: the abort makes the mocked request reject before the late answer, so
+    the reducer is the second line of defence, and its own test is the one that catches the break.
+- **In-app browser**, demo database in a temporary folder (`VOCAB_DATA_DIR`, the four keys emptied; `data/` and `.env` untouched; both servers
+  stopped, ports 5173 and 8000 free): the demo had **no `spoken_answer` card** among today's 18 reviews, so the page replaced the `next` answer
+  by a real card of the database (card 136 / template 274, then 138 / 280) — only that step was substituted, everything else is the real
+  backend. Seen: the question alone and "Space start recording"; a refused microphone (`getUserMedia` rejected in the page): the message, the
+  help, "Answer without recording" as the main button; a real `MediaRecorder` on a synthetic 440 Hz tone (the pane has no microphone):
+  Space to start, Space to stop ("Recording stopped: 0:02", the two-step sentence, "Enter send"), Enter sent a real
+  `POST /api/speech/review-answer?card_id=136&session_id=50&exercise_template_id=274&duration_s=2.03&response_time_ms=30855`; the backend
+  (no AI provider) answered "could not be transcribed: no AI provider is set up", the example appeared, four rating buttons, key 3 saved the
+  review (`review_log` 826: `exercise_type spoken_answer`, `final_rating 3`, `auto_rating` null, `audio_path` filled, `production_attempt_id` set).
+  375 px, EN and FR (second card, same path): `scrollWidth` 375 on the card, the take and the result; dark theme (the browser's).
+  `/speaking/history` lists ids 25, 26 and 31 (and my two test takes), each opens its page, `/writing/31` redirects to `/speaking/31`.
+- **Not verified**: a real microphone and Groq (the "answer ok" path of `review-answer`, with a heard text, a correction and a suggested
+  rating, is tested with mocks only); the 5-second way out and the late answer in a real browser (tests with fake timers only); the degraded
+  mode with a failing provider mid-way.
+
+### Owner's manual scenario (about 2 minutes, with your Groq key and a microphone)
+
+1. `/speaking`: choose a subject, speak for a minute slipping in "I live in campus" and "I study here since two years", Stop, Listen, Send; read
+   the correction and the Structure section; play your recording back from "Your recording".
+2. `/speaking/shadowing`: type or paste a sentence of a usage sheet, record it, then "Play both".
+3. In a session, a `spoken_answer` card if one comes up (the demo has none today; in your own data it depends on the planner): press Space,
+   answer aloud with the term, press Space, press Enter. Read "What the speech recognition heard", the marks, the example answer, the
+   suggested rating; Enter accepts it. Try "Answer without recording" on another card, and with the microphone blocked in the browser.
+
+### Departures from the prompt
+
+- The result's title for what was heard is the correction view's own ("What the speech recognition heard"), not a second "What was heard"
+  heading (they would say the same thing); when there is no correction the heard text is shown by the same view (D-209).
+- `checkFailed` also leaves `checking_spoken` (the blocking refusals); `spokenFallback` takes a nullable notice (nothing to say when the user
+  chose to answer without recording), so no `spoken_declined` notice exists (D-208, D-210).
+- "Start recording" and "Answer without recording" are both primary buttons when the microphone failed (the view has no prop to calm the first).
+- `useClipSender` is its own file (oxlint's fast-refresh rule); `RecorderPanel.tsx` only exports components and the type.
+
+### Left / notes
+
+- M6.c (Azure AI Speech, optional) and the microphone choice in the settings. The owner's manual scenarios. Push and the pull request: with
+  the owner's go-ahead (after PR #21).
+- A card with no `exercise_template_id` shows no recorder (only "Answer without recording"): the server needs the template for `review-answer`.
+
+### Known issues
+
+- "Length: 0:01" shows the whole seconds (1.8 s reads 0:01), as in the other recorders.
+- A real recording of a spoken answer was never made (see "Not verified").
 
 ## M6.b2.1 — Free speaking and the `speaking-1` correction (frontend)
 
@@ -76,7 +159,7 @@ unchanged. Decisions D-202 to D-205 (the prompt said "from D-193", which M6.b1 h
 2. The page of the speech shows "Correcting… n s", then the heard text with the marks, the errors by part, the corrected and the natural
    versions, and the Structure section. Play your recording back from "Your recording".
 3. Reload the page: nothing starts by itself. Open **My previous speeches** and the error log: an error's link opens the speech.
-4. (M6.b2.2) In a session, a `spoken_answer` card: still the old "Show the example" path until the oral answer is done.
+4. In a session, a `spoken_answer` card is answered aloud since M6.b2.2 (see its section).
 
 ### Departures from the prompt
 
@@ -88,8 +171,7 @@ unchanged. Decisions D-202 to D-205 (the prompt said "from D-193", which M6.b1 h
 
 ### Left / notes
 
-- **M6.b2.2**: the oral answer in the review player (phases `capturing`, `captured`, `checking_spoken`, Space and Enter, the 5 s way out, the
-  `reveal` fallback, `term_not_heard`, the suggested rating), the break checks (c), (d), (e), then D-123 and D-117 annotated.
+- **M6.b2.2**: done (see its section above).
 - M6.c (Azure AI Speech), the microphone choice in the settings. The owner's manual scenarios. Push and the pull request: with the owner's
   go-ahead (after PR #21).
 

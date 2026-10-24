@@ -1637,7 +1637,8 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 
 ## D-117 — Discovery flow (M4.b)
 
-> M6.b1 (D-199): the spoken repetition now has an optional recording (the "recording comes later" mention is gone).
+> M6.b1 (D-199): the spoken repetition now has an optional recording (the "recording comes later" mention is gone). M6.b2.2 (D-206):
+> the recorder is now split into `RecorderView` and `Recorder`; the discovery keeps using `Recorder`.
 
 - `features/discovery/DiscoveryFlow.tsx` keyed by the term id, so a `next` that answers the same term does not
   reset it. Steps 1 and 2 share one screen (the sentence stays visible while guessing); then the sheet, the
@@ -1724,9 +1725,9 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 
 ## D-123 — What is heard and shown before the answer (M4.c1)
 
-> M6.b1: still true for the review player ("nothing is recorded yet" stays on `spoken_answer` until M6.b2 replaces it with
-> the recorder, D-143 extended). The recorder (D-193) and its rule that the speech synthesis is cut before it records are
-> ready for it.
+> M6.b2.2 (D-206 to D-209): the "nothing is recorded yet" note of `spoken_answer` is replaced by the recorder; the question is shown alone,
+> the example answer is never in the page before the answer, and Space and Enter no longer reveal it. The rule that the speech synthesis
+> is cut before the recorder opens (D-193) holds.
 
 - Listening comprehension: the sentence is never written in the DOM before the answer (no text, no hidden
   element, no attribute; the "Listen" buttons are labelled "the sentence"). The player speaks it as soon as a
@@ -3207,3 +3208,64 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   namespaces have the same keys (`writing.topics.*`, `speaking.topics.*`).
 - `speechFixtures.ts` gets `speakingFeedback`, `speech` / `correctedSpeech`, `speakingCorrection`, `speakingOut` (fictional data).
 - Departure from the prompt: decisions start at D-202 (D-201 was taken); the milestone is cut in two sessions (b2.1, b2.2), approved.
+
+## D-206 — The recorder in two parts and the spoken phases of the review machine (M6.b2.2; builds on D-120, D-143, D-193)
+
+- `RecorderPanel.tsx` exports `RecorderView` (presentation: it takes the object `useRecorder` returns, `RecorderApi`) and `Recorder` (the view and
+  the hook, for the pages that only need a recorder). The review player calls `useRecorder('spoken_answer')` itself because Space and Enter must drive
+  the recorder (bounds 1 to 90 s). `useClipSender` (own file: oxlint's fast-refresh rule) holds the 10 MB check, shared by the Send button and Enter.
+- `reviewMachine` gets `capturing` (microphone open), `captured` (clip ready) and `checking_spoken` (`review-answer` running). `recording` keeps
+  its meaning (the rating is being saved, D-120). Actions: `startCapture`, `captured` (fixes `responseTimeMs`: the answer ends with the recording,
+  D-121), `discardCapture` ("Record again", a cancelled or failed microphone), `submitSpoken`, `spokenChecked`, `spokenFailed`, `spokenFallback`.
+  Every action outside its phase returns the **same state object**; `spokenChecked` outside `checking_spoken` is how a late answer, after the way
+  out, changes nothing (tested on the reducer).
+- The machine follows the hook: an effect turns `stopped` into `captured` and `idle` / `error` (Cancel, Record again, a refused microphone, a route
+  change) into `discardCapture`. The Start button goes through `startCapture` too, so the reducer is the one guard for "one microphone per take".
+- The result is still a `GradeResult` (`outcome` null, `proposed_rating` kept only when the correction is `ok`, `term_not_heard` in `warnings`,
+  `solution`, `sheet_summary`), so `ReviewResult` and `RatingButtons` are reused; the heard text and its status live in `state.spoken`.
+
+## D-207 — Keys of the spoken answer (M6.b2.2; builds on D-122)
+
+- Space starts the take (phase `answering`) and stops it (`capturing`); Enter sends it (`captured`). Space does nothing in `captured`, Enter
+  nothing in `capturing`, no key at all in `checking_spoken`. The same exclusions as D-122 (fields, Ctrl/Alt/Meta, Shift, auto-repeat, a focused
+  button or link). `useReviewShortcuts` gets `record` and `send` (Space and Enter are matched to their own handler, `reveal` stays for the other
+  types). On a spoken card Space and Enter **no longer reveal** the example: it is revealed by "Answer without recording".
+- A double Space opens the microphone once (`startCapture` is refused the second time and the recorder's own guard backs it up); a double Enter
+  sends one recording (`submitSpoken` is refused the second time: the guard is the player's `ref`, as in D-120). `KeyHints` follows the phase and
+  promises no key when the browser cannot record.
+
+## D-208 — The way out, the fallback and the refusals of a spoken answer (M6.b2.2; builds on D-142, D-143, D-183)
+
+- `reviewAnswer()` (`api/speech.ts`) is a plain function over `apiUpload`, under an `AbortController`, like `checkProduction`. The query holds
+  `card_id`, `session_id`, `exercise_template_id`, `duration_s`, `response_time_ms` (the end of the recording, the same value as `POST /reviews`).
+- While waiting: "Checking your answer… n s" (the status is said once, the counter is hidden from screen readers) and the sentence about two AI
+  steps; after 5 s "Skip the check and rate myself" aborts and takes the fallback.
+- **The fallback is the `reveal` path of M4.c, without `production_attempt_id`**: the way out, a network error or any unexpected error
+  (notice `spoken_skipped` / `spoken_failed`), a refused, absent or unsupported microphone, "Answer without recording" (always visible, the main
+  button when the microphone failed; no notice: the user chose it). A spoken card without a template shows no recorder, only that button.
+- Refusals of the recording (`audio_too_short`, `audio_too_long`, `audio_empty`, `unsupported_audio`, `audio_too_large`) go back to `captured`
+  with the message: nothing was stored (D-183), the same take can be sent again. `not_due`, `review_not_allowed`, `exercise_mismatch`,
+  `session_closed`, `session_not_found` are handled as for `grade` (`checkFailed` now also leaves `checking_spoken`; the recorder is reset).
+- Transcription unavailable or silent, or a failed correction, are **not** a fallback: the solution came with the answer (D-186), so the card is
+  rated without another request and `POST /reviews` keeps `production_attempt_id` (the server accepts a spoken answer without correction).
+  `auto_rating` is never sent. `409 production_mismatch` is the existing single resend (D-143).
+
+## D-209 — What is shown before and after a spoken answer (M6.b2.2; builds on D-103, D-123, D-202)
+
+- The prompt of a spoken card is the question alone: the example answer is **never in the page before the answer**, in none of the phases (a test
+  checks `document.body.innerHTML` in `answering`, `capturing`, `captured` and `checking_spoken`, and fails when the example is rendered earlier).
+  "Show an example" and the "nothing is recorded yet" sentence (D-123) are gone.
+- The result: the compact `CorrectionView` of what was heard (its title already says "What the speech recognition heard" and that the correction is
+  about what was heard, D-202), `term_not_heard` translated (forgotten or missed by the recogniser: rate yourself), the example "one possibility
+  among others", the sheet summary, the proposed rating 1 or 3 marked "Suggested" (Enter accepts it) or four plain buttons. Silence, an
+  unavailable transcription and a failed correction have their own sentence; the sentence "Compare with your own answer" is shown only when no
+  rating is proposed.
+- One sentence says that two AI steps may take up to about 90 seconds, under Send and during the wait, on every spoken card.
+
+## D-210 — Small conventions and departures met in M6.b2.2
+
+- Fixtures: `reviewAnswerOut` (a correction with one error, Again proposed), `untranscribedAnswer`, `heardFeedback`, `HEARD_ANSWER`, `SPOKEN_EXAMPLE`
+  in `speechFixtures.ts`.
+- Departures from the prompt: no second "What was heard" heading (the correction view's own title serves); `spokenFallback` takes a nullable notice
+  instead of a `declined` kind; "Start recording" and "Answer without recording" are both primary when the microphone failed; the break check
+  (e) is caught by the reducer test and not by the player test (the abort already drops the late answer there).
