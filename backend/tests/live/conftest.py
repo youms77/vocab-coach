@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from app.ai.providers import build_providers
+from app.ai.providers.azure_speech import AzureSpeechProvider
 from app.ai.providers.gemini import GeminiProvider
 from app.ai.providers.groq import GroqProvider
 from app.ai.providers.ollama import OllamaProvider
@@ -49,6 +50,15 @@ def groq(live_settings: Settings) -> GroqProvider:
     if not provider.is_configured():
         pytest.skip("Groq is not configured (VOCAB_GROQ_API_KEY)")
     assert isinstance(provider, GroqProvider)
+    return provider
+
+
+@pytest.fixture(scope="session")
+def azure(live_settings: Settings) -> AzureSpeechProvider:
+    provider = build_providers(live_settings)["azure"]
+    if not provider.is_configured():
+        pytest.skip("Azure Speech is not configured (VOCAB_AZURE_SPEECH_KEY and _REGION)")
+    assert isinstance(provider, AzureSpeechProvider)
     return provider
 
 
