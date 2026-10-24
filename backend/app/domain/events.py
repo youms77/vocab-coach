@@ -54,6 +54,7 @@ class EventType(StrEnum):
     PRODUCTION_CORRECTED = "production.corrected"
     PRODUCTION_TRANSCRIBED = "production.transcribed"
     PRONUNCIATION_CHECKED = "pronunciation.checked"
+    PRONUNCIATION_ASSESSED = "pronunciation.assessed"
     ERROR_RECORDED = "error.recorded"
     ERROR_UPDATED = "error.updated"
     ERROR_DELETED = "error.deleted"
@@ -456,6 +457,31 @@ class PronunciationChecked(Event):
     word_accuracy: Annotated[float, Field(ge=0, le=1)]
     comparator_version: Annotated[str, Field(min_length=1, max_length=50)]
     provider: Annotated[str, Field(max_length=50)]
+
+
+class PronunciationAssessed(Event):
+    """A shadowing take scored by a pronunciation service (Azure, M6.c1). No text in the payload.
+    The scores (0-100) are null on `silence`. `audio_seconds` is what the monthly free quota is
+    counted on (D-216)."""
+
+    event_type = EventType.PRONUNCIATION_ASSESSED
+    entity_type = "production_attempt"
+    entity_id_field = "production_attempt_id"
+
+    production_attempt_id: Id
+    provider: Annotated[str, Field(max_length=50)]
+    model: Annotated[str, Field(max_length=200)]
+    ai_call_id: Id | None = None
+    status: Literal["ok", "silence"]
+    audio_seconds: Annotated[float, Field(ge=0)] | None = None
+    accuracy: Annotated[float, Field(ge=0, le=100)] | None = None
+    fluency: Annotated[float, Field(ge=0, le=100)] | None = None
+    completeness: Annotated[float, Field(ge=0, le=100)] | None = None
+    pronunciation: Annotated[float, Field(ge=0, le=100)] | None = None
+    word_count: Annotated[int, Field(ge=0)] = 0
+    mispronounced: Annotated[int, Field(ge=0)] = 0
+    omitted: Annotated[int, Field(ge=0)] = 0
+    inserted: Annotated[int, Field(ge=0)] = 0
 
 
 class DrillGenerated(Event):

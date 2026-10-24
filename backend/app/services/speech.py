@@ -255,7 +255,9 @@ def comparison_of(session: Session, attempt: ProductionAttempt) -> Comparison | 
     if attempt.kind is not ProductionKind.SHADOWING:
         return None
     result = pronunciation_of(session, attempt.id)
-    return compare(result.target_text, result.transcript) if result is not None else None
+    if result is None or not result.transcript:  # an assessed take not transcribed yet (D-215)
+        return None
+    return compare(result.target_text, result.transcript)
 
 
 # --- Writing -------------------------------------------------------------------------------------
@@ -386,18 +388,28 @@ def store_transcription(
     comparison = None
     if attempt.kind is ProductionKind.SHADOWING and attempt.prompt_text:
         comparison = compare(attempt.prompt_text, text)
-        session.add(
-            PronunciationResult(
-                production_attempt_id=attempt.id,
-                target_text=attempt.prompt_text,
-                transcript=text,
-                unrecognized_words=[_unrecognized(u) for u in comparison.unrecognized],
-                scores=None,  # reserved for a pronunciation service (M6.c)
-                provider=provider,
-                created_at=at,
-                updated_at=at,
+        unrecognized = [_unrecognized(u) for u in comparison.unrecognized]
+        existing = pronunciation_of(session, attempt.id)
+        if existing is not None:
+            # A pronunciation assessment came first and created the row (M6.c1, D-215): it keeps
+            # its scores and gets the transcription.
+            existing.transcript = text
+            existing.unrecognized_words = unrecognized
+            existing.provider = provider
+            existing.updated_at = at
+        else:
+            session.add(
+                PronunciationResult(
+                    production_attempt_id=attempt.id,
+                    target_text=attempt.prompt_text,
+                    transcript=text,
+                    unrecognized_words=unrecognized,
+                    scores=None,  # filled by `pronunciation.store_assessment` (M6.c1)
+                    provider=provider,
+                    created_at=at,
+                    updated_at=at,
+                )
             )
-        )
         record_event(
             session,
             PronunciationChecked(
