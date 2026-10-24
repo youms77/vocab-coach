@@ -46,12 +46,57 @@ export interface Transcription {
   reason: string | null
 }
 
+export type ErrorType = 'None' | 'Mispronunciation' | 'Omission' | 'Insertion' | string
+
+export interface PhonemeScore {
+  phoneme: string
+  accuracy: number | null
+}
+
+export interface WordScore {
+  word: string
+  accuracy: number | null
+  error_type: ErrorType
+  offset_ms: number | null
+  duration_ms: number | null
+  phonemes: PhonemeScore[]
+}
+
+/** The stored `azure-pa-1` document (D-215). Scores are 0-100, null on silence. */
+export interface PronunciationScores {
+  provider: string
+  model: string
+  assessed_at: string
+  status: 'ok' | 'silence'
+  overall: {
+    accuracy: number | null
+    fluency: number | null
+    completeness: number | null
+    pronunciation: number | null
+  }
+  words: WordScore[]
+  duration_s: number | null
+}
+
+export type AssessableReason =
+  | 'not_shadowing'
+  | 'no_target'
+  | 'no_audio'
+  | 'disabled'
+  | 'not_configured'
+  | 'already_assessed'
+  | 'unsupported_format'
+  | 'too_long'
+
 export interface SpeechOut {
   production_id: number
   audio_url: string
   audio_seconds: number | null
   transcription: Transcription
   comparison: Comparison | null
+  pronunciation?: PronunciationScores | null
+  assessable?: boolean
+  assessable_reason?: AssessableReason | null
 }
 
 export interface ReviewAnswerOut {

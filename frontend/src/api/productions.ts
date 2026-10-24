@@ -2,7 +2,7 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { ApiError, apiGet, apiSend } from './client'
 import type { ErrorOut } from './errors'
-import type { Comparison } from './speech'
+import type { AssessableReason, Comparison, PronunciationScores } from './speech'
 
 // backend/app/api/productions.py, api/writing.py and the stored `correction-1` feedback
 // (app/services/corrections.py, D-128).
@@ -129,6 +129,10 @@ export interface Production {
   audio_seconds: number | null
   transcription_status: 'pending' | 'ok' | 'silence' | null
   comparison: Comparison | null
+  /** Optional Azure assessment (M6.c): scores, whether one can be asked for, and why not. */
+  pronunciation?: PronunciationScores | null
+  assessable?: boolean
+  assessable_reason?: AssessableReason | null
 }
 
 export interface ProposedCategory {

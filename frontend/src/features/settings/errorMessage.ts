@@ -80,6 +80,12 @@ const KNOWN_CODES = [
   'already_transcribed',
   'not_transcribed',
   'nothing_to_correct',
+  'region_required',
+  'invalid_region',
+  'not_assessable',
+  'assessment_disabled',
+  'already_assessed',
+  'unsupported_for_assessment',
 ] as const
 
 // These say *why* a value was refused (never the value itself): the English detail is kept.

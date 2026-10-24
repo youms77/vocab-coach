@@ -44,7 +44,8 @@
       "names": {
         "gemini": "Google Gemini",
         "groq": "Groq",
-        "ollama": "Ollama (on this computer)"
+        "ollama": "Ollama (on this computer)",
+        "azure": "Microsoft Azure AI Speech"
       },
       "capabilities": {
         "text": "Text",
@@ -185,6 +186,29 @@
           "hint": "1.0 is the normal speed."
         }
       }
+    },
+    "azure": {
+      "title": "Pronunciation assessment (optional, Azure)",
+      "intro": "Scores each word and sound of a shadowing against the sentence you repeated. It is off by default and the rest of the app works without it.",
+      "privacy": "When you ask for an assessment, the recording is sent to Microsoft. Use a free F0 resource only, never S0. Whether the F0 tier includes pronunciation assessment is not confirmed.",
+      "demoNote": "Demo database: the key, the region and the setting cannot be changed here.",
+      "loadError": "The Azure status could not be loaded.",
+      "keyLabel": "Azure Speech key",
+      "regionLabel": "Region",
+      "regionPlaceholder": "westeurope",
+      "regionHint": "The region of your resource, for example westeurope. Saved in .env with the key; the key is not shown again.",
+      "regionCurrent": "Current region: {{region}}.",
+      "regionRequired": "Enter the region of your Azure resource.",
+      "keyRequired": "Paste your key.",
+      "keyEmptyKeepRegion": "Paste your key to save it.",
+      "enableLabel": "Allow pronunciation assessment of shadowings",
+      "enableHint": "New shadowings are then recorded as WAV (16 kHz, mono) so that Azure can read them. Older recordings cannot be assessed.",
+      "enableNeedsKey": "Save a key and a region first.",
+      "enableSaved": "Setting saved.",
+      "usageTitle": "Use this month",
+      "usage": "{{minutes}} min of audio sent in {{count}} assessments (month {{month}}). Free tier: about {{limit}} min a month, checked on {{checked}}.",
+      "usageNote": "This counts what this app sent, not what Microsoft counts.",
+      "usageError": "The monthly use could not be loaded."
     }
   },
   "errors": {
@@ -266,7 +290,13 @@
     "no_audio": "There is no recording for this item (or its file is gone).",
     "already_transcribed": "This recording was already transcribed.",
     "not_transcribed": "This recording has no transcription yet: transcribe it first.",
-    "nothing_to_correct": "Nothing was heard, so there is nothing to correct."
+    "nothing_to_correct": "Nothing was heard, so there is nothing to correct.",
+    "region_required": "Enter the region of your Azure resource.",
+    "invalid_region": "This region is not valid (letters and digits only, for example westeurope).",
+    "not_assessable": "Only a shadowing with a sentence can be assessed.",
+    "assessment_disabled": "Pronunciation assessment is turned off in the settings.",
+    "already_assessed": "This recording was already assessed.",
+    "unsupported_for_assessment": "This recording cannot be assessed: Azure reads only WAV or OGG, and this one was recorded in another format. Record it again with the assessment turned on."
   },
   "home": {
     "title": "Welcome",
@@ -1810,5 +1840,49 @@
       "proposed": "This category is only proposed: accept it in the categories page first.",
       "rejected": "This category was rejected."
     }
+  },
+  "pronunciation": {
+    "title": "Pronunciation",
+    "button": "Assess my pronunciation",
+    "running": "Assessing… {{seconds}} s",
+    "tryAgain": "Try again",
+    "privacy": "This sends the recording to Microsoft Azure. It uses part of the free monthly allowance.",
+    "estimate": "An automatic estimate, not a teacher's judgment. Scores from 0 to 100; a low score on a word is a hint to listen again, not a verdict.",
+    "unavailable": "The assessment could not be done: {{reason}}. Nothing was stored; you can try again.",
+    "incomplete": "Azure answered in an unexpected way. Nothing was stored; you can try again.",
+    "silence": "Azure heard no speech in this recording, so there is nothing to score.",
+    "reasons": {
+      "not_shadowing": "Only shadowings can be assessed.",
+      "no_target": "This shadowing has no sentence to compare with.",
+      "no_audio": "The recording is missing.",
+      "disabled": "Turned off in the settings.",
+      "not_configured": "Azure is not configured in the settings.",
+      "already_assessed": "Already assessed.",
+      "unsupported_format": "This recording is not in a format Azure reads (it was recorded before the assessment was turned on).",
+      "too_long": "The recording is longer than 30 seconds."
+    },
+    "settingsLink": "Open the settings",
+    "overall": "Overall scores",
+    "accuracy": "Accuracy",
+    "fluency": "Fluency",
+    "completeness": "Completeness",
+    "pronunciation": "Pronunciation",
+    "scoreValue": "{{value}} / 100",
+    "noScore": "no score",
+    "words": "Word by word",
+    "wordsHint": "Words that need attention are listed first in the colour-free list below; each shows its score and the kind of problem.",
+    "wordLine": "{{word}}: {{score}}, {{type}}",
+    "errorTypes": {
+      "None": "fine",
+      "Mispronunciation": "mispronounced",
+      "Omission": "omitted",
+      "Insertion": "added",
+      "other": "to check"
+    },
+    "weakest": "Weakest sounds",
+    "weakestEmpty": "No sound stands out.",
+    "weakestLine": "{{phoneme}} in “{{word}}”: {{score}}",
+    "assessedAt": "Assessed on {{date}} with {{provider}}.",
+    "demoNote": "Demo scores are fictional."
   }
 }

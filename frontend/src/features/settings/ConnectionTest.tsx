@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next'
 
-import { type ConnectionTestResult, type ProviderName, useConnectionTest } from '../../api/ai'
+import {
+  type ConnectionTestResult,
+  type ProviderName,
+  type SpeechProviderName,
+  useConnectionTest,
+} from '../../api/ai'
 import { useElapsedSeconds } from '../../components/useElapsedSeconds'
 import { ErrorText } from './ErrorText'
 
@@ -54,7 +59,7 @@ export function ConnectionTest({
   configured,
   disabled,
 }: {
-  provider: ProviderName
+  provider: ProviderName | SpeechProviderName
   configured: boolean
   disabled: boolean
 }) {

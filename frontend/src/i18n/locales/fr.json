@@ -44,7 +44,8 @@
       "names": {
         "gemini": "Google Gemini",
         "groq": "Groq",
-        "ollama": "Ollama (sur cet ordinateur)"
+        "ollama": "Ollama (sur cet ordinateur)",
+        "azure": "Microsoft Azure AI Speech"
       },
       "capabilities": {
         "text": "Texte",
@@ -185,6 +186,29 @@
           "hint": "1,0 correspond à la vitesse normale."
         }
       }
+    },
+    "azure": {
+      "title": "Évaluation de la prononciation (facultative, Azure)",
+      "intro": "Note chaque mot et chaque son d'un shadowing par rapport à la phrase que vous avez répétée. Désactivée par défaut ; le reste de l'application fonctionne sans elle.",
+      "privacy": "Quand vous demandez une évaluation, l'enregistrement est envoyé à Microsoft. Utilisez uniquement une ressource gratuite F0, jamais S0. L'inclusion de l'évaluation de la prononciation dans le niveau F0 n'est pas confirmée.",
+      "demoNote": "Base de démonstration : la clé, la région et le réglage ne peuvent pas être modifiés ici.",
+      "loadError": "L'état d'Azure n'a pas pu être chargé.",
+      "keyLabel": "Clé Azure Speech",
+      "regionLabel": "Région",
+      "regionPlaceholder": "westeurope",
+      "regionHint": "La région de votre ressource, par exemple westeurope. Enregistrée dans .env avec la clé ; la clé n'est plus jamais affichée.",
+      "regionCurrent": "Région actuelle : {{region}}.",
+      "regionRequired": "Saisissez la région de votre ressource Azure.",
+      "keyRequired": "Collez votre clé.",
+      "keyEmptyKeepRegion": "Collez votre clé pour l'enregistrer.",
+      "enableLabel": "Autoriser l'évaluation de la prononciation des shadowings",
+      "enableHint": "Les nouveaux shadowings sont alors enregistrés en WAV (16 kHz, mono) pour qu'Azure puisse les lire. Les anciens enregistrements ne peuvent pas être évalués.",
+      "enableNeedsKey": "Enregistrez d'abord une clé et une région.",
+      "enableSaved": "Réglage enregistré.",
+      "usageTitle": "Utilisation de ce mois",
+      "usage": "{{minutes}} min d'audio envoyées en {{count}} évaluations (mois {{month}}). Niveau gratuit : environ {{limit}} min par mois, vérifié le {{checked}}.",
+      "usageNote": "Cela compte ce que cette application a envoyé, pas ce que compte Microsoft.",
+      "usageError": "L'utilisation mensuelle n'a pas pu être chargée."
     }
   },
   "errors": {
@@ -266,7 +290,13 @@
     "no_audio": "Il n'y a pas d'enregistrement pour cet élément (ou son fichier a disparu).",
     "already_transcribed": "Cet enregistrement a déjà été transcrit.",
     "not_transcribed": "Cet enregistrement n'a pas encore de transcription : transcrivez-le d'abord.",
-    "nothing_to_correct": "Rien n'a été entendu : il n'y a rien à corriger."
+    "nothing_to_correct": "Rien n'a été entendu : il n'y a rien à corriger.",
+    "region_required": "Saisissez la région de votre ressource Azure.",
+    "invalid_region": "Cette région n'est pas valide (lettres et chiffres seulement, par exemple westeurope).",
+    "not_assessable": "Seul un shadowing avec une phrase peut être évalué.",
+    "assessment_disabled": "L'évaluation de la prononciation est désactivée dans les réglages.",
+    "already_assessed": "Cet enregistrement a déjà été évalué.",
+    "unsupported_for_assessment": "Cet enregistrement ne peut pas être évalué : Azure ne lit que le WAV ou l'OGG, et celui-ci a été enregistré dans un autre format. Réenregistrez-le avec l'évaluation activée."
   },
   "home": {
     "title": "Bienvenue",
@@ -1810,5 +1840,49 @@
       "proposed": "Cette catégorie est seulement proposée : acceptez-la d'abord dans la page des catégories.",
       "rejected": "Cette catégorie a été rejetée."
     }
+  },
+  "pronunciation": {
+    "title": "Prononciation",
+    "button": "Évaluer ma prononciation",
+    "running": "Évaluation… {{seconds}} s",
+    "tryAgain": "Réessayer",
+    "privacy": "Cela envoie l'enregistrement à Microsoft Azure. Cela utilise une partie du quota gratuit mensuel.",
+    "estimate": "Une estimation automatique, pas le jugement d'un professeur. Scores de 0 à 100 ; un score bas sur un mot invite à réécouter, ce n'est pas un verdict.",
+    "unavailable": "L'évaluation n'a pas pu être faite : {{reason}}. Rien n'a été enregistré ; vous pouvez réessayer.",
+    "incomplete": "Azure a répondu de façon inattendue. Rien n'a été enregistré ; vous pouvez réessayer.",
+    "silence": "Azure n'a entendu aucune parole dans cet enregistrement : il n'y a rien à noter.",
+    "reasons": {
+      "not_shadowing": "Seuls les shadowings peuvent être évalués.",
+      "no_target": "Ce shadowing n'a pas de phrase à comparer.",
+      "no_audio": "L'enregistrement est introuvable.",
+      "disabled": "Désactivée dans les réglages.",
+      "not_configured": "Azure n'est pas configuré dans les réglages.",
+      "already_assessed": "Déjà évalué.",
+      "unsupported_format": "Cet enregistrement n'est pas dans un format qu'Azure lit (il a été fait avant l'activation de l'évaluation).",
+      "too_long": "L'enregistrement dépasse 30 secondes."
+    },
+    "settingsLink": "Ouvrir les réglages",
+    "overall": "Scores globaux",
+    "accuracy": "Précision",
+    "fluency": "Fluidité",
+    "completeness": "Complétude",
+    "pronunciation": "Prononciation",
+    "scoreValue": "{{value}} / 100",
+    "noScore": "pas de score",
+    "words": "Mot par mot",
+    "wordsHint": "Les mots à travailler sont en tête de la liste ci-dessous, sans dépendre de la couleur ; chacun indique son score et le type de problème.",
+    "wordLine": "{{word}} : {{score}}, {{type}}",
+    "errorTypes": {
+      "None": "correct",
+      "Mispronunciation": "mal prononcé",
+      "Omission": "omis",
+      "Insertion": "ajouté",
+      "other": "à vérifier"
+    },
+    "weakest": "Sons les plus faibles",
+    "weakestEmpty": "Aucun son ne ressort.",
+    "weakestLine": "{{phoneme}} dans « {{word}} » : {{score}}",
+    "assessedAt": "Évalué le {{date}} avec {{provider}}.",
+    "demoNote": "Les scores de la démo sont fictifs."
   }
 }
