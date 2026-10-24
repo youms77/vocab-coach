@@ -11,8 +11,9 @@ your errors in a conversation transcript; `drill new <code>` and `drill list` ar
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
 texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
-the AI correct what was heard, `speech correct <id>` corrects it again. `--demo` (before the
-command) works on the demo database."""
+the AI correct what was heard, `speech correct <id>` corrects it again, `speech assess <id>`
+scores a shadowing's pronunciation with Azure (optional). `--demo` (before the command) works on
+the demo database."""
 
 import argparse
 import os
@@ -286,6 +287,16 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         help="length in seconds (without it, the duration measured by Groq is used)",
     )
+    shadow.add_argument(
+        "--assess",
+        action="store_true",
+        help="then score the pronunciation with Azure (needs the pronunciation_assessment setting)",
+    )
+    assess = speech_commands.add_parser(
+        "assess",
+        help="score a stored shadowing with Azure, word by word (the recording goes to Microsoft)",
+    )
+    assess.add_argument("production_id", type=_positive)
     transcribe = speech_commands.add_parser(
         "transcribe", help="transcribe again a recording that has no transcription yet"
     )
@@ -526,8 +537,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.speech_command == "correct":
             return cli_speech.run_speech_correct(url, settings, args.production_id)
+        if args.speech_command == "assess":
+            return cli_speech.run_speech_assess(url, settings, args.production_id)
         return cli_speech.run_speech_shadow(
-            url, settings, args.file, target=args.target, item_id=args.item, duration=args.duration
+            url,
+            settings,
+            args.file,
+            target=args.target,
+            item_id=args.item,
+            duration=args.duration,
+            assess=args.assess,
         )
     if args.command == "transcript":
         from app import cli_transcript

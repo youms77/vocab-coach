@@ -27,7 +27,7 @@ from app.db.models import ErrorCategory, ErrorEvent, ProductionAttempt
 from app.domain.enums import Modality, ProductionKind
 from app.domain.events import ProductionOrigin
 from app.domain.transcript_import import MAX_PASTED_CHARS, UserByLabel, UserByMode
-from app.services import corrections, productions, speaking, speech, transcripts
+from app.services import corrections, productions, pronunciation, speaking, speech, transcripts
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
@@ -77,11 +77,24 @@ class ProductionOut(BaseModel):
     audio_seconds: float | None = None
     transcription_status: Literal["pending", "ok", "silence"] | None = None
     comparison: ComparisonOut | None = None
+    # Pronunciation assessment (M6.c1): the stored scores (`format: "azure-pa-1"`: `provider`,
+    # `model`, `assessed_at`, `status` ok|silence, `overall` {accuracy, fluency, completeness,
+    # pronunciation}, `words` [{word, accuracy, error_type, offset_ms, duration_ms, phonemes
+    # [{phoneme, accuracy}]}], `duration_s`); whether the take can be assessed now and, if not,
+    # why (`not_shadowing`, `no_target`, `no_audio`, `disabled`, `not_configured`,
+    # `already_assessed`, `unsupported_format`, `too_long`).
+    pronunciation: dict[str, Any] | None = None
+    assessable: bool = False
+    assessable_reason: str | None = None
 
 
 def production_out(session: Session, attempt: ProductionAttempt) -> ProductionOut:
     comparison = speech.comparison_of(session, attempt)
+    view = pronunciation.assessment_view(session, attempt)
     return ProductionOut(
+        pronunciation=view.scores,
+        assessable=view.assessable,
+        assessable_reason=view.reason,
         id=attempt.id,
         kind=attempt.kind,
         modality=attempt.modality,

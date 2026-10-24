@@ -1,4 +1,5 @@
-"""`python -m app speech shadow | transcribe | compare | speak | correct` (module F, M6.a1, M6.a2a).
+"""`python -m app speech shadow | transcribe | compare | speak | correct | assess` (module F,
+M6.a1, M6.a2a, M6.c1).
 
 `shadow --file <clip> --target "<sentence>" [--item <id>] [--duration <s>]` stores the recording
 under `data/audio/` (`data/audio-demo/` with `--demo`), transcribes it with Groq Whisper and prints
@@ -12,6 +13,10 @@ s), transcribes it, then has the AI correct what was heard (`speaking_correction
 (also in `errors list`, source `speaking`), the notes, the natural version and the comment on the
 structure. Without `--duration`, Groq measures the clip first, as for `shadow`. `correct <id>`
 corrects a stored spoken production again (after a failure, or `--no-correct`).
+
+`assess <id>` scores a stored shadowing with Azure (word by word, phoneme by phoneme; the recording
+is sent to Microsoft); `shadow ... --assess` does it right after recording. Both need the
+`pronunciation_assessment` setting to be `azure` (and an Azure key and region in `.env`).
 
 Exit codes, in the spirit of D-053: 0 done (silence included), 1 the transcription or the
 correction is unavailable (the recording is kept: the message gives the command to run later), 2
@@ -38,10 +43,12 @@ from app.cli_library import (
     _open,
 )
 from app.cli_write import render_correction
+from app.db.settings_store import get_setting
+from app.domain import pronunciation as pa
 from app.domain.enums import ProductionKind
 from app.domain.speech_compare import Comparison, Op, compare
 from app.domain.speech_rules import MAX_HEARD_CHARS, RecordingKind
-from app.services import productions, speaking, speech
+from app.services import productions, pronunciation, speaking, speech
 from app.services.library import LibraryError
 from app.speech.audio_store import AudioStore
 
@@ -135,6 +142,82 @@ def _report(result: speech.SpeechResult, target: str, file: Path | None) -> int:
     return EXIT_OK
 
 
+ESTIMATE = "These scores are an automatic estimate, not a teacher's judgment."
+
+
+def render_assessment(scores: dict[str, object]) -> str:
+    """The stored `azure-pa-1` document as text: global scores, each word, the weakest phonemes."""
+    overall: dict[str, object] = scores.get("overall") or {}  # type: ignore[assignment]
+
+    def shown(value: object) -> str:
+        return f"{value:g}" if isinstance(value, int | float) else "-"
+
+    words = [w for w in scores.get("words") or [] if isinstance(w, dict)]
+    lines = []
+    if scores.get("status") == "silence":
+        lines.append("Pronunciation: nothing was heard (silence), no score.")
+    else:
+        lines.append(
+            "Pronunciation (0-100): "
+            f"overall {shown(overall.get('pronunciation'))}, "
+            f"accuracy {shown(overall.get('accuracy'))}, "
+            f"fluency {shown(overall.get('fluency'))}, "
+            f"completeness {shown(overall.get('completeness'))}"
+        )
+        for word in words:
+            error = word.get("error_type")
+            flag = f"  [{error}]" if error not in (None, "None") else ""
+            lines.append(f"  {word.get('word')}: {shown(word.get('accuracy'))}{flag}")
+        weakest = pa.weakest_phonemes(words, 5)
+        if weakest:
+            listed = ", ".join(
+                f"{p['phoneme']} ({p['word']}, {shown(p['accuracy'])})" for p in weakest
+            )
+            lines.append(f"Weakest sounds: {listed}")
+        counts = pa.summarize(words)
+        lines.append(
+            f"Mispronounced {counts['mispronounced']}, omitted {counts['omitted']}, "
+            f"inserted {counts['inserted']}."
+        )
+    lines.append(f"Scored by {scores.get('provider')} ({scores.get('model')}).")
+    lines.append(ESTIMATE)
+    return "\n".join(lines)
+
+
+def _assessment_enabled(factory: speech.SessionFactory) -> bool:
+    with factory() as session:
+        enabled = get_setting(session, "pronunciation_assessment") != "off"
+        session.rollback()
+    return enabled
+
+
+DISABLED = (
+    "Pronunciation assessment is off. Turn the `pronunciation_assessment` setting to `azure` "
+    "(after saving an Azure key and region, see the README) to use it."
+)
+
+
+def _assess_and_report(
+    factory: speech.SessionFactory, gateway: Gateway, store: AudioStore, production_id: int
+) -> int:
+    print("Sending the recording to Azure for a pronunciation assessment...", flush=True)
+    try:
+        outcome = pronunciation.assess(factory, gateway, store, production_id)
+    except LibraryError as exc:
+        print(exc.message, file=sys.stderr)
+        return EXIT_USAGE
+    if outcome.scores is None:
+        reason = f" ({outcome.reason})" if outcome.reason else ""
+        print(
+            f"Pronunciation assessment unavailable{reason}. Nothing was stored: run "
+            f"`python -m app speech assess {production_id}` later.",
+            file=sys.stderr,
+        )
+        return EXIT_FAILED
+    print(render_assessment(outcome.scores))
+    return EXIT_OK
+
+
 # --- Commands ------------------------------------------------------------------------------------
 
 
@@ -194,6 +277,7 @@ def run_speech_shadow(
     target: str,
     item_id: int | None = None,
     duration: float | None = None,
+    assess: bool = False,
     gateway_factory: GatewayFactory | None = None,
 ) -> int:
     _console_safe()
@@ -215,6 +299,9 @@ def run_speech_shadow(
     factory = lambda: Session(engine, expire_on_commit=False)  # noqa: E731
     store = AudioStore.for_settings(settings)
     try:
+        if assess and not _assessment_enabled(factory):  # before anything is stored
+            print(DISABLED, file=sys.stderr)
+            return EXIT_USAGE
         gateway = (gateway_factory or (lambda e: _build_gateway(e, settings)))(engine)
         first = None
         if duration is None:
@@ -240,7 +327,37 @@ def run_speech_shadow(
             return EXIT_USAGE
         with factory() as session:
             audio_path = productions.get_production(session, result.production_id).audio_path
-        return _report(result, target, store.root / audio_path if audio_path else None)
+        code = _report(result, target, store.root / audio_path if audio_path else None)
+        if assess and result.transcription.status != "unavailable":
+            print("")
+            return max(code, _assess_and_report(factory, gateway, store, result.production_id))
+        if assess:
+            print(
+                "Not assessed: the transcription failed. Run "
+                f"`python -m app speech assess {result.production_id}` later.",
+                file=sys.stderr,
+            )
+        return code
+    finally:
+        engine.dispose()
+
+
+def run_speech_assess(
+    url: str,
+    settings: "Settings",
+    production_id: int,
+    *,
+    gateway_factory: GatewayFactory | None = None,
+) -> int:
+    _console_safe()
+    engine = _open(url)
+    if engine is None:
+        return EXIT_USAGE
+    factory = lambda: Session(engine, expire_on_commit=False)  # noqa: E731
+    store = AudioStore.for_settings(settings)
+    try:
+        gateway = (gateway_factory or (lambda e: _build_gateway(e, settings)))(engine)
+        return _assess_and_report(factory, gateway, store, production_id)
     finally:
         engine.dispose()
 

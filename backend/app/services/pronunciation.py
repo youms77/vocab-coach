@@ -136,6 +136,26 @@ def assessable_reason(
     return None
 
 
+@dataclass(frozen=True)
+class AssessmentView:
+    """What a screen needs: the stored scores and whether (and why not) a take can be assessed."""
+
+    scores: dict[str, Any] | None
+    reason: AssessableReason | None
+
+    @property
+    def assessable(self) -> bool:
+        return self.reason is None
+
+
+def assessment_view(session: Session, attempt: ProductionAttempt) -> AssessmentView:
+    if attempt.kind is not ProductionKind.SHADOWING:  # most productions: no query at all
+        return AssessmentView(None, "not_shadowing")
+    setting = get_setting(session, "pronunciation_assessment")
+    reason = assessable_reason(session, attempt, setting=setting, configured=azure_configured())
+    return AssessmentView(assessment_of(session, attempt.id), reason)
+
+
 def assessment_of(session: Session, attempt_id: int) -> dict[str, Any] | None:
     result = pronunciation_of(session, attempt_id)
     return dict(result.scores) if result is not None and result.scores is not None else None

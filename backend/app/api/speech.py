@@ -19,7 +19,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, select, text
 from sqlalchemy.orm import Session
 
 from app.ai import Gateway, get_gateway
@@ -28,6 +28,7 @@ from app.api.error_log import ErrorOut, errors_out
 from app.api.errors import require_database
 from app.db.engine import get_engine, get_session
 from app.db.models import ErrorEvent
+from app.domain import pronunciation as pa
 from app.domain.speaking_topics import SpeakingTag, SpeakingTopic
 from app.domain.speech_compare import Comparison, Op
 from app.domain.speech_rules import (
@@ -37,7 +38,14 @@ from app.domain.speech_rules import (
     RecordingKind,
 )
 from app.domain.topics import DEFAULT_COUNT, MAX_COUNT
-from app.services import productions, speaking, speaking_topics, speech, spoken_review
+from app.services import (
+    productions,
+    pronunciation,
+    speaking,
+    speaking_topics,
+    speech,
+    spoken_review,
+)
 from app.speech.audio_store import (
     ACCEPTED_TYPES,
     AudioStore,
@@ -131,11 +139,22 @@ class SpeechOut(BaseModel):
     audio_seconds: float | None
     transcription: TranscriptionOut
     comparison: ComparisonOut | None
+    # Pronunciation assessment (M6.c1): the stored `azure-pa-1` scores (see `/productions`), whether
+    # the take can be assessed now and, if not, why (`not_shadowing`, `no_target`, `no_audio`,
+    # `disabled`, `not_configured`, `already_assessed`, `unsupported_format`, `too_long`).
+    pronunciation: dict[str, Any] | None = None
+    assessable: bool = False
+    assessable_reason: str | None = None
 
 
-def speech_out(result: speech.SpeechResult) -> SpeechOut:
+def speech_out(
+    result: speech.SpeechResult, view: pronunciation.AssessmentView | None = None
+) -> SpeechOut:
     outcome = result.transcription
     return SpeechOut(
+        pronunciation=view.scores if view is not None else None,
+        assessable=view.assessable if view is not None else False,
+        assessable_reason=view.reason if view is not None else None,
         production_id=result.production_id,
         audio_url=audio_url(result.production_id),
         audio_seconds=result.audio_seconds,
@@ -144,6 +163,15 @@ def speech_out(result: speech.SpeechResult) -> SpeechOut:
         ),
         comparison=comparison_out(outcome.comparison) if outcome.comparison else None,
     )
+
+
+def _speech_response(engine: Engine, result: speech.SpeechResult) -> SpeechOut:
+    """The speech result with the assessment state of its production, read in a short session."""
+    with Session(engine) as session:
+        attempt = productions.get_production(session, result.production_id)
+        view = pronunciation.assessment_view(session, attempt)
+        session.rollback()
+    return speech_out(result, view)
 
 
 # --- Upload --------------------------------------------------------------------------------------
@@ -222,7 +250,7 @@ def create_shadowing(
         study_session_id=study_session_id,
         clock=lambda: now,
     )
-    return speech_out(result)
+    return _speech_response(engine, result)
 
 
 _SPEAKING = DURATION_BOUNDS[RecordingKind.SPEAKING]
@@ -271,7 +299,7 @@ def create_speaking(
         study_session_id=study_session_id,
         clock=lambda: now,
     )
-    return speech_out(result)
+    return _speech_response(engine, result)
 
 
 _ANSWER = DURATION_BOUNDS[RecordingKind.SPOKEN_ANSWER]
@@ -392,7 +420,72 @@ def transcribe(
     result = speech.transcribe_production(
         _factory(engine), gateway, store, production_id, clock=lambda: now
     )
-    return speech_out(result)
+    return _speech_response(engine, result)
+
+
+class PronunciationOut(BaseModel):
+    production_id: int
+    # `ok` / `silence`: scored; `unavailable` (see `reason`: no_provider_configured, quota, auth,
+    # network...) or `incomplete`: nothing stored, the call can be repeated (D-081).
+    status: Literal["ok", "silence", "unavailable", "incomplete"]
+    reason: str | None
+    scores: dict[str, Any] | None  # `azure-pa-1`, see `/productions`
+
+
+@router.post("/productions/{production_id}/pronunciation", tags=["speech"])
+def assess_pronunciation(
+    production_id: int,
+    engine: EngineDep,
+    gateway: GatewayDep,
+    store: StoreDep,
+    now: NowDep,
+) -> PronunciationOut:
+    """Score a stored shadowing with Azure (word by word, phoneme by phoneme). The recording is
+    sent to Microsoft. Takes a few seconds. Refusals, before any call: 404 `production_not_found`,
+    422 `not_assessable`, 404 `no_audio`, 409 `assessment_disabled`, 409 `already_assessed`,
+    422 `unsupported_for_assessment` (Azure reads WAV 16 kHz mono or OGG Opus only), 422
+    `audio_too_long` (30 s at most). An AI failure is a 200 with `status: unavailable`."""
+    outcome = pronunciation.assess(
+        _factory(engine), gateway, store, production_id, clock=lambda: now
+    )
+    return PronunciationOut(
+        production_id=production_id,
+        status=outcome.status,
+        reason=outcome.reason,
+        scores=outcome.scores,
+    )
+
+
+class PronunciationUsageOut(BaseModel):
+    month: str  # "YYYY-MM", UTC
+    audio_seconds: float
+    assessments: int
+    limit_seconds: int  # the free F0 tier: 5 hours a month
+    limit_checked_on: str  # the day the limit was read on Microsoft Learn
+    note: str
+
+
+@router.get("/speech/pronunciation/usage", tags=["speech"])
+def pronunciation_usage(engine: EngineDep, now: NowDep) -> PronunciationUsageOut:
+    """What this app sent to Azure this calendar month (UTC), from the `pronunciation.assessed`
+    events: silence counts, failed requests do not. It is not what Microsoft counts."""
+    with Session(engine) as session:
+        session.execute(text("PRAGMA query_only = ON"))
+        try:
+            usage = pronunciation.monthly_usage(session, now)
+        finally:
+            session.rollback()
+            # The connection goes back to the pool: leave it writable for the next request.
+            session.execute(text("PRAGMA query_only = OFF"))
+            session.rollback()
+    return PronunciationUsageOut(
+        month=usage.month,
+        audio_seconds=usage.audio_seconds,
+        assessments=usage.assessments,
+        limit_seconds=pa.F0_MONTHLY_AUDIO_SECONDS,
+        limit_checked_on=pa.F0_LIMIT_CHECKED_ON,
+        note=pronunciation.NOTE,
+    )
 
 
 @router.get(
