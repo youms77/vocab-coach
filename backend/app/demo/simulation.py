@@ -74,6 +74,7 @@ from app.domain.planner import (
     SessionPlan,
     TargetedPracticeEntry,
 )
+from app.domain.speech_compare import Unrecognized
 from app.domain.srs import Rating, SrsEngine
 from app.domain.study_day import study_day_bounds
 from app.domain.transcript_import import UserByLabel, chunk_units
@@ -83,6 +84,7 @@ from app.services import (
     error_cards,
     error_log,
     library,
+    pronunciation,
     review_flow,
     speaking,
     speech,
@@ -157,6 +159,10 @@ SPEAKING_SECONDS = (5.0, 178.0)
 # misses 0 to 2 of its words.
 SHADOWING_EVERY_DAYS = (7, 11)
 SHADOWING_WORDS_PER_SECOND = 2.5
+# The learner asked for a pronunciation score of the last 3 shadowings with missed words, a
+# little after the take (D-217).
+ASSESSED_SHADOWINGS = 3
+ASSESSMENT_DELAY_S = 20
 MISHEARD_WORDS = ((0, 1, 2), (1, 2, 2))
 SHADOWED_STATUSES = (ItemStatus.LEARNING, ItemStatus.CONSOLIDATED, ItemStatus.ACTIVE)
 # A spoken answer lasts its words at this pace, inside its bounds (1 to 90 s).
@@ -192,6 +198,11 @@ class _State:
     next_shadowing_day: int = 0
     drills_made: int = 0
     last_drill: str | None = None
+    # Shadowings with unrecognised words, in order: (production id, target, unrecognised words,
+    # duration, time). The last ones are assessed at the end of the run (D-217).
+    assessable: list[tuple[int, str, list[Unrecognized], float, datetime]] = field(
+        default_factory=list
+    )
 
 
 class Simulation:
@@ -282,6 +293,7 @@ class Simulation:
             if start is not None:
                 _, day_end = study_day_bounds(day, self.tz, self.day_start_hour)
                 self._run_session(offset, start, day_end - DAY_END_MARGIN, final=final)
+        self._assess_shadowings()
 
     def _session_start(self, day: date) -> datetime:
         draw = self._calendar.random()
@@ -864,7 +876,7 @@ class Simulation:
         missed = rng.choices(MISHEARD_WORDS[0], weights=MISHEARD_WORDS[1])[0]
         heard = fictional_ai.misheard(sentence, rng, missed)
         duration = round(min(max(len(sentence.split()) / SHADOWING_WORDS_PER_SECOND, 1.0), 30.0), 1)
-        speech.store_recording(
+        recorded = speech.store_recording(
             self.session,
             self.audio,
             speech.shadowing_recording(sentence, item_id=item_id, study_session_id=study_id),
@@ -874,7 +886,25 @@ class Simulation:
             transcription=fictional_ai.transcription(heard, duration),
             at=t,
         )
+        comparison = recorded.transcription.comparison
+        if comparison is not None and comparison.unrecognized:
+            self.state.assessable.append(
+                (recorded.production_id, sentence, list(comparison.unrecognized), duration, t)
+            )
         return self._pause(t + timedelta(seconds=duration * 3))
+
+    def _assess_shadowings(self) -> None:
+        """The last shadowings that have unrecognised words are scored, as if the learner had asked
+        Azure for them. No random draw: the other generators keep their sequence (D-217)."""
+        for production_id, sentence, unrecognized, duration, t in self.state.assessable[
+            -ASSESSED_SHADOWINGS:
+        ]:
+            pronunciation.store_assessment(
+                self.session,
+                production_id,
+                fictional_ai.pronunciation_result(sentence, unrecognized, duration),
+                at=t + timedelta(seconds=duration + ASSESSMENT_DELAY_S),
+            )
 
     def _unfinished_speaking(self, study_id: int, t: datetime) -> datetime:
         """The last session: a take where nothing was said (silence), then a short free speech

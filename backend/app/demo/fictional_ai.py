@@ -10,6 +10,7 @@ template that does not fit its sentence is a bug of the dataset and raises.
 
 import random
 import re
+import zlib
 from collections.abc import Sequence
 from typing import Any
 
@@ -18,12 +19,18 @@ from app.ai.schemas.production_correction import (
     ProductionCorrectionOutput,
     correction_context,
 )
+from app.ai.schemas.pronunciation import (
+    PhonemeScore,
+    PronunciationAssessmentOutput,
+    WordScore,
+)
 from app.ai.schemas.speaking_correction import SpeakingCorrectionOutput, speaking_context
 from app.ai.schemas.targeted_drill import TargetedDrillOutput, drill_context
 from app.ai.schemas.transcript_analysis import TranscriptAnalysisOutput, transcript_context
 from app.ai.types import AiResult, AiStatus
 from app.demo.dataset import DemoDrill, ErrorTemplate, StructureComment
 from app.domain.sentences import find_fragment, split_sentences
+from app.domain.speech_compare import Unrecognized, words
 from app.domain.transcript_import import Unit
 from app.services import corrections, speaking, transcripts
 
@@ -35,6 +42,9 @@ SPEAKING_PROVENANCE = ("demo", None, "demo-speaking-v1")
 # the version goes in the model, the only place it is seen (D-190).
 TRANSCRIPTION_PROVIDER = "demo"
 TRANSCRIPTION_MODEL = "demo-transcription-v1"
+# A pronunciation assessment of the demo (M6.c1b, D-217): provider and model of the stored scores.
+PRONUNCIATION_PROVIDER = "demo"
+PRONUNCIATION_MODEL = "demo-pa-v1"
 OVERALL_COMMENT = "Fictional correction written for the demo."
 # Whisper-like segment scores: confident speech, and a take with nothing said (D-171).
 _SPEECH_SCORES = (0.02, -0.25)
@@ -195,6 +205,93 @@ def transcription(text: str, duration_s: float) -> AiResult[TranscriptionOutput]
         data=output,
         provider=TRANSCRIPTION_PROVIDER,
         model=TRANSCRIPTION_MODEL,
+    )
+
+
+# One fictional IPA symbol per letter: the demo phonemes are a fixed split of the word, not a
+# phonetic transcription (D-217).
+_IPA = {
+    **{letter: letter for letter in "bdfhklmnpstvwz"},
+    "a": "\u00e6", "c": "k", "e": "\u025b", "g": "\u0261", "i": "\u026a", "j": "d\u0292",
+    "o": "\u0252", "q": "k", "r": "\u0279", "u": "\u028c", "x": "ks", "y": "j",
+}  # fmt: skip
+_MAX_PHONEMES = 8
+
+
+def _crc(text: str) -> int:
+    """A stable number from a text (no random draw: the demo's other generators stay unchanged)."""
+    return zlib.crc32(text.encode("utf-8"))
+
+
+def _phonemes(word: str, accuracy: float, weak: bool) -> list[PhonemeScore]:
+    symbols: list[str] = []
+    for letter in word.lower():
+        symbol = _IPA.get(letter)
+        if symbol is not None and (not symbols or symbols[-1] != symbol):
+            symbols.append(symbol)
+    symbols = symbols[:_MAX_PHONEMES]
+    weakest = _crc(word) % len(symbols) if symbols else 0
+    scores = []
+    for index, symbol in enumerate(symbols):
+        wobble = (_crc(f"{word}{index}") % 9) - 4
+        value = accuracy + wobble if not (weak and index == weakest) else accuracy * 0.4
+        scores.append(PhonemeScore(phoneme=symbol, accuracy=round(min(max(value, 0), 100), 1)))
+    return scores
+
+
+def pronunciation_output(
+    target: str, unrecognized: Sequence[Unrecognized], duration_s: float
+) -> PronunciationAssessmentOutput:
+    """What Azure would have returned for a take of `target`: the words the recogniser missed are
+    scored low (`Mispronunciation` when something else was heard, `Omission` when nothing was),
+    the others high. Deterministic from the words alone, validated by the real schema (D-217)."""
+    tokens = words(target)
+    missed = {u.position: u for u in unrecognized}
+    step_ms = int(duration_s * 1000 / max(len(tokens), 1))
+    scored = []
+    for position, token in enumerate(tokens):
+        miss = missed.get(position)
+        if miss is None:
+            accuracy, error = float(84 + _crc(token) % 15), "None"
+        elif miss.heard is None:
+            accuracy, error = 0.0, "Omission"
+        else:
+            accuracy, error = float(32 + _crc(token) % 24), "Mispronunciation"
+        scored.append(
+            WordScore(
+                word=token,
+                accuracy=accuracy,
+                error_type=error,
+                offset_ms=position * step_ms,
+                duration_ms=step_ms,
+                phonemes=[]
+                if error == "Omission"
+                else _phonemes(token, accuracy, miss is not None),
+            )
+        )
+    heard = [w for w in scored if w.error_type != "Omission"]
+    accuracy = round(sum(w.accuracy or 0 for w in scored) / max(len(scored), 1), 1)
+    completeness = round(100 * len(heard) / max(len(scored), 1), 1)
+    fluency = float(68 + _crc(target) % 27)
+    return PronunciationAssessmentOutput(
+        status="ok",
+        accuracy=accuracy,
+        fluency=fluency,
+        completeness=completeness,
+        pronunciation=round(0.6 * accuracy + 0.2 * fluency + 0.2 * completeness, 1),
+        words=scored,
+        duration_s=duration_s,
+    )
+
+
+def pronunciation_result(
+    target: str, unrecognized: Sequence[Unrecognized], duration_s: float
+) -> AiResult[PronunciationAssessmentOutput]:
+    return AiResult(
+        status=AiStatus.OK,
+        data=pronunciation_output(target, unrecognized, duration_s),
+        provider=PRONUNCIATION_PROVIDER,
+        model=PRONUNCIATION_MODEL,
     )
 
 

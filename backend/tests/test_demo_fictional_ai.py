@@ -208,3 +208,48 @@ def test_the_clips_are_short_wav_files() -> None:
         assert set(clip.readframes(clip.getnframes())) == {0}
     with wave.open(io.BytesIO(clips.tone())) as clip:
         assert set(clip.readframes(clip.getnframes())) != {0}
+
+
+# --- Pronunciation assessment of the demo (M6.c1b, D-217) ----------------------------
+
+SENTENCE = "We account for regional fixed effects in all specifications."
+
+
+def _missed(*positions: tuple[int, str | None]):
+    from app.domain.speech_compare import Unrecognized
+
+    tokens = words(SENTENCE)
+    return [Unrecognized(position=p, word=tokens[p], heard=heard) for p, heard in positions]
+
+
+def test_pronunciation_output_is_valid_and_deterministic() -> None:
+    first = fictional_ai.pronunciation_output(SENTENCE, _missed((4, "fix"), (5, None)), 3.2)
+    second = fictional_ai.pronunciation_output(SENTENCE, _missed((4, "fix"), (5, None)), 3.2)
+    assert first == second  # no random draw
+    assert first.status == "ok" and len(first.words) == len(words(SENTENCE))
+    by_word = {w.word: w for w in first.words}
+    assert (
+        by_word["fixed"].error_type == "Mispronunciation" and 32 <= by_word["fixed"].accuracy < 56
+    )
+    assert by_word["effects"].error_type == "Omission"
+    assert by_word["effects"].accuracy == 0 and by_word["effects"].phonemes == []
+    assert by_word["account"].error_type == "None" and by_word["account"].accuracy >= 84
+    assert all(
+        0 <= (first.accuracy, first.fluency, first.pronunciation)[i] <= 100 for i in range(3)
+    )
+    assert first.completeness == round(100 * 8 / 9, 1)
+    assert first.duration_s == 3.2
+    assert all(w.offset_ms is not None and w.duration_ms for w in first.words)
+    weak = [p.accuracy for p in by_word["fixed"].phonemes]
+    assert min(weak) < 0.5 * by_word["fixed"].accuracy + 1  # one clearly weak phoneme
+
+
+def test_a_clean_take_scores_high_with_everything_recognised() -> None:
+    clean = fictional_ai.pronunciation_output(SENTENCE, [], 3.0)
+    assert {w.error_type for w in clean.words} == {"None"} and clean.completeness == 100.0
+    assert clean.accuracy >= 84
+
+
+def test_the_result_carries_the_demo_provenance() -> None:
+    result = fictional_ai.pronunciation_result(SENTENCE, [], 3.0)
+    assert (result.provider, result.model, result.call_id) == ("demo", "demo-pa-v1", None)

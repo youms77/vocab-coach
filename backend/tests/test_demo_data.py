@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings, get_settings
 from app.db.engine import create_db_engine, get_engine, get_session
 from app.db.models import (
+    AICallLog,
     Card,
     Deck,
     DeckItem,
@@ -676,3 +677,40 @@ def test_the_demo_recordings_play_through_the_api(
                     assert played.content[:4] == b"RIFF"
     finally:
         get_settings.cache_clear()
+
+
+def test_a_few_shadowings_carry_pronunciation_scores(db: Session) -> None:
+    """The last 2 or 3 shadowings with missed words are scored (D-217), through the same service
+    as a real assessment, with the demo's provenance and no `ai_call_log` row."""
+    shadowings = _oral(db, ProductionKind.SHADOWING)
+    scored = [a for a in shadowings if speech.pronunciation_of(db, a.id).scores is not None]
+    assert 2 <= len(scored) <= 3
+    for attempt in scored:
+        result = speech.pronunciation_of(db, attempt.id)
+        assert result.unrecognized_words  # the take had missed words
+        doc = result.scores
+        assert (doc["format"], doc["provider"], doc["model"]) == (
+            "azure-pa-1",
+            "demo",
+            "demo-pa-v1",
+        )
+        assert doc["status"] == "ok" and doc["words"]
+        assert result.transcript == attempt.text  # the comparison is untouched
+    kinds = {
+        w["error_type"] for a in scored for w in speech.pronunciation_of(db, a.id).scores["words"]
+    }
+    assert "Mispronunciation" in kinds and "None" in kinds
+    events = _events(db, EventType.PRONUNCIATION_ASSESSED)
+    assert len(events) == len(scored)
+    assert {(e.payload["provider"], e.payload["model"]) for e in events} == {("demo", "demo-pa-v1")}
+    assert all(e.payload["ai_call_id"] is None for e in events)
+    assert {e.payload["status"] for e in events} == {"ok"}
+    assert any(e.payload["mispronounced"] + e.payload["omitted"] for e in events)
+    assert (
+        db.scalar(
+            select(func.count())
+            .select_from(AICallLog)
+            .where(AICallLog.task == "pronunciation_assessment")
+        )
+        == 0
+    )
