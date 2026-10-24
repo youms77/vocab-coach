@@ -1,6 +1,7 @@
 import type { ErrorOut } from '../api/errors'
 import type { CorrectionError, CorrectionResult, Feedback, Production } from '../api/productions'
-import type { Comparison, ComparisonStep, SpeechOut, StepOp } from '../api/speech'
+import type { Comparison, ComparisonStep, ReviewAnswerOut, SpeechOut, StepOp } from '../api/speech'
+import { sheetSummary } from './fixtures'
 import { correctionError, loggedErrors, production, spanOf } from './writingFixtures'
 
 // Fictional test data for the shadowing screens (M6.b1).
@@ -196,4 +197,72 @@ export const speakingOut = (overrides: Partial<SpeechOut> = {}): SpeechOut =>
     transcription: { status: 'ok', text: SPEECH, reason: null },
     comparison: null,
     ...overrides,
+  })
+
+// --- A spoken answer in a review (M6.b2.2, POST /speech/review-answer) ----------------------------
+
+export const HEARD_ANSWER = 'I would drill down in the data to find the cause.'
+/** The example of the `spoken_answer` card of `reviewCases`: never in the page before the answer. */
+export const SPOKEN_EXAMPLE = 'I would drill down into the data to find the cause.'
+
+const heardError = correctionError({
+  sentence_index: 1,
+  wrong: 'drill down in',
+  correction: 'drill down into',
+  alternatives: [],
+  category_code: 'grammar.preposition.fixed_expression',
+  explanation_en: '"Drill down" takes "into".',
+  explanation_fr: '« Drill down » se construit avec « into ».',
+})
+
+/** The correction of what was heard, in `answer` mode: no structure. */
+export function heardFeedback(text = HEARD_ANSWER): Feedback {
+  const base = speakingFeedback(text, { errors: [heardError], structure: null })
+  return {
+    ...base,
+    output: {
+      ...base.output,
+      sentences: [{ index: 1, corrected: SPOKEN_EXAMPLE, status: 'corrected' }],
+      corrected_text: SPOKEN_EXAMPLE,
+      natural_text: null,
+      overall_comment: '',
+    } as Feedback['output'],
+    error_event_ids: [51],
+  }
+}
+
+/** A good `review-answer` result: heard, corrected (one error), Again proposed. */
+export function reviewAnswerOut(overrides: Partial<ReviewAnswerOut> = {}): ReviewAnswerOut {
+  return {
+    production_attempt_id: 88,
+    transcription: { status: 'ok', text: HEARD_ANSWER, reason: null },
+    status: 'ok',
+    reason: null,
+    feedback: heardFeedback(),
+    errors: loggedErrors([heardError]).map((row) => ({
+      ...row,
+      id: 51,
+      source: 'review',
+      original_text: HEARD_ANSWER,
+      production_attempt_id: 88,
+    })),
+    proposed_rating: 1,
+    warnings: [],
+    solution: { example_answer: SPOKEN_EXAMPLE },
+    sheet_summary: sheetSummary(),
+    ...overrides,
+  }
+}
+
+/** The recording exists but the recogniser is unavailable (or heard nothing). */
+export const untranscribedAnswer = (
+  transcription: ReviewAnswerOut['transcription'] = { status: 'unavailable', text: null, reason: 'quota' },
+): ReviewAnswerOut =>
+  reviewAnswerOut({
+    transcription,
+    status: 'unavailable',
+    reason: transcription.status === 'silence' ? 'silence' : transcription.reason,
+    feedback: null,
+    errors: [],
+    proposed_rating: null,
   })

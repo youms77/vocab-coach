@@ -1161,7 +1161,6 @@
       "sentenceProduction": "Écrivez une phrase pour cette situation, avec le terme que vous révisez.",
       "selfGradedLater": "L'IA vérifie votre phrase quand elle est disponible. Sinon, seule la présence du terme est vérifiée et vous vous notez vous-même.",
       "spokenAnswer": "Répondez à voix haute à cette question, avec le terme que vous révisez.",
-      "recordingLater": "Rien n'est encore enregistré : l'enregistrement de votre voix arrive dans une prochaine version. Répondez à voix haute, puis comparez avec un exemple.",
       "selfReceptive": "Dites-vous ce que signifie ce terme, puis vérifiez.",
       "selfProductive": "Retrouvez le terme anglais, puis vérifiez."
     },
@@ -1186,7 +1185,6 @@
     "check": "Vérifier",
     "checking": "Vérification…",
     "showAnswer": "Montrer la réponse",
-    "showExample": "Montrer un exemple de réponse",
     "result": {
       "label": "Correction",
       "meaning": "Sens : {{meaning}}",
@@ -1197,7 +1195,8 @@
       "noSentence": "Vous n'avez pas écrit de phrase.",
       "term_missing": "Votre phrase ne contient pas le terme.",
       "compare": "Comparez avec votre propre réponse, puis notez-vous.",
-      "answerIs": "Le terme :"
+      "answerIs": "Le terme :",
+      "term_not_heard": "Le terme n'a pas été entendu : vous l'avez peut-être oublié, ou la reconnaissance vocale l'a raté. Notez-vous vous-même."
     },
     "summary": {
       "label": "À propos de « {{term}} »",
@@ -1235,7 +1234,10 @@
       "replaySlow": "écouter lentement",
       "space": "Espace",
       "enter": "Entrée",
-      "shift": "Maj"
+      "shift": "Maj",
+      "record": "démarrer l'enregistrement",
+      "stop": "arrêter l'enregistrement",
+      "send": "envoyer"
     },
     "aiCheck": {
       "checking": "Vérification de votre phrase…",
@@ -1248,6 +1250,20 @@
         "incomplete": "La vérification par l'IA n'a pas pu être utilisée. Évaluez vous-même votre phrase.",
         "skipped": "Vérification passée. Évaluez vous-même votre phrase.",
         "failed": "La vérification par l'IA a échoué : {{error}} Évaluez vous-même votre phrase."
+      }
+    },
+    "spoken": {
+      "withoutRecording": "Répondre sans enregistrer",
+      "twoSteps": "Deux étapes d'IA vérifient votre réponse (transcription, puis correction) : cela peut prendre jusqu'à environ 90 secondes. Votre enregistrement reste sur cet ordinateur.",
+      "checking": "Vérification de votre réponse…",
+      "elapsed": "Vérification de votre réponse… {{seconds}} s",
+      "skip": "Passer la vérification et m'évaluer moi-même",
+      "silence": "Aucune parole n'a été entendue dans votre enregistrement. Comparez avec l'exemple de réponse et notez-vous.",
+      "unavailable": "Votre enregistrement n'a pas pu être transcrit : {{reason}}. Comparez avec l'exemple de réponse et notez-vous.",
+      "correctionFailed": "La correction n'est pas disponible : {{reason}}. Ce qui a été entendu est affiché ci-dessus ; notez-vous vous-même.",
+      "notice": {
+        "skipped": "Vérification passée. Notez-vous vous-même.",
+        "failed": "La vérification a échoué : {{error}} Notez-vous vous-même."
       }
     },
     "errorLogged": {

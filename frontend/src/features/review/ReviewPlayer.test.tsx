@@ -107,7 +107,7 @@ async function answer(user: ReturnType<typeof userEvent.setup>, c: ReviewCase) {
   } else if (c.step.input === 'text') {
     await user.type(screen.getByRole('textbox'), 'drill down inot{Enter}')
   } else {
-    await user.click(screen.getByRole('button', { name: /^Show (the answer|an example answer)$/ }))
+    await user.click(screen.getByRole('button', { name: /^(Show the answer|Answer without recording)$/ }))
   }
 }
 
@@ -220,13 +220,6 @@ describe('Review player: every exercise type', () => {
     expect(result).not.toHaveTextContent(/Expected answer/)
   })
 
-  it('says that nothing is recorded yet for a spoken answer', async () => {
-    const c = reviewCases.find((r) => r.name === 'spoken_answer') as ReviewCase
-    session({ review: c.step, reveal: c.reveal })
-    renderApp('/session')
-    await screen.findByRole('heading', { name: 'Answer aloud' })
-    expect(screen.getByText(/Nothing is recorded yet/)).toBeInTheDocument()
-  })
 })
 
 describe('Review player: rating', () => {
@@ -355,13 +348,17 @@ describe('Review player: keyboard', () => {
     expect(recordBodies(calls)).toMatchObject([{ final_rating: 4, answer: null, choice_index: null }])
   })
 
-  it('no input: Enter shows the answer too', async () => {
+  it('a spoken card is not revealed by Space or Enter: only "Answer without recording" does it', async () => {
     const c = reviewCases.find((r) => r.name === 'spoken_answer') as ReviewCase
     const calls = session({ review: c.step, reveal: c.reveal })
     const user = userEvent.setup()
     renderApp('/session')
     await screen.findByRole('heading', { name: 'Answer aloud' })
     await user.keyboard('{Enter}')
+    await user.keyboard(' ')
+    expect(screen.queryByRole('region', { name: 'Correction' })).toBeNull()
+    expect(calls.filter((call) => call.path === '/reviews/reveal')).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: 'Answer without recording' }))
     await screen.findByRole('region', { name: 'Correction' })
     expect(calls.filter((call) => call.path === '/reviews/reveal')).toHaveLength(1)
   })

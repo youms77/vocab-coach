@@ -1161,7 +1161,6 @@
       "sentenceProduction": "Write a sentence for this situation, using the term you are reviewing.",
       "selfGradedLater": "The AI checks your sentence when it is available. Otherwise only the presence of the term is checked and you rate yourself.",
       "spokenAnswer": "Answer this question aloud, using the term you are reviewing.",
-      "recordingLater": "Nothing is recorded yet: recording your voice comes in a later version. Answer aloud, then compare with an example.",
       "selfReceptive": "Say to yourself what this term means, then check.",
       "selfProductive": "Recall the English term, then check."
     },
@@ -1186,7 +1185,6 @@
     "check": "Check",
     "checking": "Checking…",
     "showAnswer": "Show the answer",
-    "showExample": "Show an example answer",
     "result": {
       "label": "Correction",
       "meaning": "Meaning: {{meaning}}",
@@ -1197,7 +1195,8 @@
       "noSentence": "You did not write a sentence.",
       "term_missing": "Your sentence does not contain the term.",
       "compare": "Compare with your own answer, then rate yourself.",
-      "answerIs": "The term:"
+      "answerIs": "The term:",
+      "term_not_heard": "The term was not heard: you may have forgotten it, or the speech recognition missed it. Rate yourself."
     },
     "summary": {
       "label": "About “{{term}}”",
@@ -1235,7 +1234,10 @@
       "replaySlow": "listen slowly",
       "space": "Space",
       "enter": "Enter",
-      "shift": "Shift"
+      "shift": "Shift",
+      "record": "start recording",
+      "stop": "stop recording",
+      "send": "send"
     },
     "aiCheck": {
       "checking": "Checking your sentence…",
@@ -1248,6 +1250,20 @@
         "incomplete": "The AI check could not be used. Rate your sentence yourself.",
         "skipped": "Check skipped. Rate your sentence yourself.",
         "failed": "The AI check failed: {{error}} Rate your sentence yourself."
+      }
+    },
+    "spoken": {
+      "withoutRecording": "Answer without recording",
+      "twoSteps": "Two AI steps check your answer (transcription, then correction): this can take up to about 90 seconds. Your recording stays on this computer.",
+      "checking": "Checking your answer…",
+      "elapsed": "Checking your answer… {{seconds}} s",
+      "skip": "Skip the check and rate myself",
+      "silence": "No speech was heard in your recording. Compare with the example answer and rate yourself.",
+      "unavailable": "Your recording could not be transcribed: {{reason}}. Compare with the example answer and rate yourself.",
+      "correctionFailed": "The correction is not available: {{reason}}. What was heard is shown above; rate yourself.",
+      "notice": {
+        "skipped": "Check skipped. Rate your answer yourself.",
+        "failed": "The check failed: {{error}} Rate your answer yourself."
       }
     },
     "errorLogged": {

@@ -2299,3 +2299,18 @@ kbd {
 .comparison--compact .comparison__row {
   font-size: 0.9375rem;
 }
+
+/* Spoken answer of a review (M6.b2.2): the recorder, "Answer without recording" and the wait. */
+.spoken-answer {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.spoken-answer p {
+  margin: 0;
+}
+
+.review-check .correction-text {
+  overflow-wrap: anywhere;
+}

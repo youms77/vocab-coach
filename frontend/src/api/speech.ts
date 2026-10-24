@@ -67,6 +67,35 @@ export interface ReviewAnswerOut {
   sheet_summary: SheetSummary | null
 }
 
+export interface ReviewAnswerBody {
+  blob: Blob
+  card_id: number
+  session_id: number
+  exercise_template_id: number
+  durationS: number
+  response_time_ms: number
+}
+
+/**
+ * Stores, transcribes and corrects a spoken answer of a review (D-183): two AI calls, up to about
+ * 90 s. A plain function, not a mutation, so that `signal` lets the page stop waiting (the
+ * recording stays stored). Every refusal comes before any write.
+ */
+export function reviewAnswer(body: ReviewAnswerBody, signal?: AbortSignal) {
+  return apiUpload<ReviewAnswerOut>(
+    '/speech/review-answer',
+    body.blob,
+    {
+      card_id: body.card_id,
+      session_id: body.session_id,
+      exercise_template_id: body.exercise_template_id,
+      duration_s: body.durationS,
+      response_time_ms: body.response_time_ms,
+    },
+    { signal },
+  )
+}
+
 export const SPEAKING_TAGS = [
   'interview',
   'presenting',
