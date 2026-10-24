@@ -4,8 +4,8 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M6.c1 (module F, optional Azure pronunciation assessment, backend only; see its section), on branch `feat/m6c-pronunciation`
-  cut from `feat/m6b-speaking-screens`. Before it: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
+- **Last milestone completed**: M6.c2 (module F, the pronunciation-assessment screens; see its section), on branch `feat/m6c2-pronunciation-screens`
+  cut from the tip of `feat/m6c-pronunciation` (M6.c1, backend), itself cut from `feat/m6b-speaking-screens`. Before it: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
   `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (M6.a2, after M6.a1, PR #21, **not
   merged into `main` yet**). Not pushed. `main` (`7904aa3`, CI green) has M1.a to M5.a3. No migration since `0002`.
 - **M6 — Speaking** (module F, SPEC section 9) is cut in five (D-168), M6.a2 in two (D-178): **M6.a1** (done: local
@@ -13,15 +13,46 @@ Updated at the end of every milestone session. Paste this file into the next pla
   `speaking_correction`, spoken answers in reviews, CLI), **M6.a2b** (done: the demo through the services,
   `direct_writes.py` removed, D-035 closed), **M6.b1** (done: the recorder, the shadowing pages, the comparison, the
   optional recording of the discovery), **M6.b2.1** (done: free speaking and the `speaking-1` correction), **M6.b2.2** (done: the spoken answer in
-  reviews; API references in the M6.a1 and M6.a2a sections) and **M6.c** (Azure AI Speech, optional): **M6.c1** (done: backend, off by default) then **M6.c2** (the screens, to come).
+  reviews; API references in the M6.a1 and M6.a2a sections) and **M6.c** (Azure AI Speech, optional): **M6.c1** (done: backend, off by default) then **M6.c2** (done: the screens).
 - **Next**: the owner's review of M6.b1, M6.b2.1, M6.b2.2, M6.a2 and M6.c1 (the manual scenarios; M6.c1's first real Azure request settles D-211),
-  then push and the pull request with the owner's go-ahead (after PR #21); M6.c2 (the pronunciation screens) after that.
+  then push and the pull request with the owner's go-ahead (after PR #21); M6.c2's manual scenario below needs an Azure F0 key (the first real Azure request settles D-211 and the WAV).
 - **Left from M5, not scheduled**: the screens for cards from errors and suggestions ("M5.d", API in the M5.a3 section
   below) and an undo for a dismissed suggestion. The owner decides when they come.
 - Gemini (`gemini-3.5-flash-lite`) and Groq are configured in the owner's `.env`; the M5.a1, M5.a2 and M6.a2a live tests
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M6.c2 — The pronunciation-assessment screens (frontend)
+
+Branch `feat/m6c2-pronunciation-screens`, cut from `c1aba7c` (tip of `feat/m6c-pronunciation`). Not pushed. **No backend change**, no migration,
+no new dependency. Decisions D-219 to D-222.
+
+### Done
+
+- **Settings > Azure card** (`AzureCard.tsx`, D-220): key + region, connection test, the `pronunciation_assessment` checkbox, the month's use, the
+  warnings (audio goes to Microsoft, F0 only, F0 inclusion unconfirmed). Locked on the demo.
+- **WAV 16 kHz mono in the browser** (`speech/wav.ts`, D-219): applied to a new shadowing only when the setting is `azure` and a key is saved.
+  The recorder itself is unchanged.
+- **Scores on the shadowing page** (`AssessmentSection`, `PronunciationView`, D-221): button greyed from `assessable_reason`, overall scores, each word
+  with its error type in words, weakest sounds, "automatic estimate, not a teacher's judgment".
+- **Tests**: 644 Vitest tests (619 before). `npm run check` passes. In the built-in browser (Chromium) a real webm/opus take was converted to a valid
+  WAV 16 kHz mono 16-bit.
+
+### Left / known limits
+
+- **Never run against Azure** (as M6.c1): the answer shape, F0 inclusion and the WAV being accepted are unverified. No real microphone, no Firefox.
+- Recordings made before the setting was turned on cannot be assessed (webm). The discovery's spoken repetition and free speaking are not
+  converted or assessable (out of scope). The assessment of the history list is not shown (detail page only).
+- Seed or demo: the demo scores (v5) show on the demo's shadowing pages; nothing can be sent there.
+
+### Owner's manual scenario (about 5 minutes, needs an Azure F0 key)
+
+1. Settings > "Pronunciation assessment": paste the key and the region (`westeurope`...), Save, "Test connection" (it should say it works).
+2. Tick "Allow pronunciation assessment of shadowings"; the month's use appears (0 min).
+3. Speaking > Shadowing: type a sentence, record it, Send. On the take's page, "Pronunciation" shows "Assess my pronunciation"; click it.
+4. The scores, the words and the weakest sounds appear; the month's use in Settings goes up. Reload: the scores are still there.
+5. Switch the setting off: the next shadowing is recorded as before; the old assessed take still shows its scores.
 
 ## M6.c1 — Pronunciation assessment with Azure (backend, optional)
 

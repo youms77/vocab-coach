@@ -171,7 +171,10 @@ computer. They are kept in `data/audio/` (never committed). Without a key they s
 ### Azure AI Speech: optional pronunciation scores (free tier only)
 
 Off by default; the app is unchanged without it. Azure scores a recording against its target sentence, word
-by word and phoneme by phoneme (screens come in a later milestone; this step adds the backend only).
+by word and phoneme by phoneme. Everything can be done from **Settings > Pronunciation assessment**: key and
+region, connection test, the on/off setting and the use of the month. The scores appear on a shadowing's page,
+after you click "Assess my pronunciation". Only shadowings recorded **after** you turn the setting on can be
+assessed (they are stored as WAV).
 
 1. In the Azure portal create a *Speech* resource on the **F0 (free) tier, never S0** (S0 is billed). Copy a
    key and the region of the resource (for example `westeurope`).

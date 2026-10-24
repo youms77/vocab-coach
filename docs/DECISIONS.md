@@ -3408,3 +3408,53 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
   `tests/audio_support.py` makes tiny WAV/OGG clips in memory (no audio file is committed).
 - `tests/live/test_live_azure.py` (`VOCAB_RUN_LIVE=1`, a key and a region, `VOCAB_LIVE_AZURE_AUDIO`): one request, a quota error is a skip.
 - The frontend does not change; the `speech_providers` field is additive.
+
+## D-219 — Recording for the assessment: WAV at the moment of recording (M6.c2, 2026-10-24; builds on D-211, D-215)
+
+- The backend assesses the **stored file** (`POST /api/productions/{id}/pronunciation` has no body), and Azure refuses webm (D-211). So the
+  conversion happens **before the upload of a new shadowing**, in `ShadowingPage`, not at assessment time.
+- `frontend/src/speech/wav.ts`: `convertToWav(blob)` decodes with `AudioContext.decodeAudioData`, resamples and mixes down to 1 channel at
+  16 kHz with an `OfflineAudioContext`, and encodes WAV PCM 16-bit with the pure `encodeWav`. It returns `null` when the browser cannot (no Web
+  Audio, undecodable data); the page then sends the original and the detail page explains `unsupported_format`.
+- It runs **only** when the `pronunciation_assessment` setting is `azure` **and** Azure is configured (`useAssessmentReady`). Otherwise the
+  recorder, the stored format and the upload are exactly what they were (D-193 is untouched). A 30 s take is about 960 KB, under the 10 MB limit.
+- **A Firefox ogg/opus take is converted too**, not sent as it is: one path, testable, no dependence on the sample rate Firefox records at.
+- Checked in the built-in browser (Chromium): a real `MediaRecorder` webm/opus take of a 440 Hz tone gave `RIFF`, 16000 Hz, 1 channel, 16 bits,
+  1.08 s decoded (the take lasted about 1.5 s), non-silent samples.
+  Not checked: a real microphone, Firefox, and the file being accepted by Azure.
+- Recordings made before the setting was on stay webm and cannot be assessed; the button is greyed with the reason. The discovery step 4 and
+  free speaking are not converted (out of scope).
+
+## D-220 — The Azure card and the way the setting is turned on (M6.c2)
+
+- `AzureCard` is its own card in Settings (between the providers and the usage), drawn from `speech_providers` (D-214), so Azure is never in
+  the provider order. It shows: the warning that the recording goes to Microsoft, F0 only (never S0) and that F0 inclusion is not confirmed;
+  key + region saved together (`PUT .../azure/credential` with `{value, region}`, the key field emptied after saving); the standard connection
+  test (`POST /api/ai/test {provider: "azure"}`); a checkbox for the `pronunciation_assessment` setting (`off`/`azure`), disabled until a key is
+  saved; the month's use from `GET /api/speech/pronunciation/usage` with its note ("what this app sent, not what Microsoft counts").
+- Locked on the demo database (as the other cards). Absent when the backend sends no `speech_providers`.
+- The new error codes (`region_required`, `invalid_region`, `not_assessable`, `assessment_disabled`, `already_assessed`,
+  `unsupported_for_assessment`) are in `errorMessage.ts` and in both locales.
+
+## D-221 — The scores view and the button (M6.c2; builds on D-215, D-174)
+
+- `AssessmentSection` on the shadowing page, after the transcription card. **Nothing is sent by itself**: one button, with the sentence "sends the
+  recording to Microsoft Azure". The button is greyed from `assessable` and the reason from `assessable_reason` is written under it (with a link
+  to the settings for `disabled` / `not_configured`). `not_shadowing` and `no_audio` show no section. A backend without the fields shows nothing.
+- `unavailable` / `incomplete` are said with the reason (`aiReasonText`), nothing is stored, the button becomes "Try again". A 409
+  `already_assessed` just refreshes the production.
+- `PronunciationView`: the sentence "An automatic estimate, not a teacher's judgment" first; four overall scores; every word with its score and
+  its error type **in words** (colour is never the only signal; a wavy underline marks words with an error type or a score under 60); the
+  weakest sounds (computed in the browser from the stored phonemes: below 80, worst five); date and provider; "Demo scores are fictional" for
+  `provider: "demo"`. An unknown `error_type` reads "to check". `silence` says that nothing was heard.
+- Active recall holds: the section exists only on a recorded take that was already compared, and the target sentence was shown before.
+- No errors are created from the scores (D-174).
+
+## D-222 — Small conventions and departures met in M6.c2
+
+- Backend unchanged, no migration, no new dependency. `ProviderName` stays the text providers; `SpeechProviderName` (`'azure'`) is separate.
+- Departure from the plan: `useAssessmentReady` reads two requests (settings and AI status); a take sent in the first instants of a page load
+  could be sent without conversion; then it just cannot be assessed (the button says why).
+- Tests: 25 new Vitest tests, 644 in all (wav 6, Azure card 6, scores and button 10, recording 3); the "assessment off" test
+  fails when the conversion is made unconditional (checked by breaking the code).
+
