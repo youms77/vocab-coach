@@ -3,7 +3,12 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { categoryLabels, type ErrorOut, labelOf, useErrorCategories } from '../../api/errors'
-import type { Feedback, ProductionTarget, ProposedCategory } from '../../api/productions'
+import type {
+  Feedback,
+  ProductionTarget,
+  ProposedCategory,
+  SpeakingStructure,
+} from '../../api/productions'
 import {
   type CorrectionModel,
   type ErrorEntry,
@@ -183,6 +188,42 @@ function Targets({ targets, level }: { targets: TargetEntry[]; level: Level }) {
   )
 }
 
+/** How a speech is organised (`speaking-1`): the comment, the connectors found, the suggestions. */
+function Structure({ structure, level }: { structure: SpeakingStructure; level: Level }) {
+  const { t } = useTranslation()
+  const connectors = structure.connectors_used
+  return (
+    <section className="correction-section">
+      <Heading level={level}>{t('correction.structureTitle')}</Heading>
+      <p lang="en">{structure.comment_en}</p>
+      {structure.comment_fr.trim() !== '' && <FrenchExplanation text={structure.comment_fr} />}
+      <p className="correction-connectors">
+        <strong>{t('correction.connectors')}</strong>{' '}
+        {connectors.length > 0 ? (
+          <span lang="en">{connectors.join(' · ')}</span>
+        ) : (
+          <span className="muted">{t('correction.noConnectors')}</span>
+        )}
+      </p>
+      {structure.suggestions.length > 0 && (
+        <>
+          <p>
+            <strong>{t('correction.structureSuggestions')}</strong>
+          </p>
+          <ul className="correction-notes">
+            {structure.suggestions.map((suggestion, index) => (
+              <li key={index}>
+                <span lang="en">{suggestion.text_en}</span>
+                {suggestion.text_fr.trim() !== '' && <FrenchExplanation text={suggestion.text_fr} />}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  )
+}
+
 function Body({
   model,
   uid,
@@ -206,9 +247,14 @@ function Body({
     const range = model.ranges.findIndex((r) => r.errors.includes(index))
     return range >= 0 ? `${uid}-mark-${range}` : null
   }
-  // "Sentence n" for a text, "Your turn n" for a transcript.
+  // "Sentence n" for a text, "Your turn n" for a transcript, "Part n" for a speech (a part may
+  // hold several sentences).
   const unitName = (n: number) =>
-    model.kind === 'transcript' ? t('correction.turn', { n }) : t('correction.sentence', { n })
+    model.kind === 'transcript'
+      ? t('correction.turn', { n })
+      : model.kind === 'speaking'
+        ? t('correction.part', { n })
+        : t('correction.sentence', { n })
   const labelFor = (entry: ErrorEntry) => {
     const category = entry.logged?.category ?? byCode?.get(entry.categoryCode)
     return category !== undefined ? labelOf(category, i18n.language) : null
@@ -231,8 +277,13 @@ function Body({
 
       <section className="correction-section">
         <Heading level={level}>
-          {model.kind === 'transcript' ? t('correction.yourTurns') : t('correction.yourText')}
+          {model.kind === 'transcript'
+            ? t('correction.yourTurns')
+            : model.kind === 'speaking'
+              ? t('correction.heardTitle')
+              : t('correction.yourText')}
         </Heading>
+        {model.kind === 'speaking' && <p className="muted">{t('correction.heardNote')}</p>}
         {model.contextSent !== null && (
           <p className="muted">
             {model.contextSent ? t('correction.contextSent') : t('correction.contextNotSent')}
@@ -272,7 +323,9 @@ function Body({
           <p className="form-message form-message--ok" role="status">
             {model.kind === 'transcript'
               ? t('correction.noErrorsTurns')
-              : model.sentenceCount === 1
+              : model.kind === 'speaking'
+                ? t('correction.noErrors')
+                : model.sentenceCount === 1
                 ? t('correction.sentenceCorrect')
                 : t('correction.noErrors')}
           </p>
@@ -347,6 +400,8 @@ function Body({
           <CopyButton text={model.naturalText} />
         </section>
       )}
+
+      {!compact && model.structure !== null && <Structure structure={model.structure} level={level} />}
 
       {!compact && <Targets targets={model.targets} level={level} />}
     </>

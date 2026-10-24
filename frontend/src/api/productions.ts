@@ -43,6 +43,14 @@ export interface NaturalnessNote {
   note: string
 }
 
+/** The comment on how a spoken text is organised (`speaking-1` only; null in answer mode). */
+export interface SpeakingStructure {
+  comment_en: string
+  comment_fr: string
+  connectors_used: string[]
+  suggestions: { text_en: string; text_fr: string }[]
+}
+
 export interface CorrectionOutput {
   sentences: CorrectionSentence[]
   corrected_text: string
@@ -51,6 +59,8 @@ export interface CorrectionOutput {
   naturalness_notes: NaturalnessNote[]
   targets: unknown[]
   overall_comment: string
+  /** `speaking-1` only. */
+  structure?: SpeakingStructure | null
 }
 
 /** Position of `output.errors[error]` in `text`, in Unicode code points (D-128). */
@@ -82,8 +92,9 @@ export interface TranscriptUnit {
 
 /**
  * `format: "correction-1"` is the written correction; `"transcript-1"` has the same keys plus
- * `units`, `context_sent` and `calls` (units play the part of sentences, D-134). Any other format
- * is shown as plain text by the correction view.
+ * `units`, `context_sent` and `calls` (units play the part of sentences, D-134); `"speaking-1"`
+ * has the keys of `correction-1` plus `output.structure` (a unit may hold several sentences,
+ * D-179). Any other format is shown as plain text by the correction view.
  */
 export interface Feedback {
   format: string
@@ -211,9 +222,15 @@ export function applyCorrection(queryClient: QueryClient, result: CorrectionResu
   void queryClient.invalidateQueries({ queryKey: ['errors'] })
 }
 
-/** Corrected meanwhile (another tab, or a retry that did succeed): show what is stored. */
+/**
+ * Corrected meanwhile (another tab, or a retry that did succeed), or a spoken text whose
+ * transcription is not there after all (`not_transcribed`): show what is stored.
+ */
 export function applyCorrectionError(queryClient: QueryClient, error: unknown, id: number) {
-  if (error instanceof ApiError && error.code === 'already_corrected') {
+  if (
+    error instanceof ApiError &&
+    (error.code === 'already_corrected' || error.code === 'not_transcribed')
+  ) {
     void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'detail', id] })
   }
 }
