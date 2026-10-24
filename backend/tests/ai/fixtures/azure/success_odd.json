@@ -1,0 +1,39 @@
+{
+  "RecognitionStatus": "Success",
+  "Duration": "12000000",
+  "NBest": [
+    {
+      "AccuracyScore": "80",
+      "FluencyScore": 120,
+      "CompletenessScore": null,
+      "PronScore": true,
+      "Words": [
+        {
+          "Word": "ok",
+          "AccuracyScore": "n/a",
+          "ErrorType": 7,
+          "Offset": -5,
+          "Phonemes": [
+            {
+              "Phoneme": "o",
+              "AccuracyScore": 50
+            },
+            {
+              "AccuracyScore": 10
+            },
+            "x"
+          ]
+        },
+        {
+          "Offset": 1
+        },
+        "junk",
+        {
+          "Word": "fine",
+          "AccuracyScore": 71,
+          "ErrorType": "UnexpectedBreak"
+        }
+      ]
+    }
+  ]
+}

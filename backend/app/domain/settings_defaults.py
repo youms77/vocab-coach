@@ -13,6 +13,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 SUPPORTED_UI_LANGUAGES = ("en", "fr")
 # AI providers the gateway knows (adapters arrive in M2.b); the order setting lists them.
 KNOWN_AI_PROVIDERS = ("gemini", "groq", "ollama")
+# Providers of a single capability, outside `ai_provider_order` (Azure: pronunciation, M6.c1).
+KNOWN_SPEECH_PROVIDERS = ("azure",)
+PRONUNCIATION_ASSESSMENT_CHOICES = ("off", "azure")
 
 
 class SettingError(ValueError):
@@ -106,6 +109,10 @@ SETTINGS: dict[str, SettingSpec] = {
             list(KNOWN_AI_PROVIDERS),
             item_choices=KNOWN_AI_PROVIDERS,
             unique_items=True,
+        ),
+        # Optional pronunciation assessment (M6.c1). Off unless the owner turns it on.
+        SettingSpec(
+            "pronunciation_assessment", str, "off", choices=PRONUNCIATION_ASSESSMENT_CHOICES
         ),
     )
 }

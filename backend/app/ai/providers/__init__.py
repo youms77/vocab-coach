@@ -2,7 +2,13 @@
 
 from typing import Protocol
 
-from app.ai.types import Capability, ProviderRequest, ProviderResponse, TranscriptionRequest
+from app.ai.types import (
+    Capability,
+    PronunciationRequest,
+    ProviderRequest,
+    ProviderResponse,
+    TranscriptionRequest,
+)
 from app.config import Settings, get_settings
 
 
@@ -29,9 +35,17 @@ class Provider(Protocol):
     def transcribe(self, request: TranscriptionRequest) -> ProviderResponse: ...
 
 
+class PronunciationProvider(Protocol):
+    """A provider that also scores pronunciation (`Capability.PRONUNCIATION_ASSESSMENT`). A separate
+    Protocol, so the text and transcription providers need no such method (D-212)."""
+
+    def assess_pronunciation(self, request: PronunciationRequest) -> ProviderResponse: ...
+
+
 def build_providers(settings: Settings | None = None) -> dict[str, Provider]:
     """The real providers, built from the settings, configured or not (D-040): `pin_provider` and
     `status()` must know every one of them."""
+    from app.ai.providers.azure_speech import AzureSpeechProvider
     from app.ai.providers.gemini import GeminiProvider
     from app.ai.providers.groq import GroqProvider
     from app.ai.providers.ollama import OllamaProvider
@@ -41,4 +55,5 @@ def build_providers(settings: Settings | None = None) -> dict[str, Provider]:
         "gemini": GeminiProvider.from_settings(settings),
         "groq": GroqProvider.from_settings(settings),
         "ollama": OllamaProvider.from_settings(settings),
+        "azure": AzureSpeechProvider.from_settings(settings),
     }

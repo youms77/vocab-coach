@@ -1,0 +1,70 @@
+{
+  "RecognitionStatus": "Success",
+  "Offset": 4000000,
+  "Duration": 18000000,
+  "DisplayText": "I think about.",
+  "NBest": [
+    {
+      "Confidence": 0.87,
+      "Lexical": "i think about",
+      "ITN": "i think about",
+      "MaskedITN": "i think about",
+      "Display": "I think about.",
+      "AccuracyScore": 78.0,
+      "FluencyScore": 84.0,
+      "CompletenessScore": 66.0,
+      "PronScore": 74.5,
+      "Words": [
+        {
+          "Word": "think",
+          "Offset": 5000000,
+          "Duration": 4500000,
+          "AccuracyScore": 52.0,
+          "ErrorType": "Mispronunciation",
+          "Phonemes": [
+            {
+              "Phoneme": "θ",
+              "AccuracyScore": 18.0
+            },
+            {
+              "Phoneme": "ɪ",
+              "AccuracyScore": 91.0
+            },
+            {
+              "Phoneme": "ŋ",
+              "AccuracyScore": 77.0
+            },
+            {
+              "Phoneme": "k",
+              "AccuracyScore": 88.0
+            }
+          ]
+        },
+        {
+          "Word": "about",
+          "Offset": 10000000,
+          "Duration": 3000000,
+          "AccuracyScore": 90.0,
+          "ErrorType": "None",
+          "Phonemes": [
+            {
+              "Phoneme": "ə",
+              "AccuracyScore": 95.0
+            },
+            {
+              "Phoneme": "b",
+              "AccuracyScore": 99.0
+            }
+          ]
+        },
+        {
+          "Word": "it",
+          "Offset": 14000000,
+          "Duration": 1000000,
+          "AccuracyScore": 0.0,
+          "ErrorType": "Omission"
+        }
+      ]
+    }
+  ]
+}

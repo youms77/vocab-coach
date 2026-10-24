@@ -6,10 +6,14 @@ from enum import StrEnum
 
 from pydantic import BaseModel
 
+from app.ai.schemas.pronunciation import PronunciationAssessmentOutput
+
 
 class Capability(StrEnum):
     TEXT = "text"
     TRANSCRIPTION = "transcription"
+    # Scores a recording against its reference text (Azure, M6.c1). Not part of `ai_provider_order`.
+    PRONUNCIATION_ASSESSMENT = "pronunciation_assessment"
 
 
 class ErrorKind(StrEnum):
@@ -114,6 +118,14 @@ class TranscriptionRequest:
 
 
 @dataclass(frozen=True)
+class PronunciationRequest:
+    audio: AudioClip
+    reference_text: str  # required: the assessment is made against it
+    language: str
+    timeout_s: float
+
+
+@dataclass(frozen=True)
 class SpeechSegment:
     """One segment of a transcription, as numbers only (its text is part of the whole text)."""
 
@@ -138,6 +150,7 @@ class ProviderResponse:
     input_tokens: int | None = None
     output_tokens: int | None = None
     transcription: TranscriptionDetails | None = None  # transcriptions only
+    assessment: PronunciationAssessmentOutput | None = None  # pronunciation assessments only
 
 
 # --- Results ----------------------------------------------------------------------------------

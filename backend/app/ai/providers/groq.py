@@ -19,13 +19,12 @@ called live before M6.a1, so the reading is tolerant: `duration` as a string or 
 segments ignored, only `text` required.
 """
 
-import math
 import re
 from pathlib import Path
 from typing import Any
 
 from app.ai.http import encode_multipart, post
-from app.ai.providers.common import parse_retry_after, retry_after_from_message
+from app.ai.providers.common import as_number, parse_retry_after, retry_after_from_message
 from app.ai.providers.openai_compat import OpenAICompatibleProvider
 from app.ai.providers.schema import SchemaConversionError, schema_instruction, to_groq_schema
 from app.ai.types import (
@@ -240,31 +239,15 @@ class GroqProvider(OpenAICompatibleProvider):
         return ProviderError(kind, detail, retry_after=retry_after, status_code=429)
 
 
-def _number(value: Any) -> float | None:
-    """A finite number sent as a JSON number or a string ("3.52"), else None."""
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int | float):
-        number = float(value)
-    elif isinstance(value, str):
-        try:
-            number = float(value.strip())
-        except ValueError:
-            return None
-    else:
-        return None
-    return number if math.isfinite(number) else None
-
-
 def _details(data: dict[str, Any]) -> TranscriptionDetails:
-    duration = _number(data.get("duration"))
+    duration = as_number(data.get("duration"))
     raw_segments = data.get("segments")
     segments = tuple(
         SpeechSegment(
-            start=_number(raw.get("start")),
-            end=_number(raw.get("end")),
-            no_speech_prob=_number(raw.get("no_speech_prob")),
-            avg_logprob=_number(raw.get("avg_logprob")),
+            start=as_number(raw.get("start")),
+            end=as_number(raw.get("end")),
+            no_speech_prob=as_number(raw.get("no_speech_prob")),
+            avg_logprob=as_number(raw.get("avg_logprob")),
         )
         for raw in (raw_segments if isinstance(raw_segments, list) else [])
         if isinstance(raw, dict)

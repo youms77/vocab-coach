@@ -16,6 +16,7 @@ from app.ai.schemas.targeted_drill import TargetedDrillOutput
 from app.ai.schemas.transcript_analysis import TranscriptAnalysisOutput
 
 TRANSCRIPTION_TASK = "transcription"  # task name in `ai_call_log` for speech-to-text
+PRONUNCIATION_TASK = "pronunciation_assessment"  # same, for pronunciation assessment (M6.c1)
 
 
 @dataclass(frozen=True)

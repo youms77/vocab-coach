@@ -20,3 +20,10 @@ and `TranscriptionSegment` schemas of Groq's API reference (`language`, `duratio
 `transcription_verbose_hallucination` is the classic "Thank you." written over silence, with a
 no-speech probability above Whisper's 0.6 threshold. `transcription_ok` / `transcription_silence` are
 the plain `json` format (text only), still read.
+
+`azure/` (M6.c1, D-211): built from the pronunciation assessment pages of Microsoft Learn read on
+2026-10-24 (REST short audio: flat `NBest[0]` scores; the SDK JSON of the PA page: scores nested under
+`PronunciationAssessment`). No real call was made; all values are invented. The error bodies are
+**not documented** by Azure (only the status codes are): their wording, and the "quota" heuristic
+that reads it, are guesses to be confirmed by the live test. `success_odd` holds hostile values
+(strings for numbers, out-of-range scores, junk words) to exercise the tolerant parser.
