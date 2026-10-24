@@ -4,7 +4,8 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
+- **Last milestone completed**: M6.c1 (module F, optional Azure pronunciation assessment, backend only; see its section), on branch `feat/m6c-pronunciation`
+  cut from `feat/m6b-speaking-screens`. Before it: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
   `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (M6.a2, after M6.a1, PR #21, **not
   merged into `main` yet**). Not pushed. `main` (`7904aa3`, CI green) has M1.a to M5.a3. No migration since `0002`.
 - **M6 — Speaking** (module F, SPEC section 9) is cut in five (D-168), M6.a2 in two (D-178): **M6.a1** (done: local
@@ -12,15 +13,90 @@ Updated at the end of every milestone session. Paste this file into the next pla
   `speaking_correction`, spoken answers in reviews, CLI), **M6.a2b** (done: the demo through the services,
   `direct_writes.py` removed, D-035 closed), **M6.b1** (done: the recorder, the shadowing pages, the comparison, the
   optional recording of the discovery), **M6.b2.1** (done: free speaking and the `speaking-1` correction), **M6.b2.2** (done: the spoken answer in
-  reviews; API references in the M6.a1 and M6.a2a sections) and **M6.c** (Azure AI Speech, optional).
-- **Next**: the owner's review of M6.b1, M6.b2.1, M6.b2.2 and M6.a2 (the manual scenarios), then push and the pull request with the
-  owner's go-ahead (after PR #21); M6.c (optional) after that.
+  reviews; API references in the M6.a1 and M6.a2a sections) and **M6.c** (Azure AI Speech, optional): **M6.c1** (done: backend, off by default) then **M6.c2** (the screens, to come).
+- **Next**: the owner's review of M6.b1, M6.b2.1, M6.b2.2, M6.a2 and M6.c1 (the manual scenarios; M6.c1's first real Azure request settles D-211),
+  then push and the pull request with the owner's go-ahead (after PR #21); M6.c2 (the pronunciation screens) after that.
 - **Left from M5, not scheduled**: the screens for cards from errors and suggestions ("M5.d", API in the M5.a3 section
   below) and an undo for a dismissed suggestion. The owner decides when they come.
 - Gemini (`gemini-3.5-flash-lite`) and Groq are configured in the owner's `.env`; the M5.a1, M5.a2 and M6.a2a live tests
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M6.c1 — Pronunciation assessment with Azure (backend, optional)
+
+Branch `feat/m6c-pronunciation`, cut from the tip of `feat/m6b-speaking-screens` (`863f39f`), in two parts with a stop between them: **M6.c1a**
+(adapter, gateway, configuration) and **M6.c1b** (service, storage, event, API, CLI, demo, docs). Not pushed. **No migration**, no frontend change
+(`git diff --stat feat/m6b-speaking-screens -- frontend` is empty), no new dependency, no audio file tracked. Decisions D-211 to D-218.
+
+The module is **off by default** (`pronunciation_assessment` = `off`) and the app is unchanged without an Azure key. Screens are M6.c2.
+
+### Done
+
+- **Pure module** `app/domain/pronunciation.py`: `audio_kind` / `audio_problem` (WAV PCM 16 kHz mono 16-bit or OGG Opus mono, from the bytes; webm, m4a
+  and mp3 refused), `audio_duration_s`, `silent_wav`, `summarize`, `weakest_phonemes`, `scores_document` (`azure-pa-1`), dated constants (D-211).
+- **Adapter** `app/ai/providers/azure_speech.py` (no SDK), **gateway capability** `pronunciation_assessment` outside `ai_provider_order`
+  (`Gateway.assess_pronunciation`), `PronunciationAssessmentOutput` (D-212, D-213).
+- **Configuration**: five `.env` variables (key and region written together), `PUT/DELETE /api/ai/providers/azure/credential` with `region`, the
+  setting, the demo guard, `POST /api/ai/test` and `ai test --provider azure`, `speech_providers` in `GET /api/ai/status` (D-214).
+- **Service** `app/services/pronunciation.py` (`assess`, `store_assessment`, `assessable_reason`, `monthly_usage`), storage in
+  `pronunciation_result.scores` in **both write orders**, the event `pronunciation.assessed` (D-215, D-216).
+- **API and CLI**: below. **Demo dataset v5** (D-217): the last 3 shadowings with missed words carry fictional scores.
+- **Tests** (all without network): adapter on a loopback server, gateway, `.env`, API, CLI, service (each refusal with zero calls and zero rows,
+  both orders, second writer during the call, usage), demo. `tests/live/test_live_azure.py` exists and **was not run** (no key, no clip here).
+
+### Left / known limits
+
+- **Never run against Azure.** The answer shape, whether the F0 tier includes pronunciation assessment, the wording of an F0 quota error and the
+  availability of the feature per region are unverified (D-211). The heuristic that reads "quota" in a 403/429 may misclassify (D-213).
+- M6.c2 (the screens) must send WAV 16 kHz mono (or OGG Opus): the browser records webm, which Azure refuses (D-211).
+- Two concurrent assessments of the same production could both pass the last check (microsecond window, no unique index, D-215).
+- Seed time is 14 to 16 s here against 4.5 s at M6.a2b, whatever the number of assessments (D-217); not explained.
+- The owner's manual scenario (below) is still to run.
+
+### API reference for M6.c2 (additions only; nothing existing changes)
+
+- `GET /api/settings` → `pronunciation_assessment: {value: "off"|"azure", choices: ["off","azure"], ...}`; `PATCH /api/settings
+  {"pronunciation_assessment": "azure"}` (409 `demo_read_only` on the demo database).
+- `GET /api/ai/status` → new `speech_providers: [ProviderState]` (Azure: `name`, `capabilities: ["pronunciation_assessment"]`, `configured`,
+  `available`, `models`, `credential_source`, `region`), outside `providers` and `order`.
+- `PUT /api/ai/providers/azure/credential {"value": "<key>", "region": "westeurope"}` (`region` optional once one is stored; 422
+  `region_required` / `invalid_region` / `invalid_credential`); `DELETE` clears both; `POST /api/ai/test {"provider": "azure"}`.
+- `POST /api/productions/{id}/pronunciation` (no body; the recording is sent to Microsoft; a few seconds) → 200
+  `{production_id, status: "ok"|"silence"|"unavailable"|"incomplete", reason, scores}`. Refusals, before any call: 404 `production_not_found`, 422
+  `not_assessable`, 404 `no_audio`, 409 `assessment_disabled`, 409 `already_assessed`, 422 `unsupported_for_assessment`, 422 `audio_too_long`.
+  `unavailable` (`reason`: `no_provider_configured`, `quota`, `auth`, `network`, `timeout`, `all_failed`) and `incomplete` store nothing and can
+  be repeated.
+- `GET /api/productions/{id}`, `GET /api/productions` and the answers of `POST /api/speech/shadowing`, `/speaking` and `/productions/{id}/transcribe`
+  gain `pronunciation: scores | null`, `assessable: bool`, `assessable_reason: null | not_shadowing | no_target | no_audio | disabled |
+  not_configured | already_assessed | unsupported_format | too_long`.
+- `scores` (`format: "azure-pa-1"`): `{provider, model, assessed_at, status: "ok"|"silence", overall: {accuracy, fluency, completeness,
+  pronunciation} (0-100, null on silence), words: [{word, accuracy, error_type: "None"|"Mispronunciation"|"Omission"|"Insertion"|other, offset_ms,
+  duration_ms, phonemes: [{phoneme (IPA), accuracy}]}], duration_s}`. The comparison (`comparison`) of a take is independent and stays; a take assessed
+  before any transcription has `comparison: null` and `transcription_status: "pending"` until it is transcribed.
+- `GET /api/speech/pronunciation/usage` → `{month: "YYYY-MM", audio_seconds, assessments, limit_seconds: 18000, limit_checked_on: "2026-10-24", note}`.
+  Show the note: the scores are an automatic estimate, and F0 inclusion is unverified.
+- Always show: "automatic estimate, not a teacher's judgment", and that the recording goes to Microsoft. Active recall: the scores belong after the
+  attempt (they come from an assessed take).
+- CLI: `speech assess <id>`; `speech shadow --file <clip> --target "<sentence>" --assess`. Exit codes: 0 done (silence included), 1 unavailable, 2
+  usage (setting off, unknown production, refused clip). Output: the four scores, each word with its score and error type, the 5 weakest phonemes.
+
+### How to test (2 minutes, Windows)
+
+1. In `.env`: `VOCAB_AZURE_SPEECH_KEY=` and `VOCAB_AZURE_SPEECH_REGION=` (an **F0** resource, never S0). In `backend`: `uv run python -m app ai status`
+   shows "Pronunciation assessment (azure...): configured".
+2. `uv run python -m app ai test --provider azure` (one second of silence; "ok" even for "no speech").
+3. Turn the setting on: `Invoke-RestMethod -Method Patch -Uri http://127.0.0.1:8000/api/settings -ContentType application/json -Body '{"pronunciation_assessment":"azure"}'`
+   (the app must run) or through the API docs at `/docs`.
+4. Make a WAV with Windows speech: `Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer;
+   $f = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(16000, [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen,
+   [System.Speech.AudioFormat.AudioChannel]::Mono); $s.SetOutputToWaveFile("$env:TEMP\take.wav", $f); $s.Speak("We account for regional
+   fixed effects in all specifications."); $s.Dispose()`.
+5. `uv run python -m app speech shadow --file $env:TEMP\take.wav --target "We account for regional fixed effects in all specifications." --assess`
+   (with a Groq key it is transcribed too; without it, only the scores).
+6. Optional live test: `$env:VOCAB_RUN_LIVE='1'; $env:VOCAB_LIVE_AZURE_AUDIO="$env:TEMP\take.wav"; uv run pytest tests/live/test_live_azure.py -m live -v -s`.
+7. Clean up: `Remove-Item $env:TEMP\take.wav`; remove the two Azure lines from `.env` (or `DELETE /api/ai/providers/azure/credential`) and set the
+   setting back to `off`.
 
 ## M6.b2.2 — The spoken answer in the review player (frontend)
 

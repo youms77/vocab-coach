@@ -3269,3 +3269,142 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - Departures from the prompt: no second "What was heard" heading (the correction view's own title serves); `spokenFallback` takes a nullable notice
   instead of a `declined` kind; "Start recording" and "Answer without recording" are both primary when the microphone failed; the break check
   (e) is caught by the reducer test and not by the player test (the abort already drops the late answer there).
+
+## D-211 — Azure Speech: the facts read, their sources and what is not verified (M6.c1, 2026-10-24)
+
+Read on Microsoft Learn on 2026-10-24 (the "updated" dates are those printed on the pages). Nothing below was observed live: the live test
+(`tests/live/test_live_azure.py`) is the proof.
+
+| Point | Finding | Source |
+|---|---|---|
+| Endpoint | `https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`, the regional host of Microsoft's REST sample. The current page shows the resource-name host (`{resource}.cognitiveservices.azure.com/stt/...`) and says the key header "works with all endpoint formats". The regional host is kept, as the milestone asked. | `rest-speech-to-text-short` (ms.date 2025-11-21, updated 2026-06-05); `Azure-Samples/Cognitive-Speech-TTS`, `PronunciationAssessment/Python/sample.py` |
+| Query | `language=en-US` (required, else a 4xx), `format=detailed` | same |
+| Key | `Ocp-Apim-Subscription-Key` header (no token exchange) | same |
+| Assessment header | `Pronunciation-Assessment` = base64 of a UTF-8 JSON: `ReferenceText` (required), `GradingSystem` (FivePoint, HundredMark), `Granularity` (Phoneme, Word, FullText), `Dimension` (Basic, Comprehensive), `EnableMiscue`, `EnableProsodyAssessment`, `ScenarioId`. `PhonemeAlphabet` is not in the REST table but Microsoft's sample sends it; the PA page says phoneme names exist in en-US with IPA (default SAPI). | same + `how-to-pronunciation-assessment` (updated 2026-07-03) |
+| What is sent | `{"ReferenceText": target, "GradingSystem": "HundredMark", "Granularity": "Phoneme", "Dimension": "Comprehensive", "EnableMiscue": "True", "PhonemeAlphabet": "IPA"}`; no prosody. | |
+| Answer | `RecognitionStatus`: Success, NoMatch, InitialSilenceTimeout, BabbleTimeout, Error. `Offset` / `Duration` in 100 ns. In `NBest[0]` the REST page puts the scores flat (`AccuracyScore`, `FluencyScore`, `CompletenessScore`, `PronScore`, `Words[]{Word, Offset, Duration, AccuracyScore, ErrorType}`); the SDK JSON of the PA page nests them under `PronunciationAssessment` with `Phonemes[]`. **The parser accepts both.** | both pages |
+| `ErrorType` | REST page: None, Omission, Insertion, Mispronunciation; the PA page adds UnexpectedBreak, MissingBreak, Monotone (prosody). Unknown values are stored as they come and counted in none of the three counters. | both pages |
+| Duration | 60 s per request, **30 s when pronunciation assessment is on** (`pa.MAX_ASSESSMENT_SECONDS`). Shadowing is already 0.5 to 30 s (D-179). | REST page |
+| Formats | **WAV PCM 16 kHz mono** and **OGG Opus** only. webm, m4a and mp3 are not accepted. | REST page |
+| HTTP errors | 400 (language, unsupported or invalid audio), 401 (key invalid for this region/endpoint), 403 (key missing); 429 is described as throttling while autoscaling. **No body or code is documented for "the monthly F0 hours are used up": not verified.** | REST page + `speech-services-quotas-and-limits` (updated 2026-10-23) |
+| F0 limits | 5 audio hours a month of real-time STT, shared between Standard and Custom; **one concurrent request**, not adjustable. `pa.F0_MONTHLY_AUDIO_SECONDS = 18_000`, `F0_LIMIT_CHECKED_ON = "2026-10-24"`. | pricing page + quotas page |
+| Regions | Real-time STT is in the 33 listed regions. The PA page links to a "pronunciation assessment" region tab that the regions page no longer has: **PA availability per region not verified**. | `regions` (updated 2026-10-18) |
+| Card at sign-up | Not stated on the free-services page: **not verified**. | free-services page |
+
+**Is pronunciation assessment free on F0? Not confirmed.** The pricing page lists "Pronunciation Assessment (prosody)" among the enhanced add-on
+features (billed per hour) with no add-on line for F0; an unofficial Q&A answer (2025-11-04) says it is billed as plain STT. An F0 resource cannot
+bill, so the risk is an S0 resource created by mistake. The owner decided on 2026-10-24: go on, F0 only, document it as unverified. Consequences:
+SPEC section 7 no longer says "includes pronunciation assessment" (it says "not confirmed by the pricing page (2026-10-24)"); README and
+`.env.example` say "F0 only, never S0" and "the audio goes to Microsoft"; the live test is the proof.
+
+**webm is refused by Azure, and Chrome and Edge record webm.** Same codec (Opus), different container. M6.c2 must send WAV 16 kHz mono
+(`OfflineAudioContext` decode and resample is the simplest path) or an OGG Opus take as it is (a Firefox take, if it is 16 kHz mono). The backend
+refuses a webm with `unsupported_for_assessment` before any request.
+
+## D-212 — A gateway capability outside `ai_provider_order` (M6.c1)
+
+- New `Capability.PRONUNCIATION_ASSESSMENT`, a task `pronunciation_assessment` (no prompt: `prompt_version` null in `ai_call_log`, timeout 30 s), and
+  `Gateway.assess_pronunciation(audio, *, reference_text, language="en-US", pin_provider=None)`, which goes through `_run` like every other call:
+  retries, cooldown, the 90 s budget, one `ai_call_log` row per request.
+- **`ai_provider_order` does not apply to it**: `_select` takes every provider that holds the capability (`ORDERLESS_CAPABILITIES`), with health
+  respected. This is not `pin_provider`, which ignores cooldowns. `status().enabled` is true for a provider whose capabilities are all orderless.
+  The real switch is the `pronunciation_assessment` setting, checked by the service. Azure can never be put in the order (`KNOWN_SPEECH_PROVIDERS`
+  is a separate tuple) and a text call never picks it (it has no `TEXT` capability).
+- The `Provider` Protocol is unchanged; a second Protocol, `PronunciationProvider`, carries `assess_pronunciation`. Gemini, Groq and Ollama are
+  untouched; `FakeProvider` gained a scripted `assessment`. `ProviderResponse.assessment` carries the validated
+  `PronunciationAssessmentOutput` (`status` ok|silence, four 0-100 scores, `words[]` with `phonemes[]`, `duration_s`).
+- `ReferenceText` is required here. D-172 (the target is never sent to Whisper) is about transcription and does not apply: assessing against the
+  target is the point.
+
+## D-213 — The Azure adapter and the Azure column of the D-050 table (M6.c1)
+
+- `app/ai/providers/azure_speech.py`, `urllib` through `app/ai/http.py`, no SDK and no new dependency (D-049). Model name `pa-rest-v1` (ours: the
+  REST API has no model). The key goes in the header only; messages are masked (D-043); `repr` shows the region, never the key.
+- The region is checked against `^[a-z0-9]{2,40}$` before the URL is built (as D-057), else `bad_request` "VOCAB_AZURE_SPEECH_REGION is not a valid
+  region"; the language against a BCP-47-like pattern. `base_url` is injectable for the tests (the default URL is unit-tested from the region).
+- Refused **before any request** (`bad_request`): a clip that is not WAV 16 kHz mono PCM or OGG Opus mono (the content decides, the file name must
+  agree), a clip over 30 s (read from the headers), an empty reference text. The service refuses earlier with stable codes (D-215).
+- Parsing is tolerant: both score shapes, numbers that are strings are read, scores outside 0-100 become null, unreadable words and phonemes are
+  skipped. `Success` without `NBest[0]` is `invalid_output`. NoMatch, InitialSilenceTimeout and BabbleTimeout give a `silence` result (not an
+  error). `Error` is `transient`.
+
+| Situation | Category |
+|---|---|
+| 401, or 403 without "quota" in the message | `auth` |
+| 403 or 429 whose message says "quota" | `quota_exhausted` (**an unverified heuristic**: the F0 wording is not documented) |
+| other 429 | `rate_limited` (`Retry-After` when present) |
+| 5xx, 408, timeout | `transient` |
+| other 4xx, 3xx | `bad_request` |
+| unusable body | `invalid_output` |
+
+The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleared by `reload()` (D-040).
+
+## D-214 — `.env`, routes and the setting (M6.c1)
+
+- `Settings.azure_speech_key` (secret) and `azure_speech_region`; both are "empty means not configured". The key is in `secret_values()`.
+- `env_file.EDITABLE` plus `REGION_VARIABLES` make **five** editable variables. `update_credential(provider, value, region=...)` writes the key and
+  the region in **one** atomic write under the same lock; removing the key removes both; `set_in_environment` (409) applies if either variable is in
+  the process environment. The region is lower-cased and validated (`invalid_region`, 422).
+- `PUT /api/ai/providers/azure/credential` takes `{value, region?}`; 422 `region_required` when no region is stored and none is given, 422
+  `invalid_request` for a region sent to another provider. `DELETE` clears both. The event `ai.credential_changed` accepts `azure`.
+- **`GET /api/ai/status` lists Azure in a new field `speech_providers`, not in `providers`** (a departure from the plan, found while reading the
+  Settings screen: it draws a card and an order entry for every item of `providers`, and the frontend does not change in M6.c1). `ProviderState`
+  gained `region` (null for the others, never the key). `degraded` ignores Azure (it means "no text provider").
+- Setting `pronunciation_assessment` (`off` | `azure`, default `off`). The demo guard refuses its `PATCH` and the Azure credential routes (409
+  `demo_read_only`), as for `ai_provider_order`.
+- `POST /api/ai/test {provider: "azure"}` and `ai test --provider azure` send one second of silent WAV (built in memory) with the reference
+  "Hello."; a 200 answer, even `silence`, is a success. A plain `ai test` never calls Azure (it would spend free minutes).
+- `GET /api/ai/usage` already groups `ai_call_log` by provider: Azure appears with no change (a test checks it).
+
+## D-215 — Storage: the scores live with the comparison, whichever comes first (M6.c1b)
+
+- `pronunciation_result.scores` holds the `azure-pa-1` document (`format`, `provider`, `model`, `assessed_at`, `status`, `overall{accuracy,
+  fluency, completeness, pronunciation}`, `words[]`, `duration_s`). No migration.
+- `pronunciation.store_assessment(session, attempt_id, result, *, at)` works in the caller's transaction, no commit (D-165, D-189). It fills `scores`
+  on the latest row; **when there is none** (no Groq key, transcription not done yet, or a transcription that heard silence) **it creates the row**
+  with `transcript=""`, `unrecognized_words=[]` and `provider=""` (the column means the transcription's provider and nothing was transcribed). The
+  model allows it: both columns are NOT NULL but accept the empty string, and `production_attempt_id` is not unique.
+- `speech.store_transcription` now **updates** the existing row (transcript, unrecognised words, provider; it keeps `scores`) instead of always
+  inserting; every other path is unchanged. `speech.comparison_of` returns None while `transcript == ""`, otherwise a row created by the assessment
+  would show every target word as missing.
+- `pronunciation.assess` refuses, before any call and in this order: 404 `production_not_found`, 422 `not_assessable` (not a shadowing, or no target),
+  404 `no_audio`, 409 `assessment_disabled`, 409 `already_assessed`, 422 `unsupported_for_assessment` (the WAV/OGG header of the bytes read), 422
+  `audio_too_long` (over 30 s). Then: a short read (the session is closed), the call with no session open, a short write that checks 1, 2 and 5 again
+  (D-038). An AI failure is a 200 `unavailable` / `incomplete` (D-081) that writes only the gateway's `ai_call_log` row and can be repeated. No
+  `error_event` is ever created (D-174, tested).
+- **Known limit, no migration**: two concurrent writers of the same production have a microsecond window between the last check and the insert (as
+  for transcription today). A unique index would need migration `0003`; it is not proposed. The test "second writer during the call" covers a writer
+  that commits during the AI call.
+- `assessable_reason` (on `ProductionOut` and `SpeechOut`, with `assessable` and `pronunciation`): `not_shadowing`, `no_target`, `no_audio`,
+  `disabled`, `not_configured`, `already_assessed`, `unsupported_format` (by the extension only, so a list reads no file), `too_long`.
+
+## D-216 — The event and the monthly use (M6.c1b)
+
+- `pronunciation.assessed` (payload v1): `production_attempt_id`, `provider`, `model`, `ai_call_id`, `status` ok|silence, `audio_seconds`, the four
+  scores (null on silence), `word_count`, `mispronounced`, `omitted`, `inserted`. No text.
+- `GET /api/speech/pronunciation/usage` sums this calendar month's (UTC) events: `{month, audio_seconds, assessments, limit_seconds: 18000,
+  limit_checked_on, note}`. Silence counts (Azure bills the audio); failed requests do not (no event). It is what **this app** sent, not what
+  Microsoft counts (another tool on the same resource would not show). Read-only session (`query_only`, then restored).
+
+## D-217 — Demo dataset v5 (M6.c1b)
+
+- The five `content/demo/*.yaml` files move to version 5. The last 3 shadowings that have unrecognised words are scored at the end of the run,
+  through `store_assessment` (the real service), with `fictional_ai.pronunciation_result`: provider `demo`, model `demo-pa-v1`, no `ai_call_log`
+  row, `ai_call_id` null.
+- **No new random draw**: the scores come from the words (a CRC of the word), so every other generator draws the same sequence as in v4. A word the
+  recogniser missed is `Mispronunciation` (something else heard) or `Omission` (nothing heard); the others score 84 to 98. Phonemes are a fixed
+  fictional split of the letters (one IPA symbol per letter), one clearly weak phoneme in a mispronounced word. Validated by the real schema.
+- The `pronunciation_assessment` setting stays `off`; the scores are shown anyway (the demo database is read-only for it). The demo clips are
+  8 kHz WAV, which Azure would refuse: nothing can send them, the setting is locked.
+- The fingerprint changes (version 5, `scores`, `pronunciation.assessed` events), as in D-191. Seed time on 2026-10-24: 14 to 16 s here, against 4.4 to
+  4.6 s at M6.a2b with the same command; 0 or 3 assessments make no measurable difference, and the profile is dominated by SQLite writes of the
+  reviews (code not touched by this milestone). The cause on this machine is not established.
+
+## D-218 — Small conventions and departures met in M6.c1
+
+- `as_number` moved from `groq.py` to `providers/common.py` (shared by the two parsers).
+- `pa.audio_kind` requires the file name to agree with the content (a `.webm` name over WAV bytes is refused).
+- Tests: Azure fixtures in `tests/ai/fixtures/azure/` are built from the documentation (the README of the folder says the error bodies are guesses);
+  `tests/audio_support.py` makes tiny WAV/OGG clips in memory (no audio file is committed).
+- `tests/live/test_live_azure.py` (`VOCAB_RUN_LIVE=1`, a key and a region, `VOCAB_LIVE_AZURE_AUDIO`): one request, a quota error is a skip.
+- The frontend does not change; the `speech_providers` field is additive.

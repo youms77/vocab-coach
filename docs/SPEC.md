@@ -351,7 +351,7 @@ interchangeable providers configured in `.env`:
 | Text, fallback | Groq (open models, including Llama), OpenAI-compatible API, free tier without a credit card | Automatic switch if the main provider returns a quota error |
 | Speech-to-text | Groq, Whisper model (free tier) | Local option: faster-whisper on CPU, for short clips |
 | Text-to-speech | Browser speech synthesis (Web Speech API), Windows en-US voices | Free and offline |
-| Pronunciation assessment (optional) | Azure AI Speech, free F0 tier (about 5 h of audio per month, includes pronunciation assessment) | Disabled by default; requires an Azure account |
+| Pronunciation assessment (optional) | Azure AI Speech, free F0 tier only, never S0 (about 5 h of audio per month; inclusion of pronunciation assessment in F0 not confirmed by the pricing page, 2026-10-24) | Disabled by default; requires an Azure account; the recording is sent to Microsoft; WAV 16 kHz mono or OGG Opus only, 30 s at most |
 | Local (optional) | Ollama (OpenAI-compatible API) | To work offline if the machine allows |
 
 The OpenAI-compatible endpoint makes it possible to add other providers (OpenRouter, Meta's Llama API if it
