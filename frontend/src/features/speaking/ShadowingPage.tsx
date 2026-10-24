@@ -2,10 +2,12 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router'
 
+import { useAssessmentReady } from '../../api/pronunciation'
 import { useShadowing } from '../../api/speech'
 import { PageTitle } from '../../components/PageTitle'
 import { Recorder } from '../../speech/RecorderPanel'
 import { SpeakButton } from '../../speech/SpeakButton'
+import { convertToWav } from '../../speech/wav'
 import { ErrorText } from '../settings/ErrorText'
 import { readShadowTarget, SHADOW_MAX_CHARS } from './shadowTarget'
 
@@ -21,6 +23,8 @@ export function ShadowingPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const shadow = useShadowing()
+  const assessmentReady = useAssessmentReady()
+  const [converting, setConverting] = useState(false)
   const [arrival] = useState(() => readShadowTarget(location.state))
   const [target, setTarget] = useState(arrival?.target ?? '')
   const consumed = useRef(false)
@@ -38,7 +42,38 @@ export function ShadowingPage() {
   const chars = Array.from(sentence).length
   const tooLong = chars > SHADOW_MAX_CHARS
   const usable = chars > 0 && !tooLong
-  const sending = shadow.isPending || shadow.isSuccess
+  const sending = converting || shadow.isPending || shadow.isSuccess
+
+  // With the pronunciation assessment on, the take is stored as WAV 16 kHz mono: Azure refuses the
+  // webm that Chrome and Edge record and assesses the stored file (D-219). If the browser cannot
+  // convert, the original is sent and the detail page says why it cannot be assessed.
+  async function send(clip: { blob: Blob; durationS: number }) {
+    let blob = clip.blob
+    if (assessmentReady) {
+      setConverting(true)
+      blob = (await convertToWav(clip.blob)) ?? clip.blob
+      setConverting(false)
+    }
+    shadow.mutate(
+      {
+        blob,
+        durationS: clip.durationS,
+        target: sentence,
+        itemId: arrival?.itemId,
+        origin: 'shadowing',
+      },
+      {
+        onSuccess: (result) => {
+          // An unavailable transcription is told on the next page (the reason only).
+          const state =
+            result.transcription.status === 'unavailable'
+              ? { unavailableReason: result.transcription.reason ?? 'all_failed' }
+              : null
+          navigate(`/speaking/shadowing/${result.production_id}`, { replace: true, state })
+        },
+      },
+    )
+  }
 
   return (
     <div className="speaking-page">
@@ -87,27 +122,7 @@ export function ShadowingPage() {
           disabled={!usable}
           sending={sending}
           sendingLabel={t('shadowing.sending')}
-          onSend={(clip) =>
-            shadow.mutate(
-              {
-                blob: clip.blob,
-                durationS: clip.durationS,
-                target: sentence,
-                itemId: arrival?.itemId,
-                origin: 'shadowing',
-              },
-              {
-                onSuccess: (result) => {
-                  // An unavailable transcription is told on the next page (the reason only).
-                  const state =
-                    result.transcription.status === 'unavailable'
-                      ? { unavailableReason: result.transcription.reason ?? 'all_failed' }
-                      : null
-                  navigate(`/speaking/shadowing/${result.production_id}`, { replace: true, state })
-                },
-              },
-            )
-          }
+          onSend={(clip) => void send(clip)}
         />
         {!usable && <p className="muted field-hint">{t('shadowing.needSentence')}</p>}
         {shadow.isError && <ErrorText error={shadow.error} />}

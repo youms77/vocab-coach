@@ -1870,8 +1870,8 @@
     "scoreValue": "{{value}} / 100",
     "noScore": "pas de score",
     "words": "Mot par mot",
-    "wordsHint": "Les mots à travailler sont en tête de la liste ci-dessous, sans dépendre de la couleur ; chacun indique son score et le type de problème.",
-    "wordLine": "{{word}} : {{score}}, {{type}}",
+    "wordsHint": "Chaque mot indique son score et, le cas échéant, le type de problème. Les scores bas sont signalés par des mots, pas seulement par la couleur.",
+    "wordLine": "{{score}}, {{type}}",
     "errorTypes": {
       "None": "correct",
       "Mispronunciation": "mal prononcé",

@@ -1870,8 +1870,8 @@
     "scoreValue": "{{value}} / 100",
     "noScore": "no score",
     "words": "Word by word",
-    "wordsHint": "Words that need attention are listed first in the colour-free list below; each shows its score and the kind of problem.",
-    "wordLine": "{{word}}: {{score}}, {{type}}",
+    "wordsHint": "Each word shows its score and, when there is one, the kind of problem. Lower scores are marked in words, not only by colour.",
+    "wordLine": "{{score}}, {{type}}",
     "errorTypes": {
       "None": "fine",
       "Mispronunciation": "mispronounced",

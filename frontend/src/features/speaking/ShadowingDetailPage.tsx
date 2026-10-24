@@ -12,6 +12,7 @@ import { INTELLIGIBILITY_CODE, type ManualErrorPrefill } from '../errors/prefill
 import { formatDateTime } from '../session/format'
 import { aiReasonText } from '../settings/aiReason'
 import { ErrorText } from '../settings/ErrorText'
+import { AssessmentSection } from './AssessmentSection'
 import { ComparisonView, type LoggedWord } from './ComparisonView'
 import { PlayBoth } from './PlayBoth'
 import { readUnavailableReason } from './shadowTarget'
@@ -224,6 +225,8 @@ export function ShadowingDetailPage() {
               )}
             <p className="muted field-hint">{t('speaking.privacy')}</p>
           </section>
+
+          <AssessmentSection production={production} />
         </>
       )}
     </div>

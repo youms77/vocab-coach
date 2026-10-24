@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { useAiStatus } from './ai'
 import { apiGet, apiSend } from './client'
 import { productionsKey } from './productions'
+import { useSettings } from './settings'
 import type { PronunciationScores } from './speech'
 
 // backend/app/api/speech.py and app/services/pronunciation.py (M6.c1, D-215, D-216).
@@ -45,4 +47,15 @@ export function useAssess() {
       void queryClient.invalidateQueries({ queryKey: pronunciationUsageKey })
     },
   })
+}
+
+/**
+ * True when a new shadowing should be recorded as WAV: the setting is `azure` and a key is saved
+ * (D-211: Azure refuses webm, and it assesses the stored file). False while either is unknown.
+ */
+export function useAssessmentReady(): boolean {
+  const settings = useSettings()
+  const status = useAiStatus()
+  const azure = status.data?.speech_providers?.find((p) => p.name === 'azure')
+  return settings.data?.pronunciation_assessment?.value === 'azure' && azure?.configured === true
 }
