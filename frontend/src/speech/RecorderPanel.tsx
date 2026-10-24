@@ -1,15 +1,17 @@
-import { useId, useRef, useState } from 'react'
+import { useId, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { MAX_UPLOAD_BYTES, formatClock, unsupportedReason, type RecordingUse } from './recorder'
+import { useClipSender } from './useClipSender'
 import { type Clip, useRecorder } from './useRecorder'
 import { cancelSpeech } from './useSpeech'
 
+/** What `useRecorder` returns: the recorder's state and its commands. */
+export type RecorderApi = ReturnType<typeof useRecorder>
+
 /**
- * The voice recorder (D-193): "Start recording" / "Stop recording", then "Listen", "Record again"
- * and "Send". The parent decides what sending means. The state is said in words (a red dot and
- * the text, never the colour alone) and announced politely when it starts and stops; the timer
- * itself is not a live region (it would be read every second).
+ * The voice recorder (D-193): a take, then "Listen", "Record again" and "Send". The parent decides
+ * what sending means. It owns the hook (`Recorder` below is the usual pairing).
  */
 export function Recorder({
   use,
@@ -27,23 +29,64 @@ export function Recorder({
   /** Nothing can start (the parent is busy or has nothing to record yet). */
   disabled?: boolean
 }) {
+  const recorder = useRecorder(use)
+  const sender = useClipSender(onSend)
+  return (
+    <RecorderView
+      recorder={recorder}
+      use={use}
+      onSend={sender.send}
+      tooLarge={sender.tooLarge}
+      onAgain={sender.clear}
+      sending={sending}
+      sendLabel={sendLabel}
+      sendingLabel={sendingLabel}
+      disabled={disabled}
+    />
+  )
+}
+
+/**
+ * The presentation of a recorder (D-193, D-206): "Start recording" / "Stop recording", then
+ * "Listen", "Record again" and "Send". The state is said in words (a red dot and the text, never
+ * the colour alone) and announced politely when it starts and stops; the timer itself is not a
+ * live region (it would be read every second). The review player owns the hook itself, because
+ * its keys (Space, Enter) must drive the recorder too.
+ */
+export function RecorderView({
+  recorder,
+  use,
+  onSend,
+  tooLarge = false,
+  onAgain,
+  sending = false,
+  sendLabel,
+  sendingLabel,
+  disabled = false,
+}: {
+  recorder: RecorderApi
+  use: RecordingUse
+  onSend: (clip: Clip) => void
+  /** The last clip was over the upload limit (the parent's `useClipSender`). */
+  tooLarge?: boolean
+  /** "Record again" was clicked (the parent clears what it holds about the take). */
+  onAgain?: () => void
+  sending?: boolean
+  sendLabel?: string
+  sendingLabel?: string
+  /** Nothing can start (the parent is busy or has nothing to record yet). */
+  disabled?: boolean
+}) {
   const { t, i18n } = useTranslation()
   const number = (value: number) => value.toLocaleString(i18n.language)
-  const recorder = useRecorder(use)
   const audio = useRef<HTMLAudioElement>(null)
   const hintId = useId()
-  const [tooLarge, setTooLarge] = useState(false)
   const { limits, status, clip } = recorder
   const unsupported = unsupportedReason()
   const error = recorder.reason ?? unsupported
 
   function send() {
     if (clip === null || recorder.tooShort || sending) return
-    if (clip.blob.size > MAX_UPLOAD_BYTES) {
-      setTooLarge(true)
-      return
-    }
-    setTooLarge(false)
     onSend(clip)
   }
 
@@ -57,7 +100,7 @@ export function Recorder({
   }
 
   function again() {
-    setTooLarge(false)
+    onAgain?.()
     recorder.reset()
   }
 

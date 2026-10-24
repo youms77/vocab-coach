@@ -222,7 +222,9 @@ export function useRecorder(use: RecordingUse) {
     /** The long-take warning of free speaking (120 s): shown while recording past it. */
     warning: state.status === 'recording' && limits.warnAt !== null && seconds >= limits.warnAt,
     limits,
-    start: () => void start(),
+    start: (): void => {
+      void start()
+    },
     stop,
     reset: cancel,
   }
