@@ -451,7 +451,7 @@ describe('Shadowing: the top bar', () => {
 
     const nav = await screen.findByRole('navigation', { name: 'Main' })
     const link = within(nav).getByRole('link', { name: 'Speaking' })
-    expect(link).toHaveAttribute('href', '/speaking/shadowing')
+    expect(link).toHaveAttribute('href', '/speaking')
     // The current section is marked in the bar.
     expect(link).toHaveAttribute('aria-current', 'page')
     await user.selectOptions(screen.getByLabelText('Language'), 'fr')

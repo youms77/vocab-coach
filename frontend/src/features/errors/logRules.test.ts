@@ -21,9 +21,14 @@ describe('productionLink', () => {
     expect(productionLink(row({ source: 'drill', production_attempt_id: null }))).toBeNull()
   })
 
+  it('sends a speaking error to its speech (a review error of a spoken answer goes through /writing)', () => {
+    expect(productionLink(row({ source: 'speaking', production_attempt_id: 9 }))).toBe('/speaking/9')
+    expect(productionLink(row({ source: 'review', production_attempt_id: 9 }))).toBe('/writing/9')
+  })
+
   it('has no link without a production or for the sources that have no page yet', () => {
     expect(productionLink(row({ source: 'transcript', production_attempt_id: null }))).toBeNull()
     expect(productionLink(row({ source: 'manual', production_attempt_id: null }))).toBeNull()
-    expect(productionLink(row({ source: 'speaking', production_attempt_id: 3 }))).toBeNull()
+    expect(productionLink(row({ source: 'speaking', production_attempt_id: null }))).toBeNull()
   })
 })

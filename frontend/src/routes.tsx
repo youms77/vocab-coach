@@ -22,6 +22,9 @@ import { SettingsPage } from './features/settings/SettingsPage'
 import { ShadowingDetailPage } from './features/speaking/ShadowingDetailPage'
 import { ShadowingHistoryPage } from './features/speaking/ShadowingHistoryPage'
 import { ShadowingPage } from './features/speaking/ShadowingPage'
+import { SpeakingDetailPage } from './features/speaking/SpeakingDetailPage'
+import { SpeakingHistoryPage } from './features/speaking/SpeakingHistoryPage'
+import { SpeakingPage } from './features/speaking/SpeakingPage'
 import { TranscriptDetailPage } from './features/transcripts/TranscriptDetailPage'
 import { TranscriptHistoryPage } from './features/transcripts/TranscriptHistoryPage'
 import { TranscriptPage } from './features/transcripts/TranscriptPage'
@@ -48,6 +51,9 @@ export const routes: RouteObject[] = [
       { path: 'writing', element: <WritingPage /> },
       { path: 'writing/history', element: <WritingHistoryPage /> },
       { path: 'writing/:id', element: <WritingDetailPage /> },
+      { path: 'speaking', element: <SpeakingPage /> },
+      { path: 'speaking/history', element: <SpeakingHistoryPage /> },
+      { path: 'speaking/:id', element: <SpeakingDetailPage /> },
       { path: 'speaking/shadowing', element: <ShadowingPage /> },
       { path: 'speaking/shadowing/history', element: <ShadowingHistoryPage /> },
       { path: 'speaking/shadowing/:id', element: <ShadowingDetailPage /> },

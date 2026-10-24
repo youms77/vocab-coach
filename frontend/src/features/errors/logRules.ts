@@ -3,16 +3,19 @@ import { findFragment } from './fragment'
 
 /**
  * Where a logged error's text can be reopened. `ErrorOut` has no production kind, so the source
- * tells: a `writing` or `review` error comes from a written production (`/writing/{id}`), a
- * `transcript` error from an analysed conversation (`/transcripts/{id}`, M5.c1), a `drill` error
- * from its drill (`/drills/{id}`, M5.c2: the service gives the error the drill's own id as
- * `production_attempt_id`); a speaking or a consolidation error has no page yet.
+ * tells: a `writing` or `review` error comes from a written production (`/writing/{id}`; a
+ * review error may come from a spoken answer, and that page redirects to `/speaking/{id}`), a
+ * `speaking` error from a free speech (`/speaking/{id}`, M6.b2), a `transcript` error from an
+ * analysed conversation (`/transcripts/{id}`, M5.c1), a `drill` error from its drill
+ * (`/drills/{id}`, M5.c2: the service gives the error the drill's own id as
+ * `production_attempt_id`); a consolidation error has no page yet.
  */
 export function productionLink(error: ErrorOut): string | null {
   if (error.production_attempt_id === null) return null
   if (error.source === 'writing' || error.source === 'review') {
     return `/writing/${error.production_attempt_id}`
   }
+  if (error.source === 'speaking') return `/speaking/${error.production_attempt_id}`
   if (error.source === 'transcript') return `/transcripts/${error.production_attempt_id}`
   return error.source === 'drill' ? `/drills/${error.production_attempt_id}` : null
 }

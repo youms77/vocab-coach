@@ -1,16 +1,19 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { MAX_PROMPT_CHARS, TOPIC_TAGS, type TopicTag, useWritingTopics } from '../../api/productions'
+import { MAX_PROMPT_CHARS } from '../../api/productions'
 import { ErrorText } from '../settings/ErrorText'
+import { type PickerNamespace, type TopicSource, WRITING_TOPICS } from './topicSource'
 
 function Topic({
+  ns,
   id,
   en,
   fr,
   chosen,
   onChoose,
 }: {
+  ns: PickerNamespace
   id: string
   en: string
   fr: string
@@ -32,7 +35,7 @@ function Topic({
       )}
       <div className="topic__actions">
         <button type="button" className="button button--small" aria-pressed={chosen} onClick={onChoose}>
-          {chosen ? t('writing.topics.chosen') : t('writing.topics.use')}
+          {chosen ? t(`${ns}.chosen`) : t(`${ns}.use`)}
         </button>
         <button
           type="button"
@@ -50,20 +53,25 @@ function Topic({
 
 /**
  * Today's suggested topics (the same all day) or the user's own. The value is the prompt sent
- * with the text: the English text of the topic, or what the user typed.
+ * with the text (or the recording): the English text of the topic, or what the user typed.
+ * `source` says which topics and which wording: the writing page's (the default) or the speaking
+ * page's.
  */
 export function TopicPicker({
   value,
   onChange,
+  source = WRITING_TOPICS,
 }: {
   value: string | null
   onChange: (prompt: string | null) => void
+  source?: TopicSource
 }) {
   const { t } = useTranslation()
-  const [tag, setTag] = useState<TopicTag | ''>('')
+  const { ns } = source
+  const [tag, setTag] = useState('')
   const [own, setOwn] = useState(false)
   const [ownText, setOwnText] = useState('')
-  const topics = useWritingTopics(tag)
+  const topics = source.useTopics(tag)
   const tagId = useId()
   const ownId = useId()
 
@@ -80,29 +88,30 @@ export function TopicPicker({
 
   return (
     <section className="card" aria-labelledby={`${tagId}-title`}>
-      <h2 id={`${tagId}-title`}>{t('writing.topics.title')}</h2>
-      <p className="muted">{t('writing.topics.intro')}</p>
+      <h2 id={`${tagId}-title`}>{t(`${ns}.title`)}</h2>
+      <p className="muted">{t(`${ns}.intro`)}</p>
       <div className="field">
-        <label htmlFor={tagId}>{t('writing.topics.theme')}</label>
-        <select id={tagId} value={tag} onChange={(event) => setTag(event.target.value as TopicTag | '')}>
-          <option value="">{t('writing.topics.allThemes')}</option>
-          {TOPIC_TAGS.map((name) => (
+        <label htmlFor={tagId}>{t(`${ns}.theme`)}</label>
+        <select id={tagId} value={tag} onChange={(event) => setTag(event.target.value)}>
+          <option value="">{t(`${ns}.allThemes`)}</option>
+          {source.tags.map((name) => (
             <option key={name} value={name}>
-              {t(`writing.topics.tags.${name}`)}
+              {source.tagLabel(t, name)}
             </option>
           ))}
         </select>
       </div>
-      {topics.isPending && <p className="muted">{t('writing.topics.loading')}</p>}
+      {topics.isPending && <p className="muted">{t(`${ns}.loading`)}</p>}
       {topics.isError && <ErrorText error={topics.error} />}
       {topics.isSuccess && topics.data.length === 0 && (
-        <p className="muted">{t('writing.topics.empty')}</p>
+        <p className="muted">{t(`${ns}.empty`)}</p>
       )}
       {topics.isSuccess && topics.data.length > 0 && (
         <ul className="topics">
           {topics.data.map((topic) => (
             <Topic
               key={topic.id}
+              ns={ns}
               id={topic.id}
               en={topic.en}
               fr={topic.fr}
@@ -117,12 +126,12 @@ export function TopicPicker({
       )}
       <p>
         <button type="button" className="button" aria-expanded={own} onClick={toggleOwn}>
-          {t('writing.topics.own')}
+          {t(`${ns}.own`)}
         </button>
       </p>
       {own && (
         <div className="field">
-          <label htmlFor={ownId}>{t('writing.topics.ownLabel', { max: MAX_PROMPT_CHARS })}</label>
+          <label htmlFor={ownId}>{t(`${ns}.ownLabel`, { max: MAX_PROMPT_CHARS })}</label>
           <input
             id={ownId}
             type="text"
@@ -138,7 +147,7 @@ export function TopicPicker({
       )}
       {value !== null && (
         <p role="status" className="topic-chosen">
-          <strong>{t('writing.topics.current')}</strong> <span lang="en">{value}</span>{' '}
+          <strong>{t(`${ns}.current`)}</strong> <span lang="en">{value}</span>{' '}
           <button
             type="button"
             className="button button--small"
@@ -148,7 +157,7 @@ export function TopicPicker({
               onChange(null)
             }}
           >
-            {t('writing.topics.clear')}
+            {t(`${ns}.clear`)}
           </button>
         </p>
       )}
