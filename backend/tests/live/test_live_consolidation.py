@@ -5,7 +5,7 @@ example text `content/examples/m7_consolidation.txt`.
 
 Two to four requests. A quota or a rate limit gives a skip, not a failure. The example uses eight
 terms of the demo's "Causal inference reading" deck: six used well, "noisy estimate" used wrongly
-(the verb does not agree), "underpowered" forgotten. When the model disagrees, the prompt is
+(a noun used as a verb), "underpowered" forgotten. When the model disagrees, the prompt is
 adjusted, never the test (D-132).
 """
 
