@@ -38,7 +38,7 @@ from app.ai.schemas.speaking_correction import Mode, SpeakingCorrectionOutput, s
 from app.ai.tasks import speaking_output_budget
 from app.ai.types import AiResult, AiStatus
 from app.db.base import utcnow
-from app.domain.enums import ErrorSource, ProductionKind
+from app.domain.enums import ErrorSource, Modality, ProductionKind
 from app.domain.events import ProductionOrigin
 from app.domain.speech_rules import MAX_SPEAKING_CHARS, RecordingKind, speech_units
 from app.domain.study_day import as_utc
@@ -198,17 +198,27 @@ class PreparedSpeech:
 
 
 def mode_and_source(session: Session, attempt_id: int) -> tuple[Mode, ErrorSource]:
-    """`answer` and `review` for a spoken answer of a review, else `monologue` and `speaking`."""
-    if corrections.recorded_origin(session, attempt_id) == ProductionOrigin.REVIEW.value:
+    """`answer` and `review` for a spoken answer of a review, `monologue` and `consolidation` for
+    the talk of a consolidation task, else `monologue` and `speaking`."""
+    origin = corrections.recorded_origin(session, attempt_id)
+    if origin == ProductionOrigin.REVIEW.value:
         return "answer", ErrorSource.REVIEW
+    if origin == ProductionOrigin.CONSOLIDATION.value:
+        return "monologue", ErrorSource.CONSOLIDATION
     return "monologue", ErrorSource.SPEAKING
 
 
-def prepare_speaking(session: Session, attempt_id: int) -> PreparedSpeech:
-    """Everything the call needs, refused before any AI call. Raises ProductionNotFound,
+def prepare_speaking(
+    session: Session,
+    attempt_id: int,
+    *,
+    kinds: tuple[ProductionKind, ...] = (ProductionKind.SPEAKING,),
+) -> PreparedSpeech:
+    """Everything the call needs, refused before any AI call (`kinds`: the production kinds
+    accepted, free speaking by default). Raises ProductionNotFound,
     NotCorrectable, AlreadyCorrected, NotTranscribed, NothingToCorrect, TextTooLongError."""
     attempt = productions.get_production(session, attempt_id)
-    if attempt.kind is not ProductionKind.SPEAKING:
+    if attempt.kind not in kinds or attempt.modality is not Modality.ORAL:
         raise NotCorrectable("Only a spoken production can be corrected here.")
     if attempt.ai_feedback is not None:
         raise AlreadyCorrected("This production was already corrected.")
@@ -245,13 +255,16 @@ def correct_speaking(
     gateway: Gateway,
     attempt_id: int,
     *,
+    kinds: tuple[ProductionKind, ...] = (ProductionKind.SPEAKING,),
+    after_store: corrections.AfterStore | None = None,
     clock: Callable[[], datetime] = utcnow,
 ) -> CorrectionResult:
-    """Correct a transcribed spoken production (see the module docstring). Raises
+    """Correct a transcribed spoken production (see the module docstring; `after_store` runs in
+    the writing transaction, M7.a2). Raises
     ProductionNotFound, NotCorrectable, AlreadyCorrected, NotTranscribed, NothingToCorrect,
     TextTooLongError. An AI failure is a result: nothing is written."""
     with session_factory() as session:
-        speech_to_correct = prepare_speaking(session, attempt_id)
+        speech_to_correct = prepare_speaking(session, attempt_id, kinds=kinds)
         session.rollback()  # nothing stays open during the AI call
     prepared, mode = speech_to_correct.correction, speech_to_correct.mode
     result = gateway.generate_json(
@@ -282,6 +295,8 @@ def correct_speaking(
             ai_call_id=result.call_id,
             at=as_utc(clock()),
         )
+        if after_store is not None:
+            written.after = after_store(session)
         session.commit()
     return CorrectionResult(
         "ok",
@@ -289,4 +304,5 @@ def correct_speaking(
         attempt_id,
         error_ids=written.error_ids,
         proposed_category_ids=written.proposed_ids,
+        consolidation=written.after,
     )

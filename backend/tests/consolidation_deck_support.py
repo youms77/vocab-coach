@@ -15,13 +15,15 @@ def ready_deck(
     *,
     name: str = "Causal inference reading",
     stability: float | Callable[[int], float] = 12.0,
+    terms: list[str] | None = None,
 ) -> tuple[Deck, list[LexicalItem]]:
     """A deck whose `count` terms are consolidated, each with a productive card of `stability`
-    days (a number, or a function of the position)."""
+    days (a number, or a function of the position); `terms` names them (default "term number N")."""
     deck = add_deck(session, name)
     items = []
     for n in range(count):
-        item = add_item(session, f"term number {n + 1}", ItemStatus.CONSOLIDATED)
+        term = terms[n] if terms else f"term number {n + 1}"
+        item = add_item(session, term, ItemStatus.CONSOLIDATED)
         link(session, deck, item)
         add_sheet(session, item)
         card = add_card(session, item)

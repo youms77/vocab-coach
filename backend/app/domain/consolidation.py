@@ -321,3 +321,27 @@ def template_task(
             for i, section in enumerate(template.sections)
         ],
     }
+
+
+# --- Applying the result of a production (M7.a2) ------------------------------------------------
+
+
+class TargetOutcome(StrEnum):
+    CORRECT = "correct"  # used, judged correct, no error tied to the term
+    MISUSED = "misused"  # used, but judged wrong or with an error tied to the term
+    ABSENT = "absent"  # not in the text (or not heard)
+    UNKNOWN = "unknown"  # no verdict (the correction did not check it): nothing changes
+
+
+def classify_target(
+    *, used: bool | None, used_correctly: bool | None, has_error: bool
+) -> TargetOutcome:
+    """What a production says about one target term. A term is correct only when the text uses it,
+    the AI judges the use correct and the correction logged no error tied to the term."""
+    if used is None:
+        return TargetOutcome.UNKNOWN
+    if not used:
+        return TargetOutcome.ABSENT
+    if used_correctly is False or has_error:
+        return TargetOutcome.MISUSED
+    return TargetOutcome.CORRECT if used_correctly else TargetOutcome.UNKNOWN

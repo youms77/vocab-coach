@@ -27,7 +27,15 @@ from app.db.models import ErrorCategory, ErrorEvent, ProductionAttempt
 from app.domain.enums import Modality, ProductionKind
 from app.domain.events import ProductionOrigin
 from app.domain.transcript_import import MAX_PASTED_CHARS, UserByLabel, UserByMode
-from app.services import corrections, productions, pronunciation, speaking, speech, transcripts
+from app.services import (
+    consolidation_attempts,
+    corrections,
+    productions,
+    pronunciation,
+    speaking,
+    speech,
+    transcripts,
+)
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
@@ -203,6 +211,10 @@ class CorrectionOut(BaseModel):
     attempt: ProductionOut
     errors: list[ErrorOut]
     proposed_categories: list[ProposedCategoryOut]  # new categories waiting for your decision
+    # A consolidation production (M7.a2), once corrected: what happened to the terms of the task
+    # (`task_id`, `production_attempt_id`, `modality`, `targets`, `used`, `used_correctly`,
+    # `misused`, `absent`, `activated_item_ids`, `reinforced_card_ids`); null otherwise.
+    consolidation: dict[str, Any] | None = None
 
 
 def correction_out(session: Session, result: corrections.CorrectionResult) -> CorrectionOut:
@@ -226,6 +238,7 @@ def correction_out(session: Session, result: corrections.CorrectionResult) -> Co
         )
     }
     return CorrectionOut(
+        consolidation=result.consolidation,
         status=result.status,
         reason=str(result.reason) if result.reason is not None else None,
         attempt=production_out(session, attempt),
@@ -290,6 +303,10 @@ def correct(
         )
     elif transcript is not None:
         raise transcripts.NotATranscript("Only a transcript takes a transcript body.")
+    elif kind is ProductionKind.CONSOLIDATION:
+        result = consolidation_attempts.correct_consolidation(
+            factory, gateway, production_id, clock=lambda: now
+        )
     elif kind is ProductionKind.SPEAKING:
         result = speaking.correct_speaking(factory, gateway, production_id, clock=lambda: now)
     else:

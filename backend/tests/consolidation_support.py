@@ -84,3 +84,66 @@ def broken(change: str) -> dict[str, Any]:
         case _:
             raise ValueError(change)
     return output
+
+
+TERMS = [
+    "shed light on",
+    "causal effect",
+    "control for",
+    "confounder",
+    "treatment group",
+    "sample size",
+    "fixed effects",
+    "robust to",
+    "selection bias",
+    "standard error",
+]
+# Eight terms used well, "selection bias" used wrongly (the verb does not agree), the last absent.
+TEXT = (
+    "In this reading the authors want to shed light on a causal effect. "
+    "They control for a confounder in every model. "
+    "The treatment group is compared with a control group and the sample size is large. "
+    "Fixed effects are robust to many problems. "
+    "Selection bias are a big problem."
+)
+WRONG = "Selection bias are"
+MISUSED_REF = 8
+
+
+def corrected_output(text: str = TEXT, *, misused: bool = True, checks: bool = True) -> dict:
+    """A valid `production_correction` answer for `TEXT`: one error tied to "selection bias"."""
+    from app.domain.sentences import split_sentences
+    from tests.correction_support import error
+
+    sentences = split_sentences(text)
+    last = sentences[-1].index
+    errors = (
+        [error(last, WRONG, "Selection bias is", "lexis.wrong_word", target_ref=MISUSED_REF)]
+        if misused
+        else []
+    )
+    target_checks = []
+    if checks:
+        for ref in range(9):
+            wrong = misused and ref == MISUSED_REF
+            target_checks.append(
+                {"ref": ref, "used": True, "used_correctly": not wrong, "comment": ""}
+            )
+    return {
+        "sentences": [
+            {
+                "index": s.index,
+                "corrected": "Selection bias is a big problem."
+                if misused and s.index == last
+                else s.text,
+                "status": "corrected" if misused and s.index == last else "correct",
+            }
+            for s in sentences
+        ],
+        "corrected_text": text,
+        "natural_text": text,
+        "errors": errors,
+        "naturalness_notes": [],
+        "targets": target_checks,
+        "overall_comment": "Clear. Watch the agreement.",
+    }

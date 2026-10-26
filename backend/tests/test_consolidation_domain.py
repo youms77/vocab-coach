@@ -15,6 +15,7 @@ from app.domain.consolidation import (
     TaskType,
     api_status,
     can_transition,
+    classify_target,
     clamp_ratio,
     db_status,
     deck_readiness,
@@ -209,3 +210,21 @@ def test_template_task_spreads_terms_in_turn(templates) -> None:
     assert "Causal inference reading" in task["title_en"] + task["prompt_en"]
     assert "{deck}" not in str(task) and "{domain}" not in str(task)
     assert task["task_type"] == "talk"
+
+
+@pytest.mark.parametrize(
+    ("used", "correctly", "error", "outcome"),
+    [
+        (True, True, False, "correct"),
+        (True, True, True, "misused"),  # the AI says correct but logged an error on the term
+        (True, False, False, "misused"),
+        (True, None, False, "unknown"),  # no verdict
+        (True, None, True, "misused"),
+        (False, False, False, "absent"),
+        (False, None, True, "absent"),
+        (None, None, False, "unknown"),
+    ],
+)
+def test_classify_target(used, correctly, error, outcome) -> None:
+    result = classify_target(used=used, used_correctly=correctly, has_error=error)
+    assert result.value == outcome

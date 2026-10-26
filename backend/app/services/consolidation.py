@@ -39,6 +39,8 @@ from app.db.models import (
     ConsolidationTaskItem,
     Deck,
     DeckItem,
+    ErrorEvent,
+    EventLog,
     LexicalItem,
     ProductionAttempt,
     Source,
@@ -54,7 +56,12 @@ from app.domain.consolidation import (
     TaskType,
 )
 from app.domain.enums import CardDirection, ConsolidationTaskStatus, ItemStatus
-from app.domain.events import ConsolidationTaskCreated, ConsolidationTaskStatusChanged
+from app.domain.events import (
+    ConsolidationAttemptChecked,
+    ConsolidationTaskCreated,
+    ConsolidationTaskStatusChanged,
+    EventType,
+)
 from app.domain.study_day import as_utc
 from app.domain.usage_sheet import read_sheet
 from app.services.library import DeckNotFound, LibraryError
@@ -558,3 +565,132 @@ def export_markdown(session: Session, task: ConsolidationTask, lang: Literal["en
     for number, text in enumerate(texts.instructions[lang], start=1):
         lines.append(f"{number}. {text}")
     return "\n".join(lines) + "\n"
+
+
+# --- Productions of a task (M7.a2) ---------------------------------------------------------------
+
+
+class TaskClosed(LibraryError):
+    """The task is `completed` or `dismissed`: it takes no new attempt."""
+
+    status, code = 409, "task_closed"
+
+
+def ensure_open(session: Session, task_id: int) -> ConsolidationTask:
+    """The task, if it still takes attempts. Raises TaskNotFound, TaskClosed."""
+    task = get_task(session, task_id)
+    if task.status not in rules.OPEN_STATUSES:
+        raise TaskClosed(
+            "This task is closed: start a new one.",
+            task_status=rules.api_status(task.status).value,
+        )
+    return task
+
+
+def note_attempt(session: Session, task_id: int, at: datetime) -> None:
+    """The first attempt on a `proposed` task makes it `accepted`, in the transaction that
+    creates the attempt. Raises TaskNotFound, TaskClosed."""
+    task = ensure_open(session, task_id)
+    if task.status is ConsolidationTaskStatus.PROPOSED:
+        change_status(session, task_id, TaskStatus.ACCEPTED, at=at)
+
+
+def apply_result(session: Session, attempt_id: int, at: datetime) -> dict[str, Any] | None:
+    """Apply a corrected consolidation production to the terms of its task, in the caller's
+    transaction (the one that stores the correction; no commit). Per term (D-229):
+
+    - used correctly (`used`, `used_correctly`, no error tied to the term): `learning` or
+      `consolidated` becomes `active`; `active` stays; `archived` and `known` are ignored;
+    - used wrongly: a FSRS Again on the productive card (`consolidation_misuse`, no
+      `production_attempt_id`: the unique index of D-127 allows one review per production);
+    - absent, not heard, or without a verdict: nothing.
+
+    Writes `consolidation.attempt_checked` and returns its payload (None for a production that is
+    not a task's, or already applied).
+    """
+    from app.services import productions  # late: productions does not import this module
+    from app.services.items import mark_active
+    from app.services.reviews import ReviewNotAllowed, record_review
+
+    attempt = session.get(ProductionAttempt, attempt_id)
+    if attempt is None or attempt.consolidation_task_id is None:
+        return None
+    already = session.scalar(
+        select(EventLog.id).where(
+            EventLog.event_type == EventType.CONSOLIDATION_ATTEMPT_CHECKED.value,
+            EventLog.payload["production_attempt_id"].as_integer() == attempt_id,
+        )
+    )
+    if already is not None:
+        return None
+    at = as_utc(at)
+    tied = set(
+        session.scalars(
+            select(ErrorEvent.lexical_item_id).where(
+                ErrorEvent.production_attempt_id == attempt_id,
+                ErrorEvent.lexical_item_id.is_not(None),
+            )
+        )
+    )
+    activated: list[int] = []
+    reinforced: list[int] = []
+    counts = {"used": 0, "correct": 0, "misused": 0, "absent": 0}
+    rows = productions.targets_of(session, attempt_id)
+    for target, item in rows:
+        outcome = rules.classify_target(
+            used=target.used,
+            used_correctly=target.used_correctly,
+            has_error=item.id in tied,
+        )
+        if target.used:
+            counts["used"] += 1
+        if outcome is rules.TargetOutcome.ABSENT:
+            counts["absent"] += 1
+        elif outcome is rules.TargetOutcome.CORRECT:
+            counts["correct"] += 1
+            if item.status in (ItemStatus.LEARNING, ItemStatus.CONSOLIDATED):
+                mark_active(session, item, at)
+                activated.append(item.id)
+        elif outcome is rules.TargetOutcome.MISUSED:
+            counts["misused"] += 1
+            if item.status in (ItemStatus.LEARNING, ItemStatus.CONSOLIDATED, ItemStatus.ACTIVE):
+                card = session.scalar(
+                    select(Card).where(
+                        Card.lexical_item_id == item.id,
+                        Card.direction == CardDirection.PRODUCTIVE,
+                    )
+                )
+                if card is not None:
+                    try:
+                        record_review(
+                            session,
+                            card,
+                            1,
+                            at,
+                            None,
+                            "consolidation_misuse",
+                            auto_rating=1,
+                            study_session_id=attempt.study_session_id,
+                        )
+                    except ReviewNotAllowed:
+                        continue
+                    reinforced.append(card.id)
+    summary: dict[str, Any] = {
+        "task_id": attempt.consolidation_task_id,
+        "production_attempt_id": attempt_id,
+        "modality": attempt.modality.value,
+        "targets": len(rows),
+        "used": counts["used"],
+        "used_correctly": counts["correct"],
+        "misused": counts["misused"],
+        "absent": counts["absent"],
+        "activated_item_ids": activated,
+        "reinforced_card_ids": reinforced,
+    }
+    record_event(
+        session,
+        ConsolidationAttemptChecked(**summary),
+        occurred_at=at,
+        study_session_id=attempt.study_session_id,
+    )
+    return summary

@@ -275,6 +275,7 @@ class Recording:
     item_ids: tuple[int, ...]
     origin: ProductionOrigin
     study_session_id: int | None
+    consolidation_task_id: int | None = None  # a talk of a consolidation task (M7.a2)
 
 
 def _check(session: Session, recording: Recording, check: Check | None) -> None:
@@ -317,11 +318,16 @@ def _insert(
         audio_seconds=duration_s,
         word_count=0,
         study_session_id=recording.study_session_id,
+        consolidation_task_id=recording.consolidation_task_id,
         created_at=at,
         updated_at=at,
     )
     session.add(attempt)
     session.flush()
+    if recording.consolidation_task_id is not None:
+        from app.services import consolidation  # late: that module does not import this one
+
+        consolidation.note_attempt(session, recording.consolidation_task_id, at)
     for item_id in recording.item_ids:
         session.add(ProductionTarget(production_attempt_id=attempt.id, lexical_item_id=item_id))
     record_event(
@@ -363,7 +369,8 @@ def store_transcription(
     if output.duration_s is not None:
         attempt.audio_seconds = output.duration_s  # the provider's measure wins (D-171)
     attempt.text = "" if silence else text
-    if attempt.kind is ProductionKind.SPEAKING:  # the learner's own words (D-175: not a shadowing)
+    # The learner's own words (D-175: not a shadowing).
+    if attempt.kind in (ProductionKind.SPEAKING, ProductionKind.CONSOLIDATION):
         attempt.word_count = 0 if silence else len(heard)
     attempt.updated_at = at
     provider = result.provider or "unknown"

@@ -68,6 +68,7 @@ class EventType(StrEnum):
     DRILL_COMPLETED = "drill.completed"
     CONSOLIDATION_TASK_CREATED = "consolidation.task_created"
     CONSOLIDATION_TASK_STATUS_CHANGED = "consolidation.task_status_changed"
+    CONSOLIDATION_ATTEMPT_CHECKED = "consolidation.attempt_checked"
     SESSION_STARTED = "session.started"
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
@@ -374,6 +375,7 @@ class ProductionOrigin(StrEnum):
     TRANSCRIPT = "transcript"  # the user's turns of a pasted conversation transcript (M5.a2)
     SHADOWING = "shadowing"  # a sentence repeated after the speech synthesis (module F, M6.a1)
     SPEAKING = "speaking"  # free speaking on a topic (module F, M6.a2)
+    CONSOLIDATION = "consolidation"  # the production of a consolidation task (module G, M7.a2)
 
 
 class ProductionRecorded(Event):
@@ -382,10 +384,11 @@ class ProductionRecorded(Event):
     the conversation (never any text). Version 4 (M6.a1) adds the `shadowing` origin, and the
     `discovery` origin on a spoken production; `audio_seconds` is the duration the recorder
     measured. Version 5 (M6.a2) adds the `speaking` origin (free speaking); a spoken answer in a
-    review is a `speaking` production with the `review` origin."""
+    review is a `speaking` production with the `review` origin. Version 6 (M7.a2) adds the
+    `consolidation` origin (written, or spoken with the `consolidation` kind)."""
 
     event_type = EventType.PRODUCTION_RECORDED
-    payload_version = 5
+    payload_version = 6
     entity_type = "production_attempt"
     entity_id_field = "production_attempt_id"
 
@@ -662,6 +665,28 @@ class ConsolidationTaskStatusChanged(Event):
     task_id: Id
     from_status: Literal["proposed", "accepted", "completed", "dismissed"]
     to_status: Literal["proposed", "accepted", "completed", "dismissed"]
+
+
+class ConsolidationAttemptChecked(Event):
+    """The result of a consolidation production applied to the terms of its task (M7.a2): counts
+    and ids only, no text. `targets` = terms of the task; `used` = found in the text;
+    `used_correctly` = used with no error; `misused` = used wrongly (their card got an Again);
+    `absent` = not used (or not heard)."""
+
+    event_type = EventType.CONSOLIDATION_ATTEMPT_CHECKED
+    entity_type = "consolidation_task"
+    entity_id_field = "task_id"
+
+    task_id: Id
+    production_attempt_id: Id
+    modality: Modality
+    targets: Annotated[int, Field(ge=0)]
+    used: Annotated[int, Field(ge=0)]
+    used_correctly: Annotated[int, Field(ge=0)]
+    misused: Annotated[int, Field(ge=0)]
+    absent: Annotated[int, Field(ge=0)]
+    activated_item_ids: list[Id]
+    reinforced_card_ids: list[Id]
 
 
 # --- Sessions and settings ---------------------------------------------------------------------

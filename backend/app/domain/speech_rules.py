@@ -41,6 +41,7 @@ class RecordingKind(StrEnum):
     SHADOWING = "shadowing"  # a sentence repeated after the speech synthesis
     SPEAKING = "speaking"  # free speaking on a topic (SPEC: 1 to 2 minutes, up to 3 accepted)
     SPOKEN_ANSWER = "spoken_answer"  # the answer to the question of a mature productive card
+    CONSOLIDATION = "consolidation"  # the talk of a consolidation task (module G, M7.a2)
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,9 @@ DURATION_BOUNDS: dict[RecordingKind, DurationBounds] = {
     RecordingKind.SPEAKING: DurationBounds(min_s=5.0, max_s=180.0),
     # One answer to one question: a few words to a minute and a half.
     RecordingKind.SPOKEN_ANSWER: DurationBounds(min_s=1.0, max_s=90.0),
+    # A talk of 2 to 4 minutes for 8 to 15 terms; 240 s are about 3 800 characters, under
+    # `MAX_SPEAKING_CHARS`.
+    RecordingKind.CONSOLIDATION: DurationBounds(min_s=20.0, max_s=240.0),
 }
 
 

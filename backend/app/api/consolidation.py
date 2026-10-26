@@ -20,11 +20,12 @@ from sqlalchemy.orm import Session
 from app.ai import Gateway, get_gateway
 from app.api.clock import NowDep
 from app.api.errors import require_database
+from app.api.productions import ProductionOut, production_out
 from app.db.engine import get_engine, get_session
 from app.db.models import ConsolidationTask, Deck, LexicalItem, ProductionTarget
 from app.domain import consolidation as rules
 from app.domain.consolidation import NotReadyReason, TaskStatus, TaskType
-from app.services import consolidation
+from app.services import consolidation, consolidation_attempts
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
@@ -276,3 +277,27 @@ def export_task(task_id: int, session: SessionDep, lang: Literal["en", "fr"] = "
             "Content-Disposition": f'attachment; filename="consolidation-task-{task_id}-{lang}.md"'
         },
     )
+
+
+class WrittenAttemptRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: Annotated[str, Field(min_length=1, max_length=4000)]
+    study_session_id: int | None = None
+
+
+@router.post(
+    "/consolidation/tasks/{task_id}/attempts/written", status_code=201, tags=["consolidation"]
+)
+def write_attempt(
+    task_id: int, body: WrittenAttemptRequest, session: SessionDep, now: NowDep
+) -> ProductionOut:
+    """The written text of a task (at most 4 000 characters and 40 sentences). Nothing is
+    corrected yet: call `POST /productions/{id}/correct`, which also applies the result to the
+    terms (`consolidation` in its answer). The first attempt makes a `proposed` task `accepted`;
+    409 `task_closed` on a `completed` or `dismissed` task."""
+    attempt = consolidation_attempts.record_written(
+        session, task_id, text=body.text, study_session_id=body.study_session_id, at=now
+    )
+    session.commit()
+    return production_out(session, attempt)

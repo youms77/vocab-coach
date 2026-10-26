@@ -39,6 +39,7 @@ from app.domain.speech_rules import (
 )
 from app.domain.topics import DEFAULT_COUNT, MAX_COUNT
 from app.services import (
+    consolidation_attempts,
     productions,
     pronunciation,
     speaking,
@@ -296,6 +297,49 @@ def create_speaking(
         duration_s=duration_s,
         prompt_text=prompt_text,
         target_item_ids=target_item_ids or [],
+        study_session_id=study_session_id,
+        clock=lambda: now,
+    )
+    return _speech_response(engine, result)
+
+
+_CONSOLIDATION = DURATION_BOUNDS[RecordingKind.CONSOLIDATION]
+
+
+@router.post(
+    "/speech/consolidation", status_code=201, tags=["speech"], openapi_extra=UPLOAD_OPENAPI
+)
+def create_consolidation_talk(
+    upload: Annotated[Upload, Depends(read_upload)],
+    engine: EngineDep,
+    gateway: GatewayDep,
+    store: StoreDep,
+    now: NowDep,
+    task_id: int,
+    duration_s: Annotated[
+        float,
+        Query(
+            allow_inf_nan=False,
+            description=(
+                f"Duration measured by the recorder, in seconds ({_CONSOLIDATION.min_s:g} to "
+                f"{_CONSOLIDATION.max_s:g})."
+            ),
+        ),
+    ],
+    study_session_id: int | None = None,
+) -> SpeechOut:
+    """The recorded talk of a consolidation task: stored, then transcribed (Groq Whisper). Nothing
+    is corrected yet: call `POST /productions/{id}/correct` (it also applies the result to the
+    terms of the task). The task prompt is never sent to the recogniser. 404 `task_not_found`, 409
+    `task_closed`; the first attempt makes a `proposed` task `accepted`."""
+    result = consolidation_attempts.record_spoken(
+        _factory(engine),
+        gateway,
+        store,
+        task_id,
+        data=upload.data,
+        content_type=upload.content_type,
+        duration_s=duration_s,
         study_session_id=study_session_id,
         clock=lambda: now,
     )

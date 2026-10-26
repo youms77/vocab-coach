@@ -60,6 +60,9 @@ PROMPT_MAX_CHARS = productions.MAX_PROMPT_CHARS
 DESCRIPTION_MAX_CHARS = 200  # one line of the taxonomy in the prompt
 
 SessionFactory = Callable[[], Session]
+# Runs in the transaction that stores a correction, after it, before the commit (M7.a2: applying
+# the result of a consolidation production); its result is `CorrectionResult.consolidation`.
+AfterStore = Callable[[Session], dict[str, Any] | None]
 Mode = Literal["paragraph", "sentence"]
 
 
@@ -116,8 +119,11 @@ def source_of(session: Session, attempt_id: int) -> ErrorSource:
     sentence production checked in a review (`production.recorded` has `origin: review`), else
     `writing` (free writing, and the personal sentence of a discovery: `ErrorSource` has no
     separate value for it)."""
-    if recorded_origin(session, attempt_id) == ProductionOrigin.REVIEW.value:
+    origin = recorded_origin(session, attempt_id)
+    if origin == ProductionOrigin.REVIEW.value:
         return ErrorSource.REVIEW
+    if origin == ProductionOrigin.CONSOLIDATION.value:
+        return ErrorSource.CONSOLIDATION
     return ErrorSource.WRITING
 
 
@@ -138,11 +144,16 @@ def prompt_line(prompt_text: str | None) -> str:
     return _one_line(prompt_text or "", PROMPT_MAX_CHARS)
 
 
-def prepare(session: Session, attempt_id: int) -> Prepared:
-    """Everything the call needs. Raises ProductionNotFound, AlreadyCorrected, NotCorrectable,
-    TextTooLongError."""
+def prepare(
+    session: Session,
+    attempt_id: int,
+    *,
+    kinds: tuple[ProductionKind, ...] = (ProductionKind.WRITING,),
+) -> Prepared:
+    """Everything the call needs (`kinds`: the production kinds accepted, free writing by
+    default). Raises ProductionNotFound, AlreadyCorrected, NotCorrectable, TextTooLongError."""
     attempt = productions.get_production(session, attempt_id)
-    if attempt.kind is not ProductionKind.WRITING or attempt.modality != Modality.WRITTEN:
+    if attempt.kind not in kinds or attempt.modality != Modality.WRITTEN:
         raise NotCorrectable("Only a written production can be corrected here.")
     if attempt.ai_feedback is not None:
         raise AlreadyCorrected("This production was already corrected.")
@@ -254,6 +265,7 @@ def _check_targets(
 class Written:
     error_ids: list[int] = field(default_factory=list)
     proposed_ids: list[int] = field(default_factory=list)
+    after: dict[str, Any] | None = None  # what `after_store` returned
 
 
 def category_for(
@@ -426,6 +438,7 @@ def _write(
     provenance: tuple[str | None, str | None, str | None],
     ai_call_id: int | None,
     at: datetime,
+    after_store: "AfterStore | None" = None,
 ) -> Written:
     """The one write transaction. Raises ProductionNotFound, AlreadyCorrected."""
     with session_factory() as session:
@@ -438,6 +451,8 @@ def _write(
             ai_call_id=ai_call_id,
             at=at,
         )
+        if after_store is not None:
+            written.after = after_store(session)  # same transaction as the correction
         session.commit()
     return written
 
@@ -453,6 +468,7 @@ class CorrectionResult:
     error_ids: list[int] = field(default_factory=list)
     proposed_category_ids: list[int] = field(default_factory=list)
     detail: str | None = None
+    consolidation: dict[str, Any] | None = None  # the summary of M7.a2, null otherwise
 
 
 def correct_production(
@@ -462,12 +478,14 @@ def correct_production(
     *,
     source: ErrorSource | None = None,
     mode: Mode | None = None,
+    kinds: tuple[ProductionKind, ...] = (ProductionKind.WRITING,),
+    after_store: AfterStore | None = None,
     clock: Callable[[], datetime] = utcnow,
 ) -> CorrectionResult:
     """Correct a production (see the module docstring). Raises ProductionNotFound,
     AlreadyCorrected, NotCorrectable, TextTooLongError. An AI failure is a result."""
     with session_factory() as session:
-        prepared = prepare(session, attempt_id)
+        prepared = prepare(session, attempt_id, kinds=kinds)
         session.rollback()  # nothing stays open during the AI call
     mode = mode or ("sentence" if len(prepared.sentences) == 1 else "paragraph")
     result = gateway.generate_json(
@@ -494,6 +512,7 @@ def correct_production(
         provenance=(result.provider, result.model, result.prompt_version),
         ai_call_id=result.call_id,
         at=as_utc(clock()),
+        after_store=after_store,
     )
     return CorrectionResult(
         "ok",
@@ -501,4 +520,5 @@ def correct_production(
         attempt_id,
         error_ids=written.error_ids,
         proposed_category_ids=written.proposed_ids,
+        consolidation=written.after,
     )

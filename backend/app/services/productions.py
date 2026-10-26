@@ -59,6 +59,7 @@ def record_written_production(
     kind: ProductionKind = ProductionKind.WRITING,
     study_session_id: int | None = None,
     origin: ProductionOrigin | None = None,
+    consolidation_task_id: int | None = None,
 ) -> ProductionAttempt:
     """A written attempt with its target terms (`targets`: term id -> used, None if not checked).
     No AI feedback yet; writes `production.recorded`. In the caller's transaction."""
@@ -71,6 +72,7 @@ def record_written_production(
         word_count=word_count(text),
         ai_feedback=None,
         study_session_id=study_session_id,
+        consolidation_task_id=consolidation_task_id,
         created_at=at,
         updated_at=at,
     )
@@ -105,8 +107,11 @@ def create_writing(
     study_session_id: int | None,
     at: datetime,
     origin: ProductionOrigin = ProductionOrigin.WRITING,
+    kind: ProductionKind = ProductionKind.WRITING,
+    consolidation_task_id: int | None = None,
 ) -> ProductionAttempt:
-    """A free-writing production (`POST /api/productions`). Raises InvalidProduction,
+    """A written production (free writing: `POST /api/productions`; the text of a consolidation
+    task: `kind` and `consolidation_task_id`, M7.a2). Raises InvalidProduction,
     TextTooLongError, ItemNotFound, SessionNotFound. In the caller's transaction."""
     text = text.strip()
     prompt = (prompt or "").strip() or None
@@ -137,6 +142,8 @@ def create_writing(
         at=at,
         study_session_id=study_session_id,
         origin=origin,
+        kind=kind,
+        consolidation_task_id=consolidation_task_id,
     )
 
 
