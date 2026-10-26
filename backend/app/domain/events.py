@@ -66,6 +66,8 @@ class EventType(StrEnum):
     DRILL_GENERATED = "drill.generated"
     DRILL_ITEM_ANSWERED = "drill.item_answered"
     DRILL_COMPLETED = "drill.completed"
+    CONSOLIDATION_TASK_CREATED = "consolidation.task_created"
+    CONSOLIDATION_TASK_STATUS_CHANGED = "consolidation.task_status_changed"
     SESSION_STARTED = "session.started"
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
@@ -635,6 +637,31 @@ class ErrorCategoryResolved(Event):
     parent_code: str
     decision: Literal["accept", "reject"]
     reassigned_errors: Annotated[int, Field(ge=0)]
+
+
+class ConsolidationTaskCreated(Event):
+    """A consolidation task stored (module G, M7.a1); `source` says whether the AI or a template
+    wrote it. No free text."""
+
+    event_type = EventType.CONSOLIDATION_TASK_CREATED
+    entity_type = "consolidation_task"
+    entity_id_field = "task_id"
+
+    task_id: Id
+    deck_id: Id
+    task_type: Literal["talk", "speech", "interview_answer"]
+    source: Literal["ai", "template"]
+    term_count: Annotated[int, Field(ge=1)]
+
+
+class ConsolidationTaskStatusChanged(Event):
+    event_type = EventType.CONSOLIDATION_TASK_STATUS_CHANGED
+    entity_type = "consolidation_task"
+    entity_id_field = "task_id"
+
+    task_id: Id
+    from_status: Literal["proposed", "accepted", "completed", "dismissed"]
+    to_status: Literal["proposed", "accepted", "completed", "dismissed"]
 
 
 # --- Sessions and settings ---------------------------------------------------------------------
