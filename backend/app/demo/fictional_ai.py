@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from app.ai.schemas import TranscriptionOutput
+from app.ai.schemas.consolidation_task import ConsolidationTaskOutput, consolidation_context
 from app.ai.schemas.production_correction import (
     ProductionCorrectionOutput,
     correction_context,
@@ -29,6 +30,8 @@ from app.ai.schemas.targeted_drill import TargetedDrillOutput, drill_context
 from app.ai.schemas.transcript_analysis import TranscriptAnalysisOutput, transcript_context
 from app.ai.types import AiResult, AiStatus
 from app.demo.dataset import DemoDrill, ErrorTemplate, StructureComment
+from app.domain import consolidation as consolidation_rules
+from app.domain import exercises as ex
 from app.domain.sentences import find_fragment, split_sentences
 from app.domain.speech_compare import Unrecognized, words
 from app.domain.transcript_import import Unit
@@ -38,6 +41,7 @@ CORRECTION_PROVENANCE = ("demo", None, "demo-correction-v1")
 TRANSCRIPT_PROVENANCE = ("demo", None, "demo-transcript-v1")
 DRILL_PROVENANCE = ("demo", None, "demo-drill-v1")
 SPEAKING_PROVENANCE = ("demo", None, "demo-speaking-v1")
+CONSOLIDATION_PROVENANCE = ("demo", None, "demo-consolidation-v1")
 # A transcription records its provider and model, not a prompt version (`production.transcribed`):
 # the version goes in the model, the only place it is seen (D-190).
 TRANSCRIPTION_PROVIDER = "demo"
@@ -117,6 +121,92 @@ def correction_output(
         data,
         context=correction_context(
             {s.index: s.text for s in prepared.sentences}, set(prepared.taxonomy), set()
+        ),
+    )
+
+
+# --- Consolidation (M7.a2) -----------------------------------------------------------------
+
+
+def consolidation_task(
+    template: consolidation_rules.TaskTemplate,
+    *,
+    task_type: consolidation_rules.TaskType,
+    deck_name: str,
+    domain: str | None,
+    refs: list[str],
+) -> ConsolidationTaskOutput:
+    """The task the AI would have written: the deck template, validated by the real schema."""
+    data = consolidation_rules.template_task(
+        template, task_type=task_type, deck_name=deck_name, domain=domain, refs=refs
+    )
+    return ConsolidationTaskOutput.model_validate(
+        data, context=consolidation_context(refs, task_type.value)
+    )
+
+
+def consolidation_correction(
+    prepared: corrections.Prepared,
+    *,
+    misused_ref: int | None,
+    wrong: str,
+    correction: str,
+    category_code: str,
+) -> ProductionCorrectionOutput:
+    """The correction of a consolidation text: one error tied to the term `misused_ref` (the
+    fragment `wrong` of its sentence), a check for every target the text uses. Raises ValueError
+    when `wrong` is in no sentence."""
+    sentences: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    for sentence in prepared.sentences:
+        found = find_fragment(sentence.text, wrong) if misused_ref is not None else None
+        if found is None:
+            sentences.append(
+                {"index": sentence.index, "corrected": sentence.text, "status": "correct"}
+            )
+            continue
+        corrected = sentence.text[: found[0]] + correction + sentence.text[found[1] :]
+        sentences.append({"index": sentence.index, "corrected": corrected, "status": "corrected"})
+        errors.append(
+            {
+                "sentence_index": sentence.index,
+                "wrong": wrong,
+                "correction": correction,
+                "alternatives": [],
+                "category_code": category_code,
+                "explanation_en": f"Say '{correction}' here.",
+                "explanation_fr": f"Dites « {correction} » ici.",
+                "target_ref": misused_ref,
+            }
+        )
+    if misused_ref is not None and not errors:
+        raise ValueError(f"the wrong form {wrong!r} is in no sentence")
+    checks = [
+        {
+            "ref": target.ref,
+            "used": True,
+            "used_correctly": target.ref != misused_ref,
+            "comment": "",
+        }
+        for target in prepared.targets
+        if ex.contains_term(target.term, prepared.text)
+    ]
+    corrected_text = " ".join(s["corrected"] for s in sentences)
+    data = {
+        "sentences": sentences,
+        "corrected_text": corrected_text,
+        "natural_text": corrected_text,
+        "errors": errors,
+        "naturalness_notes": [],
+        "targets": checks,
+        "overall_comment": OVERALL_COMMENT,
+    }
+    return ProductionCorrectionOutput.model_validate(
+        data,
+        context=correction_context(
+            {s.index: s.text for s in prepared.sentences},
+            set(prepared.taxonomy),
+            {t.ref for t in prepared.targets},
         ),
     )
 

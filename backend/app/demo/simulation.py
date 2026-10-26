@@ -52,6 +52,7 @@ from app.demo.dataset import (
     Fate,
 )
 from app.demo.learner import Learner, poisson
+from app.domain import consolidation as consolidation_rules
 from app.domain import drills as drill_rules
 from app.domain import exercises as ex
 from app.domain.enums import (
@@ -79,6 +80,7 @@ from app.domain.srs import Rating, SrsEngine
 from app.domain.study_day import study_day_bounds
 from app.domain.transcript_import import UserByLabel, chunk_units
 from app.services import (
+    consolidation,
     corrections,
     drills,
     error_cards,
@@ -122,6 +124,19 @@ APPETITE_BUSY = ((0, 1, 2), (1, 2, 1))
 BUSY_FROM_DAY = -45
 FINAL_SESSION_NEW_TERMS = 3
 MARK_ACTIVE_DAY = -5
+# The consolidation task (M7.a2): tried from this day on until the deck is ready, never after
+# `MARK_ACTIVE_DAY`; it asks for as many terms as the app allows.
+CONSOLIDATION_DAY = -10
+CONSOLIDATION_DECK = "causal"
+CONSOLIDATION_TYPE = consolidation_rules.TaskType.TALK
+# The sentence of a term the dataset gives no example for, and the slip of the misused term.
+CONSOLIDATION_FALLBACKS = (
+    "In this reading, the authors come back to {term} several times.",
+    "The seminar spent twenty minutes on {term} last week.",
+    "My supervisor asked me to explain {term} to the group.",
+)
+CONSOLIDATION_SLIP = ("it make", "it makes", "grammar.agreement")
+CONSOLIDATION_SLIP_TAIL = ", and it make the argument weaker."
 ARCHIVE_DAY = -8
 PRODUCTION_EVERY_DAYS = (2, 4)
 PRODUCTION_WORDS = (80, 300)
@@ -196,6 +211,7 @@ class _State:
     next_production_day: int = 0
     next_drill_day: int = 0
     next_shadowing_day: int = 0
+    consolidated: bool = False  # the consolidation task was made
     drills_made: int = 0
     last_drill: str | None = None
     # Shadowings with unrecognised words, in order: (production id, target, unrecognised words,
@@ -230,6 +246,8 @@ class Simulation:
         self._drills = random.Random(root.getrandbits(64))  # noqa: S311
         self._speech = random.Random(root.getrandbits(64))  # noqa: S311
         names = random.Random(root.getrandbits(64))  # noqa: S311
+        # Drawn last: the generators above keep their numbers (D-191).
+        self._consolidation = random.Random(root.getrandbits(64))  # noqa: S311
         # File names drawn from the seed, so `audio_path` is reproducible (D-187).
         self.audio = AudioStore(audio_dir, names=lambda: f"{names.getrandbits(128):032x}")
         self._engines: dict[float, SrsEngine] = {}
@@ -321,11 +339,102 @@ class Simulation:
         if offset == self.scaled(ARCHIVE_DAY):
             for item in self._fated(Fate.ARCHIVED):
                 transition_item(self.session, item, ItemStatus.ARCHIVED, at)
+        if not self.state.consolidated and self.scaled(CONSOLIDATION_DAY) <= offset < self.scaled(
+            MARK_ACTIVE_DAY
+        ):
+            self.state.consolidated = self._consolidate(at)
         if offset == self.scaled(MARK_ACTIVE_DAY):
+            # What the consolidation task did not reach (it takes the 15 most fragile terms).
             for item in self._fated(Fate.ACTIVE):
                 # A shortened history may not have discovered the term yet.
                 if item.status in (ItemStatus.LEARNING, ItemStatus.CONSOLIDATED):
                     mark_active(self.session, item, at)
+
+    def _consolidate(self, at: datetime) -> bool:
+        """The learner's consolidation task, through the app's services (M7.a2): a talk on the
+        causal deck once it is ready, written then corrected, its result applied, then completed.
+        Returns False (nothing written) when the deck is not ready yet."""
+        deck = self.state.decks.get(CONSOLIDATION_DECK)
+        if deck is None:
+            return False
+        state = consolidation.deck_state(self.session, deck)
+        if not state.readiness.ready:
+            return False
+        rng = self._consolidation
+        item_ids = consolidation_rules.select_terms(
+            state.readiness.candidates, consolidation_rules.MAX_TERMS
+        )
+        refs = [consolidation_rules.term_ref(i) for i in range(len(item_ids))]
+        template = consolidation.load_templates()[CONSOLIDATION_TYPE]
+        output = fictional_ai.consolidation_task(
+            template,
+            task_type=CONSOLIDATION_TYPE,
+            deck_name=deck.name,
+            domain=deck.domain,
+            refs=refs,
+        )
+        task = consolidation.store_task(
+            self.session,
+            deck_id=deck.id,
+            task_type=CONSOLIDATION_TYPE,
+            output=output,
+            item_ids=item_ids,
+            refs=refs,
+            source="ai",
+            reason=None,
+            provenance=fictional_ai.CONSOLIDATION_PROVENANCE,
+            at=at,
+        )
+        # One term is used wrongly and one is forgotten; the terms the dataset wants active are
+        # spared so that the task activates them, if it selected them.
+        others = [i for i in item_ids if self.state.terms[i].fate != Fate.ACTIVE]
+        pool = others if len(others) >= 2 else list(item_ids)
+        misused = rng.choice(pool)
+        absent = rng.choice([i for i in pool if i != misused])
+        sentences: list[str] = []
+        for item_id in item_ids:
+            if item_id == absent:
+                continue
+            term = self.state.terms[item_id]
+            base = term.sentence or rng.choice(CONSOLIDATION_FALLBACKS).format(term=term.term)
+            if item_id == misused:
+                base = base.rstrip(".!? ") + CONSOLIDATION_SLIP_TAIL
+            sentences.append(base)
+        attempt = production_service.record_written_production(
+            self.session,
+            text=" ".join(sentences),
+            prompt=output.prompt_en,
+            targets=dict.fromkeys(item_ids),
+            at=at,
+            kind=ProductionKind.CONSOLIDATION,
+            origin=ProductionOrigin.CONSOLIDATION,
+            consolidation_task_id=task.id,
+        )
+        consolidation.note_attempt(self.session, task.id, at)
+        prepared = corrections.prepare(
+            self.session, attempt.id, kinds=(ProductionKind.CONSOLIDATION,)
+        )
+        wrong, correction, code = CONSOLIDATION_SLIP
+        corrections.store_correction(
+            self.session,
+            prepared,
+            fictional_ai.consolidation_correction(
+                prepared,
+                misused_ref=item_ids.index(misused),
+                wrong=wrong,
+                correction=correction,
+                category_code=code,
+            ),
+            source=ErrorSource.CONSOLIDATION,
+            provenance=fictional_ai.CORRECTION_PROVENANCE,
+            ai_call_id=None,
+            at=at,
+        )
+        consolidation.apply_result(self.session, attempt.id, at)
+        consolidation.change_status(
+            self.session, task.id, consolidation_rules.TaskStatus.COMPLETED, at=at
+        )
+        return True
 
     def _create_deck(self, spec: DemoDeck, at: datetime) -> None:
         others = list(

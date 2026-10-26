@@ -123,7 +123,7 @@ def test_decks_tell_the_planned_story(db: Session) -> None:
         statuses[deck_id][status] += 1
 
     causal = statuses[decks["Causal inference reading"].id]
-    assert causal[ItemStatus.QUEUED] == 0 and causal[ItemStatus.ACTIVE] in range(4, 7)
+    assert causal[ItemStatus.QUEUED] == 0 and causal[ItemStatus.ACTIVE] in range(12, 16)
     assert statuses[decks["Thesis defence"].id][ItemStatus.QUEUED] == 0
     assert decks["Thesis defence"].status == DeckStatus.DONE
     campus = statuses[decks["Campus life"].id]
@@ -263,6 +263,10 @@ def test_review_exercise_types_follow_the_exercise_choice(db: Session) -> None:
             reps[card.id],
             templates[card.lexical_item_id],
         )
+        if log.exercise_type == "consolidation_misuse":  # the Again of a consolidation text (M7.a2)
+            assert (log.final_rating, log.auto_rating, log.production_attempt_id) == (1, 1, None)
+            reps[card.id] += 1
+            continue
         assert (log.exercise_type, log.exercise_template_id) == (
             choice.exercise_type,
             choice.template_id,

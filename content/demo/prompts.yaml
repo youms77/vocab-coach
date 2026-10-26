@@ -1,7 +1,7 @@
 # Fictional production prompts for the demo seed (D-033): writing and speaking topics, plus
 # correct sentences used to fill the simulated texts up to their word count. Written for the demo.
 
-dataset_version: 5
+dataset_version: 6
 
 prompts:
   - kind: writing
