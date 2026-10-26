@@ -1926,7 +1926,8 @@
       "task_open": "Une tâche est déjà ouverte pour cette liste.",
       "no_productive_cards": "Elle n'a pas encore de carte productive.",
       "below_ratio": "{{ratio}} de ses cartes productives sont stables (au moins {{days}} jours) ; {{threshold}} demandés.",
-      "not_enough_candidates": "Seulement {{count}} termes utilisables pour l'instant : il en faut au moins 8."
+      "not_enough_candidates_one": "Seulement {{count}} terme utilisable pour l'instant : il en faut au moins 8.",
+      "not_enough_candidates_other": "Seulement {{count}} termes utilisables pour l'instant : il en faut au moins 8."
     },
     "create": {
       "type": "Type de tâche",

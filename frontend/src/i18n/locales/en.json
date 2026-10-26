@@ -1926,7 +1926,8 @@
       "task_open": "A task is already open for this deck.",
       "no_productive_cards": "It has no productive card yet.",
       "below_ratio": "{{ratio}} of its productive cards are stable (at least {{days}} days); {{threshold}} needed.",
-      "not_enough_candidates": "Only {{count}} terms are usable so far: at least 8 are needed."
+      "not_enough_candidates_one": "Only {{count}} term is usable so far: at least 8 are needed.",
+      "not_enough_candidates_other": "Only {{count}} terms are usable so far: at least 8 are needed."
     },
     "create": {
       "type": "Type of task",

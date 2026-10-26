@@ -3582,3 +3582,43 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 - `write <task_id> --file <txt>` and `speak <task_id> --file <clip> [--duration S]` (in `app/cli_consolidation_attempts.py`) print the correction as `write correct` does, then what happened to the terms
   (now active / reinforced / not used / unchanged). Exit codes as D-053: 0, 1 AI unavailable (production kept, no term changed, the message gives `POST /api/productions/<id>/correct`), 2 usage (unknown or closed task,
   refused file, duration outside 20-240 s). `--demo` is accepted.
+
+## D-235 — Routes and structure of the consolidation screens (M7.b; builds on D-229, D-231)
+
+- Three routes under `features/consolidation/`: `/consolidation` (ready decks with the creation form, decks not ready with the reason in words, the tasks with a status filter and paging in the URL),
+  `/consolidation/tasks/:id` (brief, structure, terms, status actions, written and spoken production, attempts, export) and `/consolidation/attempts/:id` (correction and summary of the terms).
+- A consolidation production opened as `/writing/:id` or `/speaking/:id` redirects to its attempt page (as writing and speaking already redirect to each other), and a consolidation error of the error log
+  links to it (`logRules.productionLink`). Any other kind opened on the attempt page redirects to `/writing/:id`.
+- The task id is **not** on a production (`ProductionOut` has no `consolidation_task_id`; no backend change was asked for). The attempt page gets it from the query string (`?task=ID`, kept when the page
+  clears its router state). Without it the page still works; only "Back to the task" and "Mark as completed" are missing (the link falls back to the task list). Adding the field to `ProductionOut` would remove this.
+
+## D-236 — Task statuses and the user's decision (M7.b; builds on D-229)
+
+- The buttons follow the backend transitions: proposed -> Accept or Dismiss, accepted -> Mark as completed or Dismiss, closed -> none. Dismiss and Complete ask an inline confirmation (`role="alertdialog"`,
+  no `window.confirm`); Accept does not (it is harmless, and the first attempt does it anyway).
+- Nothing completes a task by itself. After a corrected attempt on an `accepted` task, the attempt page offers "Yes, mark as completed" next to "Make another attempt"; the user decides.
+- A closed task shows neither the writing form nor the recorder (the backend would refuse with `task_closed`).
+
+## D-237 — Active recall on a task and what is shown after the attempt (M7.b; builds on the SPEC principles)
+
+- The task page lists the terms to use (that is the exercise, not an answer); no meaning, sheet or example is shown before the attempt. After the correction, the summary groups the terms: used correctly
+  (with the "now active" mark and the counts only right after the correction, from `CorrectionOut.consolidation`), used wrongly, not used, not checked. After a reload the groups come from the stored
+  `production.targets`; the marks are lost, because the API gives `activated_item_ids` and `reinforced_card_ids` only in the answer of the correction call.
+- The text of the task (prompt, audience, structure) is shown in the interface language, with a button to show the other one under it (`lang` attributes set).
+- A task made from a template says so on its page, with the reason (`aiReasonText`), passed through the router state from the creation page (the reason is not stored on the task): it is not shown when the
+  task is opened from the list.
+
+## D-238 — Recording use `consolidation` (M7.b; builds on D-193, D-179)
+
+- `RecordingUse` gets `consolidation`: min 20 s, max 240 s (the backend's bounds for `POST /speech/consolidation`), a warning from 200 s. The existing `Recorder` is reused as is; the take is sent with
+  `apiUpload('/speech/consolidation', blob, {task_id, duration_s})`. Transcription and correction use the same retry buttons as free speaking (`useTranscribe`, `useCorrectProduction`).
+- The correction starts by itself on arrival from the task page (router state `autoCorrect`, cleared at once: D-142) and never after a reload.
+
+## D-239 — Export, creation and links (M7.b)
+
+- The Markdown export is downloaded by `apiDownload` (fetch, blob, temporary `<a download>`, file name from `Content-Disposition`): one button per language, no new endpoint.
+- The number of terms is limited to 8 up to `min(15, candidates)` in the form; the backend stays the judge (`not_ready` and `task_open` conflicts are shown, the latter with a link to the open task). The
+  creation button is disabled while the AI works and shows the elapsed seconds (as the other AI buttons).
+- A writing draft is kept in the browser per task (`vocab-coach.consolidation-draft.<id>`, convenience only, cleared on send).
+- The Today card and the session's `practice_info` step now link to the open task ("Open the task"); the sentence "available in a later version" is gone. The top bar has a `Consolidation` entry.
+- `consolidation_share` was already in the Settings group "Consolidation". Its bounds (0.5 to 1.0, D-224) come from the API, so the form follows them; only a test fixture still said 0 to 1.

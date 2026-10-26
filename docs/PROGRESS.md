@@ -4,7 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **M7.a2** (module G, productions, correction and the `active` status; backend complete) and **M7.a1** (readiness, tasks, export) are done on `feat/m7-consolidation`, see their sections; M7.b (the screens) is next.
+- **M7.b** (module G, the screens; frontend only) is done on `feat/m7b-consolidation-screens`, cut from `bcfcb55` (tip of `feat/m7-consolidation`: M7.a1 and M7.a2, backend). Not pushed; M6 and M7 are not in `main`. See its section.
 - **Last milestone completed before it**: M6.c2 (module F, the pronunciation-assessment screens; see its section), on branch `feat/m6c2-pronunciation-screens`
   cut from the tip of `feat/m6c-pronunciation` (M6.c1, backend), itself cut from `feat/m6b-speaking-screens`. Before it: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
   `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (M6.a2, after M6.a1, PR #21, **not
@@ -23,6 +23,49 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M7.b — Consolidation screens (frontend)
+
+Branch `feat/m7b-consolidation-screens`, cut from `bcfcb55`. Not pushed. **No backend change** (`git diff --stat bcfcb55 -- backend` is empty), no migration, no new dependency. Decisions D-235 to D-239.
+
+### Done
+
+- **`/consolidation`**: decks ready (ratio against the threshold, usable terms, type of task, number of terms 8 to 15), decks not ready with the reason in words (`excluded_kind`, `deck_done`, `task_open` with a link,
+  `no_productive_cards`, `below_ratio`, `not_enough_candidates`), the tasks (status filter, pages). A creation that fell back to a template says so, with the reason.
+- **`/consolidation/tasks/:id`**: title, prompt, audience, structure, terms (links to the library), badges (status, AI or template), Accept / Mark as completed / Dismiss with a confirmation,
+  written production (draft kept, 4000 characters) or recording (20 s to 4 min, the existing recorder), attempts, Markdown export EN or FR.
+- **`/consolidation/attempts/:id`**: automatic correction on arrival (once), the existing correction view, the transcription retry for a talk, the summary of the terms (used correctly with "now active", used wrongly,
+  not used), "mark as completed" offered but never done by itself. Redirects from `/writing/:id` and `/speaking/:id`; consolidation errors of the error log link to it.
+- Links from the Today card and the session's `practice_info` step, a `Consolidation` entry in the top bar. The setting `consolidation_share` was already in Settings (bounds from the API).
+- Every string is in `en.json` and `fr.json` (same keys). **665 Vitest tests** (644 before): `npm run check` passes. Checked in the built-in browser on the demo with a real Gemini key: creation, written
+  attempt, correction, summary (2 terms became active, 1 misused), Today link.
+
+### Left / known limits
+
+- `ProductionOut` has no `consolidation_task_id`: the attempt page learns its task from `?task=ID` (D-235). Proposal for the owner: add that field (small, additive) to drop the query string.
+- After a reload the summary shows the groups but not the "now active" marks or the reinforced count (only the correction call returns them, D-237).
+- Not done, absent from the SPEC and not added: statistics on consolidation, regenerating or editing a task, a deadline on a task.
+- The demo database must be at the last migration: the first correction in the browser failed with `table review_log has no column production_attempt_id` on a demo database left at revision `0001`;
+  `demo seed --reset` fixed it. Worth a look: `start.ps1 -Demo` should probably upgrade the demo database.
+- Spoken production and the export download were tested with the fake recorder and a stubbed download only (no real microphone, no Firefox).
+- Style unchanged (the redesign comes after M9).
+
+### Owner's manual scenario (about 5 minutes, with your Gemini key)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/consolidation: "Causal inference reading" and "Campus life" are ready; the other decks say why they are not.
+2. Pick "Talk", 10 terms, "Create a task": after a few seconds the task page opens (with no key, a notice says it was made from a template and why).
+3. "Also show in French" shows the French text under the English one. Write a short text using some of the terms (the example is `content/examples/m7_consolidation.txt`), "Send for correction".
+4. The correction page lists the errors, then "The terms of the task": terms used well are "now active", a misused one is in your error log, the others are "not used". Reload: the groups stay.
+5. Back to the task: it is "Accepted" and has one attempt. "Mark as completed" asks for a confirmation. Download the EN and FR exports.
+6. "Record it": record 20 s or more; the talk is transcribed then corrected on the attempt page.
+7. Settings > Consolidation: change "Share of a deck to consolidate" (0.5 to 1.0). Today shows an "Open the task" link for the open task.
 
 ## M7.a2 — Consolidation: productions, correction, `active` status, demo v6 (backend + CLI)
 
