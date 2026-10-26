@@ -8,6 +8,7 @@ terms. `python -m app errors list | show | add | categories | card | suggestions
 and edits the error log (`card` makes a review card from an error) and
 `write correct --file <txt>` has the AI correct a text; `transcript analyse --file <txt>` finds
 your errors in a conversation transcript; `drill new <code>` and `drill list` are targeted drills.
+`consolidation status | new <deck_id> | show <id> | export <id>` are the consolidation tasks.
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
 texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
@@ -272,6 +273,40 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     drill_commands.add_parser("list", help="your drills, newest first, with their scores")
 
+    consolidation = commands.add_parser(
+        "consolidation", help="consolidation tasks: use your solid terms in a talk (module G)"
+    )
+    consolidation_commands = consolidation.add_subparsers(
+        dest="consolidation_command", required=True
+    )
+    consolidation_commands.add_parser("status", help="the decks, ready or not and why")
+    c_new = consolidation_commands.add_parser(
+        "new", help="have the AI write a task for a ready deck (a template without AI)"
+    )
+    c_new.add_argument("deck_id", type=_positive)
+    c_new.add_argument(
+        "--type",
+        choices=["talk", "speech", "interview_answer"],
+        default="talk",
+        help="the kind of task (default talk)",
+    )
+    c_new.add_argument(
+        "--count",
+        type=int,
+        default=None,
+        choices=range(8, 16),
+        metavar="N",
+        help="number of terms, 8 to 15 (default 12)",
+    )
+    c_show = consolidation_commands.add_parser("show", help="one task in full")
+    c_show.add_argument("task_id", type=_positive)
+    c_export = consolidation_commands.add_parser(
+        "export", help="the Markdown page to paste into a voice chat with a tutor"
+    )
+    c_export.add_argument("task_id", type=_positive)
+    c_export.add_argument("--lang", choices=["en", "fr"], default="en")
+    c_export.add_argument("--out", type=Path, default=None, help="write to this file")
+
     speech = commands.add_parser("speech", help="recordings and speech recognition (module F)")
     speech_commands = speech.add_subparsers(dest="speech_command", required=True)
     shadow = speech_commands.add_parser(
@@ -519,6 +554,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.drill_command == "new":
             return cli_drill.run_drill_new(url, settings, args.category_code, count=args.count)
         return cli_drill.run_drill_list(url)
+    if args.command == "consolidation":
+        from app import cli_consolidation
+        from app.domain.consolidation import TaskType
+
+        if args.consolidation_command == "status":
+            return cli_consolidation.run_consolidation_status(url)
+        if args.consolidation_command == "new":
+            return cli_consolidation.run_consolidation_new(
+                url, settings, args.deck_id, task_type=TaskType(args.type), count=args.count
+            )
+        if args.consolidation_command == "show":
+            return cli_consolidation.run_consolidation_show(url, args.task_id)
+        return cli_consolidation.run_consolidation_export(
+            url, args.task_id, lang=args.lang, out=args.out
+        )
     if args.command == "speech":
         from app import cli_speech
 
