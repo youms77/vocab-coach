@@ -92,9 +92,11 @@ def speaking_recording(
     study_session_id: int | None,
     bounds: RecordingKind = RecordingKind.SPEAKING,
     origin: ProductionOrigin = ProductionOrigin.SPEAKING,
+    curriculum_unit_id: int | None = None,
 ) -> speech.Recording:
     """What a spoken production is: free speaking by default, a spoken answer with the bounds and
-    the origin of a review. Raises InvalidProduction."""
+    the origin of a review; `curriculum_unit_id` links it to a scenario unit (M8.a2, the final
+    task). Raises InvalidProduction."""
     return speech.Recording(
         kind=ProductionKind.SPEAKING,
         bounds=bounds,
@@ -102,6 +104,7 @@ def speaking_recording(
         item_ids=_checked_targets(target_item_ids),
         origin=origin,
         study_session_id=study_session_id,
+        curriculum_unit_id=curriculum_unit_id,
     )
 
 
@@ -116,6 +119,7 @@ def store_speaking(
     prompt_text: str | None = None,
     target_item_ids: Sequence[int] = (),
     study_session_id: int | None = None,
+    curriculum_unit_id: int | None = None,
     at: datetime,
 ) -> speech.SpeechResult:
     """Free speaking and its transcription, already obtained, in the caller's transaction (no
@@ -127,6 +131,7 @@ def store_speaking(
         prompt_text=prompt_text,
         target_item_ids=target_item_ids,
         study_session_id=study_session_id,
+        curriculum_unit_id=curriculum_unit_id,
     )
     return speech.store_recording(
         session,
@@ -154,6 +159,7 @@ def record_speaking(
     transcription: AiResult[TranscriptionOutput] | None = None,
     bounds: RecordingKind = RecordingKind.SPEAKING,
     origin: ProductionOrigin = ProductionOrigin.SPEAKING,
+    curriculum_unit_id: int | None = None,
     check: speech.Check | None = None,
     clock: Callable[[], datetime] = utcnow,
 ) -> speech.SpeechResult:
@@ -173,6 +179,7 @@ def record_speaking(
         study_session_id=study_session_id,
         bounds=bounds,
         origin=origin,
+        curriculum_unit_id=curriculum_unit_id,
     )
     return speech.record(
         session_factory,

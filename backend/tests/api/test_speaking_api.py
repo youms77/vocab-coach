@@ -346,5 +346,11 @@ def test_the_upload_is_described_in_openapi(fake_env: FakeAiEnv) -> None:
     body = schema["paths"]["/api/speech/speaking"]["post"]["requestBody"]
     assert "audio/webm" in body["content"]
     params = {p["name"] for p in schema["paths"]["/api/speech/speaking"]["post"]["parameters"]}
-    assert params == {"duration_s", "prompt_text", "target_item_ids", "study_session_id"}
+    assert params == {
+        "duration_s",
+        "prompt_text",
+        "target_item_ids",
+        "study_session_id",
+        "unit_id",
+    }
     assert json.dumps(schema).count("/api/speaking/topics") == 1

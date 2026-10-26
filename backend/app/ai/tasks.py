@@ -9,6 +9,7 @@ from app.ai.policy import REQUEST_TIMEOUT_S
 from app.ai.schemas import AiOutput
 from app.ai.schemas.connection_test import ConnectionTestOutput
 from app.ai.schemas.consolidation_task import ConsolidationTaskOutput
+from app.ai.schemas.curriculum_unit import CurriculumUnitOutput
 from app.ai.schemas.enrichment import ENRICHMENT_BATCH_SIZE, EnrichmentBatchOutput
 from app.ai.schemas.list_extension import MAX_COUNT, ListExtensionOutput
 from app.ai.schemas.production_correction import ProductionCorrectionOutput
@@ -122,6 +123,16 @@ CONSOLIDATION_MAX_INPUT_CHARS = 8000
 # about 250 tokens (two headings, two guidance texts, the references) and the JSON frame.
 CONSOLIDATION_MAX_OUTPUT_TOKENS = 3000
 
+# `curriculum_unit` (M8.a2). Input: the values of a syllabus unit, each text at most 500 characters
+# (`Text` of `app/domain/curriculum.py`): title 500, level 500, 4 goals (2 000) and 6 situations
+# (3 000): 6 000 characters at most, 6 500 leave room for the JSON keys.
+CURRICULUM_UNIT_MAX_INPUT_CHARS = 6500
+# Output: a formula is about 110 tokens (text, type, function in two languages, register, keys), so
+# 15 make 1 650; the dialogue is two settings (80) and 16 lines of about 36 tokens (580); the
+# shadowing numbers (30) and the final task (two prompts of 70 and the references: 200); the JSON
+# frame (100): about 2 700. French text costs more tokens than English: the ceiling is 4 000.
+CURRICULUM_UNIT_MAX_OUTPUT_TOKENS = 4000
+
 
 TASKS: dict[str, TaskSpec] = {
     spec.name: spec
@@ -194,6 +205,15 @@ TASKS: dict[str, TaskSpec] = {
             max_input_chars=DRILL_MAX_INPUT_CHARS,
             max_output_tokens=DRILL_MAX_OUTPUT_TOKENS,
             timeout_s=45.0,
+        ),
+        TaskSpec(
+            name="curriculum_unit",
+            prompt_version=1,
+            output_schema=CurriculumUnitOutput,
+            max_input_chars=CURRICULUM_UNIT_MAX_INPUT_CHARS,
+            max_output_tokens=CURRICULUM_UNIT_MAX_OUTPUT_TOKENS,
+            # Up to 4 000 tokens of output: the 90 s budget holds.
+            timeout_s=60.0,
         ),
     )
 }

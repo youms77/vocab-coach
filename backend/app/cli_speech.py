@@ -48,7 +48,7 @@ from app.domain import pronunciation as pa
 from app.domain.enums import ProductionKind
 from app.domain.speech_compare import Comparison, Op, compare
 from app.domain.speech_rules import MAX_HEARD_CHARS, RecordingKind
-from app.services import productions, pronunciation, speaking, speech
+from app.services import curriculum_units, productions, pronunciation, speaking, speech
 from app.services.library import LibraryError
 from app.speech.audio_store import AudioStore
 
@@ -278,6 +278,7 @@ def run_speech_shadow(
     item_id: int | None = None,
     duration: float | None = None,
     assess: bool = False,
+    unit_id: int | None = None,
     gateway_factory: GatewayFactory | None = None,
 ) -> int:
     _console_safe()
@@ -320,6 +321,7 @@ def run_speech_shadow(
                 target_text=target,
                 duration_s=duration,
                 item_id=item_id,
+                curriculum_unit_id=unit_id,
                 transcription=first,
             )
         except LibraryError as exc:
@@ -443,6 +445,7 @@ def run_speech_speak(
     prompt: str | None = None,
     duration: float | None = None,
     correct: bool = True,
+    unit_id: int | None = None,
     gateway_factory: GatewayFactory | None = None,
 ) -> int:
     _console_safe()
@@ -472,7 +475,12 @@ def run_speech_speak(
                 return EXIT_USAGE
         else:
             print("Transcribing...", flush=True)
+        targets: list[int] = []
         try:
+            if unit_id is not None:  # the final task of a scenario unit (module H)
+                with factory() as session:
+                    prompt = prompt or curriculum_units.final_prompt(session, unit_id)
+                    targets = curriculum_units.target_item_ids(session, unit_id)
             result = speaking.record_speaking(
                 factory,
                 gateway,
@@ -481,6 +489,8 @@ def run_speech_speak(
                 content_type=content_type,
                 duration_s=duration,
                 prompt_text=prompt,
+                target_item_ids=targets,
+                curriculum_unit_id=unit_id,
                 transcription=first,
             )
         except LibraryError as exc:

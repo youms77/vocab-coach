@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,7 @@ from app.config import REPO_ROOT
 from app.db.event_log import record_event
 from app.db.models import CurriculumTrack, CurriculumUnit, Deck, LexicalItem, Source
 from app.domain import curriculum as rules
+from app.domain import curriculum_unit as unit_rules
 from app.domain.curriculum import (
     Labels,
     SyllabusTrack,
@@ -44,6 +45,7 @@ from app.services.library import LibraryError, create_deck, create_source
 
 CONTENT_DIR = REPO_ROOT / "content"  # tests point it at a temporary copy
 WORDLIST_UNIT_FORMAT = "wordlist-unit-1"
+SCENARIO_UNIT_FORMAT = unit_rules.UNIT_FORMAT  # `app/domain/curriculum_unit.py`
 DEFAULT_LIMIT = 25
 MAX_LIMIT = 200
 
@@ -192,6 +194,51 @@ class UnitTerm(BaseModel):
     status: ItemStatus
 
 
+class FormulaOut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    index: int
+    text: str
+    item_type: str
+    function_en: str
+    function_fr: str
+    style: str = Field(alias="register")
+    item_id: int | None  # the library term, once the formula was added (D-251)
+
+
+class ShadowingLineOut(BaseModel):
+    line_index: int
+    text: str
+    take_count: int  # transcribed takes linked to the unit
+    done: bool
+
+
+class ScenarioFinalTask(BaseModel):
+    prompt_en: str
+    prompt_fr: str
+    minutes: int
+    formula_refs: list[int]
+    target_item_ids: list[int]  # the library terms among the formulas to use
+    attempt_ids: list[int]  # free-speaking takes linked to the unit
+    corrected: bool
+
+
+class ScenarioOut(BaseModel):
+    revision: int
+    edited: bool
+    format: str
+    provider: str | None
+    model: str | None
+    prompt_version: str | None
+    level: str | None
+    formulas: list[FormulaOut]
+    dialogue: dict[str, Any]
+    shadowing: list[ShadowingLineOut]
+    final_task: ScenarioFinalTask
+    steps: dict[unit_rules.Step, bool]
+    next_step: unit_rules.Step | None
+
+
 class UnitOut(BaseModel):
     id: int
     track_code: str
@@ -205,6 +252,7 @@ class UnitOut(BaseModel):
     first_rank: int | None
     last_rank: int | None
     terms: list[UnitTerm]
+    scenario: ScenarioOut | None = None  # the content of a generated scenario unit (M8.a2)
 
 
 class OpenResult(BaseModel):
@@ -238,8 +286,14 @@ def _units_in_triage(session: Session, units: list[CurriculumUnit]) -> set[int]:
     return {unit.id for unit in units if waiting & set(_item_ids(unit))}
 
 
+def _is_scenario(unit: CurriculumUnit) -> bool:
+    return (unit.content or {}).get("format") == SCENARIO_UNIT_FORMAT
+
+
 def _state(unit: CurriculumUnit, in_triage: set[int]) -> UnitState:
-    return "opened" if unit.id in in_triage else "triaged"
+    # A scenario unit whose formulas are not in the library yet is simply `opened`.
+    waiting = unit.id in in_triage or (_is_scenario(unit) and not _item_ids(unit))
+    return "opened" if waiting else "triaged"
 
 
 def _unit_rows(session: Session, track_id: int) -> list[CurriculumUnit]:
@@ -432,7 +486,14 @@ def _unit_out(session: Session, unit: CurriculumUnit, track_code: str) -> UnitOu
     terms = [
         UnitTerm(item_id=i, term=items[i].term, status=items[i].status) for i in ids if i in items
     ]
-    waiting = any(t.status == ItemStatus.TRIAGE for t in terms)
+    waiting = any(t.status == ItemStatus.TRIAGE for t in terms) or (
+        _is_scenario(unit) and not terms
+    )
+    scenario = None
+    if _is_scenario(unit):
+        from app.services import curriculum_units  # late: that module imports this one
+
+        scenario = curriculum_units.scenario_out(session, unit)
     return UnitOut(
         id=unit.id,
         track_code=track_code,
@@ -446,6 +507,7 @@ def _unit_out(session: Session, unit: CurriculumUnit, track_code: str) -> UnitOu
         first_rank=content.get("first_rank"),
         last_rank=content.get("last_rank"),
         terms=terms,
+        scenario=scenario,
     )
 
 

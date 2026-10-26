@@ -10,7 +10,8 @@ and edits the error log (`card` makes a review card from an error) and
 your errors in a conversation transcript; `drill new <code>` and `drill list` are targeted drills.
 `consolidation status | new <deck_id> | show <id> | export <id> | write <id> --file |
 speak <id> --file` are the consolidation tasks. `curriculum tracks | show <code> | start <code> |
-open <code> <n>` are the general English tracks (word lists, then scenario units).
+open <code> <n> | generate <code> <n> | unit <id> | step | terms | edit` are the general English
+tracks (word lists, then scenario units written by the AI).
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
 texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
@@ -290,6 +291,31 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     k_open.add_argument("code")
     k_open.add_argument("number", type=_positive)
+    k_generate = curriculum_commands.add_parser(
+        "generate", help="have the AI write a scenario unit (a few seconds; needs a key)"
+    )
+    k_generate.add_argument("code")
+    k_generate.add_argument("number", type=_positive)
+    k_unit = curriculum_commands.add_parser("unit", help="print a unit with its steps")
+    k_unit.add_argument("unit_id", type=_positive)
+    k_unit.add_argument("--json", action="store_true", help="the content as JSON")
+    k_step = curriculum_commands.add_parser(
+        "step", help="mark the formulas or the dialogue as done"
+    )
+    k_step.add_argument("unit_id", type=_positive)
+    k_step.add_argument("step", choices=["formulas", "dialogue"])
+    k_terms = curriculum_commands.add_parser(
+        "terms", help="put the formulas of a unit in the triage queue"
+    )
+    k_terms.add_argument("unit_id", type=_positive)
+    k_terms.add_argument(
+        "--indices", type=int, nargs="+", help="formulas to add, 0-based (default: all)"
+    )
+    k_edit = curriculum_commands.add_parser(
+        "edit", help="replace parts of a unit's content from a JSON file"
+    )
+    k_edit.add_argument("unit_id", type=_positive)
+    k_edit.add_argument("--file", type=Path, required=True)
 
     consolidation = commands.add_parser(
         "consolidation", help="consolidation tasks: use your solid terms in a talk (module G)"
@@ -351,6 +377,9 @@ def _build_parser() -> argparse.ArgumentParser:
     shadow.add_argument("--target", required=True, help="the sentence you repeated")
     shadow.add_argument("--item", type=_positive, help="the id of the term worked on")
     shadow.add_argument(
+        "--unit", type=_positive, help="the scenario unit this take belongs to (module H)"
+    )
+    shadow.add_argument(
         "--duration",
         type=float,
         help="length in seconds (without it, the duration measured by Groq is used)",
@@ -381,6 +410,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--file", type=Path, required=True, help="the clip (.m4a, .webm, .ogg, .wav, .mp3)"
     )
     speak.add_argument("--prompt", help="the topic you spoke about (at most 500 characters)")
+    speak.add_argument(
+        "--unit",
+        type=_positive,
+        help="the final task of this scenario unit (module H): its prompt and terms are used",
+    )
     speak.add_argument(
         "--duration",
         type=float,
@@ -596,6 +630,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             return cli_curriculum.run_curriculum_show(url, args.code, args.page)
         if args.curriculum_command == "start":
             return cli_curriculum.run_curriculum_start(url, args.code)
+        if args.curriculum_command == "generate":
+            return cli_curriculum.run_curriculum_generate(url, settings, args.code, args.number)
+        if args.curriculum_command == "unit":
+            return cli_curriculum.run_curriculum_unit(url, args.unit_id, as_json=args.json)
+        if args.curriculum_command == "step":
+            return cli_curriculum.run_curriculum_step(url, args.unit_id, args.step)
+        if args.curriculum_command == "terms":
+            return cli_curriculum.run_curriculum_terms(url, args.unit_id, args.indices)
+        if args.curriculum_command == "edit":
+            return cli_curriculum.run_curriculum_edit(url, args.unit_id, args.file)
         return cli_curriculum.run_curriculum_open(url, args.code, args.number)
     if args.command == "consolidation":
         from app import cli_consolidation
@@ -635,6 +679,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 prompt=args.prompt,
                 duration=args.duration,
                 correct=not args.no_correct,
+                unit_id=args.unit,
             )
         if args.speech_command == "correct":
             return cli_speech.run_speech_correct(url, settings, args.production_id)
@@ -648,6 +693,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             item_id=args.item,
             duration=args.duration,
             assess=args.assess,
+            unit_id=args.unit,
         )
     if args.command == "transcript":
         from app import cli_transcript

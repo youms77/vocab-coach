@@ -416,7 +416,7 @@ def store_speaking_correction(
     dated at the recording, when they were made. Raises ProductionNotFound, AlreadyCorrected."""
     attempt = session.get(ProductionAttempt, prepared.attempt_id)
     recorded_at = as_utc(attempt.created_at) if attempt is not None else at
-    return _store(
+    written = _store(
         session,
         prepared,
         output,
@@ -427,6 +427,11 @@ def store_speaking_correction(
         at=at,
         errors_at=recorded_at,
     )
+    if attempt is not None and attempt.curriculum_unit_id is not None:
+        from app.services import curriculum_units  # late: it reads productions
+
+        curriculum_units.refresh_for_attempt(session, attempt, at)  # the final task is corrected
+    return written
 
 
 def _write(

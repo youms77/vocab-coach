@@ -71,6 +71,11 @@ class EventType(StrEnum):
     CONSOLIDATION_ATTEMPT_CHECKED = "consolidation.attempt_checked"
     CURRICULUM_TRACK_STARTED = "curriculum.track_started"
     CURRICULUM_UNIT_OPENED = "curriculum.unit_opened"
+    CURRICULUM_UNIT_GENERATED = "curriculum.unit_generated"
+    CURRICULUM_UNIT_EDITED = "curriculum.unit_edited"
+    CURRICULUM_UNIT_STEP_COMPLETED = "curriculum.unit_step_completed"
+    CURRICULUM_UNIT_COMPLETED = "curriculum.unit_completed"
+    CURRICULUM_UNIT_TERMS_ADDED = "curriculum.unit_terms_added"
     SESSION_STARTED = "session.started"
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
@@ -758,6 +763,82 @@ class CurriculumUnitOpened(Event):
     only; the terms themselves have their own `item.created` events (origin `curriculum`)."""
 
     event_type = EventType.CURRICULUM_UNIT_OPENED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    deck_id: Id
+    imported: Annotated[int, Field(ge=0)]
+    attached: Annotated[int, Field(ge=0)]
+    skipped: Annotated[int, Field(ge=0)]
+
+
+class CurriculumUnitGenerated(Event):
+    """The content of a scenario unit was written by the AI (module H, M8.a2) and the unit row
+    created. Counts and provenance only, never the content."""
+
+    event_type = EventType.CURRICULUM_UNIT_GENERATED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    provider: Annotated[str, Field(max_length=50)] | None = None
+    model: Annotated[str, Field(max_length=100)] | None = None
+    prompt_version: Annotated[str, Field(max_length=50)] | None = None
+    ai_call_id: Id | None = None
+    formula_count: Annotated[int, Field(ge=0)]
+
+
+class CurriculumUnitEdited(Event):
+    """The owner edited parts of a unit's content; `parts` names them (`formulas`, `dialogue`,
+    `shadowing`, `final_task`), `revision` is the new one."""
+
+    event_type = EventType.CURRICULUM_UNIT_EDITED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    revision: Annotated[int, Field(ge=1)]
+    parts: list[Literal["formulas", "dialogue", "shadowing", "final_task"]]
+
+
+class CurriculumUnitStepCompleted(Event):
+    """A step of a scenario unit became complete (written once per step, and again if it was lost
+    by an edit and completed anew)."""
+
+    event_type = EventType.CURRICULUM_UNIT_STEP_COMPLETED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    step: Literal["formulas", "dialogue", "shadowing", "final_task"]
+
+
+class CurriculumUnitCompleted(Event):
+    """All the steps of a scenario unit are complete: its progress is `done`."""
+
+    event_type = EventType.CURRICULUM_UNIT_COMPLETED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+
+
+class CurriculumUnitTermsAdded(Event):
+    """Formulas of a unit entered intake triage (counts only; the terms have their own
+    `item.created` events, origin `curriculum`)."""
+
+    event_type = EventType.CURRICULUM_UNIT_TERMS_ADDED
     entity_type = "curriculum_unit"
     entity_id_field = "unit_id"
 

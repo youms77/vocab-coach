@@ -276,6 +276,7 @@ class Recording:
     origin: ProductionOrigin
     study_session_id: int | None
     consolidation_task_id: int | None = None  # a talk of a consolidation task (M7.a2)
+    curriculum_unit_id: int | None = None  # a take of a scenario unit (M8.a2)
 
 
 def _check(session: Session, recording: Recording, check: Check | None) -> None:
@@ -284,6 +285,10 @@ def _check(session: Session, recording: Recording, check: Check | None) -> None:
         get_item(session, item_id)
     if recording.study_session_id is not None:
         require_open(session, recording.study_session_id)
+    if recording.curriculum_unit_id is not None:
+        from app.services import curriculum_units  # late: it reads productions of this module
+
+        curriculum_units.get_scenario(session, recording.curriculum_unit_id)
     if check is not None:
         check(session)
 
@@ -319,6 +324,7 @@ def _insert(
         word_count=0,
         study_session_id=recording.study_session_id,
         consolidation_task_id=recording.consolidation_task_id,
+        curriculum_unit_id=recording.curriculum_unit_id,
         created_at=at,
         updated_at=at,
     )
@@ -432,6 +438,10 @@ def store_transcription(
             study_session_id=attempt.study_session_id,
         )
     session.flush()
+    if attempt.curriculum_unit_id is not None:
+        from app.services import curriculum_units  # late: it reads productions of this module
+
+        curriculum_units.refresh_for_attempt(session, attempt, at)
     return TranscriptionOutcome("ok", text=text, comparison=comparison)
 
 
@@ -480,9 +490,10 @@ def shadowing_recording(
     item_id: int | None = None,
     origin: ShadowingOrigin = "shadowing",
     study_session_id: int | None = None,
+    curriculum_unit_id: int | None = None,
 ) -> Recording:
-    """What a shadowing is: its target sentence (stripped), its term and its origin. Raises
-    InvalidTarget."""
+    """What a shadowing is: its target sentence (stripped), its term, its origin and the scenario
+    unit it belongs to, if any. Raises InvalidTarget."""
     return Recording(
         kind=ProductionKind.SHADOWING,
         bounds=RecordingKind.SHADOWING,
@@ -490,6 +501,7 @@ def shadowing_recording(
         item_ids=(item_id,) if item_id is not None else (),
         origin=_ORIGINS[origin],
         study_session_id=study_session_id,
+        curriculum_unit_id=curriculum_unit_id,
     )
 
 
@@ -589,10 +601,13 @@ def record_shadowing(
     item_id: int | None = None,
     origin: ShadowingOrigin = "shadowing",
     study_session_id: int | None = None,
+    curriculum_unit_id: int | None = None,
     transcription: AiResult[TranscriptionOutput] | None = None,
     clock: Callable[[], datetime] = utcnow,
 ) -> SpeechResult:
     """Store a shadowing recording, then transcribe and compare it (see the module docstring).
+    `curriculum_unit_id` links the take to a scenario unit (M8.a2; UnitNotFound,
+    NotAScenarioUnit).
 
     `transcription` is a result already obtained for these bytes (`transcribe_clip`): it is stored
     instead of calling the provider again. Without `duration_s`, its duration is used. Raises
@@ -600,7 +615,11 @@ def record_shadowing(
     AudioTooLong, ItemNotFound, SessionNotFound, SessionClosed; nothing is stored then."""
     check_audio(data, content_type)
     recording = shadowing_recording(
-        target_text, item_id=item_id, origin=origin, study_session_id=study_session_id
+        target_text,
+        item_id=item_id,
+        origin=origin,
+        study_session_id=study_session_id,
+        curriculum_unit_id=curriculum_unit_id,
     )
     return record(
         session_factory,

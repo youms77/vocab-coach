@@ -40,6 +40,7 @@ from app.domain.speech_rules import (
 from app.domain.topics import DEFAULT_COUNT, MAX_COUNT
 from app.services import (
     consolidation_attempts,
+    curriculum_units,
     productions,
     pronunciation,
     speaking,
@@ -234,10 +235,15 @@ def create_shadowing(
     item_id: Annotated[int | None, Query(description="The term worked on, if any.")] = None,
     origin: Literal["shadowing", "discovery"] = "shadowing",
     study_session_id: int | None = None,
+    unit_id: Annotated[
+        int | None, Query(description="The scenario unit this take belongs to (module H).")
+    ] = None,
 ) -> SpeechOut:
     """A shadowing recording: stored, then transcribed (Groq Whisper) and compared word by word
     with `target_text`. The target is never sent to the recogniser. Takes a few seconds. Without a
-    provider the recording is kept: `transcription.status` is `unavailable`."""
+    provider the recording is kept: `transcription.status` is `unavailable`. With `unit_id` the
+    take counts for the `shadowing` step of that unit (404 `unit_not_found`, 422
+    `not_a_scenario_unit`)."""
     result = speech.record_shadowing(
         _factory(engine),
         gateway,
@@ -249,6 +255,7 @@ def create_shadowing(
         item_id=item_id,
         origin=origin,
         study_session_id=study_session_id,
+        curriculum_unit_id=unit_id,
         clock=lambda: now,
     )
     return _speech_response(engine, result)
@@ -283,11 +290,24 @@ def create_speaking(
         Query(description=f"Terms to use, repeated (at most {productions.MAX_TARGETS})."),
     ] = None,
     study_session_id: int | None = None,
+    unit_id: Annotated[
+        int | None,
+        Query(
+            description="The scenario unit whose final task this is (module H): the topic and the "
+            "target terms default to those of the task."
+        ),
+    ] = None,
 ) -> SpeechOut:
     """Free speaking on a topic: stored, then transcribed (Groq Whisper). Nothing is corrected
     yet: call `POST /productions/{id}/correct` (the AI correction of a spoken production). The
     topic is never sent to the recogniser. Without a provider the recording is kept:
     `transcription.status` is `unavailable` and `/productions/{id}/transcribe` runs it again."""
+    if unit_id is not None:
+        with _factory(engine)() as session:
+            if not prompt_text:
+                prompt_text = curriculum_units.final_prompt(session, unit_id)
+            if not target_item_ids:
+                target_item_ids = curriculum_units.target_item_ids(session, unit_id)
     result = speaking.record_speaking(
         _factory(engine),
         gateway,
@@ -298,6 +318,7 @@ def create_speaking(
         prompt_text=prompt_text,
         target_item_ids=target_item_ids or [],
         study_session_id=study_session_id,
+        curriculum_unit_id=unit_id,
         clock=lambda: now,
     )
     return _speech_response(engine, result)
