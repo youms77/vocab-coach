@@ -3839,3 +3839,87 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
   while `scenario.edited` is true. The hook (`useEditUnitContent`) puts the returned unit in the cache and refreshes curriculum, items, decks, triage and Today (D-258).
 - The warning about shadowing (a changed line to shadow makes the old line's takes stop counting; a completed unit can go back to "in progress", D-248) is always visible in the shadowing part, before the save, not only after.
 - Shadowing and the final task's formulas are checkboxes in their own parts, listed from the lines and the formulas of the draft (so a new line can be ticked at once). "Write this unit with the AI" exists only on a track's page for a unit with no content (D-257); a test checks it is not on a written unit's page.
+
+## D-265 — Statistics in pure Python and SQL; pandas stays the analysis tool of the export (M9.a1)
+
+- **Decision**: module I is computed by `app/domain/stats/` (pure: small dataclasses in, a `DayOf` function "instant -> study day" passed in, no session, no clock, no `fsrs`), fed by
+  `app/services/stats.py`, which reads the logs in a `PRAGMA query_only` session and resets it afterwards (`read_only`, as `ai_usage`, D-064). No pandas or numpy dependency is added.
+- **Why**: the indicators are counts, ratios and quartiles over a few thousand rows; pandas would add about 60 MB to the install of a local app for no gain, and the hand-built tests read better on plain
+  dataclasses. SPEC section 5 names pandas for "statistics": it stays the owner's tool on the CSV export, which is what "analysis in pandas" in module I asks for.
+- No cache and no counter table (SPEC module I): every answer is recomputed from `event_log`, `review_log`, `error_event`, `production_attempt`, `ai_call_log` and `study_session`. Reading a statistic writes no row and no event
+  (tested by counting every table before and after).
+
+## D-266 — Periods, buckets, thresholds and quartiles (M9.a1)
+
+- `from` and `to` are study days, both included; default: the last 30 study days up to today (`DEFAULT_PERIOD_DAYS`). `from` after `to`, or more than `MAX_PERIOD_DAYS = 366` days, is `InvalidPeriod`
+  (API: 422 `invalid_request` with `errors[{loc: ["query", "from"], message}]`; CLI: exit 2). `granularity` = `day` or `week` (ISO weeks from Monday, on the study day); every bucket is returned, empty ones included,
+  keyed by the day or by the Monday, with `first_day` / `last_day` clipped to the period.
+- **No misleading figure**: a rate per 100 words is `Rate {value, errors, words, insufficient}` and is `null` under `MIN_WORDS_FOR_RATE = 100` words in its bucket; a proportion is `Share {value, successes, n, insufficient}`,
+  `null` under `MIN_REVIEWS_FOR_RATE = 10`. Values are rounded to 6 decimals, counts stay exact.
+- Quartiles: `statistics.quantiles(method="inclusive")`, i.e. linear interpolation, the default of `pandas.Series.quantile` and `numpy.quantile`, so the owner finds the same values on the export. One value: all quartiles equal it.
+
+## D-267 — The normalised error rate and the date of a production (M9.a1; builds on D-127, D-134, D-175, D-181, D-183)
+
+- **Numerator**: the existing `error_event` rows (a deleted error was a false positive and has no row) whose production has a kind in `NORMALIZABLE_KINDS` = writing, speaking, transcript_analysis, consolidation, and whose
+  source is not `drill`. Review sentences and spoken answers are productions (D-127, D-183), so their errors are in. **Denominator**: `production_attempt.word_count` of the same kinds, with or without an error (the
+  event's `word_count` is 0 for speech before its transcription, D-182, so the column is read, not the event). Shadowing and drills count 0 words and are not read.
+- **Date rule** (numerator and denominator in the same bucket): a production counts on `study_day(created_at)` (the services set `created_at` to the business instant); a **transcript** counts on the `occurred_on`
+  of its `production.recorded` (v3+) when there is one, else on `study_day(created_at)`. An error counts on `study_day(occurred_at)`; for a transcript that is the start of the conversation's study day (D-134), for speech the
+  moment of the recording (D-181): the same day as its words. A malformed `occurred_on` is ignored.
+- **Categories**: the category of a code at level k is its first k segments (`code_at_level`); a code with fewer segments is its own category (`spelling` stays `spelling` at level 2). Every level is then a partition, and the
+  sum of level 1 equals the total (tested on the demo). A proposed category counts under its own code; a rejected one has no error left (its errors were reassigned).
+- **Outside the rates**, counted apart in absolute numbers, per bucket and by level-2 category: `drill` (source drill), `review` (a lexical confusion of a typed answer, `review_log_id` set), `manual` (manual, no production), `other`.
+
+## D-268 — Lasting trends at every level; the demo witness (M9.a1; departure approved in the plan, option A)
+
+- Windows: B = the last `DECLINE_WINDOW_DAYS = 28` study days up to today, A = the 28 before; independent of `from` / `to`. Words of each window as in D-267.
+- **Every taxonomy node** with an error in A or B gets a status, at levels 1, 2 and 3 (the milestone said level 2, but its three witnesses are at levels 3, 3 and 1, D-037). Order of the rules (exact fractions, so a rate at exactly
+  `DECLINE_RATIO` x A declines): `insufficient` if a window has fewer than `MIN_WORDS_PER_WINDOW = 300` words; `declining` if A has at least `MIN_ERRORS = 3` errors and rate(B) <= `DECLINE_RATIO = 0.5` x rate(A); `rising` if B has
+  at least 3 errors and rate(B) >= `RISE_RATIO = 1.5` x rate(A); `insufficient` if both windows have fewer than 3 errors; else `stable`. Each entry gives both windows' `Rate` and `ratio` = rate(B) / rate(A) (null when rate(A) is 0).
+- **Share of fixed errors** = errors of window A whose level-2 category (`code_at_level(code, 2)`, `FIXED_SHARE_LEVEL`) is `declining`, over all errors of window A; `insufficient` when a window lacks words.
+- **Demo (seed 42, 60 days, anchor 2026-09-01)**, words 1 710 (A) and 1 601 (B): `grammar.preposition.fixed_expression` 42 -> 24 errors, ratio 0.610 -> **stable**; `grammar.tense.past_simple_vs_present_perfect` 27 -> 30, 1.187 -> stable;
+  `discourse` 4 -> 6, 1.602 -> rising. The demo model lowers `fixed_expression` linearly from 3.0 to 1.0 errors per 100 words over 60 days, which gives about 0.6 between two 28-day windows, never 0.5. **Owner's decision (option A)**:
+  the thresholds stay; the demo test asserts the values obtained; a dataset v8 with `[3.0, 0.5]` is proposed for later.
+
+## D-269 — The top 5 recurring errors (M9.a1; builds on D-164)
+
+- `group_recurring` and `pair_key` of the suggestions (D-164), on the errors of the period, drill errors left out (D-137); errors outside the rates (typed confusions, manual) are in, since a habit is a habit. Dismissed
+  suggestions stay in this top (it is a statistic, not a suggestion). Per group: wrong form, correction, the most frequent category, count, first and last time, up to `RECURRING_EXAMPLES = 2` distinct `original_text` of the
+  latest occurrences, `has_card` (one of its errors already gave a card: `error_cards.carded_keys`, made public for this).
+
+## D-270 — Memory: definitions (M9.a1; builds on D-022, D-024, D-229)
+
+- **Recall review** = `state_before = review` (no new card, no learning or relearning step) and not `consolidation_misuse` (a reinforcement of module G, D-229, not an answer). Success = `final_rating >= 2`. Retention per bucket and
+  per direction (receptive / productive / all).
+- **Target**: the value in force at each review, replayed from the `setting.changed` events of `target_retention` (a non-numeric value is ignored), the registry default (0.90) before any change; the bucket shows the mean over its
+  recall reviews (null without one).
+- **Calibration** is done: `review_log.retrievability` is the recall the engine predicted when the review was made (stored with the snapshot through `SrsEngine.retrievability`), so nothing is replayed and `fsrs` is not imported.
+  Ten bins of 10 points (1.0 goes to the last), recall reviews with a stored prediction: mean prediction and observed `Share`.
+- **Success by exercise type**: every review of the period (learning steps included), reinforcements excepted, most frequent first. **Rating agreement**: reviews with an `auto_rating`, reinforcements excepted: share changed by
+  the user, raised and lowered.
+- **Lapses** (D-024): Again on a card in Review, reinforcements **included** (they increment `card.lapses` too), per bucket with the number of Review-state reviews, and the 10 terms with the most (term `null` if it no longer exists).
+- **Stability now**: cards of terms `learning`, `consolidated`, `active`, per direction, ranges `STABILITY_EDGES_DAYS = (0, 1, 3, 7, 21, 90)` days (last open), never-reviewed cards counted apart, median.
+- **Time before consolidation**: terms whose **first** `item.status_changed` to `consolidated` falls in the period; discovery = the first `discovery.completed`, else `lexical_item.discovered_at`; without a discovery the term is
+  left out. Study days between the two, and reviews of its cards up to the consolidation instant (included). Quartiles of both and ranges `CONSOLIDATION_EDGES_DAYS = (0, 7, 14, 21, 28, 42, 60)`. A term merged or deleted since
+  still counts when both events exist (its id comes from the events).
+
+## D-271 — The CSV export (M9.a1)
+
+- `GET /api/export/csv`: a zip `vocab-coach-export-YYYYMMDD.zip` (study day of today), one CSV per table of `EXPORT_TABLES` (event_log, review_log, error_event, production_attempt, production_target, pronunciation_result,
+  study_session, ai_call_log, then lexical_item, card, deck, deck_item, error_category, consolidation_task, consolidation_task_item, curriculum_track, curriculum_unit), plus `manifest.json` (`format: vocab-coach-csv-1`,
+  `exported_at`, `study_day`, `timezone`, `day_start_hour`, `alembic_revision`, `demo`, rows per table) and `data_dictionary.md` (one English line per column from `export_dictionary.py`, the pandas example). Built in a
+  `SpooledTemporaryFile` (memory up to 32 MB) then streamed. `GET /api/export/csv/{table}`: one CSV, 404 `unknown_table` (with the list) otherwise.
+- **Format**: UTF-8 without BOM, comma, `csv` module (RFC 4180 quoting, line breaks inside a field kept, CRLF between rows); header = column names in model order; instants `YYYY-MM-DDTHH:MM:SS.ffffffZ` (UTC, always
+  microseconds, so one `parse_dates` format); dates `YYYY-MM-DD`; JSON columns as compact JSON (`separators=(",", ":")`, non-ASCII kept); booleans `true` / `false`; null = empty field; enums by value; floats with `str`. A last
+  `study_day` column for the main timestamp (`MAIN_TIMESTAMP`: `occurred_at`, `reviewed_at`, `created_at`, `started_at`, `added_at`); tables without one have none.
+- **One snapshot**: the export starts an explicit read transaction (`BEGIN` on the `query_only` connection) before the first table, so the manifest's counts match the files even if the app writes meanwhile.
+- **Never exported**: audio (M10), the `setting` table, `alembic_version`, any environment variable. A test puts two test keys in the environment and searches the archive for them and for their last 8 characters.
+- **CLI** `stats export [--out file.zip] [--force]`: default `<data_dir>/exports/vocab-coach-export-YYYYMMDD.zip` (`data/` is ignored by Git, which covers `data/exports/`); written to `<name>.tmp-<pid>` in the same folder
+  then `os.replace`; an existing file is refused (exit 2) unless `--force`; no temporary file is left on failure.
+
+## D-272 — Routes and commands of M9.a1 (builds on D-053, D-063)
+
+- `GET /api/stats/errors` and `GET /api/stats/memory` (query `from`, `to`, `granularity`): every answer starts with `computed_at`, `study_day`, `from`, `to`, `granularity`, `demo` (the demo marker, D-033); the
+  sections are the domain dataclasses serialised as they are (documented in OpenAPI). The current time comes from `NowDep` (tests fix it).
+- CLI `python -m app [--demo] stats errors | memory [--from] [--to] [--granularity]` prints text; `stats export` as D-271. Read-only session; exit 0, or 2 for invalid dates, a period refused, no database or
+  one not at head (D-053). `--from 2026-13-01` is refused by argparse (exit 2).

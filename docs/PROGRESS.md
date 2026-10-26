@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M9.a1** (module I, statistics backend part 1: the pure domain, errors, memory, CSV export, `stats errors | memory | export`; no screen, no migration) is done on `feat/m9a-stats-backend`, cut from `bb7f8fd` (tip of `feat/m8b-curriculum-screens`). Not pushed. Next: **M9.a2** (progress, practice, AI, overview, `stats summary`, performance, full API reference) on the same branch. See the M9.a1 section.
 - **M8.b2** (module H, the editor of a scenario unit's content: formulas, dialogue, shadowing lines, final task; frontend only) is done on `feat/m8b-curriculum-screens` after M8.b1 (`4d522c2`). Not pushed. Next: the owner's review of M6 to M8, then the push. See the M8.b2 section.
 - **M8.b1** (module H, the screens of the general English tracks: tracks, units, scenario steps, dialogue listening, shadowing and final talk from a unit; frontend only) is done on `feat/m8b-curriculum-screens`, cut from `a68e04c`. Not pushed. Next: **M8.b2** (the unit content editor) after the owner's go-ahead. See the M8.b1 section.
 - **M8.a2** (module H, speaking scenario units written by the AI, edited, taken through four steps up to `done`; demo v7; backend + CLI, no migration) is done on `feat/m8-curriculum` after M8.a1. Not pushed. Next: **M8.b** (the screens of module H), after the owner's review. See the M8.a2 section and its API reference.
@@ -27,6 +28,57 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M9.a1 — Statistics: domain, errors, memory, CSV export (backend + CLI, no screen)
+
+Branch `feat/m9a-stats-backend`, cut from `bb7f8fd`. Not pushed. **No migration** (`alembic check`: no operation), no new dependency (no pandas, D-265), **no frontend file** (`git diff --stat bb7f8fd -- frontend` is empty). Decisions D-265 to D-272. M9.a is cut in two (approved plan): M9.a2 brings progress, practice, AI, overview and `stats summary`.
+
+### Done
+
+- **Pure domain** `app/domain/stats/`: `common.py` (periods, day / ISO-week buckets, `Rate` and `Share` with `insufficient`, quartiles as pandas, ranges), `errors.py` (rates per 100 words at levels 1 and 2, errors outside the rates, top 5 recurring, lasting trends at every level and the share of fixed errors), `memory.py` (retention against the target replayed from `setting.changed`, calibration from the stored `retrievability`, success by exercise type, rating agreement, lapses, stability, time before consolidation). Definitions in D-266 to D-270.
+- **Service** `app/services/stats.py`: `read_only` (`PRAGMA query_only`, reset), loaders that accept every payload version, `error_stats`, `memory_stats`. `error_cards.carded_keys` made public.
+- **Export** `app/services/export.py` + `export_dictionary.py` (D-271): zip of 17 CSV, `manifest.json`, `data_dictionary.md`, one read snapshot, atomic file for the CLI.
+- **API**: `GET /api/stats/errors`, `GET /api/stats/memory`, `GET /api/export/csv`, `GET /api/export/csv/{table}` (below). **CLI**: `stats errors | memory | export`.
+- **Tests** (all green): 47 domain tests on hand-built cases (`test_stats_common.py`, `test_stats_errors.py`, `test_stats_memory.py`), old payloads (`test_stats_service.py`), API with every 422 and table counts before/after (`tests/api/test_stats_api.py`, 13), export (`tests/api/test_export_api.py`, 7: headers, DictReader counts = database, formats, no secret, 404), CLI (`test_cli_stats.py`, 7), demo (`test_demo_stats.py`, 5).
+- **Broken-code checks** (applied, then reverted):
+  1. counting only the words of productions that have an error: 6 tests fail, among them `test_three_errors_for_600_words_is_half_an_error_per_100_words` and `test_a_deleted_error_is_not_counted`;
+  2. counting learning and relearning reviews in the retention: `test_nine_successes_out_of_ten_review_reviews_is_0_9` and `test_calibration_bins_by_predicted_recall` fail;
+  3. the UTC date instead of the study day in the service: `test_a_production_at_0330_in_douala_counts_for_the_previous_study_day` (API) and `test_value_formats` (export, `study_day` of a 03:30 review) fail. The domain 03:30 tests take the day function as an argument, so they cannot see this break; the API test was added for it.
+
+### Demo (seed 42, 60 days, anchor 2026-09-01)
+
+- Words 1 710 in window A, 1 601 in window B. `grammar.preposition.fixed_expression`: 42 -> 24 errors, ratio 0.610, **stable** (not `declining`: the demo model gives about 0.6, the threshold is 0.5; option A, D-268). `grammar.tense.past_simple_vs_present_perfect`: 27 -> 30, 1.187, stable. `discourse`: 4 -> 6, 1.602, **rising**.
+- Share of fixed errors: 12 of 114 errors of window A (10.5 %). Retention 2026-07-03 to 2026-09-01: 0.887 (339 of 382) against a target of 0.90. Time before consolidation: 58 terms, median 5.5 study days, 6 reviews.
+- First timings (TestClient on the demo, this machine, M9.a2 will measure every route properly): errors 46 ms (188 ms for the first call of the process), memory 26 to 29 ms, export 0.40 s.
+
+### Left / known limits
+
+- **M9.a2**: `/api/stats/progress`, `/practice`, `/ai`, `/overview`, `stats summary`, the performance measures of every route, the full API reference for M9.b, README.
+- The CLI has no `--at`: on a demo seeded with an old anchor (`--anchor 2026-09-01`), "today" is the real day and the windows are empty. The manual scenario seeds with today's anchor.
+- Proposed for later (not done): a demo dataset v8 where `fixed_expression` falls to 0.5 so the witness reads `declining`.
+
+### API reference (M9.a1 part; completed in M9.a2)
+
+Every answer of `/api/stats/*` starts with `computed_at` (UTC), `study_day` (today), `from`, `to`, `granularity` (`day` | `week`), `demo`. Query: `from`, `to` (YYYY-MM-DD, study days, included; default the last 30 up to today), `granularity`. 422 `invalid_request` for `from` > `to`, more than 366 days, a malformed date or granularity (`errors[{loc, message}]`, D-063). `Rate` = `{value|null, errors, words, insufficient}` (null under 100 words, 300 in a trend window); `Share` = `{value|null, successes, n, insufficient}` (null under 10). A bucket has `key` (the day or the Monday), `first_day`, `last_day`.
+
+| Route | Answer |
+|---|---|
+| `GET /stats/errors` | `rates {rate, level1[{code, level, rate}], level2[...], unnormalized {total, by_reason {drill, review, manual, other}}, unnormalized_by_category {code: n}, buckets[{key, first_day, last_day, rate, level1, level2, unnormalized}]}` (every bucket lists the same categories, zeros included); `top_recurring[{key, erroneous_text, correction, category, count, first_at, last_at, examples[≤2], has_card}]` (≤5); `trends {window_a {start, end}, window_b, words_a, words_b, by_status {declining, rising, stable, insufficient: [{code, level, status, window_a: Rate, window_b: Rate, ratio|null}]}, fixed_share: Share}` (windows: the last 28 study days against the 28 before, whatever `from`/`to`) |
+| `GET /stats/memory` | `default_target`; `retention {all, receptive, productive: Share, target|null, buckets[{key, first_day, last_day, all, receptive, productive, target}]}`; `calibration[{low, high, predicted|null, observed: Share}]` (10 bins); `success_by_exercise[{exercise_type, success: Share}]`; `rating_agreement {changed: Share, raised, lowered}`; `lapses {total, buckets[{key, first_day, last_day, lapses, review_state_reviews}], top_items[{item_id, lapses}]}`; `top_lapsed_terms[{item_id, term|null, lapses}]` (≤10); `stability[{direction, cards, unreviewed, ranges[{low, high|null, count}], median_days}]`; `time_to_consolidation {n, days, reviews: {n, q1, median, q3, minimum, maximum}, distribution[{low, high, count}], items[{item_id, days, reviews}]}` |
+| `GET /export/csv` | `application/zip`, `Content-Disposition: attachment; filename="vocab-coach-export-YYYYMMDD.zip"` |
+| `GET /export/csv/{table}` | `text/csv; charset=utf-8`, `attachment; filename="<table>.csv"`; 404 `unknown_table` (`tables`: the list) |
+
+### Owner's manual scenario (about 2 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+uv run python -m app --demo stats errors --granularity week
+uv run python -m app --demo stats memory
+uv run python -m app --demo stats export --out $env:TEMP\vc-export.zip
+```
+
+Then `.\start.ps1 -Demo` and open http://127.0.0.1:8000/docs: `GET /api/stats/errors` and `/api/stats/memory`. In a Python with pandas: `import zipfile, pandas as pd; pd.read_csv(zipfile.ZipFile(r"$env:TEMP\vc-export.zip").open("review_log.csv"), parse_dates=["reviewed_at"])` (replace the path by its value). `stats summary`, `/api/stats/overview` and `/api/stats/progress` come with M9.a2.
 
 ## M8.b2 — The editor of a scenario unit's content (frontend)
 

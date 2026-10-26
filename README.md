@@ -289,6 +289,43 @@ and any error can be edited or deleted. Without a key the recording is kept: `sp
 `speech correct <id>` once the key is there. In reviews, a mature productive card can be answered aloud in the
 same way (the screens come with M6.b).
 
+## Statistics and CSV export
+
+Every statistic is computed from the event logs, never from counters, and reading one writes nothing.
+Rates come with their counts: a rate with too little data behind it (fewer than 100 words, fewer than 10 reviews)
+is shown as "n/a" instead of a misleading number. Time is counted in study days (a review at 2 a.m. belongs to the
+previous day, see the `timezone` and `day_start_hour` settings).
+
+```powershell
+cd backend
+uv run python -m app stats errors --granularity week   # errors per 100 words, top 5, lasting trends
+uv run python -m app stats memory                      # retention vs target, success by exercise, lapses
+uv run python -m app stats export                      # every event table as CSV in a zip archive
+```
+
+`stats errors` and `stats memory` take `--from YYYY-MM-DD --to YYYY-MM-DD` (default: the last 30 study days).
+The same figures are served by the API (`/api/stats/...`, see http://127.0.0.1:8000/docs).
+
+`stats export` writes `data/exports/vocab-coach-export-YYYYMMDD.zip` (or `--out file.zip`; `--force` replaces an
+existing file); the API gives the same archive at `/api/export/csv`. It holds one CSV per table (UTF-8, comma,
+instants in UTC with `Z`, a `study_day` column, JSON columns as JSON text, `true` / `false`, empty = null), a
+`manifest.json` and a `data_dictionary.md` that describes every column. No audio, no settings, no key. In pandas:
+
+```python
+import json
+import zipfile
+
+import pandas as pd
+
+archive = zipfile.ZipFile("vocab-coach-export-20261026.zip")
+reviews = pd.read_csv(archive.open("review_log.csv"), parse_dates=["reviewed_at"])
+reviews["success"] = reviews["final_rating"] >= 2
+print(reviews[reviews["state_before"] == "review"].groupby("study_day")["success"].mean())
+
+events = pd.read_csv(archive.open("event_log.csv"), parse_dates=["occurred_at"])
+events["payload"] = events["payload"].map(json.loads)
+```
+
 ## Backup
 
 Your data lives in the `data/` folder (database and audio recordings), which is never committed.

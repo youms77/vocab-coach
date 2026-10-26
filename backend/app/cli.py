@@ -12,6 +12,8 @@ your errors in a conversation transcript; `drill new <code>` and `drill list` ar
 speak <id> --file` are the consolidation tasks. `curriculum tracks | show <code> | start <code> |
 open <code> <n> | generate <code> <n> | unit <id> | step | terms | edit` are the general English
 tracks (word lists, then scenario units written by the AI).
+`stats errors | memory [--from] [--to] [--granularity]` print statistics (read-only) and
+`stats export [--out file.zip] [--force]` writes every event table as CSV in a zip archive.
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
 texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
@@ -37,6 +39,7 @@ from app.db.engine import create_db_engine, sqlite_file
 from app.db.taxonomy import SyncResult, sync_taxonomy
 from app.domain.enums import ErrorSource
 from app.domain.settings_defaults import KNOWN_AI_PROVIDERS, KNOWN_SPEECH_PROVIDERS
+from app.domain.stats.common import Granularity
 
 SQLITE_SIDE_FILES = ("-wal", "-shm")
 
@@ -317,6 +320,30 @@ def _build_parser() -> argparse.ArgumentParser:
     k_edit.add_argument("unit_id", type=_positive)
     k_edit.add_argument("--file", type=Path, required=True)
 
+    stats_parser = commands.add_parser(
+        "stats", help="statistics and CSV export (module I, read-only)"
+    )
+    stats_commands = stats_parser.add_subparsers(dest="stats_command", required=True)
+    for name, help_text in (
+        ("errors", "error rates per 100 words, top 5 recurring errors, lasting trends"),
+        ("memory", "retention, success by exercise type, lapses, time before consolidation"),
+    ):
+        stats_command = stats_commands.add_parser(name, help=help_text)
+        stats_command.add_argument(
+            "--from", dest="start", type=_iso_date, help="first study day (YYYY-MM-DD)"
+        )
+        stats_command.add_argument("--to", dest="end", type=_iso_date, help="last study day")
+        stats_command.add_argument(
+            "--granularity", choices=[g.value for g in Granularity], default="day"
+        )
+    s_export = stats_commands.add_parser(
+        "export", help="all event tables as CSV in a zip archive, for pandas"
+    )
+    s_export.add_argument(
+        "--out", type=Path, help="target .zip (default: data/exports/vocab-coach-export-DATE.zip)"
+    )
+    s_export.add_argument("--force", action="store_true", help="replace an existing file")
+
     consolidation = commands.add_parser(
         "consolidation", help="consolidation tasks: use your solid terms in a talk (module G)"
     )
@@ -430,6 +457,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     correct.add_argument("production_id", type=_positive)
     return parser
+
+
+def _iso_date(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a date (YYYY-MM-DD)") from None
 
 
 def _positive(value: str) -> int:
@@ -641,6 +675,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.curriculum_command == "edit":
             return cli_curriculum.run_curriculum_edit(url, args.unit_id, args.file)
         return cli_curriculum.run_curriculum_open(url, args.code, args.number)
+    if args.command == "stats":
+        from app import cli_stats
+
+        if args.stats_command == "export":
+            return cli_stats.run_stats_export(
+                url, settings.resolved_data_dir, args.out, force=args.force
+            )
+        run = (
+            cli_stats.run_stats_errors
+            if args.stats_command == "errors"
+            else cli_stats.run_stats_memory
+        )
+        return run(url, args.start, args.end, Granularity(args.granularity))
     if args.command == "consolidation":
         from app import cli_consolidation
         from app.domain.consolidation import TaskType
