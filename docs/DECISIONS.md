@@ -3521,3 +3521,64 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
   `text/markdown; charset=utf-8`, `Content-Disposition: attachment; filename="consolidation-task-<id>-<lang>.md"`. No personal data.
 - CLI `consolidation status | new <deck_id> [--type] [--count 8..15] | show <id> | export <id> [--lang] [--out FILE]`; exit 0 done, 2 usage or refusal.
   Like `write correct`, `new` accepts `--demo` (an AI failure is not an exit code: a template takes over).
+
+## D-229 — Applying the result of a consolidation production (M7.a2; builds on D-025, D-127)
+
+- Per target term, from `production_target.used` (deterministic, `contains_term`), `used_correctly` (the AI) and the errors of the production tied to the term
+  by `target_ref` (`classify_target`, pure): **correct** = used, judged correct, no tied error; **misused** = used and judged wrong, or with a tied error;
+  **absent** = not in the text (not heard, for a talk); **unknown** = no verdict.
+- Correct: `learning` or `consolidated` becomes `active` (`mark_active`); `active` stays; `archived` and `known` are ignored. Misused: a FSRS Again on the productive
+  card through `record_review` (`exercise_type = "consolidation_misuse"`, `auto_rating = final_rating = 1`, **no** `production_attempt_id`: the unique index of D-127 allows
+  one review per production, the link is the event); `archived` and `known` are ignored, an `active` term stays `active`, a `consolidated` one may fall back to `learning`
+  by the usual rule. Absent and unknown: nothing. The error itself already exists (created by the correction, source `consolidation`).
+- It runs **in the transaction that stores the correction** (`after_store` of `correct_production` / `correct_speaking`, called after `store_*correction` and before the commit),
+  so a correction that fails or is not stored changes no status and a retry applies the result once. `/correct` already refuses a second correction (409 `already_corrected`, in
+  `prepare` and again in the write transaction); `apply_result` also looks for an existing `consolidation.attempt_checked` for the production and does nothing if there is one.
+  Both layers were removed in turn to check that the tests notice (see the report).
+- A term used correctly but with an unrelated error tied to it counts as misused: the prompt of the correction tasks tells the AI to set `target_ref` when a mistake concerns a target term,
+  and the milestone's rule is "no error tied to the term". The live pass where the AI tied a tense error to "run a regression" showed the cost; the example text avoids that ambiguity.
+- Event `consolidation.attempt_checked` `{task_id, production_attempt_id, modality, targets, used, used_correctly, misused, absent, activated_item_ids, reinforced_card_ids}`: counts and ids only.
+
+## D-230 — Productions of a task: kind, origin, bounds (M7.a2; builds on D-170, D-182)
+
+- A written text is a `production_attempt` `kind=consolidation`, `modality=written`, `prompt_text` = the English prompt of the task, targets = the terms of the task in selection order
+  (so the AI `ref` of a term is its position), `consolidation_task_id` set; same limits as free writing (4 000 characters, 40 sentences). A talk is the same kind with `modality=oral`
+  (`RecordingKind.CONSOLIDATION`, 20 to 240 s: a 2 to 4 minute talk for 8 to 15 terms, 240 s are about 3 800 characters, under `MAX_SPEAKING_CHARS`); `speech.py` counts the words of a
+  `consolidation` production like those of free speaking (the learner's own words). Checks before the file is written and again in the creating transaction; the task prompt is never sent to the recogniser (D-172).
+- `production.recorded` is version 6 (origin `consolidation`); `ProductionOrigin.CONSOLIDATION` decides the error source (`source_of`, `mode_and_source`): `consolidation`, so a retry through `/correct` keeps it.
+- The first attempt makes a `proposed` task `accepted` in the creating transaction (`note_attempt`); an attempt on a `completed` or `dismissed` task is 409 `task_closed` (`task_status` in the details).
+- `corrections.prepare` and `speaking.prepare_speaking` take the accepted kinds as a keyword (defaults unchanged); `prepare_speaking` also requires the oral modality. A written consolidation text is corrected
+  in `paragraph` mode even with one sentence.
+
+## D-231 — API additions of M7.a2
+
+- `POST /consolidation/tasks/{id}/attempts/written`, `POST /speech/consolidation` (under `/api/speech/` for the guard of D-170), `CorrectionOut.consolidation` (additive, null otherwise),
+  `task.targets[].used_correctly_count` (the `production_target.used_correctly` rows of the task attempts). Nothing completes a task by itself: the owner does (`POST .../status`).
+  The feedback formats `correction-1` and `speaking-1` are unchanged, so M7.b reuses the correction views.
+
+## D-232 — Demo v6 (M7.a2; builds on D-163, D-191)
+
+- `dataset_version` 6 in the five files (only the number changes). The simulation makes the task **through the services**: from day -10 (scaled) until the deck is ready, never after day -5, it takes the
+  15 most fragile terms with `select_terms`, stores a task from the deck template (`fictional_ai.consolidation_task`, validated by the real schema, provenance `demo`), records a text built from the
+  dataset sentences (a fallback sentence for the terms the dataset gives none for), one term used wrongly (`it make` -> `it makes`, `grammar.agreement`, tied to the term) and one forgotten, corrects it
+  (`store_correction`, source `consolidation`), applies the result with `apply_result`, and completes the task.
+- Terms with `fate: active` are spared from the "misused" and "forgotten" draw, so the task activates them when it selects them; the direct switch at day -5 stays only for the ones it did not reach
+  (measured on seeds 1 to 12 in PROGRESS). A new generator `_consolidation` is derived **last** from the root generator (D-191): the numbers of the others do not move.
+- The fingerprint changes for these reasons only: the version number, the consolidation rows (task, 15 items, production, correction, error, review, events), the statuses and `item.status_changed` events of the
+  terms the task activated (about 13 instead of 5 `active` terms in the causal deck), and the cards of the term reinforced. Existing demo tests changed in two places: the causal deck has 12 to 15 active terms,
+  and the replay of the exercise choice skips the `consolidation_misuse` reviews (it checks their ratings instead). New: `tests/test_demo_consolidation.py`.
+- The seed takes 5 to 6.5 s here.
+
+## D-233 — Example text and live test (M7.a2; builds on D-054, D-132)
+
+- `content/examples/m7_consolidation.txt`: one paragraph on eight terms of the demo's causal deck (the ten selected at the anchor with seed 42 and `--count 10`): six used well, `noisy estimate` used as a verb
+  (wrong), `underpowered` forgotten (two more selected terms are not used either). `tests/live/test_live_consolidation.py` makes a real task (schema-valid, every term in one section) and corrects the example.
+- Passes with `gemini-3.5-flash-lite` (Stable on 2026-10-26): the task was written by the AI every time. First text (an agreement slip): the AI called the term correct (rightly: the slip is not about the
+  term) - the text was changed, not the test. Second text: failures on "run a regression" (a tense error tied to the term) and once on `noisy estimate` judged correct. Final text (infinitive, a clearly wrong
+  use): 6 passes out of 7. The prompts of `production_correction` and `speaking_correction` are shared with M5 and M6, so they were not changed for this (a v2 would be its own change).
+
+## D-234 — CLI `consolidation write | speak` (M7.a2)
+
+- `write <task_id> --file <txt>` and `speak <task_id> --file <clip> [--duration S]` (in `app/cli_consolidation_attempts.py`) print the correction as `write correct` does, then what happened to the terms
+  (now active / reinforced / not used / unchanged). Exit codes as D-053: 0, 1 AI unavailable (production kept, no term changed, the message gives `POST /api/productions/<id>/correct`), 2 usage (unknown or closed task,
+  refused file, duration outside 20-240 s). `--demo` is accepted.

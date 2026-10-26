@@ -120,7 +120,7 @@ def run_consolidation_new(
     factory = lambda: Session(engine, expire_on_commit=False)  # noqa: E731
     try:
         gateway = (gateway_factory or (lambda e: _build_gateway(e, settings)))(engine)
-        print(f"Asking the AI for a {task_type.value.replace('_', ' ')}...", flush=True)
+        print(f"Asking the AI to write a task ({task_type.value})...", flush=True)
         try:
             result = consolidation.create_task(
                 factory, gateway, deck_id, task_type, term_count=count

@@ -4,7 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **M7.a1** (module G, consolidation backend part 1) is done on `feat/m7-consolidation`, see its section; M7.a2 is next.
+- **M7.a2** (module G, productions, correction and the `active` status; backend complete) and **M7.a1** (readiness, tasks, export) are done on `feat/m7-consolidation`, see their sections; M7.b (the screens) is next.
 - **Last milestone completed before it**: M6.c2 (module F, the pronunciation-assessment screens; see its section), on branch `feat/m6c2-pronunciation-screens`
   cut from the tip of `feat/m6c-pronunciation` (M6.c1, backend), itself cut from `feat/m6b-speaking-screens`. Before it: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
   `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (M6.a2, after M6.a1, PR #21, **not
@@ -24,6 +24,71 @@ Updated at the end of every milestone session. Paste this file into the next pla
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
 
+## M7.a2 — Consolidation: productions, correction, `active` status, demo v6 (backend + CLI)
+
+Same branch `feat/m7-consolidation` (after M7.a1). Not pushed. **No migration** (`alembic check`: no operation), no frontend change
+(`git diff --stat 7ffbec6 -- frontend` is empty), no new dependency. Decisions D-229 to D-234. M7 (backend) is complete; the screens are M7.b.
+
+- **Done**: the written production of a task (`POST /api/consolidation/tasks/{id}/attempts/written`) and the spoken one
+  (`POST /api/speech/consolidation`, 20 to 240 s); `/api/productions/{id}/correct` routes them (`production_correction` in `paragraph` mode,
+  `speaking_correction` in `monologue` mode, errors of source `consolidation`); the result is applied to the terms **in the same write transaction** as the
+  correction (terms used correctly become `active`, a term used wrongly gets a FSRS Again, `consolidation.attempt_checked`); CLI `consolidation write | speak`;
+  `production.recorded` version 6; demo v6 (a completed task at day -10 on "Causal inference reading"); `content/examples/m7_consolidation.txt`;
+  live test `tests/live/test_live_consolidation.py`.
+- **Departures from the milestone prompt** (approved plan): see M7.a1, plus: the `consolidation` production kind is used for the spoken talk as well
+  (modality `oral`), so `speech.py` counts its words like free speaking.
+- **Left (not scheduled)**: the screens (M7.b); a "complete the task" action is the user's (`POST .../status {"to": "completed"}`), nothing completes a task by itself.
+- **Known limits**: the AI judges the use of a term; on the example text it called the misused term correct once in seven live passes (D-233). A term used
+  correctly but with an unrelated error tied to it by `target_ref` counts as misused (the rule of the prompt, D-229).
+
+### Demo v6 (measured on seeds 1 to 12, 60 days, anchor 2026-09-01)
+
+- Every seed makes one task on "Causal inference reading" on 2026-08-22 (day -10), 15 terms (the most fragile), one text, one misused term, one or two
+  terms forgotten; 12 to 14 terms become `active` through it (seed 42: 13). The direct switch of the dataset (`fate: active`, day -5) is kept only for the
+  terms that task did not select: seed 42 ends with 14 active terms, 13 of them through the task.
+- At the anchor a deck is ready with no open task in **all twelve seeds** ("Causal inference reading": ratio 0.83 to 1.0, 10 to 16 candidates; "Campus life" is ready too
+  in seeds 1, 2, 4, 6, 9, 12 and 42). Seed 42: Causal 0.90 with 15 candidates, Campus life 0.90 with 9.
+- Seeding takes 5 to 6.5 s on this machine (the 14 to 16 s noted at M6.c1 are not reproduced; not explained).
+
+### Manual scenario of M7 (2 minutes, with your Gemini key)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+uv run python -m app --demo consolidation status                       # "Causal inference reading" is ready
+uv run python -m app --demo consolidation new 1 --count 10             # topic, structure, terms (note the task id)
+uv run python -m app --demo consolidation write <task_id> --file ..\content\examples\m7_consolidation.txt
+uv run python -m app --demo consolidation export <task_id> --lang fr --out $env:TEMP\consolidation.md
+notepad $env:TEMP\consolidation.md
+```
+
+1. `status`: one deck is ready. 2. `new`: the title, the prompt, the sections and ten terms. 3. `write`: the correction, then
+"now active (6)" (the six terms used well), "review card reinforced (1): noisy estimate", "not used (...)". 4. The exported file is ready to paste into a
+voice chat. 5. Without a key (`$env:VOCAB_GEMINI_API_KEY = ""` for the command, or no key in `.env`): `consolidation new` makes the task from a template
+and says so ("made from a template instead"); `write` then says the AI could not correct (exit 1) and keeps the text.
+
+### API reference for M7.b
+
+All under `/api`, errors in the D-063 format. A task is created with the AI (a few seconds) or from a template, never an error because of the AI.
+
+| Route | Request | Answer |
+|---|---|---|
+| `GET /consolidation/decks` | - | one per deck: `{deck_id, name, ready, reason, ratio, stable_cards, productive_cards, threshold_ratio, min_stability_days, candidates (count), open_task_id}`; `reason` is `excluded_kind`, `deck_done`, `task_open`, `no_productive_cards`, `below_ratio` or `not_enough_candidates` |
+| `POST /consolidation/tasks` | `{deck_id, task_type: talk\|speech\|interview_answer, term_count? (8-15), study_session_id?}` | 201 `{status: "ok", source: "ai"\|"template", reason, task}`; 404 `deck_not_found`; 409 `not_ready` (+`reason`), `task_open` (+`task_id`) |
+| `GET /consolidation/tasks` | `deck_id?`, `status?`, `limit`, `offset` | `{items: [task], total, limit, offset}`, newest first |
+| `GET /consolidation/tasks/{id}` | - | `task`; 404 `task_not_found` |
+| `POST /consolidation/tasks/{id}/status` | `{to: accepted\|completed\|dismissed}` | `task`; 409 `invalid_transition` |
+| `GET /consolidation/tasks/{id}/export` | `lang=en\|fr` | `text/markdown; charset=utf-8`, `Content-Disposition: attachment; filename="consolidation-task-<id>-<lang>.md"` |
+| `POST /consolidation/tasks/{id}/attempts/written` | `{text (4000 chars, 40 sentences), study_session_id?}` | 201 a production (`kind: "consolidation"`, `modality: "written"`, `targets` = the terms); 409 `task_closed`; 422 `text_too_long`, `invalid_request` |
+| `POST /speech/consolidation` | raw audio body, `?task_id&duration_s (20-240)&study_session_id` | 201 as `POST /speech/speaking`; 409 `task_closed`; 422 `audio_too_short`, `audio_too_long`; the task prompt is never sent to the recogniser |
+| `POST /productions/{id}/correct` | - | as before; for a consolidation production `CorrectionOut.consolidation` is `{task_id, production_attempt_id, modality, targets, used, used_correctly, misused, absent, activated_item_ids, reinforced_card_ids}` (null while uncorrected or when the AI failed: nothing changed, try again) |
+
+`task` = `{id, deck: {id, name}, status: proposed|accepted|completed|dismissed, task_type, source: ai|template, title, prompt, audience (each `{en, fr}`),
+target_minutes, sections: [{heading, guidance (`{en, fr}`), item_ids}], targets: [{item_id, term, item_status, used_correctly_count}],
+attempts: [{production_id, modality, corrected, created_at}], created_at}`. Terms come without their sheet (read it with `/api/items/{id}` or the library).
+The first attempt makes a `proposed` task `accepted`. The corrected production is read with `GET /productions/{id}` (`feedback`: `correction-1` for written,
+`speaking-1` for spoken, so the M5/M6 correction views apply).
+
 ## M7.a1 — Consolidation: readiness, tasks, export (backend + CLI)
 
 Branch `feat/m7-consolidation`, cut from `7ffbec6` (tip of `feat/m6c2-pronunciation-screens`; `main` has no M6). Not pushed. **No migration**, no
@@ -35,7 +100,7 @@ correction, `active` status, demo v6, live tests) is still to do.
   `POST .../status`, `GET .../export`, CLI `consolidation status | new | show | export`, two events.
 - **Departures from the prompt** (approved plan): `consolidation_share` reused with bounds 0.5..1.0 instead of `consolidation_ready_ratio` (D-224);
   reason `deck_done` and code `task_closed` added (D-225).
-- **Not done yet (M7.a2)**: productions, correction, applying the result, `production.recorded` v6, `consolidation.attempt_checked`, demo v6,
+- Done in M7.a2: productions, correction, applying the result, `production.recorded` v6, `consolidation.attempt_checked`, demo v6,
   examples, live tests, API reference for M7.b.
 
 ### How to try it (M7.a1, no key needed)
