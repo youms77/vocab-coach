@@ -3458,3 +3458,66 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 - Tests: 25 new Vitest tests, 644 in all (wav 6, Azure card 6, scores and button 10, recording 3); the "assessment off" test
   fails when the conversion is made unconditional (checked by breaking the code).
 
+
+## D-223 — M7.a1 starts from M6.c2; no migration; the schema holds the task (module G)
+
+- `main` (`7904aa3`) has no M6, so `feat/m7-consolidation` is cut from `7ffbec6` (tip of `feat/m6c2-pronunciation-screens`). Nothing after
+  migration `0002`; `alembic check` stays empty.
+- The existing tables are enough. Task types map to the enum at the service/API boundary: `talk` <-> `presentation`, `speech`,
+  `interview_answer`; statuses `completed` <-> `done` (`completed_at` is set). `consolidation_task.topic` holds the English title (readable in
+  SQL); everything else is in `suggested_structure` (`format: "consolidation-task-1"`: task type, source `ai`|`template`, reason, provider, model,
+  prompt version, AI call id, title / prompt / audience in both languages, target minutes, sections with their `item_ids`, study session id).
+- The order of the terms is the insertion order of the `consolidation_task_item` rows (id ascending = selection order, most fragile first).
+- Pure rules in `app/domain/consolidation.py`: `MIN_TERMS = 8`, `MAX_TERMS = 15` (the target limit of the two correction tasks, D-128, D-180),
+  `DEFAULT_TERMS = 12`.
+
+## D-224 — The ratio setting is `consolidation_share`, bounds narrowed to 0.5..1.0
+
+- The registry already had `consolidation_share` (default 0.80), shown in the "consolidation" group of the settings page and unused until now.
+  It is reused instead of adding `consolidation_ready_ratio`. Bounds go from 0..1 to 0.5..1.0 (the milestone's bounds). The frontend reads the
+  bounds from the API, so no frontend change; the domain also clamps a stored out-of-range value when reading (`clamp_ratio`).
+- Readiness: denominator = productive cards of the deck terms that are neither `archived` nor `known`; numerator = those with a stability of at
+  least `consolidation_min_stability_days`. The comparison is `stable / total >= threshold` on exact fractions (79.9 % is below 80 %).
+  Candidates are the terms at `consolidated` status (not `active`), lowest stability first, then lowest id.
+
+## D-225 — One more reason, `deck_done`, and the order of the reasons
+
+- The milestone excludes `done` decks without naming a reason; the reason is `deck_done`. Order of evaluation: `excluded_kind` (an `error_drill`
+  deck), `deck_done`, `task_open`, `no_productive_cards`, `below_ratio`, `not_enough_candidates`. A `paused` deck stays eligible: the pause
+  only stops new terms (D-026). `ratio` is 0 when there is no productive card.
+- 409 `task_closed` is reserved for M7.a2 (an attempt on a `completed` or `dismissed` task).
+
+## D-226 — The `consolidation_task` AI task and the template fallback
+
+- Prompt `consolidation_task.v1.txt` (`deck` and `terms` are `data`, `task_type` and `term_count` `plain`); the output schema validates by
+  context (D-079): known references, every reference exactly once, 3 to 6 sections, `target_minutes` 1 to 6, non-empty texts, bounded lengths
+  (named constants), the requested `task_type`. Messages never quote the AI text. The model gets the terms as `t1..tN` references with the
+  English simple definition only (no French translation: immersion); the prompt forbids sample sentences containing a term.
+- Budgets (`app/ai/tasks.py`): input 8 000 characters (deck about 1 200 + 15 terms x about 300 + keys), output 3 000 tokens (titles, prompts
+  and audience in two languages about 500, 6 sections x about 250, JSON frame), timeout 45 s.
+- Fallback: `content/consolidation_templates.yaml` (one template per type, 4 or 5 sections, `{deck}` / `{domain}` interpolation, terms spread in turn in
+  selection order). Used for any `unavailable` reason and for `incomplete`; the task is created anyway with `source: "template"` and the
+  `reason` is the AI reason (`no_provider_configured`, `quota`, `auth`, ..., or `incomplete`). The template result goes through the same schema.
+
+## D-227 — Creation never holds a transaction during the AI call (D-038)
+
+- `create_task`: a short read session (readiness, selection, sheets) is rolled back; the AI is called with no session; then one short write
+  transaction re-checks readiness (409 `task_open` with `task_id` if another task appeared, 409 `not_ready` with `reason` otherwise, and
+  `not_ready` / `candidates_changed` if a selected term left the candidates) and calls `store_task`. `store_task` works in the caller's
+  transaction so the demo can use it. Tested with a second writer taking `BEGIN IMMEDIATE` during the call.
+- Statuses: `proposed -> accepted | dismissed`, `accepted -> completed | dismissed`; anything else is 409 `invalid_transition`. A closed task frees the deck.
+- Events (open set, no migration): `consolidation.task_created` `{task_id, deck_id, task_type, source, term_count}` and
+  `consolidation.task_status_changed` `{task_id, from_status, to_status}` (field names as `deck.status_changed`); no free text.
+  `consolidation.attempt_checked` and `production.recorded` v6 come with M7.a2.
+- The planner (D-029, block 4) already reads proposed or accepted tasks: unchanged, tested through `/api/session/today` and `practice_info`.
+
+## D-228 — API, export and CLI of M7.a1
+
+- Routes under `/api/consolidation` (decks, tasks create / list / get, status, export), format D-063. `POST /tasks` is a plain `def` with no session
+  dependency; `term_count` is validated 8..15 (422 `invalid_request`). The task carries both languages everywhere; `targets` come without the sheet;
+  `used_correctly_count` counts `production_target.used_correctly` of the task attempts (0 until M7.a2).
+- Export: `content/consolidation_export.yaml` (tutor role, task, structure, terms with simple definitions, what the tutor does: listen, three
+  follow-up questions, say which terms were used well / badly / forgotten); the tutor always speaks English, `lang=fr` translates the framing.
+  `text/markdown; charset=utf-8`, `Content-Disposition: attachment; filename="consolidation-task-<id>-<lang>.md"`. No personal data.
+- CLI `consolidation status | new <deck_id> [--type] [--count 8..15] | show <id> | export <id> [--lang] [--out FILE]`; exit 0 done, 2 usage or refusal.
+  Like `write correct`, `new` accepts `--demo` (an AI failure is not an exit code: a template takes over).

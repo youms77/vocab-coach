@@ -4,7 +4,8 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M6.c2 (module F, the pronunciation-assessment screens; see its section), on branch `feat/m6c2-pronunciation-screens`
+- **M7.a1** (module G, consolidation backend part 1) is done on `feat/m7-consolidation`, see its section; M7.a2 is next.
+- **Last milestone completed before it**: M6.c2 (module F, the pronunciation-assessment screens; see its section), on branch `feat/m6c2-pronunciation-screens`
   cut from the tip of `feat/m6c-pronunciation` (M6.c1, backend), itself cut from `feat/m6b-speaking-screens`. Before it: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
   `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (M6.a2, after M6.a1, PR #21, **not
   merged into `main` yet**). Not pushed. `main` (`7904aa3`, CI green) has M1.a to M5.a3. No migration since `0002`.
@@ -22,6 +23,33 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M7.a1 — Consolidation: readiness, tasks, export (backend + CLI)
+
+Branch `feat/m7-consolidation`, cut from `7ffbec6` (tip of `feat/m6c2-pronunciation-screens`; `main` has no M6). Not pushed. **No migration**, no
+frontend change (`git diff --stat 7ffbec6 -- frontend` is empty), no new dependency. Decisions D-223 to D-228. M7.a2 (written and spoken productions,
+correction, `active` status, demo v6, live tests) is still to do.
+
+- **Done**: pure readiness and selection rules (`app/domain/consolidation.py`), the `consolidation_task` AI task v1 and its template fallback,
+  the service (create, list, statuses, export), `GET /api/consolidation/decks`, `POST|GET /api/consolidation/tasks`, `GET .../tasks/{id}`,
+  `POST .../status`, `GET .../export`, CLI `consolidation status | new | show | export`, two events.
+- **Departures from the prompt** (approved plan): `consolidation_share` reused with bounds 0.5..1.0 instead of `consolidation_ready_ratio` (D-224);
+  reason `deck_done` and code `task_closed` added (D-225).
+- **Not done yet (M7.a2)**: productions, correction, applying the result, `production.recorded` v6, `consolidation.attempt_checked`, demo v6,
+  examples, live tests, API reference for M7.b.
+
+### How to try it (M7.a1, no key needed)
+
+```powershell
+cd backend
+uv run python -m app db upgrade
+uv run python -m app consolidation status
+uv run python -m app consolidation new <deck_id> --count 10   # a template when no key is set
+uv run python -m app consolidation show <task_id>
+uv run python -m app consolidation export <task_id> --lang fr --out $env:TEMP\consolidation.md
+```
+
+A ready deck on the demo database is guaranteed by the demo v6 of M7.a2; until then, build one with your own data.
 
 ## M6.c2 — The pronunciation-assessment screens (frontend)
 
