@@ -3923,3 +3923,48 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
   sections are the domain dataclasses serialised as they are (documented in OpenAPI). The current time comes from `NowDep` (tests fix it).
 - CLI `python -m app [--demo] stats errors | memory [--from] [--to] [--granularity]` prints text; `stats export` as D-271. Read-only session; exit 0, or 2 for invalid dates, a period refused, no database or
   one not at head (D-053). `--from 2026-13-01` is refused by argparse (exit 2).
+
+## D-273 — The status funnel, now and rebuilt from the event log (M9.a2; builds on D-025, D-076, D-077)
+
+- **Snapshot**: `lexical_item.status` counted, the 9 statuses always present, in funnel order `queued, discovering, learning, consolidated, active`, then `triage, known, archived, draft` (`FUNNEL`, `OUTSIDE_FUNNEL`).
+- **Rebuild** (`domain/stats/progress.py`): the events are replayed in `(occurred_at, id)` order: `item.created` puts the term in `draft` (every term is created in `draft` by `library.create_item`), `item.status_changed`
+  puts it in `to_status`, `item.deleted` and `item.merged` (its `merged_item_id`, the source that disappears) remove it. A status change of a term without a creation event still counts. The counts are taken at the end of the last
+  day of every bucket; events before the period are applied first. The curve of active terms is the `active` count of the rebuild.
+- Tests: hand-built (a merge, a deletion, a draft) and the demo, where the last bucket equals the snapshot and the counts of `lexical_item` (117 terms, 15 active).
+
+## D-274 — Decks, tracks and the forecast are reused, not recomputed (M9.a2; builds on D-028, D-029)
+
+- **Decks**: `api/library._decks_out` becomes the public `decks_out` (same body); `/stats/progress` calls it on `library.list_decks`, so a deck reads exactly as in `GET /api/decks` (counts by status, status, deadline, pace and
+  warnings of today's plan). It runs **in the same `query_only` session** as the statistics, not through `get_session`: a route test that overrides `get_engine` only must never reach the real database (the M8.a1 incident).
+- **Tracks**: `curriculum.list_tracks` (opened and triaged units) plus the count of units whose `progress` is `done`.
+- **Forecast**: `forecast_load` on the planner's own card snapshots (`planning.build_plan_inputs`), 14 study days from today, overdue cards counted today, seconds from the observed durations (D-028).
+
+## D-275 — Study time, regularity, words and speech (M9.a2)
+
+- **Actions** (instants): `review_log.reviewed_at`, `production_attempt.created_at`, the events `drill.item_answered`, `discovery.completed`, `item.triaged`, `curriculum.unit_step_completed`, and `item.status_changed` to `discovering`
+  (a discovery started). Sorted per study day; a gap of at least `ACTIVITY_GAP_MINUTES = 10` opens a new block (9 min 59 s does not); a block lasts from its first to its last action plus `ACTIVITY_TAIL_SECONDS = 60`.
+  A block never spans two study days. The time of ended `study_session` rows is given alongside per bucket (`session_seconds`), never added.
+- **Regularity**: a study day is active with at least one action. Current streak = consecutive active days ending today, or ending yesterday while today has no action yet; longest streak over the whole history, with its last day;
+  active days in the last 30 (B.10: a simple streak, no badge).
+- **Words produced**: the kinds and the date rule of the error rates (D-267), per bucket, `written` and `oral` by the production's modality.
+- **Recorded speech**: `audio_seconds` of every production with a recording (`audio_path` and `audio_seconds` set): shadowing, free speaking, spoken answers, spoken consolidation; per bucket and per kind; day of `created_at`.
+
+## D-276 — AI usage per provider (M9.a2; builds on D-041, D-216)
+
+- `ai_usage.ai_usage_for_day` for every study day of the period (two indexed queries a day: 356 ms for 366 days on the demo), merged per provider: requests, successes, errors by code, `rate_limited` and `quota_exhausted` apart
+  (the codes of `ai/types.py`), input and output tokens, models used, mean duration weighted by the requests of each model (the per-model mean of `ai_usage` covers the rows that have a duration). `totals` per provider over the period.
+  The granularity is echoed but the AI is always per day.
+- `azure_month`: `pronunciation.monthly_usage` (calendar month in UTC, what this app sent, D-216). No key, no prompt, no answer (a test searches the answer for "key" and "prompt").
+
+## D-277 — The overview and `stats summary` (M9.a2)
+
+- `GET /api/stats/overview` (no parameter): `error_rate_last_28` (the trend window B) and `error_rate_previous_28` (window A) as `Rate`; `retention_last_28` (`Share` of the recall reviews, D-270) with the mean target of those
+  reviews and the target in force now; `active_terms` (`n` = all terms); `current_streak` (`n` = active days in the last 30); `study_minutes_last_7` and `study_days_last_7` (activity blocks of the last 7 study days);
+  `reviews_due_tomorrow` (`forecast_load` day 1; `n` = cards that can be reviewed). It carries `computed_at`, `study_day` and `demo` but no period.
+- CLI `stats summary` prints the same figures, one per line.
+
+## D-278 — Performance on the demo, no index (M9.a2)
+
+- Measured on the owner's machine (Windows 11), demo seed 42, 60 days, anchor 2026-09-01, in-process `TestClient`, `now` = the anchor, 5 warm calls after a first one (median): overview 29 ms (205 ms for the first call of the
+  process), errors 14 to 15 ms, memory 18 to 27 ms, progress 44 to 45 ms, practice 17 to 22 ms, ai 39 ms (30 days) and 356 ms (366 days), export 210 ms. Every route is under the 500 ms target and the export under 5 s, so no
+  index is proposed (no migration 0003).

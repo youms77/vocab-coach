@@ -298,6 +298,7 @@ previous day, see the `timezone` and `day_start_hour` settings).
 
 ```powershell
 cd backend
+uv run python -m app stats summary                     # the headline figures
 uv run python -m app stats errors --granularity week   # errors per 100 words, top 5, lasting trends
 uv run python -m app stats memory                      # retention vs target, success by exercise, lapses
 uv run python -m app stats export                      # every event table as CSV in a zip archive

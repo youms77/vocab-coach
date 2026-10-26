@@ -12,7 +12,7 @@ your errors in a conversation transcript; `drill new <code>` and `drill list` ar
 speak <id> --file` are the consolidation tasks. `curriculum tracks | show <code> | start <code> |
 open <code> <n> | generate <code> <n> | unit <id> | step | terms | edit` are the general English
 tracks (word lists, then scenario units written by the AI).
-`stats errors | memory [--from] [--to] [--granularity]` print statistics (read-only) and
+`stats summary`, `stats errors | memory [--from] [--to] [--granularity]` print statistics and
 `stats export [--out file.zip] [--force]` writes every event table as CSV in a zip archive.
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
@@ -336,6 +336,7 @@ def _build_parser() -> argparse.ArgumentParser:
         stats_command.add_argument(
             "--granularity", choices=[g.value for g in Granularity], default="day"
         )
+    stats_commands.add_parser("summary", help="the headline figures (last 28 and 7 study days)")
     s_export = stats_commands.add_parser(
         "export", help="all event tables as CSV in a zip archive, for pandas"
     )
@@ -678,6 +679,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "stats":
         from app import cli_stats
 
+        if args.stats_command == "summary":
+            return cli_stats.run_stats_summary(url)
         if args.stats_command == "export":
             return cli_stats.run_stats_export(
                 url, settings.resolved_data_dir, args.out, force=args.force

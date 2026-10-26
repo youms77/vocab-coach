@@ -1,4 +1,4 @@
-"""`python -m app stats errors | memory | export` (module I, M9.a).
+"""`python -m app stats summary | errors | memory | export` (module I, M9.a).
 
 Read-only: every command reads in a `PRAGMA query_only` session and writes nothing in the database
 (`export` writes only its zip file). `--demo` (before the command) reads the demo database.
@@ -17,7 +17,7 @@ from app.cli_library import EXIT_OK, EXIT_USAGE, _open
 from app.db.base import utcnow
 from app.domain.stats.common import Granularity, InvalidPeriod, Rate, Share
 from app.domain.stats.errors import Trend
-from app.services import export, stats
+from app.services import export, stats, stats_progress
 from app.services.stats import read_only
 
 Out = Callable[[str], None]
@@ -227,3 +227,40 @@ def run_stats_export(
         out(f"  {name:<24} {count:>7}")
     out("Read it with pandas: see data_dictionary.md inside the archive.")
     return EXIT_OK
+
+
+def render_summary(view: stats_progress.Overview) -> str:
+    rate = _rate
+    target = "n/a" if view.target_retention is None else f"{view.target_retention:.2f}"
+    return "\n".join(
+        [
+            f"Summary on {view.study_day}{' - demo data' if view.demo else ''}",
+            "",
+            f"Errors, last 28 study days:     {rate(view.error_rate_last_28)}",
+            f"Errors, the 28 days before:     {rate(view.error_rate_previous_28)}",
+            f"Retention, last 28 study days:  {_share(view.retention_last_28, ' reviews')}, "
+            f"target {target} (now {view.current_target:.2f})",
+            f"Active terms:                   {view.active_terms.value} of "
+            f"{view.active_terms.n} terms",
+            f"Current streak:                 {view.current_streak.value} study days "
+            f"({view.current_streak.n} active days in the last 30)",
+            f"Study time, last 7 study days:  {view.study_minutes_last_7:.0f} min over "
+            f"{view.study_days_last_7} days",
+            f"Reviews due tomorrow:           {view.reviews_due_tomorrow.value} "
+            f"(of {view.reviews_due_tomorrow.n} cards that can be reviewed)",
+        ]
+    )
+
+
+def run_stats_summary(url: str, *, now: datetime | None = None, out: Out = print) -> int:
+    _console_safe()
+    engine = _open(url)
+    if engine is None:
+        return EXIT_USAGE
+    try:
+        with read_only(engine) as session:
+            view = stats_progress.overview(session, now or utcnow())
+        out(render_summary(view))
+        return EXIT_OK
+    finally:
+        engine.dispose()

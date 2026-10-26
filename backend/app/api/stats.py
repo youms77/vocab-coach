@@ -16,16 +16,26 @@ from sqlalchemy.orm import Session
 
 from app.api.clock import NowDep
 from app.api.errors import api_error, require_database
+from app.api.library import DeckOut, decks_out
 from app.db.engine import get_engine
+from app.domain.forecast import DayLoad
 from app.domain.stats import errors as error_rules
 from app.domain.stats import memory as memory_rules
+from app.domain.stats import practice as practice_rules
+from app.domain.stats import progress as progress_rules
 from app.domain.stats.common import Granularity, InvalidPeriod
-from app.services import stats
+from app.services import library, stats, stats_progress
 from app.services.stats import Header, LapsedTerm, read_only
+from app.services.stats_progress import TrackProgress
 
 router = APIRouter(prefix="/stats", tags=["stats"], dependencies=[Depends(require_database)])
 
 EngineDep = Annotated[Engine, Depends(get_engine)]
+
+
+class ActivePoint(BaseModel):
+    key: date
+    active: int
 
 
 class PeriodQuery(BaseModel):
@@ -142,3 +152,102 @@ def memory_stats(engine: EngineDep, now: NowDep, period: PeriodDep) -> MemorySta
         stability=result.stability,
         time_to_consolidation=result.time_to_consolidation,
     )
+
+
+class ProgressStatsOut(StatsHeaderOut):
+    funnel_order: list[str]
+    outside_funnel: list[str]
+    snapshot: dict[str, int]
+    rebuilt: list[progress_rules.FunnelBucket]
+    active: list[ActivePoint]
+    decks: list[DeckOut]
+    tracks: list[TrackProgress]
+    forecast: list[DayLoad]
+
+
+@router.get("/progress")
+def progress_stats(engine: EngineDep, now: NowDep, period: PeriodDep) -> ProgressStatsOut:
+    """Status funnel now and rebuilt from the event log at the end of every bucket, active terms,
+    decks (as `GET /api/decks`), tracks and the review load of the next 14 study days."""
+    result, decks = run(
+        engine,
+        lambda s: (
+            stats_progress.progress_stats(s, now, period.start, period.end, period.granularity),
+            # Every deck as `GET /api/decks` gives it, in the same read-only session.
+            decks_out(s, library.list_decks(s), now),
+        ),
+    )
+    return ProgressStatsOut(
+        **header_fields(result.header),
+        funnel_order=list(result.funnel_order),
+        outside_funnel=list(result.outside_funnel),
+        snapshot=result.snapshot,
+        rebuilt=result.rebuilt,
+        active=[ActivePoint(key=key, active=value) for key, value in result.active],
+        decks=decks,
+        tracks=result.tracks,
+        forecast=result.forecast,
+    )
+
+
+class PracticeStatsOut(StatsHeaderOut):
+    study_time: practice_rules.StudyTime
+    streaks: practice_rules.Streaks
+    words: list[practice_rules.WordsBucket]
+    words_written: int
+    words_oral: int
+    speech: list[practice_rules.SpeechBucket]
+    speech_seconds: float
+    speech_by_kind: dict[str, float]
+
+
+@router.get("/practice")
+def practice_stats(engine: EngineDep, now: NowDep, period: PeriodDep) -> PracticeStatsOut:
+    """Study time from the activity blocks (sessions alongside, not added), streaks, words
+    produced in writing and speech, seconds of recorded speech."""
+    result = run(
+        engine,
+        lambda s: stats_progress.practice_stats(
+            s, now, period.start, period.end, period.granularity
+        ),
+    )
+    return PracticeStatsOut(
+        **header_fields(result.header),
+        study_time=result.study_time,
+        streaks=result.streaks,
+        words=result.words,
+        words_written=result.words_written,
+        words_oral=result.words_oral,
+        speech=result.speech,
+        speech_seconds=result.speech_seconds,
+        speech_by_kind=result.speech_by_kind,
+    )
+
+
+class AiStatsOut(StatsHeaderOut):
+    days: list[stats_progress.AiDay]
+    totals: list[stats_progress.ProviderDay]
+    azure_month: stats_progress.AzureMonth
+
+
+@router.get("/ai")
+def ai_stats(engine: EngineDep, now: NowDep, period: PeriodDep) -> AiStatsOut:
+    """AI requests per study day and provider (successes, errors by code, rate limits and
+    exhausted quotas apart, tokens, mean duration) and this month's Azure use. No key, no prompt,
+    no answer."""
+    result = run(
+        engine,
+        lambda s: stats_progress.ai_stats(s, now, period.start, period.end, period.granularity),
+    )
+    return AiStatsOut(
+        **header_fields(result.header),
+        days=result.days,
+        totals=result.totals,
+        azure_month=result.azure_month,
+    )
+
+
+@router.get("/overview")
+def overview(engine: EngineDep, now: NowDep) -> stats_progress.Overview:
+    """The headline figures of the dashboard, each with its count."""
+    return run(engine, lambda s: stats_progress.overview(s, now))

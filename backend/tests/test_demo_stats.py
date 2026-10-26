@@ -17,7 +17,7 @@ from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from app.db.engine import create_db_engine
-from app.db.models import ReviewLog
+from app.db.models import LexicalItem, ReviewLog
 from app.demo.seed import seed_demo, sqlite_url
 from app.domain.study_day import study_day_bounds
 from tests.demo_support import DEMO_ANCHOR, DEMO_SEED
@@ -58,11 +58,13 @@ def memory(client: TestClient) -> dict:
 
 def test_every_route_answers(client: TestClient, demo_engine: Engine) -> None:
     before = counts(demo_engine)
-    for route in ("/api/stats/errors", "/api/stats/memory", "/api/export/csv"):
+    routes = ("errors", "memory", "progress", "practice", "ai")
+    for route in [f"/api/stats/{r}" for r in routes] + ["/api/export/csv"]:
         for granularity in ("day", "week"):
             answer = client.get(route, params={"granularity": granularity})
             assert answer.status_code == 200, route
     assert client.get("/api/stats/errors").json()["demo"] is True
+    assert client.get("/api/stats/overview").status_code == 200
     assert counts(demo_engine) == before
 
 
@@ -119,3 +121,50 @@ def test_memory_figures_are_plausible(memory: dict) -> None:
     assert retention["all"]["n"] == (retention["receptive"]["n"] + retention["productive"]["n"])
     assert memory["time_to_consolidation"]["n"] > 0
     assert memory["lapses"]["total"] == sum(b["lapses"] for b in memory["lapses"]["buckets"])
+
+
+@pytest.fixture(scope="module")
+def progress(client: TestClient) -> dict:
+    answer = client.get("/api/stats/progress", params={"from": FROM, "granularity": "week"})
+    assert answer.status_code == 200
+    return answer.json()
+
+
+def test_the_funnel_snapshot_equals_the_terms(progress: dict, demo_engine: Engine) -> None:
+    with Session(demo_engine) as session:
+        rows = dict(
+            session.execute(
+                select(LexicalItem.status, func.count()).group_by(LexicalItem.status)
+            ).all()
+        )
+    expected = {str(status): count for status, count in rows.items()}
+    assert {k: v for k, v in progress["snapshot"].items() if v} == expected
+    assert sum(progress["snapshot"].values()) == 117
+
+
+def test_the_rebuilt_funnel_ends_on_the_snapshot(progress: dict) -> None:
+    last = progress["rebuilt"][-1]
+    assert last["last_day"] == "2026-09-01"
+    assert last["counts"] == progress["snapshot"]
+    assert progress["active"][-1]["active"] == progress["snapshot"]["active"] == 15
+    # Nothing is active before the demo's first `mark_active` (module G).
+    assert progress["active"][0]["active"] == 0
+
+
+def test_decks_tracks_and_forecast(progress: dict) -> None:
+    assert len(progress["decks"]) == 6
+    assert all("items_by_status" in deck for deck in progress["decks"])
+    scenario = next(t for t in progress["tracks"] if t["code"] == "speaking_scenarios")
+    assert scenario["done_units"] == 1
+    assert len(progress["forecast"]) == 14
+
+
+def test_practice_and_overview_agree(client: TestClient) -> None:
+    practice = client.get("/api/stats/practice", params={"from": FROM}).json()
+    overview = client.get("/api/stats/overview").json()
+    assert practice["study_time"]["seconds"] > 0
+    assert practice["streaks"]["current"] == overview["current_streak"]["value"]
+    assert practice["words_written"] + practice["words_oral"] > 0
+    assert practice["speech_seconds"] > 0
+    errors = client.get("/api/stats/errors").json()
+    assert overview["error_rate_last_28"]["words"] == errors["trends"]["words_b"]
