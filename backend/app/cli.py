@@ -8,7 +8,8 @@ terms. `python -m app errors list | show | add | categories | card | suggestions
 and edits the error log (`card` makes a review card from an error) and
 `write correct --file <txt>` has the AI correct a text; `transcript analyse --file <txt>` finds
 your errors in a conversation transcript; `drill new <code>` and `drill list` are targeted drills.
-`consolidation status | new <deck_id> | show <id> | export <id>` are the consolidation tasks.
+`consolidation status | new <deck_id> | show <id> | export <id> | write <id> --file |
+speak <id> --file` are the consolidation tasks.
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
 texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
@@ -300,6 +301,21 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     c_show = consolidation_commands.add_parser("show", help="one task in full")
     c_show.add_argument("task_id", type=_positive)
+    c_write = consolidation_commands.add_parser(
+        "write", help="submit your written text for a task, have it corrected and check the terms"
+    )
+    c_write.add_argument("task_id", type=_positive)
+    c_write.add_argument("--file", type=Path, required=True, help="a UTF-8 text file")
+    c_speak = consolidation_commands.add_parser(
+        "speak", help="submit your recorded talk (20 to 240 s) for a task"
+    )
+    c_speak.add_argument("task_id", type=_positive)
+    c_speak.add_argument(
+        "--file", type=Path, required=True, help="the clip (.m4a, .webm, .ogg, .wav, .mp3)"
+    )
+    c_speak.add_argument(
+        "--duration", type=float, default=None, help="seconds; measured by Groq when omitted"
+    )
     c_export = consolidation_commands.add_parser(
         "export", help="the Markdown page to paste into a voice chat with a tutor"
     )
@@ -566,6 +582,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         if args.consolidation_command == "show":
             return cli_consolidation.run_consolidation_show(url, args.task_id)
+        if args.consolidation_command in ("write", "speak"):
+            from app import cli_consolidation_attempts as attempts
+
+            if args.consolidation_command == "write":
+                return attempts.run_consolidation_write(url, settings, args.task_id, args.file)
+            return attempts.run_consolidation_speak(
+                url, settings, args.task_id, args.file, duration=args.duration
+            )
         return cli_consolidation.run_consolidation_export(
             url, args.task_id, lang=args.lang, out=args.out
         )
