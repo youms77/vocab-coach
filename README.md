@@ -244,6 +244,12 @@ uv run python -m app curriculum tracks                       # the three tracks 
 uv run python -m app curriculum start general_everyday       # creates its deck (again: the same deck)
 uv run python -m app curriculum show general_everyday        # units, 25 per page (--page N)
 uv run python -m app curriculum open general_everyday 1      # unit 1: its 25 words wait for triage
+uv run python -m app curriculum start speaking_scenarios         # the scenario track (no deck)
+uv run python -m app curriculum generate speaking_scenarios 1    # the AI writes the Job interview unit (needs a key)
+uv run python -m app curriculum unit 1                           # formulas, dialogue, shadowing, final task, steps
+uv run python -m app curriculum step 1 formulas                  # mark formulas / dialogue as done
+uv run python -m app curriculum terms 1 --indices 0 1 2          # put formulas in the triage queue
+uv run python -m app speech shadow --file clip.wav --target "<line>" --unit 1   # a take of the unit
 ```
 
 One line = one term, optionally followed by `|` and the sentence you met it in; an optional YAML header

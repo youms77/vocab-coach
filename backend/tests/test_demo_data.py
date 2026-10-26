@@ -607,7 +607,8 @@ def _codes(db: Session, errors: list[ErrorEvent]) -> list[str]:
 
 
 def test_shadowings_compare_the_sentence_of_a_term(db: Session) -> None:
-    shadowings = _oral(db, ProductionKind.SHADOWING)
+    every = _oral(db, ProductionKind.SHADOWING)
+    shadowings = [a for a in every if a.curriculum_unit_id is None]  # the units have their own
     assert 4 <= len(shadowings) <= 8
     sentences = {t.sentence for t in load_dataset().all_terms() if t.sentence}
     missed = 0
@@ -627,7 +628,7 @@ def test_shadowings_compare_the_sentence_of_a_term(db: Session) -> None:
         ).all()
         assert len(targets) == 1
     assert missed >= 1
-    assert len(_events(db, EventType.PRONUNCIATION_CHECKED)) == len(shadowings)
+    assert len(_events(db, EventType.PRONUNCIATION_CHECKED)) == len(every)
 
 
 def test_every_spoken_answer_review_is_linked_to_its_recording(db: Session) -> None:

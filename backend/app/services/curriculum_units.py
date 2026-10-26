@@ -203,7 +203,7 @@ class _Prepared:
     inputs: dict[str, str]
 
 
-def _scenario_of(code: str, number: int) -> tuple[ScenarioUnit, curriculum.SyllabusTrack]:
+def scenario_of(code: str, number: int) -> tuple[ScenarioUnit, curriculum.SyllabusTrack]:
     track = curriculum.load_syllabus().track(code)
     if track is None:
         raise curriculum.TrackNotFound(f"There is no track '{code}'.", track=code)
@@ -225,8 +225,8 @@ def _existing(session: Session, track_id: int, scenario: ScenarioUnit) -> Curric
 
 
 def _prepare(session: Session, code: str, number: int) -> _Prepared:
-    scenario, _ = _scenario_of(code, number)
-    row = curriculum._track_row(session, code)
+    scenario, _ = scenario_of(code, number)
+    row = curriculum.track_row(session, code)
     if row is None:
         raise curriculum.TrackNotStarted(f"Start the track '{code}' first.", track=code)
     existing = _existing(session, row.id, scenario)
@@ -328,7 +328,7 @@ def generate_unit(
     )
     with session_factory() as session:
         _prepare(session, code, number)  # again: another generation may have written meanwhile
-        track = curriculum._track_row(session, code)
+        track = curriculum.track_row(session, code)
         assert track is not None  # noqa: S101 (checked by _prepare)
         unit = store_generated(session, track, prepared.scenario, number, content, at=clock())
         out = curriculum._unit_out(session, unit, code)

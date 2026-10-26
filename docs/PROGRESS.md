@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M8.a2** (module H, speaking scenario units written by the AI, edited, taken through four steps up to `done`; demo v7; backend + CLI, no migration) is done on `feat/m8-curriculum` after M8.a1. Not pushed. Next: **M8.b** (the screens of module H), after the owner's review. See the M8.a2 section and its API reference.
 - **M8.a1** (module H, general English tracks: word lists, syllabus, tracks, units, triage; backend only, no AI) is done on `feat/m8-curriculum`, cut from `e9917e3` (tip of `feat/m7b-consolidation-screens`). Not pushed. Next: **M8.a2** (scenario units through a `curriculum_unit` AI task, progress by steps, demo v7, live test), after the owner's go-ahead and the rest of the M8.a2 brief (see its section). See the M8.a1 section.
 - **M7.b** (module G, the screens; frontend only) is done on `feat/m7b-consolidation-screens`, cut from `bcfcb55` (tip of `feat/m7-consolidation`: M7.a1 and M7.a2, backend). Not pushed; M6 and M7 are not in `main`. See its section.
 - **Last milestone completed before it**: M6.c2 (module F, the pronunciation-assessment screens; see its section), on branch `feat/m6c2-pronunciation-screens`
@@ -24,6 +25,60 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M8.a2 — Speaking scenario units: AI generation, edits, steps, demo v7 (backend + CLI)
+
+Branch `feat/m8-curriculum`, after M8.a1. Not pushed. **No migration** (`alembic check`: no operation), no new dependency, no frontend file. Decisions D-246 to D-253.
+
+### Done
+
+- **AI task `curriculum_unit` v1** (`app/ai/prompts/curriculum_unit.v1.txt`, `app/ai/schemas/curriculum_unit.py`, `app/ai/tasks.py`, rules in `app/domain/curriculum_unit.py`): 8 to 15 formulas, a dialogue (2 fictional speakers, 8 to 16 lines), 5 to 8 lines to shadow, a final task (1 or 2 minutes, at least 3 formulas). One repair then `incomplete` (D-079). Budgets and their justification in `tasks.py` (D-249). Prior check: `gemini-3.5-flash-lite` is "Stable" on the official models page, 2026-10-26 (D-246).
+- **`app/services/curriculum_units.py`**: `generate_unit` (D-038: read, AI call with no session, short write that re-checks; AI failure = a result, nothing written), `edit_content` (revision, whole parts, D-250), `mark_step`, `refresh_progress`, `add_terms` (formulas to triage, D-251).
+- **Progress** (D-248): four steps `formulas`, `dialogue` (marked) and `shadowing`, `final_task` (derived from the takes linked to the unit); `curriculum_unit.progress` goes `not_started` / `in_progress` / `done`; `content.progress.steps` keeps the dates. Takes reuse M6: `unit_id` on `POST /speech/shadowing` and `POST /speech/speaking`, `speech shadow|speak --unit` (D-252); the final talk is corrected by the existing `speaking_correction`.
+- Five events: `curriculum.unit_generated`, `unit_edited`, `unit_step_completed`, `unit_completed`, `unit_terms_added`.
+- **Demo v7** (D-253): `content/demo/units.yaml`, three units (done, in progress, written only); the other generators keep their sequences.
+- Tests: schema and rules (`tests/ai/test_curriculum_unit_schema.py`), service, API, CLI, demo v7 (`tests/test_demo_curriculum.py`) and one live test (`tests/live/test_live_curriculum_unit.py`, passed with the owner's Gemini key). Full backend suite green, `ruff check` and `ruff format --check` clean.
+
+### Left / known limits
+
+- **M8.b**: no screen yet (no frontend file was touched). The listening of the dialogue (speech synthesis) is the screen's job; the learner marks `dialogue` after it.
+- No regeneration over an existing unit (409 `unit_generated`), even if the learner dislikes it: edit it, or ask for a `replace` option (D-250).
+- A take counts for the `shadowing` step whatever was heard (no accuracy threshold). Editing a line makes the old takes of the previous text stop counting; `done` can go back to `in_progress` after an edit.
+- The syllabus has 16 units; only the three of the demo are written there. In the real database a unit is written when the owner runs `curriculum generate`.
+- Placement test, new planner rule, new correction task and statistics (M9) are not part of this milestone.
+
+### API reference for M8.b
+
+All under `/api/curriculum`, errors `{"detail": {"code", "message", ...}}` (D-063). The routes of M8.a1 are unchanged; `GET /units/{id}` and the `unit` of every answer below gain a `scenario` field (null for a word unit).
+
+| Route | Answer |
+|---|---|
+| `POST /tracks/{code}/units/{n}/generate` | HTTP 200 `{status: ok\|incomplete\|unavailable, reason, detail, unit}`; the AI takes a few seconds; on `incomplete` / `unavailable` nothing was written (`unit` null), try again; 409 `track_not_started`, 409 `unit_generated`, 422 `not_a_scenario_track`, 404 `unit_not_found` / `track_not_found` |
+| `GET /units/{id}` | `unit` with `scenario`: `revision`, `edited`, `provider`, `model`, `prompt_version`, `level`, `formulas[{index, text, item_type, function_en, function_fr, register, item_id}]`, `dialogue {setting_en, setting_fr, speakers, lines[{speaker, text}]}`, `shadowing[{line_index, text, take_count, done}]`, `final_task {prompt_en, prompt_fr, minutes, formula_refs, target_item_ids, attempt_ids, corrected}`, `steps {formulas, dialogue, shadowing, final_task}`, `next_step` (null when done) |
+| `PUT /units/{id}/content` | body `{expected_revision, formulas?, dialogue?, shadowing?, final_task?}` (positions 0-based; `formulas` items use the key `register`); the updated `unit`; 409 `unit_changed` (`revision`), 422 `invalid_content` (`problems[]`), 422 `not_a_scenario_unit`; a body with a wrong shape gives the standard FastAPI 422 |
+| `POST /units/{id}/steps/{step}` | `step` = `formulas` or `dialogue`; `{changed, unit}` (again: `changed: false`); 422 `invalid_step` for the derived steps |
+| `POST /units/{id}/terms` | body `{indices?}` (0-based, all by default); `{imported, attached, skipped, unit}`; the formulas wait in the triage queue (`GET /api/triage?deck_id=`); 422 `invalid_content` for an unknown index |
+| `POST /speech/shadowing?unit_id=` | a shadowing take of one of the unit's lines (`target_text` = the line); counts when transcribed |
+| `POST /speech/speaking?unit_id=` | the final talk; `prompt_text` and `target_item_ids` default to the unit's; then `POST /api/productions/{id}/correct` completes the `final_task` step |
+
+`unit.progress` is `not_started` / `in_progress` / `done`; `content_status` is `generated` or `edited`; `state` is `opened` until the formulas are in the library and triaged.
+
+### Owner's manual scenario (about 5 minutes, the generation needs your Gemini key)
+
+On the demo database (nothing touches `data/vocab-coach.sqlite3`):
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+uv run python -m app --demo curriculum show speaking_scenarios
+uv run python -m app --demo curriculum unit 1        # done: all four steps ticked
+uv run python -m app --demo curriculum unit 3        # in progress: next step "shadowing"
+uv run python -m app --demo curriculum generate speaking_scenarios 2   # job_interview_2, with the AI
+uv run python -m app --demo curriculum step 4 formulas
+uv run python -m app --demo curriculum terms 4 --indices 0 1 2
+```
+
+To do the same for the real "Job interview" unit: `uv run python -m app curriculum start speaking_scenarios`, then `curriculum generate speaking_scenarios 1`, `curriculum unit <id>`, `curriculum step <id> formulas`, `curriculum step <id> dialogue`, then for each shadowing line `speech shadow --file clip.wav --target "<line>" --unit <id>`, then `speech speak --file talk.wav --unit <id>` (it corrects the talk), and `curriculum unit <id>` shows `done`. Without a key, `generate` ends with exit code 1 and "Nothing was written": nothing is lost, run it again later.
 
 ## M8.a1 — General English tracks: word lists, syllabus, units (backend + CLI, no AI)
 

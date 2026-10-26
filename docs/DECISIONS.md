@@ -3671,3 +3671,82 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 - A track is `available: false, reason: "wordlist_missing"` when its file is absent or unreadable; starting it gives 409 `wordlist_missing`. Opening a unit of a track that is not started gives
   409 `track_not_started` (with `track`); a scenario track has no word units to open (422 `not_a_wordlist_track`); unknown track / unit give 404; an unreadable syllabus gives 503 `syllabus_unavailable`.
 - API tests must override `get_session` as well as `get_engine`: with `get_engine` only, routes that commit write into the real database (found and fixed in this milestone, see PROGRESS).
+
+## D-246 — Scenario units: zero migration, the row exists only once its content does; the model check (M8.a2)
+
+- No migration: `curriculum_unit` already has `content` (JSON), `content_status`, `provider`, `model`, `prompt_version`, `deck_id` and the closed `progress` enum; `production_attempt.curriculum_unit_id`
+  already exists. `alembic check` reports no operation.
+- Generation follows D-038: a short read (the track is started, the unit exists in the syllabus, no content yet), the AI call with no session open, then a short write that checks again (409
+  `unit_generated` if another generation wrote in the meantime). The `curriculum_unit` row is created by that write, never before: an AI failure is a result (HTTP 200, `status` `incomplete` or
+  `unavailable`, `reason`, `detail`) that writes nothing, and the same command can be run again. A unit with a row and `content_status = pending` is treated as not generated.
+- A generated scenario unit is `opened` while none of its formulas is in the library (D-245 computes `opened` / `triaged` from the terms; a scenario unit with no terms yet is simply `opened`).
+  Scenario units are listed from the YAML as before (`not_opened` until generated).
+- Prior check, 2026-10-26: https://ai.google.dev/gemini-api/docs/models lists `gemini-3.5-flash-lite` as "Stable" (page "Last updated 2026-10-22 UTC"; the page gives no release or deprecation
+  date for it). The live test (`tests/live/test_live_curriculum_unit.py`, 1 to 2 requests) wrote the "Job interview" unit with the owner's Gemini key on the first attempt.
+
+## D-247 — Stored format of a scenario unit, `curriculum-unit-1` (M8.a2)
+
+- `curriculum_unit.content` (replaced as a whole dict on every write, D-020): `format: "curriculum-unit-1"`, `prompt_version` (`curriculum_unit.v1`), `provider`, `model`, `ai_call_id`, `edited`,
+  `revision` (1 at generation, +1 per edit), `level` (from the syllabus), `formulas [{text, item_type, function_en, function_fr, register}]`, `dialogue {setting_en, setting_fr, speakers[2], lines
+  [{speaker, text}]}`, `shadowing [line index]`, `final_task {prompt_en, prompt_fr, minutes 1|2, formula_refs [formula index]}`, `progress {steps {<step>: {done, at}}}`, `item_ids [...]` and
+  `formula_item_ids {"<formula index>": item id}` (the last two are empty until the learner adds formulas to the library, D-251). `provider`, `model` and `prompt_version` are copied to the
+  columns. `content_status`: `generated` after the AI, `edited` after the first edit (never back).
+- Stored positions are **0-based** (line and formula indices). The AI numbers the dialogue lines from 1 and the formulas `f1`, `f2`...: `CurriculumUnitOutput.stored_*` convert them once.
+  `register` is the JSON key of a formula; the Python attribute is `style` because `BaseModel.register` exists.
+- The shapes and every rule live in `app/domain/curriculum_unit.py` (pure), shared by the AI schema, the edit and the demo dataset.
+
+## D-248 — Progress by four steps; two are marked, two are derived (M8.a2; the owner's brief was cut off here, approved in the plan)
+
+- Steps, in this order but not enforced: `formulas` (read) and `dialogue` (listened to) are **marked** by the learner (`POST /units/{id}/steps/{step}`; the browser's speech synthesis cannot be
+  observed); `shadowing` is complete when every line of `shadowing` has at least one transcribed, non-silent shadowing take linked to the unit whose target sentence equals the line (no accuracy
+  threshold: speech recognition is not a pronunciation judge, SPEC module F); `final_task` is complete when a free-speaking production linked to the unit has been corrected by
+  `speaking_correction` (no new correction task). The two derived steps are computed from `production_attempt.curriculum_unit_id`, so a take never needs a second write and cannot drift.
+- `progress` keeps its closed values: `not_started` (no step), `in_progress` (at least one), `done` (all four). `refresh_progress` stores the derived steps in `content.progress.steps`, writes
+  the events and moves the enum; it runs after a mark, an edit, a stored transcription and a stored speaking correction that is linked to a unit (late imports in `speech.store_transcription` and
+  `corrections.store_speaking_correction`, as the consolidation does). A step lost by an edit (a new line without take, a new prompt) is recomputed; `done` can go back to `in_progress`.
+- Events (counts only, no text): `curriculum.unit_generated`, `curriculum.unit_edited` (`parts`, `revision`), `curriculum.unit_step_completed` (`step`, once per step until lost),
+  `curriculum.unit_completed`, `curriculum.unit_terms_added`. Statistics (M9) can count units from them.
+
+## D-249 — The `curriculum_unit` task, its validators and its budgets (M8.a2; builds on D-079, D-128, D-226)
+
+- `curriculum_unit.v1`: inputs `title`, `level`, `goals`, `situations` (all `data`: syllabus text). Output: 8 to 15 formulas, a dialogue of two fictional speakers with 8 to 16 lines, 5 to 8 lines to
+  shadow, a final task of 1 or 2 minutes that uses at least 3 formulas. The shape limits are named constants of `app/domain/curriculum_unit.py`.
+- One model validator runs `problems()` (D-079: one repair, then `incomplete`): formulas unique after `normalize_term`; at least half of them found in the dialogue (`contains_term`); shadowing
+  numbers real and unique; shadowing lines of 4 to 25 words; references known and unique; no empty text; the lines' speakers are the two names, which differ. Every message names a
+  location, never the generated text; all problems are reported at once so one repair can fix them. There is no request-dependent context (every rule reads the output only).
+- Budgets (`app/ai/tasks.py`): input at most 6 000 characters (title, level 500 each, 4 goals and 6 situations of at most 500: the `Text` limit of the syllabus), 6 500 allowed; output about 2 700
+  tokens at most (15 formulas of about 110, 16 lines of about 36, settings, task and frame), ceiling 4 000 because French costs more tokens; timeout 60 s.
+
+## D-250 — Editing a unit: whole parts under a revision (M8.a2)
+
+- `PUT /curriculum/units/{id}/content` with `expected_revision` and any of `formulas`, `dialogue`, `shadowing`, `final_task` (0-based positions) replaces those parts. The same rules as the AI
+  run (`problems()` plus the counts of the shapes), so an edited unit is as valid as a generated one. 409 `unit_changed` (with the current `revision`) when the revision is stale; 422
+  `invalid_content` (with `problems`, locations only) when a rule breaks; an edit with no part is refused. Nothing is written when it fails.
+- Replacing `formulas` without `final_task` keeps the references that survive, found again by normalised text; fewer than 3 left is refused. The library terms already added follow their
+  formulas the same way (`formula_item_ids`). Editing never calls the AI.
+- No regeneration over an existing unit in M8.a2: a second `generate` is 409 `unit_generated`, an edited unit is never overwritten. A `replace` option can come later if the owner wants it.
+
+## D-251 — Formulas enter the library only when the learner asks (M8.a2)
+
+- Generating a unit does not touch the library. `POST /units/{id}/terms` (`indices`, all by default) puts the chosen formulas in intake triage through `importing.commit` (origin `curriculum`,
+  `record_completed = False`, the formula's type, `confirmed` because a formula may look like a sentence), in the track's `curriculum` deck, made on first use like D-241 (source
+  `curriculum:speaking_scenarios`, deck "Speaking scenarios", end of the queue). It stores `formula_item_ids`, `item_ids` and `deck_id`, and records `curriculum.unit_terms_added`.
+- A formula already added is skipped, so calling it again writes nothing; an exact duplicate already in the library is attached (D-243). The terms of the final task (`target_item_ids`) are
+  the added formulas among its references: they become the targets of the final speaking take.
+
+## D-252 — Takes of a unit reuse M6 without a new kind or origin (M8.a2)
+
+- `speech.Recording` gains `curriculum_unit_id`; `speech.record_shadowing`, `speaking.record_speaking` and `speaking.store_speaking` take it, the routes `POST /speech/shadowing` and
+  `POST /speech/speaking` take `unit_id`, the CLI `speech shadow|speak --unit <id>`. The unit is checked before the file is written and again in the creating transaction (404
+  `unit_not_found`, 422 `not_a_scenario_unit`). A take is an ordinary `shadowing` or `speaking` production (origin `shadowing` / `speaking`, errors with the source `speaking`): reviews, the
+  error log and the comparison work unchanged.
+- With `unit_id`, free speaking defaults its topic to the English prompt of the final task and its targets to the unit's library terms; a caller's own topic or targets win.
+
+## D-253 — Demo dataset v7: a sixth file and three units (M8.a2)
+
+- `content/demo/units.yaml` (`dataset_version: 7`, all six files bumped together) holds three fictional units written as the AI would return them (validated by `CurriculumUnitOutput` when the
+  file is read) and what the learner did: `job_interview_1` done (marked, 6 lines shadowed, a 62-second talk corrected), `presenting_data_1` in progress (marked, 2 of 6 lines shadowed),
+  `meetings_1` written only. Days are scaled like the others; the track is started the first time a unit is written; no term, deck or library event is added for them.
+- The simulation writes them through `curriculum_units.store_generated`, `mark_step`, `speech.store_recording` and `speaking.store_speaking` + `corrections.store_speaking_correction`. A new
+  random generator is drawn **after** the existing ones, so the other sequences keep their numbers. Provenance `("demo", None, "demo-unit-v1")`.
+- `test_shadowings_compare_the_sentence_of_a_term` now ignores the takes of units (their target is a dialogue line, not the sentence of a term).

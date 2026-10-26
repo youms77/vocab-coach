@@ -42,6 +42,7 @@ TRANSCRIPT_PROVENANCE = ("demo", None, "demo-transcript-v1")
 DRILL_PROVENANCE = ("demo", None, "demo-drill-v1")
 SPEAKING_PROVENANCE = ("demo", None, "demo-speaking-v1")
 CONSOLIDATION_PROVENANCE = ("demo", None, "demo-consolidation-v1")
+CURRICULUM_UNIT_PROVENANCE = ("demo", None, "demo-unit-v1")
 # A transcription records its provider and model, not a prompt version (`production.transcribed`):
 # the version goes in the model, the only place it is seen (D-190).
 TRANSCRIPTION_PROVIDER = "demo"

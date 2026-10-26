@@ -140,7 +140,7 @@ def find_deck(session: Session, code: str) -> Deck | None:
     ).first()
 
 
-def _track_row(session: Session, code: str) -> CurriculumTrack | None:
+def track_row(session: Session, code: str) -> CurriculumTrack | None:
     return session.scalars(select(CurriculumTrack).where(CurriculumTrack.code == code)).first()
 
 
@@ -307,7 +307,7 @@ def _unit_rows(session: Session, track_id: int) -> list[CurriculumUnit]:
 
 
 def _summary(session: Session, track: SyllabusTrack, version: int, entries: Any) -> TrackSummary:
-    row = _track_row(session, track.code)
+    row = track_row(session, track.code)
     deck = find_deck(session, track.code) if track.kind == TrackKind.WORDLIST else None
     units = _unit_rows(session, row.id) if row else []
     waiting = _units_in_triage(session, units)
@@ -358,7 +358,7 @@ def track_detail(
         raise TrackNotFound(f"There is no track '{code}'.", track=code)
     entries = _entries_for(track)
     summary = _summary(session, track, syllabus.version, entries)
-    row = _track_row(session, code)
+    row = track_row(session, code)
     stored = {u.position: u for u in (_unit_rows(session, row.id) if row else [])}
     waiting = _units_in_triage(session, list(stored.values()))
     units: list[UnitRow] = []
@@ -411,7 +411,7 @@ class StartResult(BaseModel):
 def ensure_track_row(
     session: Session, track: SyllabusTrack, version: int, order: int, at: datetime
 ) -> tuple[CurriculumTrack, bool]:
-    row = _track_row(session, track.code)
+    row = track_row(session, track.code)
     if row is not None:
         return row, False
     row = CurriculumTrack(
@@ -536,7 +536,7 @@ def open_unit(session: Session, code: str, number: int, at: datetime) -> OpenRes
             f"Track '{code}' has no word units to open (its units are generated).", track=code
         )
     deck = find_deck(session, code)
-    row = _track_row(session, code)
+    row = track_row(session, code)
     if deck is None or row is None:
         raise TrackNotStarted(f"Start the track '{code}' first.", track=code)
     entries = _entries_or_raise(track)

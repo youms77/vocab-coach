@@ -37,7 +37,14 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Card, Deck, ErrorCategory, ExerciseTemplate, LexicalItem
+from app.db.models import (
+    Card,
+    CurriculumUnit,
+    Deck,
+    ErrorCategory,
+    ExerciseTemplate,
+    LexicalItem,
+)
 from app.db.settings_store import get_setting
 from app.demo import clips, fictional_ai
 from app.demo.dataset import (
@@ -48,11 +55,13 @@ from app.demo.dataset import (
     DemoSheet,
     DemoTerm,
     DemoTermRef,
+    DemoUnit,
     ErrorTemplate,
     Fate,
 )
 from app.demo.learner import Learner, poisson
 from app.domain import consolidation as consolidation_rules
+from app.domain import curriculum_unit as unit_rules
 from app.domain import drills as drill_rules
 from app.domain import exercises as ex
 from app.domain.enums import (
@@ -82,6 +91,8 @@ from app.domain.transcript_import import UserByLabel, chunk_units
 from app.services import (
     consolidation,
     corrections,
+    curriculum,
+    curriculum_units,
     drills,
     error_cards,
     error_log,
@@ -128,6 +139,8 @@ MARK_ACTIVE_DAY = -5
 # `MARK_ACTIVE_DAY`; it asks for as many terms as the app allows.
 CONSOLIDATION_DAY = -10
 CONSOLIDATION_DECK = "causal"
+# The scenario units of the dataset (M8.a2) belong to this track of `content/curriculum.yaml`.
+CURRICULUM_TRACK = "speaking_scenarios"
 CONSOLIDATION_TYPE = consolidation_rules.TaskType.TALK
 # The sentence of a term the dataset gives no example for, and the slip of the misused term.
 CONSOLIDATION_FALLBACKS = (
@@ -212,6 +225,7 @@ class _State:
     next_drill_day: int = 0
     next_shadowing_day: int = 0
     consolidated: bool = False  # the consolidation task was made
+    units: dict[int, int] = field(default_factory=dict)  # unit number -> unit id (M8.a2)
     drills_made: int = 0
     last_drill: str | None = None
     # Shadowings with unrecognised words, in order: (production id, target, unrecognised words,
@@ -248,6 +262,8 @@ class Simulation:
         names = random.Random(root.getrandbits(64))  # noqa: S311
         # Drawn last: the generators above keep their numbers (D-191).
         self._consolidation = random.Random(root.getrandbits(64))  # noqa: S311
+        # Drawn after it (M8.a2): the generators above keep their numbers.
+        self._curriculum = random.Random(root.getrandbits(64))  # noqa: S311
         # File names drawn from the seed, so `audio_path` is reproducible (D-187).
         self.audio = AudioStore(audio_dir, names=lambda: f"{names.getrandbits(128):032x}")
         self._engines: dict[float, SrsEngine] = {}
@@ -343,12 +359,106 @@ class Simulation:
             MARK_ACTIVE_DAY
         ):
             self.state.consolidated = self._consolidate(at)
+        self._curriculum_day(offset, at)
         if offset == self.scaled(MARK_ACTIVE_DAY):
             # What the consolidation task did not reach (it takes the 15 most fragile terms).
             for item in self._fated(Fate.ACTIVE):
                 # A shortened history may not have discovered the term yet.
                 if item.status in (ItemStatus.LEARNING, ItemStatus.CONSOLIDATED):
                     mark_active(self.session, item, at)
+
+    def _curriculum_day(self, offset: int, at: datetime) -> None:
+        """The learner's scenario units (M8.a2), through the app's services: each is written once
+        (the track is started the first time), then read, shadowed and spoken on the days the
+        dataset gives. A unit never reaches a later stage before an earlier one of its own."""
+        for unit in self.dataset.units:
+            if self.scaled(unit.written_day) == offset:
+                self._write_unit(unit, at)
+        for unit in self.dataset.units:
+            unit_id = self.state.units.get(unit.number)
+            if unit_id is None:
+                continue
+            if unit.mark_day is not None and self.scaled(unit.mark_day) == offset:
+                for step in ("formulas", "dialogue"):
+                    curriculum_units.mark_step(self.session, unit_id, step, at)
+            if unit.shadow_day is not None and self.scaled(unit.shadow_day) == offset:
+                self._shadow_unit(unit, unit_id, at)
+            if unit.talk_day is not None and self.scaled(unit.talk_day) == offset:
+                self._talk_unit(unit, unit_id, at)
+
+    def _write_unit(self, unit: DemoUnit, at: datetime) -> None:
+        curriculum.start_track(self.session, CURRICULUM_TRACK, at)
+        scenario, _ = curriculum_units.scenario_of(CURRICULUM_TRACK, unit.number)
+        track = curriculum.track_row(self.session, CURRICULUM_TRACK)
+        assert track is not None  # noqa: S101 (just started)
+        provider, model, prompt_version = fictional_ai.CURRICULUM_UNIT_PROVENANCE
+        content = curriculum_units.build_content(
+            unit.output,
+            level=scenario.level,
+            provider=provider,
+            model=model,
+            prompt_version=prompt_version,
+            ai_call_id=None,
+        )
+        row = curriculum_units.store_generated(
+            self.session, track, scenario, unit.number, content, at=at
+        )
+        self.state.units[unit.number] = row.id
+
+    def _shadow_unit(self, unit: DemoUnit, unit_id: int, at: datetime) -> None:
+        """The learner repeats the lines to shadow (the first `shadow_lines`, or all of them); the
+        recogniser misses 0 or 1 word of a line."""
+        content = self.session.get_one(CurriculumUnit, unit_id).content or {}
+        lines = unit_rules.shadowing_lines(content)[: unit.shadow_lines]
+        t = at
+        for sentence in lines:
+            heard = fictional_ai.misheard(
+                sentence, self._curriculum, self._curriculum.choice((0, 0, 1))
+            )
+            duration = round(
+                min(max(len(sentence.split()) / SHADOWING_WORDS_PER_SECOND, 1.0), 30.0), 1
+            )
+            speech.store_recording(
+                self.session,
+                self.audio,
+                speech.shadowing_recording(sentence, curriculum_unit_id=unit_id),
+                data=clips.tone(),
+                content_type=clips.CONTENT_TYPE,
+                duration_s=duration,
+                transcription=fictional_ai.transcription(heard, duration),
+                at=t,
+            )
+            t = self._pause(t + timedelta(seconds=duration * 3))
+
+    def _talk_unit(self, unit: DemoUnit, unit_id: int, at: datetime) -> None:
+        """The final speaking task: recorded, transcribed and corrected like the app does it."""
+        assert unit.talk is not None and unit.talk_seconds is not None  # noqa: S101 (validated)
+        recorded = speaking.store_speaking(
+            self.session,
+            self.audio,
+            data=clips.tone(),
+            content_type=clips.CONTENT_TYPE,
+            duration_s=unit.talk_seconds,
+            transcription=fictional_ai.transcription(unit.talk, unit.talk_seconds),
+            prompt_text=unit.output.final_task.prompt_en,
+            curriculum_unit_id=unit_id,
+            at=at,
+        )
+        prepared = speaking.prepare_speaking(self.session, recorded.production_id)
+        corrections.store_speaking_correction(
+            self.session,
+            prepared.correction,
+            fictional_ai.speaking_output(
+                prepared,
+                [],
+                structure=self.dataset.speech.structure[0],
+                connectors=self.dataset.speech.connectors,
+            ),
+            source=prepared.correction.source,
+            provenance=fictional_ai.SPEAKING_PROVENANCE,
+            ai_call_id=None,
+            at=at + timedelta(minutes=1),
+        )
 
     def _consolidate(self, at: datetime) -> bool:
         """The learner's consolidation task, through the app's services (M7.a2): a talk on the

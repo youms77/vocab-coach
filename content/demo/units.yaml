@@ -1,0 +1,131 @@
+# Fictional speaking scenario units of the demo database (milestone M8.a2).
+#
+# Written for the demo: fictional speakers, no real person or text. Each `output` is exactly what
+# the `curriculum_unit` AI task returns (formulas, dialogue, shadowing line numbers from 1, final
+# task with formula references f1, f2...) and is checked by the same schema when the file is read.
+# `number` is the unit's place in the `speaking_scenarios` track of content/curriculum.yaml.
+# Days are relative to the anchor study day and scaled like the other demo days. What the learner
+# did with the unit:
+#   written_day -> the unit was written (the track is started the first time)
+#   mark_day    -> the learner marked `formulas` and `dialogue` as read and listened to
+#   shadow_day  -> the learner shadowed `shadow_lines` of the lines (all of them when absent)
+#   talk_day    -> the learner recorded `talk` (about `talk_seconds` s) and had it corrected
+
+dataset_version: 7
+
+units:
+  - number: 1 # job_interview_1: done
+    written_day: -36
+    mark_day: -34
+    shadow_day: -33
+    talk_day: -30
+    talk: "Thank you for having me. I am particularly interested in this role because I like working with data and explaining it to people who are not specialists. My greatest strength is that I stay calm when I work under pressure. Last year I had to meet a deadline for a report, and I organised my week so that the team received it on time. I am a team player, but I also like to take the initiative when a problem appears. To be honest, I learn quickly, and I would like to learn from your team."
+    talk_seconds: 62
+    output:
+      formulas:
+        - { text: "Thank you for having me", item_type: spoken_formula, function_en: "Greet the interviewers politely.", function_fr: "Saluer poliment les recruteurs.", register: neutral }
+        - { text: "I am particularly interested in", item_type: spoken_formula, function_en: "Say what attracts you to the job.", function_fr: "Dire ce qui vous attire dans le poste.", register: formal }
+        - { text: "My greatest strength is", item_type: spoken_formula, function_en: "Present your main quality.", function_fr: "Présenter votre principale qualité.", register: neutral }
+        - { text: "work under pressure", item_type: collocation, function_en: "Say you stay effective when it is stressful.", function_fr: "Dire que vous restez efficace sous pression.", register: neutral }
+        - { text: "meet a deadline", item_type: collocation, function_en: "Say you finish work on time.", function_fr: "Dire que vous rendez le travail à temps.", register: neutral }
+        - { text: "take the initiative", item_type: collocation, function_en: "Show that you act without being asked.", function_fr: "Montrer que vous agissez sans qu'on vous le demande.", register: formal }
+        - { text: "a team player", item_type: phrase, function_en: "Describe yourself as good at working with others.", function_fr: "Se décrire comme quelqu'un qui travaille bien en équipe.", register: neutral }
+        - { text: "I would be glad to", item_type: spoken_formula, function_en: "Offer something politely.", function_fr: "Proposer quelque chose poliment.", register: formal }
+        - { text: "to be honest", item_type: phrase, function_en: "Introduce a sincere answer.", function_fr: "Introduire une réponse sincère.", register: informal }
+      dialogue:
+        setting_en: "A job interview for a data analyst position in a small company."
+        setting_fr: "Un entretien d'embauche pour un poste d'analyste de données dans une petite entreprise."
+        speakers: [Maya, Paul]
+        lines:
+          - { speaker: Maya, text: "Thank you for having me, it is a pleasure to be here." }
+          - { speaker: Paul, text: "Welcome. Tell me why you applied for this role." }
+          - { speaker: Maya, text: "I am particularly interested in data work for a growing team." }
+          - { speaker: Paul, text: "What would you say is your greatest quality?" }
+          - { speaker: Maya, text: "My greatest strength is staying calm and organised." }
+          - { speaker: Paul, text: "Can you work under pressure?" }
+          - { speaker: Maya, text: "Yes, I can work under pressure and still meet a deadline." }
+          - { speaker: Paul, text: "Do you prefer working alone?" }
+          - { speaker: Maya, text: "To be honest, I am a team player and I like to take the initiative." }
+          - { speaker: Paul, text: "Good. Would you like to add anything before we finish?" }
+          - { speaker: Maya, text: "I would be glad to send you examples of my work." }
+          - { speaker: Paul, text: "Please do. Thank you for coming today." }
+      shadowing: [1, 3, 5, 7, 9, 11]
+      final_task:
+        prompt_en: "You are in a job interview for a data analyst role. Explain why you are the right person for the job."
+        prompt_fr: "Vous êtes en entretien pour un poste d'analyste de données. Expliquez pourquoi vous êtes la bonne personne."
+        minutes: 1
+        formula_refs: [f2, f3, f7]
+
+  - number: 3 # presenting_data_1: in progress (formulas read, two lines shadowed)
+    written_day: -36
+    mark_day: -27
+    shadow_day: -26
+    shadow_lines: 2
+    output:
+      formulas:
+        - { text: "Let me walk you through", item_type: spoken_formula, function_en: "Start explaining your results step by step.", function_fr: "Commencer à expliquer vos résultats pas à pas.", register: neutral }
+        - { text: "As you can see on this slide", item_type: spoken_formula, function_en: "Point to a figure or a chart.", function_fr: "Désigner un chiffre ou un graphique.", register: neutral }
+        - { text: "the data shows that", item_type: collocation, function_en: "State what the numbers say.", function_fr: "Dire ce que disent les chiffres.", register: formal }
+        - { text: "a clear upward trend", item_type: collocation, function_en: "Describe a steady increase.", function_fr: "Décrire une hausse régulière.", register: neutral }
+        - { text: "on the other hand", item_type: phrase, function_en: "Introduce a contrast.", function_fr: "Introduire un contraste.", register: neutral }
+        - { text: "This is worth noting", item_type: spoken_formula, function_en: "Draw attention to a detail.", function_fr: "Attirer l'attention sur un détail.", register: neutral }
+        - { text: "to sum up", item_type: phrase, function_en: "Start your conclusion.", function_fr: "Commencer votre conclusion.", register: neutral }
+        - { text: "The main finding is", item_type: spoken_formula, function_en: "Give the key result.", function_fr: "Donner le résultat principal.", register: formal }
+        - { text: "draw a conclusion", item_type: collocation, function_en: "Say what the results mean.", function_fr: "Dire ce que signifient les résultats.", register: formal }
+      dialogue:
+        setting_en: "A team meeting where an analyst presents the results of a customer survey."
+        setting_fr: "Une réunion d'équipe où une analyste présente les résultats d'une enquête auprès des clients."
+        speakers: [Nora, Sam]
+        lines:
+          - { speaker: Nora, text: "Let me walk you through the main results of the survey." }
+          - { speaker: Sam, text: "Please go ahead, we have the report in front of us." }
+          - { speaker: Nora, text: "As you can see on this slide, sales grew every month." }
+          - { speaker: Sam, text: "Is the growth the same in every region?" }
+          - { speaker: Nora, text: "The data shows that the north grew faster than the south." }
+          - { speaker: Sam, text: "That is a clear upward trend for the north." }
+          - { speaker: Nora, text: "Yes, and on the other hand, the south stayed flat." }
+          - { speaker: Sam, text: "What matters most for the board?" }
+          - { speaker: Nora, text: "The main finding is that prices matter more than advertising." }
+          - { speaker: Sam, text: "This is worth noting, so can we draw a conclusion?" }
+          - { speaker: Nora, text: "To sum up, we should invest in the north first." }
+      shadowing: [1, 3, 5, 7, 9, 11]
+      final_task:
+        prompt_en: "You present the results of a short survey to your team. Describe two findings and give a conclusion."
+        prompt_fr: "Vous présentez à votre équipe les résultats d'une courte enquête. Décrivez deux résultats et donnez une conclusion."
+        minutes: 2
+        formula_refs: [f2, f3, f7]
+
+  - number: 5 # meetings_1: written, not started
+    written_day: -36
+    output:
+      formulas:
+        - { text: "Shall we get started", item_type: spoken_formula, function_en: "Open a meeting.", function_fr: "Ouvrir une réunion.", register: neutral }
+        - { text: "Can I just add something", item_type: spoken_formula, function_en: "Politely take the floor.", function_fr: "Prendre la parole poliment.", register: neutral }
+        - { text: "I see your point, but", item_type: spoken_formula, function_en: "Disagree without being rude.", function_fr: "Ne pas être d'accord sans être impoli.", register: neutral }
+        - { text: "move on to the next item", item_type: collocation, function_en: "Go to the next point of the agenda.", function_fr: "Passer au point suivant de l'ordre du jour.", register: neutral }
+        - { text: "take the minutes", item_type: collocation, function_en: "Write the record of the meeting.", function_fr: "Rédiger le compte rendu de la réunion.", register: formal }
+        - { text: "reach an agreement", item_type: collocation, function_en: "Say that people agree.", function_fr: "Dire que les gens s'accordent.", register: formal }
+        - { text: "Let's put it to a vote", item_type: spoken_formula, function_en: "Suggest deciding by voting.", function_fr: "Proposer de décider par un vote.", register: neutral }
+        - { text: "any other business", item_type: phrase, function_en: "Ask if there is anything else to discuss.", function_fr: "Demander s'il reste d'autres sujets.", register: formal }
+        - { text: "follow up on", item_type: phrase, function_en: "Say you will deal with a point later.", function_fr: "Dire que vous traiterez un point plus tard.", register: neutral }
+      dialogue:
+        setting_en: "The weekly meeting of a small project team."
+        setting_fr: "La réunion hebdomadaire d'une petite équipe de projet."
+        speakers: [Lena, Omar]
+        lines:
+          - { speaker: Lena, text: "Shall we get started? We have five items today." }
+          - { speaker: Omar, text: "Yes, and I can take the minutes if you like." }
+          - { speaker: Lena, text: "Thanks. The first item is the budget for next year." }
+          - { speaker: Omar, text: "Can I just add something about travel costs?" }
+          - { speaker: Lena, text: "Of course, go ahead." }
+          - { speaker: Omar, text: "I see your point, but we should check the prices first." }
+          - { speaker: Lena, text: "Fine. Let's put it to a vote and move on to the next item." }
+          - { speaker: Omar, text: "Agreed. I think we can reach an agreement quickly." }
+          - { speaker: Lena, text: "Any other business before we close?" }
+          - { speaker: Omar, text: "I will follow up on the travel prices by email." }
+      shadowing: [1, 4, 6, 7, 10]
+      final_task:
+        prompt_en: "You lead a short team meeting. Open the meeting, ask for opinions and close it."
+        prompt_fr: "Vous animez une courte réunion d'équipe. Ouvrez la réunion, demandez des avis et clôturez-la."
+        minutes: 1
+        formula_refs: [f1, f6, f8]
