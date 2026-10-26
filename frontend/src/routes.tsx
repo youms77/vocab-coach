@@ -5,6 +5,9 @@ import { NotFoundPage } from './components/NotFoundPage'
 import { ConsolidationAttemptPage } from './features/consolidation/ConsolidationAttemptPage'
 import { ConsolidationPage } from './features/consolidation/ConsolidationPage'
 import { ConsolidationTaskPage } from './features/consolidation/ConsolidationTaskPage'
+import { TrackPage } from './features/curriculum/TrackPage'
+import { TracksPage } from './features/curriculum/TracksPage'
+import { UnitPage } from './features/curriculum/UnitPage'
 import { EnrichmentPage } from './features/enrichment/EnrichmentPage'
 import { DrillPage } from './features/drills/DrillPage'
 import { DrillsPage } from './features/drills/DrillsPage'
@@ -66,6 +69,9 @@ export const routes: RouteObject[] = [
       { path: 'consolidation', element: <ConsolidationPage /> },
       { path: 'consolidation/tasks/:id', element: <ConsolidationTaskPage /> },
       { path: 'consolidation/attempts/:id', element: <ConsolidationAttemptPage /> },
+      { path: 'curriculum', element: <TracksPage /> },
+      { path: 'curriculum/units/:id', element: <UnitPage /> },
+      { path: 'curriculum/:code', element: <TrackPage /> },
       { path: 'drills', element: <DrillsPage /> },
       { path: 'drills/:id', element: <DrillPage /> },
       { path: 'errors', element: <ErrorsPage /> },

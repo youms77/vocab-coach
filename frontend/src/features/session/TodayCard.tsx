@@ -104,6 +104,11 @@ export function TodayCard() {
             )}
           </ul>
         )}
+        {plan.limit === 'nothing_to_learn' && (
+          <p>
+            {t('today.tryTracks')} <Link to="/curriculum">{t('today.tryTracksLink')}</Link>
+          </p>
+        )}
         <PlanWarnings warnings={plan.warnings} decks={decks.data} paces={plan.deadline_paces} />
         <p className="link-row">
           <Link to="/queue">{t('queue.manageLink')}</Link>

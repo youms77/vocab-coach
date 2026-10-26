@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ApiError, apiGet, apiSend, apiUpload } from './client'
+import { curriculumKey } from './curriculum'
 import type { ErrorOut } from './errors'
 import { type Feedback, productionsKey } from './productions'
 import type { SheetSummary, Solution } from './reviews'
@@ -165,6 +166,8 @@ export interface ShadowingBody {
   itemId?: number
   origin?: 'shadowing' | 'discovery'
   studySessionId?: number
+  /** A line of a scenario unit (module H): the take counts for its shadowing step. */
+  unitId?: number
 }
 
 /** Stores and transcribes a shadowing: a few seconds. A failed transcription is a 201 answer. */
@@ -178,9 +181,11 @@ export function useShadowing() {
         item_id: body.itemId,
         origin: body.origin ?? 'shadowing',
         study_session_id: body.studySessionId,
+        unit_id: body.unitId,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
+      void queryClient.invalidateQueries({ queryKey: curriculumKey })
     },
   })
 }
@@ -189,6 +194,8 @@ export interface SpeakingBody {
   blob: Blob
   durationS: number
   promptText?: string
+  /** The final task of a scenario unit: the server takes its prompt (no `promptText`). */
+  unitId?: number
 }
 
 /** Stores and transcribes a free speech (M6.b2 screens); the correction is a separate call. */
@@ -199,9 +206,11 @@ export function useSpeaking() {
       apiUpload<SpeechOut>('/speech/speaking', body.blob, {
         duration_s: body.durationS,
         prompt_text: body.promptText,
+        unit_id: body.unitId,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
+      void queryClient.invalidateQueries({ queryKey: curriculumKey })
     },
   })
 }
@@ -218,6 +227,8 @@ export function useTranscribe() {
         queryKey: [...productionsKey, 'detail', result.production_id],
       })
       void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
+      // A transcribed take counts for a scenario unit's shadowing step.
+      void queryClient.invalidateQueries({ queryKey: curriculumKey })
     },
     onError: (error, id) => {
       // Transcribed meanwhile (another tab): show what is stored.

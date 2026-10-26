@@ -15,6 +15,7 @@ import { ErrorText } from '../settings/ErrorText'
 import { AssessmentSection } from './AssessmentSection'
 import { ComparisonView, type LoggedWord } from './ComparisonView'
 import { PlayBoth } from './PlayBoth'
+import { unitFromParam } from '../curriculum/unitRules'
 import { readUnavailableReason } from './shadowTarget'
 
 function NotFound() {
@@ -70,12 +71,14 @@ export function ShadowingDetailPage() {
   // The reason the transcription failed when the recording was sent, handed over once.
   const [sentReason] = useState(() => readUnavailableReason(location.state))
   const consumed = useRef(false)
+  // `?unit=ID`: the take belongs to a scenario unit (module H), the way back goes there.
+  const unitId = unitFromParam(new URLSearchParams(location.search).get('unit'))
 
   useEffect(() => {
     if (consumed.current || location.state === null || location.state === undefined) return
     consumed.current = true
-    navigate(location.pathname, { replace: true, state: null })
-  }, [location.state, location.pathname, navigate])
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+  }, [location.state, location.pathname, location.search, navigate])
 
   const production: Production | undefined = query.data
   const status = production?.transcription_status ?? null
@@ -123,6 +126,7 @@ export function ShadowingDetailPage() {
           <p className="muted">{formatDateTime(production.created_at, i18n.language)}</p>
         )}
         <p className="link-row">
+          {unitId !== null && <Link to={`/curriculum/units/${unitId}`}>{t('curriculum.backToUnit')}</Link>}
           <Link to="/speaking/shadowing">{t('shadowing.detail.another')}</Link>
           <Link to="/speaking/shadowing/history">{t('shadowing.detail.allShadowings')}</Link>
         </p>
@@ -186,7 +190,7 @@ export function ShadowingDetailPage() {
                 <p>
                   <Link
                     to="/speaking/shadowing"
-                    state={{ target, itemId: production.targets[0]?.lexical_item_id }}
+                    state={{ target, itemId: production.targets[0]?.lexical_item_id, unitId: unitId ?? undefined }}
                   >
                     {t('shadowing.detail.recordAgain')}
                   </Link>

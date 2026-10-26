@@ -15,7 +15,9 @@ import { readShadowTarget, SHADOW_MAX_CHARS } from './shadowTarget'
  * Shadowing: listen to a sentence, record yourself repeating it, send. The sentence comes from the
  * navigation state `{target, itemId}` (a usage sheet's "Shadow this sentence") or from the field.
  * The state is read once and cleared at once, so a reload starts with an empty field (the
- * browser keeps the router state across a reload). Sending goes to `/speaking/shadowing/{id}`
+ * browser keeps the router state across a reload). From a scenario unit (module H) the state also
+ * holds `unitId`: the sentence is then fixed, the take is sent with `unit_id` and the detail page
+ * keeps `?unit=` for its way back. Sending goes to `/speaking/shadowing/{id}`
  * with the history replaced: the recording is never sent twice by a reload.
  */
 export function ShadowingPage() {
@@ -61,6 +63,7 @@ export function ShadowingPage() {
         target: sentence,
         itemId: arrival?.itemId,
         origin: 'shadowing',
+        unitId: arrival?.unitId,
       },
       {
         onSuccess: (result) => {
@@ -69,7 +72,8 @@ export function ShadowingPage() {
             result.transcription.status === 'unavailable'
               ? { unavailableReason: result.transcription.reason ?? 'all_failed' }
               : null
-          navigate(`/speaking/shadowing/${result.production_id}`, { replace: true, state })
+          const unit = arrival?.unitId !== undefined ? `?unit=${arrival.unitId}` : ''
+          navigate(`/speaking/shadowing/${result.production_id}${unit}`, { replace: true, state })
         },
       },
     )
@@ -82,6 +86,9 @@ export function ShadowingPage() {
         <p className="muted">{t('shadowing.intro')}</p>
         <p className="link-row">
           <Link to="/speaking/shadowing/history">{t('shadowing.historyLink')}</Link>
+          {arrival?.unitId !== undefined && (
+            <Link to={`/curriculum/units/${arrival.unitId}`}>{t('curriculum.backToUnit')}</Link>
+          )}
         </p>
       </section>
 
@@ -95,7 +102,7 @@ export function ShadowingPage() {
             rows={3}
             value={target}
             onChange={(event) => setTarget(event.target.value)}
-            readOnly={sending}
+            readOnly={sending || arrival?.unitId !== undefined}
             aria-describedby={countId}
             aria-invalid={tooLong}
           />

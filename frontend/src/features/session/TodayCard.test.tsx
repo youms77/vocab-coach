@@ -99,6 +99,29 @@ describe('Today card', () => {
     expect(within(card()).queryByRole('link', { name: /session/ })).not.toBeInTheDocument()
   })
 
+  it('suggests a general English track when there is nothing new to learn, in both languages', async () => {
+    mockApi(routes(plan({ limit: 'nothing_to_learn' })))
+    const user = userEvent.setup()
+    renderApp('/')
+
+    expect(await screen.findByText(/Nothing new to learn:/)).toBeInTheDocument()
+    expect(within(card()).getByRole('link', { name: 'try a general English track' })).toHaveAttribute(
+      'href',
+      '/curriculum',
+    )
+    await user.selectOptions(screen.getByLabelText('Language'), 'fr')
+    expect(
+      screen.getByRole('link', { name: "essayez un parcours d'anglais général" }),
+    ).toHaveAttribute('href', '/curriculum')
+  })
+
+  it('does not suggest it when another limit holds the plan back', async () => {
+    mockApi(routes(plan({ limit: 'quota' })))
+    renderApp('/')
+    await screen.findByText(/Nothing to review or discover today/)
+    expect(screen.queryByText(/Nothing new to learn:/)).not.toBeInTheDocument()
+  })
+
   it('translates every warning with the data needed to act on it', async () => {
     const warnings: PlanWarning[] = [
       {

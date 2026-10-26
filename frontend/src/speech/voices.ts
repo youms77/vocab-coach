@@ -41,3 +41,20 @@ export function pickVoice<V extends VoiceLike>(
 export function rateFor(rate: number, slow: boolean): number {
   return slow ? Math.max(MIN_RATE, rate * SLOW_FACTOR) : rate
 }
+
+/**
+ * The voices of a dialogue's two speakers (module H): two different en-US voices when the browser
+ * has two (the user's chosen voice stays the first speaker's), else the same voice for both; else
+ * the first English one; `null` without any English voice. Returns the voice names.
+ */
+export function dialogueVoices<V extends VoiceLike>(
+  voices: readonly V[],
+  preferred: V | null,
+): [string, string] | null {
+  const english = englishVoices(voices)
+  const american = english.filter(isAmerican)
+  const first = preferred ?? american[0] ?? english[0] ?? null
+  if (first === null) return null
+  const second = american.find((v) => v.name !== first.name)
+  return [first.name, (second ?? first).name]
+}

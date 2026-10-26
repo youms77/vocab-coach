@@ -86,6 +86,18 @@ const KNOWN_CODES = [
   'assessment_disabled',
   'already_assessed',
   'unsupported_for_assessment',
+  'wordlist_missing',
+  'track_not_started',
+  'not_a_wordlist_track',
+  'not_a_scenario_track',
+  'not_a_scenario_unit',
+  'track_not_found',
+  'unit_not_found',
+  'syllabus_unavailable',
+  'unit_generated',
+  'unit_changed',
+  'invalid_content',
+  'invalid_step',
 ] as const
 
 // These say *why* a value was refused (never the value itself): the English detail is kept.
@@ -153,6 +165,13 @@ export function describeError(t: TFunction, error: unknown): DescribedError {
           ? t(`drills.reasons.${reason}`, { defaultValue: error.message })
           : error.message,
       )
+    }
+    // The content of a unit was refused: each problem names a location, never the text (D-246).
+    if (error.code === 'invalid_content') {
+      const problems = error.detail.problems
+      if (Array.isArray(problems)) {
+        reasons.push(...problems.filter((p): p is string => typeof p === 'string'))
+      }
     }
     return {
       text: (t as unknown as (key: string, options: Record<string, string>) => string)(

@@ -3750,3 +3750,57 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 - The simulation writes them through `curriculum_units.store_generated`, `mark_step`, `speech.store_recording` and `speaking.store_speaking` + `corrections.store_speaking_correction`. A new
   random generator is drawn **after** the existing ones, so the other sequences keep their numbers. Provenance `("demo", None, "demo-unit-v1")`.
 - `test_shadowings_compare_the_sentence_of_a_term` now ignores the takes of units (their target is a dialogue line, not the sentence of a term).
+
+## D-254 — The unit page takes its French title and its next unit from the track (M8.b1; owner-approved plan)
+
+- `UnitOut` has no `title_fr` and no neighbour. The scenario unit page calls `GET /curriculum/tracks/{code}?limit=2&offset=number-1` (a slice that starts at the unit: rows `number` and `number + 1`) and
+  reads `title_fr` and the next unit's row (`unit_id`, `title`) from it. No backend change (`git diff --stat a68e04c -- backend` is empty). Until the slice arrives, the page shows `unit.title`.
+- The next-unit link goes to `/curriculum/units/{id}` when that unit is written, else to the track page. `unitRules.neighbours` is the pure part.
+
+## D-255 — A unit travels to the shadowing and speaking pages in the router state, read once and cleared; `?unit=` is the way back (M8.b1; builds on D-142, D-196, D-203)
+
+- "Shadow this line" links to `/speaking/shadowing` with the state `{target: line, unitId}`; "Record my talk" to `/speaking` with `{unitId}`. Both pages read it once into their own state and clear it
+  at once (`navigate(pathname + search, { replace: true, state: null })`), so a reload finds an empty state: a reloaded `/speaking` is free speaking and a reloaded shadowing has an empty field, and
+  nothing is sent (D-196). The shadowed line is the unit's own text, not a transcription; the tests look at `history.state` at every navigation and at the storages.
+- With a unit the shadowing sentence is read-only (the server only accepts a line of the unit), and `POST /speech/shadowing` gets `unit_id`; free speaking sends `unit_id` and no `prompt_text`
+  (the server takes the unit's prompt, D-252). The next page is `/speaking/shadowing/:id?unit=ID` or `/speaking/:id?unit=ID`.
+- `ShadowingDetailPage` and `SpeakingDetailPage` cleared their state with `navigate(location.pathname, ...)`, which would drop `?unit=`: they now keep `pathname + search`. `?unit=` is only a link
+  target (a validated positive integer), never read as data.
+- A take, a transcription retry and a correction invalidate the curriculum queries (the unit page is read again on return: `take_count`, steps, `corrected`).
+
+## D-256 — The dialogue is played line after line with a run token, two voices chosen by a pure rule, and the text starts collapsed (M8.b1; builds on D-195)
+
+- `useDialoguePlayer` says one line at a time through `useSpeech().speak(text, { voiceName, slow, onDone })` and goes on when `onDone(true)`; each run has a token, so the late end of a cancelled run
+  does nothing ("Stop", a new run, leaving the page). One line alone ("Listen" of an expanded text) uses the speaker's voice too and ends any run.
+- `dialogueVoices(voices, preferred)` in `speech/voices.ts` (pure, unit-tested): two different en-US voices when the browser has two (the learner's chosen voice stays the first speaker's), else the same
+  voice for both, else the first English voice, else none. Which speaker is which comes from `dialogue.speakers` (an unknown name reads as the first).
+- "Listen first": the lines are not in the page until "Show the text" (`aria-expanded`, `aria-controls`). The shadowing step lists its own lines (they are dialogue lines): they are needed to repeat
+  them and step 3 comes after the listening in the advised order, which is not enforced.
+- No voice, no synthesis or an open microphone disable the buttons and say why, with the existing `speech.*` sentences.
+
+## D-257 — "Write this unit with the AI": one request, answers in words, nothing hidden (M8.b1; builds on D-079, D-095, D-148)
+
+- The button stays focusable while it works (`aria-disabled`, not `disabled`) and a `ref` guard drops a second click, so a double click sends one request (broken-code check: without the guard the test fails).
+  The counter "Writing the unit… n s" uses `useElapsedSeconds`; a polite status says once that the AI is writing.
+- `incomplete` and `unavailable` are HTTP 200 answers: the page says why (`aiReasonText`), says nothing was written, offers "Try again", and on `unavailable` a "Configure the AI" link to `/settings`.
+  `409 unit_generated` (written in another tab) refreshes the track and says nothing. Any other refusal goes through `ErrorText`. On `ok` the page goes to the unit.
+- Nothing starts by itself: opening or reloading a page only reads (no generation, no step mark, no upload).
+
+## D-258 — Every curriculum write refreshes tracks, units, library, triage and Today (M8.b1)
+
+- `useStartTrack`, `useOpenUnit`, `useGenerateUnit` (on `ok` or `409 unit_generated`), `useMarkStep` and `useAddUnitTerms` invalidate the `curriculum`, `items`, `decks`, `triage` and `session/today` keys;
+  the unit returned by an answer is also put straight into the unit's query. Pagination of a track is the URL's `?page=` (1-based, 25 units per request).
+
+## D-259 — Small screen decisions of M8.b1
+
+- Word units: no content status and no usage sheet or definition (D-075: triage without a sheet); the words are links to the library with their status in words; "Triage these words" shows the number
+  still in triage and goes to `/triage?deck=<deck_id>`.
+- Scenario track card: "units written" is `opened_units` (no "done" count: it would need the backend); the deck link of a track appears from the summary's `deck_id`, the unit page's link from `unit.deck_id`
+  (formulas added, D-251). A track whose word list is missing says so and its Start button is disabled.
+- Formulas and the final task are shown in English with the French on demand; the dialogue setting is in the interface language with the English on demand in French. Formulas already in the library
+  link to their term and are not checkable; the others are checked by default and "Add these formulas to my library" sends the exact `{indices}`.
+- "Unit completed" is always shown for a `done` unit; the polite announcement fires once, when the page sees `progress` become `done` (not on a plain visit).
+- The corrected state of the final task is the unit's (`final_task.corrected`), not per take (the API has no per-take flag). A transcribed take counts for shadowing: the page says that speech recognition
+  is not a pronunciation judge.
+- `invalid_content` shows the backend's `problems[]` (English, they name a location, never the text) under the translated sentence. The licence line of the two word lists is under the track cards, with the link to
+  https://www.newgeneralservicelist.com. The Today card suggests a track when the plan's limit is `nothing_to_learn`.

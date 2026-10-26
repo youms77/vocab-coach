@@ -10,9 +10,11 @@ import {
   useCorrectProduction,
   useProduction,
 } from '../../api/productions'
+import { useInvalidateUnits } from '../../api/curriculum'
 import { useTranscribe } from '../../api/speech'
 import { PageTitle } from '../../components/PageTitle'
 import { useElapsedSeconds } from '../../components/useElapsedSeconds'
+import { unitFromParam } from '../curriculum/unitRules'
 import { formatDateTime } from '../session/format'
 import { aiReasonText } from '../settings/aiReason'
 import { ErrorText } from '../settings/ErrorText'
@@ -69,6 +71,8 @@ function SpeakingDetail({ id }: { id: number }) {
   }))
   const wantsCorrection = useRef(arrival.auto)
   const consumed = useRef(false)
+  // `?unit=ID`: the talk is the final task of a scenario unit (module H); the way back goes there.
+  const unitId = unitFromParam(new URLSearchParams(location.search).get('unit'))
   const production: Production | undefined = query.data
   const status = production?.transcription_status ?? null
 
@@ -77,8 +81,8 @@ function SpeakingDetail({ id }: { id: number }) {
   useEffect(() => {
     if (consumed.current || location.state === null || location.state === undefined) return
     consumed.current = true
-    navigate(location.pathname, { replace: true, state: null })
-  }, [location.state, location.pathname, navigate])
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+  }, [location.state, location.pathname, location.search, navigate])
 
   function startCorrection() {
     if (correct.isPending) return
@@ -95,6 +99,11 @@ function SpeakingDetail({ id }: { id: number }) {
   }, [production, status, correct, id])
 
   const done = correct.isSuccess || transcribe.isSuccess
+  // A correction completes the unit's final step: its page is read again on return.
+  const refreshUnits = useInvalidateUnits()
+  useEffect(() => {
+    if (unitId !== null && done) refreshUnits()
+  }, [unitId, done, refreshUnits])
   useEffect(() => {
     if (done) result.current?.focus()
   }, [done])
@@ -169,6 +178,7 @@ function SpeakingDetail({ id }: { id: number }) {
           </p>
         )}
         <p className="link-row">
+          {unitId !== null && <Link to={`/curriculum/units/${unitId}`}>{t('curriculum.backToUnit')}</Link>}
           <Link to="/speaking">{t('speaking.detail.another')}</Link>
           <Link to="/speaking/history">{t('speaking.detail.allSpeeches')}</Link>
         </p>

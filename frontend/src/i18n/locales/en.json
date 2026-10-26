@@ -13,7 +13,8 @@
     "writing": "Writing",
     "speaking": "Speaking",
     "errors": "Errors",
-    "consolidation": "Consolidation"
+    "consolidation": "Consolidation",
+    "curriculum": "Tracks"
   },
   "demo": {
     "badge": "Demo data",
@@ -301,7 +302,19 @@
     "task_not_found": "This consolidation task does not exist (any more).",
     "not_ready": "This deck is not ready for a consolidation task yet.",
     "task_open": "This deck already has an open task.",
-    "task_closed": "This task is closed: it takes no new production."
+    "task_closed": "This task is closed: it takes no new production.",
+    "wordlist_missing": "The word list file of this track is missing from this installation.",
+    "track_not_started": "Start the track first.",
+    "not_a_wordlist_track": "This track has no word units: it is made of speaking scenarios.",
+    "not_a_scenario_track": "This track is a word list: its units are not written by the AI.",
+    "not_a_scenario_unit": "This unit is a list of words, not a speaking scenario.",
+    "track_not_found": "This track does not exist.",
+    "unit_not_found": "This unit does not exist.",
+    "syllabus_unavailable": "The syllabus file could not be read. Check content/curriculum.yaml.",
+    "unit_generated": "This unit was already written. The page shows it now.",
+    "unit_changed": "This unit changed meanwhile. Reload the page and try again.",
+    "invalid_content": "The content of the unit was refused:",
+    "invalid_step": "This step is ticked by your recordings, not by a button."
   },
   "home": {
     "title": "Welcome",
@@ -930,6 +943,9 @@
       "notCorrected": "Not corrected",
       "silent": "No speech heard",
       "notTranscribed": "Not transcribed"
+    },
+    "unit": {
+      "title": "Final task of the unit"
     }
   },
   "shadowing": {
@@ -998,7 +1014,9 @@
     "empty": "Nothing to review or discover today. Import a word list or add terms to your library.",
     "start": "Start today's session",
     "resume": "Resume today's session",
-    "openSession": "A session is already open today."
+    "openSession": "A session is already open today.",
+    "tryTracks": "Nothing new to learn:",
+    "tryTracksLink": "try a general English track"
   },
   "plan": {
     "warningsTitle": "Warnings",
@@ -2041,6 +2059,146 @@
       },
       "nowActive": "now active",
       "effect": "{{active}} term(s) became active and {{reinforced}} review card(s) were reinforced."
+    }
+  },
+  "curriculum": {
+    "title": "General English tracks",
+    "intro": "Learn common English beyond your own lists: the most frequent words, academic words and speaking scenarios. Everything here ends up in your library and your reviews.",
+    "loading": "Loading…",
+    "kind": {
+      "wordlist": "Word list",
+      "scenarios": "Speaking scenarios"
+    },
+    "units_one": "{{count}} unit",
+    "units_other": "{{count}} units",
+    "writtenCount_one": "{{count}} unit written",
+    "writtenCount_other": "{{count}} units written",
+    "openedCount": "{{opened}} opened, {{triaged}} sorted",
+    "wordlistMissing": "The word list file is missing from this installation, so this track cannot be started.",
+    "start": "Start",
+    "startNamed": "Start the track “{{title}}”",
+    "continue": "Continue",
+    "continueNamed": "Continue the track “{{title}}”",
+    "deckLink": "Open the deck of this track",
+    "licence": "NGSL / NAWL 1.2, Browne, Culligan & Phillips, CC BY-SA 4.0",
+    "trackTitle": "Track",
+    "unitTitle": "Unit",
+    "allTracks": "All tracks",
+    "backToTrack": "Back to the track",
+    "backToUnit": "Back to the unit",
+    "notStartedTitle": "This track is not started",
+    "notStarted": "Start it to create its deck and open its units.",
+    "startThis": "Start this track",
+    "unitsHeading_one": "{{count}} unit",
+    "unitsHeading_other": "{{count}} units",
+    "unitNumber": "Unit {{number}}",
+    "open": "Open",
+    "openNamed": "Open unit {{number}}",
+    "notWritten": "Not written yet",
+    "words_one": "{{count}} word",
+    "words_other": "{{count}} words",
+    "state": {
+      "not_opened": "Not opened",
+      "opened": "Opened, words to sort",
+      "triaged": "Words sorted"
+    },
+    "progress": {
+      "not_started": "Not started",
+      "in_progress": "In progress",
+      "done": "Done"
+    },
+    "generate": {
+      "button": "Write this unit with the AI",
+      "writing": "Writing the unit… {{seconds}} s",
+      "status": "Writing the unit with the AI. This takes a few seconds.",
+      "tryAgain": "Try again",
+      "incomplete": "The AI did not return a usable unit.",
+      "unavailable": "The AI is unavailable: {{reason}}.",
+      "nothingWritten": "Nothing was written.",
+      "configure": "Configure the AI"
+    },
+    "word": {
+      "triageTitle": "Sort these words",
+      "triage_one": "Triage these words ({{count}} left)",
+      "triage_other": "Triage these words ({{count}} left)",
+      "allSorted": "Every word of this unit is sorted.",
+      "terms_one": "{{count}} word",
+      "terms_other": "{{count}} words"
+    },
+    "unit": {
+      "level": "Level {{level}}",
+      "stepsOf": "{{done}} of {{total}} steps",
+      "nextStep": "Next step: {{step}}",
+      "completed": "Unit completed",
+      "completedAnnouncement": "Unit completed.",
+      "nextUnit": "Next unit: {{title}}"
+    },
+    "steps": {
+      "formulas": "Step {{number}}: Formulas",
+      "dialogue": "Step {{number}}: Dialogue",
+      "shadowing": "Step {{number}}: Shadowing",
+      "final_task": "Step {{number}}: Final task"
+    },
+    "stepNames": {
+      "formulas": "formulas",
+      "dialogue": "dialogue",
+      "shadowing": "shadowing",
+      "final_task": "final task"
+    },
+    "stepState": {
+      "done": "Done",
+      "todo": "To do",
+      "next": "Next step"
+    },
+    "formulas": {
+      "french": "In French",
+      "frenchNamed": "In French: “{{text}}”",
+      "inLibrary": "In your library",
+      "addOne": "Add to my library",
+      "addOneNamed": "Add to my library: “{{text}}”",
+      "selected_one": "{{count}} formula selected.",
+      "selected_other": "{{count}} formulas selected.",
+      "add": "Add these formulas to my library",
+      "added": "Added: {{imported}} new, {{attached}} already in your library, {{skipped}} skipped.",
+      "toTriage": "Sort these terms now",
+      "markRead": "I have read the formulas"
+    },
+    "dialogue": {
+      "showEnglish": "Show in English",
+      "hideEnglish": "Hide the English",
+      "speakers": "Speakers: {{first}} and {{second}}",
+      "play": "Listen to the whole dialogue",
+      "stop": "Stop",
+      "speed": "Speed",
+      "normal": "Normal",
+      "slow": "Slow",
+      "playing": "Listening to the dialogue.",
+      "showText": "Show the text",
+      "hideText": "Hide the text",
+      "listenFirst": "Listen first, then check the text.",
+      "listenLine": "Listen to line {{number}}",
+      "markListened": "I listened to the dialogue"
+    },
+    "shadowing": {
+      "intro": "Listen to a line, then repeat it aloud. A recording counts once it is transcribed: the speech recognition is not a pronunciation judge.",
+      "done": "Done",
+      "todo": "Not done yet",
+      "takes_one": "{{count}} take",
+      "takes_other": "{{count}} takes",
+      "shadow": "Shadow this line",
+      "shadowNamed": "Shadow this line, number {{number}}"
+    },
+    "finalTask": {
+      "showFrench": "Show in French",
+      "hideFrench": "Hide the French",
+      "minutes_one": "About {{count}} minute",
+      "minutes_other": "About {{count}} minutes",
+      "formulas": "Formulas to use",
+      "record": "Record my talk",
+      "attempts": "Your talks ({{count}})",
+      "attempt": "Talk {{number}}",
+      "corrected": "Corrected",
+      "notCorrected": "Not corrected yet"
     }
   }
 }

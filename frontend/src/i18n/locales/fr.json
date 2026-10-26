@@ -13,7 +13,8 @@
     "writing": "Écriture",
     "speaking": "Oral",
     "errors": "Erreurs",
-    "consolidation": "Consolidation"
+    "consolidation": "Consolidation",
+    "curriculum": "Parcours"
   },
   "demo": {
     "badge": "Données de démo",
@@ -301,7 +302,19 @@
     "task_not_found": "Cette tâche de consolidation n'existe pas (ou plus).",
     "not_ready": "Cette liste n'est pas encore prête pour une tâche de consolidation.",
     "task_open": "Cette liste a déjà une tâche ouverte.",
-    "task_closed": "Cette tâche est fermée : elle n'accepte plus de production."
+    "task_closed": "Cette tâche est fermée : elle n'accepte plus de production.",
+    "wordlist_missing": "Le fichier de la liste de mots de ce parcours est absent de cette installation.",
+    "track_not_started": "Commencez d'abord le parcours.",
+    "not_a_wordlist_track": "Ce parcours n'a pas d'unités de mots : il est fait de scénarios à l'oral.",
+    "not_a_scenario_track": "Ce parcours est une liste de mots : ses unités ne sont pas écrites par l'IA.",
+    "not_a_scenario_unit": "Cette unité est une liste de mots, pas un scénario à l'oral.",
+    "track_not_found": "Ce parcours n'existe pas.",
+    "unit_not_found": "Cette unité n'existe pas.",
+    "syllabus_unavailable": "Le fichier du programme n'a pas pu être lu. Vérifiez content/curriculum.yaml.",
+    "unit_generated": "Cette unité était déjà écrite. La page l'affiche maintenant.",
+    "unit_changed": "Cette unité a changé entre-temps. Rechargez la page et réessayez.",
+    "invalid_content": "Le contenu de l'unité a été refusé :",
+    "invalid_step": "Cette étape est cochée par vos enregistrements, pas par un bouton."
   },
   "home": {
     "title": "Bienvenue",
@@ -930,6 +943,9 @@
       "notCorrected": "Non corrigée",
       "silent": "Aucune parole entendue",
       "notTranscribed": "Non transcrite"
+    },
+    "unit": {
+      "title": "Tâche finale de l'unité"
     }
   },
   "shadowing": {
@@ -998,7 +1014,9 @@
     "empty": "Rien à réviser ni à découvrir aujourd'hui. Importez une liste ou ajoutez des termes à votre bibliothèque.",
     "start": "Démarrer la séance du jour",
     "resume": "Reprendre la séance du jour",
-    "openSession": "Une séance est déjà ouverte aujourd'hui."
+    "openSession": "Une séance est déjà ouverte aujourd'hui.",
+    "tryTracks": "Rien de nouveau à apprendre :",
+    "tryTracksLink": "essayez un parcours d'anglais général"
   },
   "plan": {
     "warningsTitle": "Avertissements",
@@ -2041,6 +2059,146 @@
       },
       "nowActive": "maintenant actif",
       "effect": "{{active}} terme(s) devenu(s) actif(s) et {{reinforced}} carte(s) de révision renforcée(s)."
+    }
+  },
+  "curriculum": {
+    "title": "Parcours d'anglais général",
+    "intro": "Apprenez l'anglais courant au-delà de vos propres listes : les mots les plus fréquents, les mots académiques et des scénarios à l'oral. Tout se retrouve dans votre bibliothèque et vos révisions.",
+    "loading": "Chargement…",
+    "kind": {
+      "wordlist": "Liste de mots",
+      "scenarios": "Scénarios à l'oral"
+    },
+    "units_one": "{{count}} unité",
+    "units_other": "{{count}} unités",
+    "writtenCount_one": "{{count}} unité écrite",
+    "writtenCount_other": "{{count}} unités écrites",
+    "openedCount": "{{opened}} ouvertes, {{triaged}} triées",
+    "wordlistMissing": "Le fichier de la liste de mots est absent de cette installation : ce parcours ne peut pas être commencé.",
+    "start": "Commencer",
+    "startNamed": "Commencer le parcours « {{title}} »",
+    "continue": "Continuer",
+    "continueNamed": "Continuer le parcours « {{title}} »",
+    "deckLink": "Ouvrir le paquet de ce parcours",
+    "licence": "NGSL / NAWL 1.2, Browne, Culligan & Phillips, CC BY-SA 4.0",
+    "trackTitle": "Parcours",
+    "unitTitle": "Unité",
+    "allTracks": "Tous les parcours",
+    "backToTrack": "Retour au parcours",
+    "backToUnit": "Retour à l'unité",
+    "notStartedTitle": "Ce parcours n'est pas commencé",
+    "notStarted": "Commencez-le pour créer son paquet et ouvrir ses unités.",
+    "startThis": "Commencer ce parcours",
+    "unitsHeading_one": "{{count}} unité",
+    "unitsHeading_other": "{{count}} unités",
+    "unitNumber": "Unité {{number}}",
+    "open": "Ouvrir",
+    "openNamed": "Ouvrir l'unité {{number}}",
+    "notWritten": "Pas encore écrite",
+    "words_one": "{{count}} mot",
+    "words_other": "{{count}} mots",
+    "state": {
+      "not_opened": "Pas ouverte",
+      "opened": "Ouverte, mots à trier",
+      "triaged": "Mots triés"
+    },
+    "progress": {
+      "not_started": "Pas commencée",
+      "in_progress": "En cours",
+      "done": "Terminée"
+    },
+    "generate": {
+      "button": "Écrire cette unité avec l'IA",
+      "writing": "Écriture de l'unité… {{seconds}} s",
+      "status": "L'IA écrit l'unité. Cela prend quelques secondes.",
+      "tryAgain": "Réessayer",
+      "incomplete": "L'IA n'a pas rendu d'unité utilisable.",
+      "unavailable": "L'IA est indisponible : {{reason}}.",
+      "nothingWritten": "Rien n'a été écrit.",
+      "configure": "Configurer l'IA"
+    },
+    "word": {
+      "triageTitle": "Trier ces mots",
+      "triage_one": "Trier ces mots (il en reste {{count}})",
+      "triage_other": "Trier ces mots (il en reste {{count}})",
+      "allSorted": "Tous les mots de cette unité sont triés.",
+      "terms_one": "{{count}} mot",
+      "terms_other": "{{count}} mots"
+    },
+    "unit": {
+      "level": "Niveau {{level}}",
+      "stepsOf": "{{done}} étapes sur {{total}}",
+      "nextStep": "Prochaine étape : {{step}}",
+      "completed": "Unité terminée",
+      "completedAnnouncement": "Unité terminée.",
+      "nextUnit": "Unité suivante : {{title}}"
+    },
+    "steps": {
+      "formulas": "Étape {{number}} : formules",
+      "dialogue": "Étape {{number}} : dialogue",
+      "shadowing": "Étape {{number}} : shadowing",
+      "final_task": "Étape {{number}} : tâche finale"
+    },
+    "stepNames": {
+      "formulas": "formules",
+      "dialogue": "dialogue",
+      "shadowing": "shadowing",
+      "final_task": "tâche finale"
+    },
+    "stepState": {
+      "done": "Faite",
+      "todo": "À faire",
+      "next": "Prochaine étape"
+    },
+    "formulas": {
+      "french": "En français",
+      "frenchNamed": "En français : « {{text}} »",
+      "inLibrary": "Dans votre bibliothèque",
+      "addOne": "Ajouter à ma bibliothèque",
+      "addOneNamed": "Ajouter à ma bibliothèque : « {{text}} »",
+      "selected_one": "{{count}} formule sélectionnée.",
+      "selected_other": "{{count}} formules sélectionnées.",
+      "add": "Ajouter ces formules à ma bibliothèque",
+      "added": "Ajoutées : {{imported}} nouvelles, {{attached}} déjà dans votre bibliothèque, {{skipped}} ignorées.",
+      "toTriage": "Trier ces termes maintenant",
+      "markRead": "J'ai lu les formules"
+    },
+    "dialogue": {
+      "showEnglish": "Afficher en anglais",
+      "hideEnglish": "Masquer l'anglais",
+      "speakers": "Interlocuteurs : {{first}} et {{second}}",
+      "play": "Écouter tout le dialogue",
+      "stop": "Arrêter",
+      "speed": "Vitesse",
+      "normal": "Normale",
+      "slow": "Lente",
+      "playing": "Écoute du dialogue.",
+      "showText": "Afficher le texte",
+      "hideText": "Masquer le texte",
+      "listenFirst": "Écoutez d'abord, puis vérifiez le texte.",
+      "listenLine": "Écouter la réplique {{number}}",
+      "markListened": "J'ai écouté le dialogue"
+    },
+    "shadowing": {
+      "intro": "Écoutez une réplique, puis répétez-la à voix haute. Un enregistrement compte dès qu'il est transcrit : la reconnaissance vocale n'est pas un juge de prononciation.",
+      "done": "Faite",
+      "todo": "Pas encore faite",
+      "takes_one": "{{count}} enregistrement",
+      "takes_other": "{{count}} enregistrements",
+      "shadow": "Répéter cette réplique",
+      "shadowNamed": "Répéter cette réplique, numéro {{number}}"
+    },
+    "finalTask": {
+      "showFrench": "Afficher en français",
+      "hideFrench": "Masquer le français",
+      "minutes_one": "Environ {{count}} minute",
+      "minutes_other": "Environ {{count}} minutes",
+      "formulas": "Formules à utiliser",
+      "record": "Enregistrer mon exposé",
+      "attempts": "Vos exposés ({{count}})",
+      "attempt": "Exposé {{number}}",
+      "corrected": "Corrigé",
+      "notCorrected": "Pas encore corrigé"
     }
   }
 }

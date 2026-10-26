@@ -1,3 +1,5 @@
+import { readUnitId } from '../curriculum/unitRules'
+
 /** The server refuses a target over 400 characters (`invalid_target`, code points). */
 export const SHADOW_MAX_CHARS = 400
 
@@ -5,6 +7,8 @@ export const SHADOW_MAX_CHARS = 400
 export interface ShadowTarget {
   target: string
   itemId?: number
+  /** The scenario unit whose line this is (module H): the take counts for its shadowing step. */
+  unitId?: number
 }
 
 /** The target held by a navigation state, or null when it holds none (a reload, a direct visit). */
@@ -16,6 +20,7 @@ export function readShadowTarget(state: unknown): ShadowTarget | null {
   return {
     target: record.target,
     itemId: typeof itemId === 'number' && Number.isInteger(itemId) ? itemId : undefined,
+    unitId: readUnitId(state) ?? undefined,
   }
 }
 

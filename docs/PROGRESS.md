@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M8.b1** (module H, the screens of the general English tracks: tracks, units, scenario steps, dialogue listening, shadowing and final talk from a unit; frontend only) is done on `feat/m8b-curriculum-screens`, cut from `a68e04c`. Not pushed. Next: **M8.b2** (the unit content editor) after the owner's go-ahead. See the M8.b1 section.
 - **M8.a2** (module H, speaking scenario units written by the AI, edited, taken through four steps up to `done`; demo v7; backend + CLI, no migration) is done on `feat/m8-curriculum` after M8.a1. Not pushed. Next: **M8.b** (the screens of module H), after the owner's review. See the M8.a2 section and its API reference.
 - **M8.a1** (module H, general English tracks: word lists, syllabus, tracks, units, triage; backend only, no AI) is done on `feat/m8-curriculum`, cut from `e9917e3` (tip of `feat/m7b-consolidation-screens`). Not pushed. Next: **M8.a2** (scenario units through a `curriculum_unit` AI task, progress by steps, demo v7, live test), after the owner's go-ahead and the rest of the M8.a2 brief (see its section). See the M8.a1 section.
 - **M7.b** (module G, the screens; frontend only) is done on `feat/m7b-consolidation-screens`, cut from `bcfcb55` (tip of `feat/m7-consolidation`: M7.a1 and M7.a2, backend). Not pushed; M6 and M7 are not in `main`. See its section.
@@ -25,6 +26,48 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M8.b1 — General English tracks: the screens (frontend)
+
+Branch `feat/m8b-curriculum-screens`, cut from `a68e04c` (tip of `feat/m8-curriculum`). Not pushed; M6, M7 and M8 are not in `main`. **No backend change** (`git diff --stat a68e04c -- backend` is empty), no migration, no new dependency. Decisions D-254 to D-259.
+
+### Done
+
+- **`/curriculum`**: one card per track (title and description in the interface language, kind, unit count, opened / sorted or written units, Start or Continue); a track whose word list is missing says why and its button is disabled; the NGSL / NAWL licence line with the link.
+- **`/curriculum/:code`**: "Start this track" when needed (idempotent), 25 units per page (`?page=`), state in words (`not_opened / opened / triaged`, `not started / in progress / done`), `title_fr` in French; word unit: "Open" then its page (a second visit is a link, nothing is created);
+  scenario unit: "Write this unit with the AI" (counter, one request on a double click, reasons and "Try again", "Configure the AI").
+- **`/curriculum/units/:id`**: word unit (its terms with their status in words, links to the library, "Triage these words (n left)", no sheet, no definition); scenario unit: header (level, "n of 4 steps", next step), four steps in the advised order
+  (formulas with FR on demand, listening and checkboxes to add them to the library; the dialogue played line after line with two voices, text collapsed; shadowing lines with takes and a worded done mark; the final task and its takes), "Unit completed" and the link to the next unit.
+- **Speaking pages**: `ShadowingPage` / `SpeakingPage` read `unitId` once and clear it, send `unit_id`, keep `?unit=` to the detail pages, "Back to the unit"; the detail pages keep `?unit=` when they clear their state.
+- Top bar "Tracks" / "Parcours" (no horizontal scroll at 375 px in English and French); the Today card suggests a track when there is nothing new to learn; the 12 error codes of module H are worded in both languages.
+- **Tests**: 50 new Vitest tests (715 in all, 665 before): `features/curriculum/` (screens, speaking integration, privacy at every navigation, rules), `speech/dialogueVoices.test.ts`, two in `TodayCard.test.tsx`. Broken-code checks run and reverted: (a) `ShadowingPage` no longer clearing its state made 3 tests fail (the reload ones); (b) the generation button without its `ref` guard made the double-click test fail.
+- Checked in the built-in browser on a demo database in a temporary folder (`VOCAB_DATA_DIR`, keys emptied, no real AI): the track list, the unit list (unit 1 done, unit 3 in progress with "shadowing" next), the unavailable-AI answer with "Try again" and "Configure the AI", the unit page, the shadowing page from a unit line (state cleared, read-only line, after a reload a free page), starting "General everyday English" and opening unit 1 (25 words to triage), the real speech synthesis playing the dialogue, light and dark, English and French, 375 px.
+
+### Left / known limits
+
+- **M8.b2**: the unit content editor (`PUT /units/{id}/content`) has no screen; it needs the owner's go-ahead.
+- The final task's "corrected" state is the unit's, not per take (D-259). The dialogue with the real two voices was only listened to by a browser check, not by ear. The recorder and the transcription of a unit's takes were tested with the fake recorder only.
+- Reloading `/speaking` or `/speaking/shadowing` loses the unit context (free page, D-255). A scenario track card has no "done" count (D-259).
+- No real AI was called: the generation was checked up to the "unavailable" answer. The first real generation from the screen is part of the manual scenario if a Gemini key is set.
+
+### Next step
+
+M8.b2 (editing a unit's content) after the owner's go-ahead, then the owner's review of M6 to M8 and the push.
+
+### Owner's manual scenario (about 2 minutes, demo, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/curriculum: three cards. Under "Speaking scenarios" (Continue): unit 1 "Done", unit 3 "In progress", the others "Not written yet" (without a key, "Write this unit with the AI" ends with the reason, "Nothing was written" and "Try again").
+2. Open unit 3: "2 of 4 steps", "Next step: shadowing" highlighted. "Listen to the whole dialogue" plays line after line with two voices, "Stop" stops it, "Show the text" expands the lines.
+3. In step 3 click "Shadow this line" on a line: the shadowing page has the line (read-only) and "Back to the unit"; record and send, then go back: the line shows one more take.
+4. Back on `/curriculum`, "Start" on "General everyday English", "Open" unit 1, "Triage these words (25 left)": the 25 words wait on the triage page.
+5. Switch to French: the top bar says "Parcours", titles of the units are in French.
 
 ## M8.a2 — Speaking scenario units: AI generation, edits, steps, demo v7 (backend + CLI)
 

@@ -2387,3 +2387,118 @@ kbd {
   list-style: none;
   padding: 0;
 }
+
+/* General English tracks (M8.b1) */
+.curriculum-page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.track-list,
+.unit-formulas,
+.unit-dialogue,
+.unit-shadowing {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.track-list {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
+.track-card h2 {
+  margin-top: 0;
+}
+
+.unit-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.unit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.unit-row h3,
+.unit-row p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.unit-row__number {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.unit-step--next {
+  border-left: 4px solid var(--accent);
+}
+
+.unit-step__state {
+  margin-top: 0;
+}
+
+.unit-formula,
+.unit-shadow-line {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.unit-formula p,
+.unit-shadow-line p {
+  margin: var(--space-1) 0;
+}
+
+.unit-formula__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.unit-dialogue li {
+  padding: var(--space-1) var(--space-2);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+
+.unit-dialogue li[aria-current='true'] {
+  background: var(--surface-2);
+  outline: 2px solid var(--accent);
+}
+
+.speed-choice {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.generate-unit {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.unit-completed {
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 40rem) {
+  .unit-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
