@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from app.ai.policy import REQUEST_TIMEOUT_S
 from app.ai.schemas import AiOutput
 from app.ai.schemas.connection_test import ConnectionTestOutput
+from app.ai.schemas.consolidation_task import ConsolidationTaskOutput
 from app.ai.schemas.enrichment import ENRICHMENT_BATCH_SIZE, EnrichmentBatchOutput
 from app.ai.schemas.list_extension import MAX_COUNT, ListExtensionOutput
 from app.ai.schemas.production_correction import ProductionCorrectionOutput
@@ -113,6 +114,15 @@ def drill_output_budget(item_count: int) -> int:
     return min(DRILL_BASE_TOKENS + DRILL_TOKENS_PER_ITEM * item_count, DRILL_MAX_OUTPUT_TOKENS)
 
 
+# `consolidation_task` (M7.a1). Input: the deck (name 300, domain 200, description and source cut to
+# about 700: about 1 200) and at most 15 terms (ref, term, type and a simple definition cut to 300:
+# about 300 each, 4 500): 8 000 characters leave room for the JSON keys.
+CONSOLIDATION_MAX_INPUT_CHARS = 8000
+# Output: titles, prompts and audience in two languages (about 500 tokens), at most 6 sections of
+# about 250 tokens (two headings, two guidance texts, the references) and the JSON frame.
+CONSOLIDATION_MAX_OUTPUT_TOKENS = 3000
+
+
 TASKS: dict[str, TaskSpec] = {
     spec.name: spec
     for spec in (
@@ -168,6 +178,14 @@ TASKS: dict[str, TaskSpec] = {
             max_output_tokens=SPEAKING_MAX_OUTPUT_TOKENS,
             # As `production_correction`: up to 10 000 tokens of output; the 90 s budget holds.
             timeout_s=60.0,
+        ),
+        TaskSpec(
+            name="consolidation_task",
+            prompt_version=1,
+            output_schema=ConsolidationTaskOutput,
+            max_input_chars=CONSOLIDATION_MAX_INPUT_CHARS,
+            max_output_tokens=CONSOLIDATION_MAX_OUTPUT_TOKENS,
+            timeout_s=45.0,
         ),
         TaskSpec(
             name="targeted_drill",
