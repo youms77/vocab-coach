@@ -33,6 +33,8 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/cli_plan.py` | `plan today`: builds the plan read-only (`PRAGMA query_only`) and renders it as text or JSON | M1.b |
 | `app/cli_ai.py` | `ai status` (providers, models, order; never a key), `ai test` (one real call per configured provider, optional Whisper clip, writes `ai_call_log`), `ai usage` (read-only) | M2.b1 |
 | `app/cli_library.py` | `library import <file> [--deck-id] [--no-triage] [--commit]`: read-only preview, or import of the clear lines with default choices | M3.a |
+| `app/cli_curriculum.py` | `curriculum tracks`, `show <code> [--page N]`, `start <code>`, `open <code> <n>` (module H, no AI); exit codes 0 / 2 | M8.a1 |
+| `app/domain/curriculum.py`, `app/services/curriculum.py`, `app/api/curriculum.py` | module H: syllabus (`content/curriculum.yaml`), NGSL / NAWL readers and unit slicing (pure); tracks, start (source + `curriculum` deck), open unit (terms in triage through `importing.commit`, event `curriculum.unit_opened`); `/api/curriculum/...` | M8.a1 |
 | `app/cli_speech.py` | `speech shadow --file --target [--item] [--duration]`, `speech transcribe <id>`, `speech compare "<target>" "<heard>"` (no AI); `speech speak --file [--prompt] [--duration] [--no-correct]`, `speech correct <id>` (M6.a2a, D-184); exit codes 0 / 1 / 2 (D-176) | M6.a1, M6.a2a |
 | `app/api/health.py` | `GET /api/health` → `{status, version, database: {ok, revision, at_head}, demo}` | M0, M1.a, M1.c |
 | `app/api/guard.py` | ASGI middleware: Host / Origin / Sec-Fetch-Site / JSON-only checks (D-061); an `audio/*` body is accepted under `/api/speech/` only (D-170) | M2.c1, M6.a1 |

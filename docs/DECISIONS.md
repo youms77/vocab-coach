@@ -3622,3 +3622,52 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 - A writing draft is kept in the browser per task (`vocab-coach.consolidation-draft.<id>`, convenience only, cleared on send).
 - The Today card and the session's `practice_info` step now link to the open task ("Open the task"); the sentence "available in a later version" is gone. The top bar has a `Consolidation` entry.
 - `consolidation_share` was already in the Settings group "Consolidation". Its bounds (0.5 to 1.0, D-224) come from the API, so the form follows them; only a test fixture still said 0 to 1.
+
+## D-240 — NGSL and NAWL are redistributed unchanged, under CC BY-SA 4.0 (M8.a1)
+
+- Checked on 2026-10-26 on the official site (https://www.newgeneralservicelist.com/new-general-service-list and `/new-academic-word-list`): both lists are "licensed under a Creative Commons
+  Attribution-ShareAlike 4.0 International License", authors Browne, C., Culligan, B., and Phillips, J.; "permissions beyond the scope of this license may be available at www.charlie-browne.com".
+  Redistribution is therefore allowed with attribution and the same licence (SPEC module H asked for this check).
+- The files are downloaded again from the official URLs and committed **byte for byte** (`NGSL_12_stats.csv`: ASCII; `NAWL_12_lemmatized_for_teaching.csv`: ISO-8859-1, CRLF) in `content/wordlists/`.
+  `.gitattributes` marks them `-text` so that `* text=auto` never rewrites their line endings. `content/wordlists/NOTICE` holds the licence, the authors, the source URLs, the download date and the
+  citation; the README (licence section) and SPEC section 8 mention them. Every adjustment is made by the loader: `TRUE` / `FALSE` (spreadsheet artefacts for `true` / `false`) are lowercased, the
+  NAWL is decoded as ISO-8859-1, `I` is kept as written. The CI hygiene guard rejects `data/`, `.env`, databases and audio only, so the `.csv` files pass.
+- Anything derived from the lists and redistributed carries the same licence; the rest of the repository stays MIT.
+
+## D-241 — A track is linked to its deck through `source`, no migration (M8.a1)
+
+- `curriculum_track` has no `deck_id` and none is added. Starting a word-list track creates a `source` (title "New General Service List 1.2" / "New Academic Word List 1.2", author
+  "Browne, Culligan, Phillips", domain `general` / `academic`, `reference = "curriculum:<track_code>"`) and a deck `kind = curriculum`, `queued`, at the end of the queue.
+  The deck is found again by `kind = curriculum` + `source.reference`, so a second start returns the same deck (idempotent). If the deck was deleted, a new start makes a new deck and source
+  (the previous source stays, harmless).
+- `curriculum_track` rows are upserted by `code` when a track is started (title and description in English, `syllabus_version` = the YAML `version`). A scenario track gets its row on start and no deck
+  (its units arrive in M8.a2). Known limit: units opened under a deck that was later deleted keep `deck_id = NULL`; reopening them returns them as they are.
+
+## D-242 — Units are computed from the files and created on opening (M8.a1)
+
+- Unit `n` of a word-list track holds ranks `(n-1)*unit_size+1 .. n*unit_size`, computed from the file at each call (NGSL 2809 words: 113 units, the last with 9; NAWL 959 words: 39 units).
+  The syllabus only gives `unit_size` (10 to 50). The file is cached by path, modification time and size, so a replaced file is read again.
+- Nothing is written for a unit until the user opens it. Opening creates the `curriculum_unit` row (`code` `ngsl_001` / `nawl_001`, title "Words 1–25" with an en dash, `position = n`,
+  `deck_id`, `progress = in_progress`, `content_status = generated`: the unit content, a word slice, exists and needs no AI) with
+  `content = {format: "wordlist-unit-1", source, source_version: "1.2", first_rank, last_rank, item_ids}`. `item_ids` holds the terms put in the deck (new or attached), in rank order.
+  Reopening creates nothing. No usage sheet is generated on opening (the learner chooses which words to learn after triage).
+
+## D-243 — The unit's terms go through the import core, with their own event (M8.a1; builds on D-013, D-015, D-017)
+
+- `importing.commit` takes `origin` (default `ItemOrigin.IMPORT`) and `record_completed` (default true). The curriculum calls it with `origin = ItemOrigin.CURRICULUM`, `intake = triage` and
+  `record_completed = False`: an exact duplicate is attached to the deck (a `known` or `archived` status is kept), a possible duplicate creates a new term, the type is guessed as in the import.
+- Two events, both `extra="forbid"`: `curriculum.track_started` (`track_code`, `deck_id`, `created`) and `curriculum.unit_opened` (`track_code`, `unit_code`, `unit_id`, `deck_id`, `imported`,
+  `attached`, `skipped`). `import.completed` is not written, so M9 statistics count user imports only; the new terms still have their `item.created` events (origin `curriculum`).
+
+## D-244 — NAWL units follow the official alphabetical order (M8.a1; owner's decision)
+
+- The NAWL has no official frequency rank (only the file order, alphabetical, one row per headword followed by its inflected forms). The rank of a NAWL word is its row number; units are
+  consecutive slices of 25 headwords. Frequency order was not invented. The inflected forms are read but not imported (the headword is the term).
+
+## D-245 — Unit state is computed, never stored; availability and errors (M8.a1)
+
+- A unit is `not_opened` (no row), `opened` (at least one of its `item_ids` is still in `triage`) or `triaged` (none is). The state is computed at each call; `curriculum_unit.progress` is not used for
+  it (it will carry the M8.a2 steps). Terms deleted later count as triaged.
+- A track is `available: false, reason: "wordlist_missing"` when its file is absent or unreadable; starting it gives 409 `wordlist_missing`. Opening a unit of a track that is not started gives
+  409 `track_not_started` (with `track`); a scenario track has no word units to open (422 `not_a_wordlist_track`); unknown track / unit give 404; an unreadable syllabus gives 503 `syllabus_unavailable`.
+- API tests must override `get_session` as well as `get_engine`: with `get_engine` only, routes that commit write into the real database (found and fixed in this milestone, see PROGRESS).

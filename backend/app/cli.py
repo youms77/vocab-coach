@@ -9,7 +9,8 @@ and edits the error log (`card` makes a review card from an error) and
 `write correct --file <txt>` has the AI correct a text; `transcript analyse --file <txt>` finds
 your errors in a conversation transcript; `drill new <code>` and `drill list` are targeted drills.
 `consolidation status | new <deck_id> | show <id> | export <id> | write <id> --file |
-speak <id> --file` are the consolidation tasks.
+speak <id> --file` are the consolidation tasks. `curriculum tracks | show <code> | start <code> |
+open <code> <n>` are the general English tracks (word lists, then scenario units).
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
 texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
@@ -273,6 +274,22 @@ def _build_parser() -> argparse.ArgumentParser:
         help="number of items, 5 to 15 (default 10)",
     )
     drill_commands.add_parser("list", help="your drills, newest first, with their scores")
+
+    curriculum = commands.add_parser(
+        "curriculum", help="general English tracks: NGSL, NAWL and speaking scenarios (module H)"
+    )
+    curriculum_commands = curriculum.add_subparsers(dest="curriculum_command", required=True)
+    curriculum_commands.add_parser("tracks", help="the tracks and where you are in each")
+    k_show = curriculum_commands.add_parser("show", help="the units of one track, 25 per page")
+    k_show.add_argument("code")
+    k_show.add_argument("--page", type=_positive, default=1, help="page number (default 1)")
+    k_start = curriculum_commands.add_parser("start", help="start a track (creates its deck)")
+    k_start.add_argument("code")
+    k_open = curriculum_commands.add_parser(
+        "open", help="open a unit: its words wait in the triage queue"
+    )
+    k_open.add_argument("code")
+    k_open.add_argument("number", type=_positive)
 
     consolidation = commands.add_parser(
         "consolidation", help="consolidation tasks: use your solid terms in a talk (module G)"
@@ -570,6 +587,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.drill_command == "new":
             return cli_drill.run_drill_new(url, settings, args.category_code, count=args.count)
         return cli_drill.run_drill_list(url)
+    if args.command == "curriculum":
+        from app import cli_curriculum
+
+        if args.curriculum_command == "tracks":
+            return cli_curriculum.run_curriculum_tracks(url)
+        if args.curriculum_command == "show":
+            return cli_curriculum.run_curriculum_show(url, args.code, args.page)
+        if args.curriculum_command == "start":
+            return cli_curriculum.run_curriculum_start(url, args.code)
+        return cli_curriculum.run_curriculum_open(url, args.code, args.number)
     if args.command == "consolidation":
         from app import cli_consolidation
         from app.domain.consolidation import TaskType

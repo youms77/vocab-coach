@@ -385,7 +385,8 @@ the backend listens only on `127.0.0.1`.
   English, French translation via i18n.
 - English README: overview, screenshots, Windows installation (with notes for macOS/Linux), step-by-step setup of
   the free keys, daily use, backup, architecture, licence.
-- Licence: MIT (unless an included word list imposes otherwise).
+- Licence: MIT (unless an included word list imposes otherwise). The NGSL and NAWL lists in
+  `content/wordlists/` are CC BY-SA 4.0 (Browne, Culligan, Phillips), included unchanged with a `NOTICE`.
 - Public repository: `.gitignore` covers `data/`, `.env`, exports and audio. A fictional demo dataset (a few
   invented decks and errors) makes it possible to try the app without personal data.
 - Conventional Commits; one branch per milestone, merged into `main` when tests pass.

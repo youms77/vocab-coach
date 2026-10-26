@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M8.a1** (module H, general English tracks: word lists, syllabus, tracks, units, triage; backend only, no AI) is done on `feat/m8-curriculum`, cut from `e9917e3` (tip of `feat/m7b-consolidation-screens`). Not pushed. Next: **M8.a2** (scenario units through a `curriculum_unit` AI task, progress by steps, demo v7, live test), after the owner's go-ahead and the rest of the M8.a2 brief (see its section). See the M8.a1 section.
 - **M7.b** (module G, the screens; frontend only) is done on `feat/m7b-consolidation-screens`, cut from `bcfcb55` (tip of `feat/m7-consolidation`: M7.a1 and M7.a2, backend). Not pushed; M6 and M7 are not in `main`. See its section.
 - **Last milestone completed before it**: M6.c2 (module F, the pronunciation-assessment screens; see its section), on branch `feat/m6c2-pronunciation-screens`
   cut from the tip of `feat/m6c-pronunciation` (M6.c1, backend), itself cut from `feat/m6b-speaking-screens`. Before it: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
@@ -23,6 +24,58 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M8.a1 — General English tracks: word lists, syllabus, units (backend + CLI, no AI)
+
+Branch `feat/m8-curriculum`, cut from `e9917e3`. Not pushed. **No migration** (`alembic check`: no operation), no new dependency, no frontend file, no AI call. Decisions D-240 to D-245.
+
+### Done
+
+- `content/curriculum.yaml` (version 1): `general_everyday` (NGSL, 25 words per unit), `academic` (NAWL, 25), `speaking_scenarios` (the 8 SPEC themes x 2 = 16 units with EN/FR titles, 2 to 4 goals, situations, level B1-B2).
+- `content/wordlists/`: NGSL 1.2 and NAWL 1.2 **unchanged** (CC BY-SA 4.0, verified on the official site) + `NOTICE`; README licence section, SPEC section 8 (D-240). `.gitattributes` keeps them byte for byte.
+- `app/domain/curriculum.py` (pure): syllabus validation, the two readers (`TRUE`/`FALSE` fix, ISO-8859-1), unit slicing (NGSL 113 units, last with 9 words; NAWL 39 units, alphabetical, D-244).
+- `app/services/curriculum.py`: tracks, detail with paginated units, `start_track` (source + `curriculum` deck, idempotent, D-241), `open_unit` (terms in triage through `importing.commit`, new `origin` and
+  `record_completed` arguments, D-243), computed unit state (D-245). Events `curriculum.track_started`, `curriculum.unit_opened`.
+- `/api/curriculum/...` (below) and `python -m app curriculum tracks | show <code> [--page N] | start <code> | open <code> <n>`.
+- Tests: 25 new (domain with the real files, service, API, CLI, `POST /api/triage` with the 25 decisions of a unit at once). Full backend suite green, `ruff check` and `ruff format --check` clean.
+
+### Left / known limits
+
+- **M8.a2**: scenario units are listed from the YAML with `content_status: pending`; no generation route yet. The brief of M8.a2 was cut off in section 3 ("Storage ... progress `{steps:`"): the rest of its spec (storage and progress format, demo v7, live test, API) is still needed.
+- Units opened under a deck that was later deleted keep `deck_id = NULL` (D-241). No usage sheet is generated when a unit opens (D-242). Inflected forms of the NAWL are not imported (D-244).
+- A word-list unit has `content_status = generated` (a slice, no AI); M8.b may prefer to hide that field for these units.
+- **Incident, to settle with the owner**: during development my first API tests overrode `get_engine` but not `get_session`, so they **wrote into the real database `data/vocab-coach.sqlite3`** (2 curriculum decks "Academic English" and
+  "General everyday English", 50 terms, 2 units, 2 tracks, 2 sources, and 160 events dated 2026-10-26, among them 25 `item.triaged`). The tests are fixed (they no longer touch it) and `data/` is not in Git. I could not delete the
+  events, because `event_log` is append-only (trigger) and I did not bypass it. The other tables were left as they are so that nothing is orphaned. A copy of the database taken after the incident (so already polluted) is in my scratchpad. The simplest cleanup, if that database holds nothing
+  you want to keep: `Remove-Item data\vocab-coach.sqlite3*` then `cd backend; uv run python -m app db upgrade`. Otherwise tell me and I will remove those rows with the trigger dropped and recreated in one transaction.
+
+### API reference for M8.b
+
+All under `/api/curriculum`, errors `{"detail": {"code", "message", ...}}` (D-063).
+
+| Route | Answer |
+|---|---|
+| `GET /tracks` | list of `TrackSummary`: `code`, `kind` (`wordlist` / `scenarios`), `source` (`ngsl` / `nawl` / null), `title {en, fr}`, `description {en, fr}`, `unit_size`, `unit_count`, `available`, `reason` (`wordlist_missing` / null), `started`, `deck_id`, `opened_units`, `triaged_units`, `syllabus_version` |
+| `GET /tracks/{code}?limit=25&offset=0` | `{track, total_units, limit, offset, units[]}`; unit: `number`, `code`, `title`, `title_fr` (scenarios), `state` (`not_opened` / `opened` / `triaged`), `unit_id`, `first_rank`, `last_rank`, `word_count`, `content_status`, `progress` |
+| `POST /tracks/{code}/start` | `{track, created}`; 409 `wordlist_missing`; creates the deck of a word-list track, the track row of a scenario track; again: same result, `created: false` |
+| `POST /tracks/{code}/units/{n}/open` | `{created, imported, attached, skipped, unit}`; the unit: `id`, `track_code`, `number`, `code`, `title`, `state`, `progress`, `content_status`, `deck_id`, `first_rank`, `last_rank`, `terms[{item_id, term, status}]`; 409 `track_not_started` (`track`), 422 `not_a_wordlist_track`, 404 `unit_not_found` / `track_not_found` |
+| `GET /units/{id}` | the same `unit` |
+
+Triage of the opened terms uses the existing `GET /api/triage?deck_id=` and `POST /api/triage` (the 25 decisions at once work). Statistics (M9) count `curriculum.unit_opened`, not `import.completed`.
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app db upgrade
+uv run python -m app curriculum tracks
+uv run python -m app curriculum start general_everyday
+uv run python -m app curriculum show general_everyday
+uv run python -m app curriculum open general_everyday 1
+uv run python -m app curriculum open general_everyday 1   # again: "already open", nothing changes
+```
+
+Expect 3 tracks (113 / 39 / 16 units), a deck "General everyday English" at the end of the queue, 25 words (the, be, and, ...) waiting for triage (Triage page of the app), a second `open` that changes nothing, and `show --page 5` ending with `ngsl_113` (9 words).
 
 ## M7.b — Consolidation screens (frontend)
 

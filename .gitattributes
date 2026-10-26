@@ -14,3 +14,6 @@
 *.webm binary
 *.wav binary
 *.mp3 binary
+
+# Word lists are redistributed byte for byte (CC BY-SA 4.0, "files unchanged").
+content/wordlists/*.csv -text

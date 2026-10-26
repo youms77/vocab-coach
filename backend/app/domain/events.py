@@ -69,6 +69,8 @@ class EventType(StrEnum):
     CONSOLIDATION_TASK_CREATED = "consolidation.task_created"
     CONSOLIDATION_TASK_STATUS_CHANGED = "consolidation.task_status_changed"
     CONSOLIDATION_ATTEMPT_CHECKED = "consolidation.attempt_checked"
+    CURRICULUM_TRACK_STARTED = "curriculum.track_started"
+    CURRICULUM_UNIT_OPENED = "curriculum.unit_opened"
     SESSION_STARTED = "session.started"
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
@@ -736,6 +738,36 @@ class AiCredentialChanged(Event):
 
     provider: Literal["gemini", "groq", "ollama", "azure"]
     action: Literal["set", "removed"]
+
+
+class CurriculumTrackStarted(Event):
+    """A word-list track was started (module H, M8.a1): its deck exists (`created` says whether this
+    call made it). Not an import: statistics must not count it as one."""
+
+    event_type = EventType.CURRICULUM_TRACK_STARTED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    deck_id: Id
+    created: bool
+
+
+class CurriculumUnitOpened(Event):
+    """A word-list unit was opened: its terms entered intake triage in the track's deck. Counts
+    only; the terms themselves have their own `item.created` events (origin `curriculum`)."""
+
+    event_type = EventType.CURRICULUM_UNIT_OPENED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    deck_id: Id
+    imported: Annotated[int, Field(ge=0)]
+    attached: Annotated[int, Field(ge=0)]
+    skipped: Annotated[int, Field(ge=0)]
 
 
 EVENT_MODELS: dict[EventType, type[Event]] = {

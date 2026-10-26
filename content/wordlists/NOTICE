@@ -1,0 +1,30 @@
+Word lists redistributed in this folder
+=======================================
+
+1. New General Service List (NGSL) 1.2   -- file: NGSL_12_stats.csv
+2. New Academic Word List (NAWL) 1.2     -- file: NAWL_12_lemmatized_for_teaching.csv
+
+Authors:  Browne, C., Culligan, B., and Phillips, J.
+
+Licence:  Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0),
+          https://creativecommons.org/licenses/by-sa/4.0/
+          Permissions beyond the scope of this licence may be available at www.charlie-browne.com.
+
+Sources:  https://www.newgeneralservicelist.com/new-general-service-list
+          https://www.newgeneralservicelist.com/s/NGSL_12_stats.csv
+          https://www.newgeneralservicelist.com/new-academic-word-list
+          https://www.newgeneralservicelist.com/s/NAWL_12_lemmatized_for_teaching.csv
+
+Downloaded on 2026-10-26. The two files are included UNCHANGED, byte for byte (the repository
+marks them `-text` in .gitattributes so that Git never rewrites their line endings). Every
+adjustment (the spreadsheet artefacts `TRUE` and `FALSE` in the NGSL, the ISO-8859-1 encoding of
+the NAWL) is made when the application reads them, never in the files.
+
+Citation:
+  Browne, C., Culligan, B. (2013). The New General Service List.
+  Retrieved from https://www.newgeneralservicelist.com
+  Browne, C., Culligan, B. (2013). The New Academic Word List.
+  Retrieved from https://www.newgeneralservicelist.com
+
+These two files are NOT covered by the MIT licence of the rest of the repository. Anything derived
+from them and redistributed must carry the same CC BY-SA 4.0 licence.

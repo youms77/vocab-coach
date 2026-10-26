@@ -237,6 +237,15 @@ uv run python -m app library import ..\content\examples\import-with-header.md   
 uv run python -m app library import ..\content\examples\import-with-header.md --commit   # import the clear lines
 ```
 
+General English tracks (NGSL, NAWL, speaking scenarios; run from `backend`):
+
+```powershell
+uv run python -m app curriculum tracks                       # the three tracks and where you are
+uv run python -m app curriculum start general_everyday       # creates its deck (again: the same deck)
+uv run python -m app curriculum show general_everyday        # units, 25 per page (--page N)
+uv run python -m app curriculum open general_everyday 1      # unit 1: its 25 words wait for triage
+```
+
 One line = one term, optionally followed by `|` and the sentence you met it in; an optional YAML header
 (`deck`, `domain`, `source`, `context`, `deadline`) describes the deck. See the two files in `content/examples/`.
 Ambiguous lines (a translation after `=`, a whole sentence, a sub-item...) are reported and left out; terms
@@ -299,7 +308,7 @@ Until then, back up `data/` yourself if it matters to you.
 ```
 backend/    FastAPI app (Python 3.13, uv): api/, domain/, db/, ai/, speech/
 frontend/   React + TypeScript + Vite: features/, components/, i18n/, api/
-content/    error taxonomy, fictional demo dataset (demo/), later the track syllabus
+content/    error taxonomy, fictional demo dataset (demo/), track syllabus (curriculum.yaml), word lists (wordlists/, CC BY-SA 4.0)
 docs/       SPEC.md (specification), PROGRESS.md, DECISIONS.md, architecture.md
 scripts/    environment check, browser opener (wait-and-open.mjs)
 ```
@@ -309,4 +318,13 @@ See [`docs/architecture.md`](docs/architecture.md) for details. Contributors usi
 
 ## Licence
 
-[MIT](LICENSE).
+[MIT](LICENSE), except the two word lists in `content/wordlists/`.
+
+### Word lists
+
+The general English tracks use the **New General Service List 1.2** (NGSL) and the **New Academic Word
+List 1.2** (NAWL) by Browne, C., Culligan, B., and Phillips, J., from
+<https://www.newgeneralservicelist.com>, licensed under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The two files are included unchanged;
+see `content/wordlists/NOTICE`. Citation: Browne, C., Culligan, B. (2013). *The New General Service List*
+and *The New Academic Word List*. Retrieved from https://www.newgeneralservicelist.com.
