@@ -94,8 +94,9 @@ SETTINGS: dict[str, SettingSpec] = {
         SettingSpec("timezone", str, "Africa/Douala"),
         # Hour at which a new study day starts (late-night reviews count for the previous day).
         SettingSpec("day_start_hour", int, 4, minimum=0, maximum=23),
-        # Share of a deck's productive cards that must be consolidated before a task is proposed.
-        SettingSpec("consolidation_share", float, 0.80, minimum=0.0, maximum=1.0),
+        # Share of a deck's productive cards that must be consolidated before a task is proposed
+        # (module G, M7.a1: used from then on, bounds narrowed from 0..1, D-224).
+        SettingSpec("consolidation_share", float, 0.80, minimum=0.5, maximum=1.0),
         SettingSpec("consolidation_min_stability_days", int, 7, minimum=1),
         SettingSpec("ui_language", str, "en", choices=SUPPORTED_UI_LANGUAGES),
         SettingSpec("tts_rate", float, 1.0, minimum=0.5, maximum=2.0),
