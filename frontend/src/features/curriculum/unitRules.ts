@@ -1,6 +1,21 @@
 import type { Dialogue, Formula, Scenario, Unit, UnitRow, UnitStep } from '../../api/curriculum'
 import { UNIT_STEPS } from '../../api/curriculum'
 
+/**
+ * The limits of a scenario unit, as in `backend/app/domain/curriculum_unit.py` (a test reads that
+ * file and fails if one differs). The server stays the judge; these only save a round trip.
+ */
+export const UNIT_LIMITS = {
+  formulas: { min: 8, max: 15 },
+  lines: { min: 8, max: 16 },
+  shadowing: { min: 5, max: 8 },
+  shadowingWords: { min: 4, max: 25 },
+  finalRefsMin: 3,
+  minutes: [1, 2] as const,
+  speakers: 2,
+  max: { formula: 120, function: 200, register: 40, setting: 300, name: 40, line: 300, prompt: 600 },
+} as const
+
 /** The unit's title in the interface language: `title_fr` in French when the syllabus has one. */
 export function unitTitle(row: Pick<UnitRow, 'title' | 'title_fr'>, language: string): string {
   return language.startsWith('fr') && row.title_fr !== null && row.title_fr !== ''

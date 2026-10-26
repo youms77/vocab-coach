@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M8.b2** (module H, the editor of a scenario unit's content: formulas, dialogue, shadowing lines, final task; frontend only) is done on `feat/m8b-curriculum-screens` after M8.b1 (`4d522c2`). Not pushed. Next: the owner's review of M6 to M8, then the push. See the M8.b2 section.
 - **M8.b1** (module H, the screens of the general English tracks: tracks, units, scenario steps, dialogue listening, shadowing and final talk from a unit; frontend only) is done on `feat/m8b-curriculum-screens`, cut from `a68e04c`. Not pushed. Next: **M8.b2** (the unit content editor) after the owner's go-ahead. See the M8.b1 section.
 - **M8.a2** (module H, speaking scenario units written by the AI, edited, taken through four steps up to `done`; demo v7; backend + CLI, no migration) is done on `feat/m8-curriculum` after M8.a1. Not pushed. Next: **M8.b** (the screens of module H), after the owner's review. See the M8.a2 section and its API reference.
 - **M8.a1** (module H, general English tracks: word lists, syllabus, tracks, units, triage; backend only, no AI) is done on `feat/m8-curriculum`, cut from `e9917e3` (tip of `feat/m7b-consolidation-screens`). Not pushed. Next: **M8.a2** (scenario units through a `curriculum_unit` AI task, progress by steps, demo v7, live test), after the owner's go-ahead and the rest of the M8.a2 brief (see its section). See the M8.a1 section.
@@ -27,6 +28,46 @@ Updated at the end of every milestone session. Paste this file into the next pla
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
 
+## M8.b2 — The editor of a scenario unit's content (frontend)
+
+Branch `feat/m8b-curriculum-screens`, after `4d522c2`. Not pushed. **No backend change** (`git diff --stat a68e04c -- backend` is empty), no migration, no new dependency. Decisions D-260 to D-264.
+
+### Done
+
+- **"Edit the unit"** on a scenario unit's page: a form on a local draft (`unitForm.ts`, like `sheetForm.ts`) that takes the place of the four steps. Parts: formulas (text, type, function EN/FR, register; add, remove, up, down), dialogue (setting EN/FR, two names, lines with the speaker among the two and the text; add, remove, up, down),
+  lines to shadow (checkboxes), final task (prompts EN/FR, 1 or 2 minutes, checkboxes on the formulas). Labels on every field, keyboard use, focus kept on the row moved or on the field added, grids `minmax(0, 1fr)`, no table.
+- **Sending**: `useEditUnitContent` (`PUT /curriculum/units/{id}/content`) sends only the parts that changed, with `expected_revision`, 0-based positions and the key `register`; changing the formulas also sends the final task (D-261). Success refreshes the unit, tracks, library, triage and Today.
+- **Checks**: client limits from `UNIT_LIMITS` (equal to `curriculum_unit.py`, a test reads the Python file); `422 invalid_content` shows each problem at its field or in a list; `409 unit_changed` keeps the edits and "Load the latest version" needs an inline confirmation (D-263).
+- **After a save**: "The unit was saved.", the "Edited by you" badge, the focus back on the button. A visible warning says that changing a line to shadow makes the old line's takes stop counting and a completed unit can go back to "in progress" (D-248). "Write this unit with the AI" does not exist for a written unit.
+- **Tests**: 21 new Vitest tests (736 in all, 715 before): `unitForm.test.ts` (10: limits equal to the Python constants, only the changed parts, 0-based positions and the key `register`, client problems, where a server problem goes) and `UnitEditor.test.tsx` (11: sending, rows, client limits, 422 at the field and in a list, 409 with confirmation, warning, cancel, French, no AI button). Broken-code check (c) run and reverted: replacing the draft by the server version on a 409 made the conflict test fail.
+- Checked in the built-in browser on a demo database in a temporary folder (`VOCAB_DATA_DIR`, keys emptied, no AI call): unit "Presenting data" edited (register and a line) and saved with the badge; a second tab saved the same unit; the first tab's save was refused with its edits kept, and "Load the latest version" asked its confirmation and then replaced them; English and French, light and dark, 375 px (one column, no horizontal scroll).
+  Screenshots timed out (the window was hidden), so the layout was checked through the DOM (widths, overflow, grid columns, focus), not by eye.
+
+### Left / known limits
+
+- Not checked client-side: "at least half of the formulas appear in the dialogue" and duplicate formulas (the server answers, D-262). Server problems stay on screen until the next save or a move, add or remove (D-263).
+- Editing never calls the AI and there is no regeneration over an existing unit (D-250). Leaving the editor with Cancel discards the draft without asking (like the sheet editor).
+- Existing from M8.b1, not from this step: the dialogue step puts a `<fieldset>` in a `<p>` (React warns about the DOM nesting in tests).
+
+### Next step
+
+The owner's review of M6 to M8 (manual scenarios), then the push and the pull request.
+
+### Owner's manual scenario (about 2 minutes, demo, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/curriculum/units/2 (the unit "Presenting data", number 3 of "Speaking scenarios"). Click "Edit the unit": the four steps give way to the form.
+2. Change the register of a formula and the text of a dialogue line. Under "Lines to shadow", read the warning. Click "Save the unit": the form closes, "The unit was saved." and the badge "Edited by you" appear, the button "Edit the unit" has the focus.
+3. Click "Edit the unit" again and change the length of the final task. Open the same unit in a second tab, edit anything there and save.
+4. Back in the first tab, click "Save the unit": the message "The unit changed since you opened the editor" appears and your edit is still on screen. "Load the latest version", then "Keep editing": nothing changes. "Load the latest version", then "Replace my edits": the form shows the second tab's version.
+5. Remove formulas until fewer than 8 are left and save: the form refuses and says where. Switch to French: the labels and messages follow.
+
 ## M8.b1 — General English tracks: the screens (frontend)
 
 Branch `feat/m8b-curriculum-screens`, cut from `a68e04c` (tip of `feat/m8-curriculum`). Not pushed; M6, M7 and M8 are not in `main`. **No backend change** (`git diff --stat a68e04c -- backend` is empty), no migration, no new dependency. Decisions D-254 to D-259.
@@ -45,7 +86,7 @@ Branch `feat/m8b-curriculum-screens`, cut from `a68e04c` (tip of `feat/m8-curric
 
 ### Left / known limits
 
-- **M8.b2**: the unit content editor (`PUT /units/{id}/content`) has no screen; it needs the owner's go-ahead.
+- **M8.b2** (the unit content editor) is done: see its section.
 - The final task's "corrected" state is the unit's, not per take (D-259). The dialogue with the real two voices was only listened to by a browser check, not by ear. The recorder and the transcription of a unit's takes were tested with the fake recorder only.
 - Reloading `/speaking` or `/speaking/shadowing` loses the unit context (free page, D-255). A scenario track card has no "done" count (D-259).
 - No real AI was called: the generation was checked up to the "unavailable" answer. The first real generation from the screen is part of the manual scenario if a Gemini key is set.

@@ -2133,6 +2133,81 @@
       "completedAnnouncement": "Unité terminée.",
       "nextUnit": "Unité suivante : {{title}}"
     },
+    "edit": {
+      "open": "Modifier l'unité",
+      "title": "Modifier l'unité",
+      "intro": "Changez ce que vous voulez, puis enregistrez. Rien n'est écrit avant l'enregistrement, et seules les parties modifiées sont envoyées.",
+      "badge": "Modifiée par vous",
+      "saved": "L'unité a été enregistrée.",
+      "save": "Enregistrer l'unité",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "nothingChanged": "Rien n'a encore changé.",
+      "shadowWarning": "Attention : si vous modifiez une phrase à répéter (son texte, ou les phrases cochées), les prises enregistrées pour l'ancienne phrase ne comptent plus. Une unité terminée peut repasser « en cours ».",
+      "libraryNote": "Une formule déjà dans votre bibliothèque garde son lien tant que son texte ne change pas.",
+      "rowUp": "Monter {{name}}",
+      "rowDown": "Descendre {{name}}",
+      "rowRemove": "Supprimer {{name}}",
+      "formulas": {
+        "legend": "Formules",
+        "count": "{{count}} formules ({{min}} à {{max}} attendues)",
+        "name": "la formule {{number}}",
+        "text": "Formule",
+        "type": "Type",
+        "functionEn": "Ce qu'elle fait (anglais)",
+        "functionFr": "Ce qu'elle fait (français)",
+        "register": "Registre",
+        "add": "Ajouter une formule"
+      },
+      "dialogue": {
+        "legend": "Dialogue",
+        "settingEn": "Situation (anglais)",
+        "settingFr": "Situation (français)",
+        "speakerName": "Nom du personnage {{number}}",
+        "count": "{{count}} répliques ({{min}} à {{max}} attendues)",
+        "name": "la réplique {{number}}",
+        "speaker": "Personnage de la réplique {{number}}",
+        "text": "Texte de la réplique {{number}}",
+        "add": "Ajouter une réplique"
+      },
+      "shadowing": {
+        "legend": "Phrases à répéter",
+        "hint": "Cochez les répliques que vous voulez répéter à voix haute.",
+        "count": "{{count}} phrases cochées ({{min}} à {{max}} attendues)",
+        "tick": "Répéter la réplique {{number}}",
+        "words": "{{count}} mots"
+      },
+      "finalTask": {
+        "legend": "Tâche finale",
+        "promptEn": "Consigne (anglais)",
+        "promptFr": "Consigne (français)",
+        "minutes": "Durée",
+        "minutesOption_one": "{{count}} minute",
+        "minutesOption_other": "{{count}} minutes",
+        "formulas": "Formules à utiliser",
+        "count": "{{count}} formules cochées (au moins {{min}} attendues)",
+        "tick": "Utiliser la formule {{number}}"
+      },
+      "problems": {
+        "empty": "Ne doit pas être vide.",
+        "count": "{{min}} à {{max}} sont attendues.",
+        "shadowingWords": "Cette réplique compte {{words}} mots ; il en faut {{min}} à {{max}} pour la répéter.",
+        "speakersDiffer": "Les deux noms doivent être différents.",
+        "refsMin": "Cochez au moins {{min}} formules.",
+        "tooLong": "{{max}} caractères au plus."
+      },
+      "summary_one": "L'unité n'a pas été enregistrée : {{count}} problème à corriger.",
+      "summary_other": "L'unité n'a pas été enregistrée : {{count}} problèmes à corriger.",
+      "unlocated": "Autres problèmes relevés par le serveur :",
+      "stale": {
+        "hint": "L'unité a changé depuis l'ouverture de l'éditeur (dans un autre onglet, par exemple). Vos modifications sont toujours là : rien n'est perdu et rien n'a été enregistré.",
+        "load": "Charger la dernière version",
+        "loading": "Lecture de la dernière version…",
+        "confirm": "Remplacer vos modifications par la dernière version de l'unité ?",
+        "yes": "Remplacer mes modifications",
+        "keep": "Continuer à modifier"
+      }
+    },
     "steps": {
       "formulas": "Étape {{number}} : formules",
       "dialogue": "Étape {{number}} : dialogue",

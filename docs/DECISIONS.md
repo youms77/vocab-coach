@@ -3804,3 +3804,38 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
   is not a pronunciation judge.
 - `invalid_content` shows the backend's `problems[]` (English, they name a location, never the text) under the translated sentence. The licence line of the two word lists is under the track cards, with the link to
   https://www.newgeneralservicelist.com. The Today card suggests a track when the plan's limit is `nothing_to_learn`.
+
+## D-260 — The unit editor works on a draft of rows with flags; 0-based positions are computed only when the edit is built (M8.b2; builds on D-092, D-247, D-250)
+
+- `unitForm.ts` keeps the content as strings and rows: every formula has `inTask` (the final task asks for it) and every dialogue line has `shadow` (a line to shadow) and a speaker that is 0 or 1, not a name. Moving, adding or removing a row therefore keeps
+  the ticks and the speakers right, and a renamed speaker keeps its lines. `toParts` turns the draft into the four parts of the API (trimmed text, `register` as the formula key, positions counted from 0 from the flags).
+- The draft is compared with the version it started from (`toParts(fromScenario(base))`): the edit holds only the parts that differ, with `expected_revision` of that version; with nothing changed, Save is disabled and says "Nothing has changed yet".
+  The version the draft started from is the editor's own state, so a refetch of the unit (a window focus, another tab) never changes what the next save is compared with.
+
+## D-261 — Changing the formulas sends the final task too (M8.b2; departure from "only the modified parts", builds on D-250)
+
+- When `formulas` is sent alone, the server finds the final task's references again by the normalised text of the old formulas (D-250): a formula that was reworded would drop out of the task, and fewer than three left is refused. The draft knows the references by row, so
+  `toEdit` always adds `final_task` (computed from the ticks) when `formulas` changed. `shadowing` is sent only when its list of indices differs (a removed or moved line shifts it; the server does not remap it), `dialogue` only when a text, a name or the order changed.
+- A formula already in the library keeps its link only while its normalised text is unchanged (D-250): the editor says so under the formulas.
+
+## D-262 — Client limits mirror `curriculum_unit.py`, a test keeps them equal; the server stays the judge (M8.b2)
+
+- `UNIT_LIMITS` (`unitRules.ts`) holds the numbers of the domain module (8 to 15 formulas, 8 to 16 lines, 5 to 8 lines to shadow of 4 to 25 words, at least 3 references, 1 or 2 minutes, text lengths). `unitForm.test.ts` reads the Python file (`?raw` import) and fails if one differs.
+  For that, `vite.config.ts` lets the dev server read the parent folder **only when `VITEST` is set** (`server.fs.allow`); the running app is unchanged.
+- The client checks counts, empty texts, the two names (not empty, different), the word count of each line to shadow and the three references, and shows each problem at its field (`aria-invalid`, `aria-describedby`). It does not check what needs `contains_term` ("at least half of the formulas used in the dialogue") or the
+  duplicate formulas (a client copy of `normalize_term` could refuse what the server accepts): the server answers those.
+
+## D-263 — Where a refusal is shown (M8.b2; builds on D-092, D-258)
+
+- **422 `invalid_content`**: each `problem` ("`formulas[2].text: must not be empty`") goes to its field: `locateProblem` reads the location, maps `shadowing[p]` and `final_task.formula_refs[p]` (positions in the lists sent) to the p-th ticked row, and `formulas[i]` to the formula's text. A problem whose location is no field
+  (`dialogue: only 3 of 8 formulas…`) goes to a list in the summary. The server's English text keeps `lang="en"`; the summary counts the problems and, after a failed save, the focus goes to the first field in error, else to the summary. A move, an add or a remove clears the server's problems (their positions no longer hold).
+  Any other refusal (`invalid_request`, a network error) uses `ErrorText` and `FieldErrors`.
+- **409 `unit_changed`**: nothing is lost, nothing was saved; the hook reads the unit again, "Load the latest version" is disabled ("Reading the latest version…") until the live revision differs from the draft's, then asks an inline confirmation (`alertdialog`, "Replace my edits" / "Keep editing"). Only that button replaces the draft and its base revision.
+  Broken-code check: replacing the draft at once on a 409 makes the conflict test fail ("Expected the element to have value: My own prompt.").
+
+## D-264 — The editor replaces the four steps while it is open; badge, warning and focus (M8.b2)
+
+- "Edit the unit" is in the header of a scenario unit; the editor takes the place of the four step cards (no audio or take button next to rows being edited), its heading takes the focus, and closing it (save or cancel) gives the focus back to the button. After a save the page says "The unit was saved." and shows the "Edited by you" badge, which stays
+  while `scenario.edited` is true. The hook (`useEditUnitContent`) puts the returned unit in the cache and refreshes curriculum, items, decks, triage and Today (D-258).
+- The warning about shadowing (a changed line to shadow makes the old line's takes stop counting; a completed unit can go back to "in progress", D-248) is always visible in the shadowing part, before the save, not only after.
+- Shadowing and the final task's formulas are checkboxes in their own parts, listed from the lines and the formulas of the draft (so a new line can be ticked at once). "Write this unit with the AI" exists only on a track's page for a unit with no content (D-257); a test checks it is not on a written unit's page.

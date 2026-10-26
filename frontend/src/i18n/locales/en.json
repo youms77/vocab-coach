@@ -2133,6 +2133,81 @@
       "completedAnnouncement": "Unit completed.",
       "nextUnit": "Next unit: {{title}}"
     },
+    "edit": {
+      "open": "Edit the unit",
+      "title": "Edit the unit",
+      "intro": "Change what you want, then save. Nothing is written before you save, and only the parts you changed are sent.",
+      "badge": "Edited by you",
+      "saved": "The unit was saved.",
+      "save": "Save the unit",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "nothingChanged": "Nothing has changed yet.",
+      "shadowWarning": "Careful: if you change a line to shadow (its text, or which lines are ticked), the takes recorded for the old line stop counting. A completed unit can go back to “in progress”.",
+      "libraryNote": "A formula already in your library keeps its link only while its text stays the same.",
+      "rowUp": "Move {{name}} up",
+      "rowDown": "Move {{name}} down",
+      "rowRemove": "Remove {{name}}",
+      "formulas": {
+        "legend": "Formulas",
+        "count": "{{count}} formulas ({{min}} to {{max}} needed)",
+        "name": "formula {{number}}",
+        "text": "Formula",
+        "type": "Type",
+        "functionEn": "What it does (English)",
+        "functionFr": "What it does (French)",
+        "register": "Register",
+        "add": "Add a formula"
+      },
+      "dialogue": {
+        "legend": "Dialogue",
+        "settingEn": "Setting (English)",
+        "settingFr": "Setting (French)",
+        "speakerName": "Name of speaker {{number}}",
+        "count": "{{count}} lines ({{min}} to {{max}} needed)",
+        "name": "line {{number}}",
+        "speaker": "Speaker of line {{number}}",
+        "text": "Text of line {{number}}",
+        "add": "Add a line"
+      },
+      "shadowing": {
+        "legend": "Lines to shadow",
+        "hint": "Tick the lines you want to repeat aloud.",
+        "count": "{{count}} lines ticked ({{min}} to {{max}} needed)",
+        "tick": "Shadow line {{number}}",
+        "words": "{{count}} words"
+      },
+      "finalTask": {
+        "legend": "Final task",
+        "promptEn": "Prompt (English)",
+        "promptFr": "Prompt (French)",
+        "minutes": "Length",
+        "minutesOption_one": "{{count}} minute",
+        "minutesOption_other": "{{count}} minutes",
+        "formulas": "Formulas to use",
+        "count": "{{count}} formulas ticked (at least {{min}} needed)",
+        "tick": "Use formula {{number}}"
+      },
+      "problems": {
+        "empty": "Must not be empty.",
+        "count": "{{min}} to {{max}} are needed.",
+        "shadowingWords": "This line has {{words}} words; {{min}} to {{max}} are needed to shadow it.",
+        "speakersDiffer": "The two names must differ.",
+        "refsMin": "Tick at least {{min}} formulas.",
+        "tooLong": "At most {{max}} characters."
+      },
+      "summary_one": "The unit was not saved: {{count}} problem to fix.",
+      "summary_other": "The unit was not saved: {{count}} problems to fix.",
+      "unlocated": "Other problems found by the server:",
+      "stale": {
+        "hint": "The unit changed since you opened the editor (in another tab, for example). Your edits are still here: nothing was lost and nothing was saved.",
+        "load": "Load the latest version",
+        "loading": "Reading the latest version…",
+        "confirm": "Replace your edits with the latest version of the unit?",
+        "yes": "Replace my edits",
+        "keep": "Keep editing"
+      }
+    },
     "steps": {
       "formulas": "Step {{number}}: Formulas",
       "dialogue": "Step {{number}}: Dialogue",

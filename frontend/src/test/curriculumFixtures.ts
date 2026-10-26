@@ -191,3 +191,36 @@ export function scenarioRows(number: number, nextWritten = true): UnitRow[] {
     })
   return [make(number, true), make(number + 1, nextWritten)]
 }
+
+/** A scenario that meets every limit of a unit (8 formulas, 8 lines, 5 to shadow, 3 in the task). */
+export function fullScenario(overrides: Partial<Scenario> = {}): Scenario {
+  const lines = Array.from({ length: 8 }, (_, i) => ({
+    speaker: i % 2 === 0 ? 'Marc' : 'Dana',
+    text: `This is line number ${i + 1} of the dialogue.`,
+  }))
+  return scenario({
+    formulas: Array.from({ length: 8 }, (_, i) => formula(i)),
+    dialogue: {
+      setting_en: 'A job interview at a small company.',
+      setting_fr: 'Un entretien dans une petite entreprise.',
+      speakers: ['Marc', 'Dana'],
+      lines,
+    },
+    shadowing: [0, 1, 2, 3, 4].map((i) => ({
+      line_index: i,
+      text: lines[i]!.text,
+      take_count: 0,
+      done: false,
+    })),
+    final_task: {
+      prompt_en: 'Introduce yourself for one minute.',
+      prompt_fr: 'Présentez-vous pendant une minute.',
+      minutes: 1,
+      formula_refs: [0, 1, 2],
+      target_item_ids: [],
+      attempt_ids: [],
+      corrected: false,
+    },
+    ...overrides,
+  })
+}

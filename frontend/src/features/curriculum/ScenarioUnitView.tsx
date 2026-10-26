@@ -8,6 +8,7 @@ import { DialogueStep } from './DialogueStep'
 import { FinalTaskStep } from './FinalTaskStep'
 import { FormulasStep } from './FormulasStep'
 import { ShadowingStep } from './ShadowingStep'
+import { UnitEditor } from './UnitEditor'
 import { neighbours, stepsDone, unitTitle } from './unitRules'
 
 /** One of the four steps: its number, its state in words and, if it is the next one, a mark. */
@@ -57,6 +58,16 @@ export function ScenarioUnitView({ unit, scenario }: { unit: Unit; scenario: Sce
     seen.current = unit.progress
   }, [unit.progress, t])
 
+  // The editor replaces the four steps while it is open; closing it gives the focus back to its button.
+  const [editing, setEditing] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const editButton = useRef<HTMLButtonElement>(null)
+  const wasEditing = useRef(false)
+  useEffect(() => {
+    if (wasEditing.current && !editing) editButton.current?.focus()
+    wasEditing.current = editing
+  }, [editing])
+
   const done = stepsDone(scenario.steps)
   return (
     <div className="curriculum-page">
@@ -80,9 +91,30 @@ export function ScenarioUnitView({ unit, scenario }: { unit: Unit; scenario: Sce
             <Link to={`/library?deck=${unit.deck_id}`}>{t('curriculum.deckLink')}</Link>
           )}
         </p>
+        {scenario.edited && (
+          <p>
+            <span className="badge">{t('curriculum.edit.badge')}</span>
+          </p>
+        )}
+        {!editing && (
+          <p>
+            <button
+              type="button"
+              className="button"
+              ref={editButton}
+              onClick={() => {
+                setSaved(false)
+                setEditing(true)
+              }}
+            >
+              {t('curriculum.edit.open')}
+            </button>
+          </p>
+        )}
         <div className="visually-hidden" role="status" aria-live="polite">
           {announcement}
         </div>
+        <div role="status">{saved && <p>{t('curriculum.edit.saved')}</p>}</div>
         {unit.progress === 'done' && (
           <div className="form-message form-message--ok unit-completed">
             <p>
@@ -101,18 +133,31 @@ export function ScenarioUnitView({ unit, scenario }: { unit: Unit; scenario: Sce
         )}
       </section>
 
-      <StepCard step="formulas" scenario={scenario}>
-        <FormulasStep unit={unit} scenario={scenario} />
-      </StepCard>
-      <StepCard step="dialogue" scenario={scenario}>
-        <DialogueStep unit={unit} scenario={scenario} />
-      </StepCard>
-      <StepCard step="shadowing" scenario={scenario}>
-        <ShadowingStep unit={unit} scenario={scenario} />
-      </StepCard>
-      <StepCard step="final_task" scenario={scenario}>
-        <FinalTaskStep unit={unit} scenario={scenario} />
-      </StepCard>
+      {editing ? (
+        <UnitEditor
+          unit={unit}
+          scenario={scenario}
+          onClose={(wasSaved) => {
+            setSaved(wasSaved)
+            setEditing(false)
+          }}
+        />
+      ) : (
+        <>
+          <StepCard step="formulas" scenario={scenario}>
+            <FormulasStep unit={unit} scenario={scenario} />
+          </StepCard>
+          <StepCard step="dialogue" scenario={scenario}>
+            <DialogueStep unit={unit} scenario={scenario} />
+          </StepCard>
+          <StepCard step="shadowing" scenario={scenario}>
+            <ShadowingStep unit={unit} scenario={scenario} />
+          </StepCard>
+          <StepCard step="final_task" scenario={scenario}>
+            <FinalTaskStep unit={unit} scenario={scenario} />
+          </StepCard>
+        </>
+      )}
     </div>
   )
 }

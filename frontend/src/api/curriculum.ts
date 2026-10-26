@@ -297,6 +297,47 @@ export function useAddUnitTerms() {
   })
 }
 
+/** A formula as `PUT /curriculum/units/{id}/content` takes it (`register` is the JSON key). */
+export interface FormulaEdit {
+  text: string
+  item_type: Formula['item_type']
+  function_en: string
+  function_fr: string
+  register: string
+}
+
+/** What an edit replaces: absent parts stay as they are. Positions are 0-based (D-250). */
+export interface UnitContentEdit {
+  expected_revision: number
+  formulas?: FormulaEdit[]
+  dialogue?: Dialogue
+  shadowing?: number[]
+  final_task?: Pick<FinalTask, 'prompt_en' | 'prompt_fr' | 'minutes' | 'formula_refs'>
+}
+
+/**
+ * Replaces whole parts of a scenario unit under its revision (never calls the AI). 409
+ * `unit_changed` and 422 `invalid_content` are left to the editor, which keeps its edits on screen;
+ * a 409 only reads the unit again so that "Load the latest version" has something to load.
+ */
+export function useEditUnitContent() {
+  const refresh = useRefreshAll()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ unitId, edit }: { unitId: number; edit: UnitContentEdit }) =>
+      apiSend<Unit>('PUT', `/curriculum/units/${unitId}/content`, edit),
+    onSuccess: (unit) => {
+      queryClient.setQueryData(unitKey(unit.id), unit)
+      refresh()
+    },
+    onError: (error, { unitId }) => {
+      if (error instanceof ApiError && error.code === 'unit_changed') {
+        void queryClient.invalidateQueries({ queryKey: unitKey(unitId) })
+      }
+    },
+  })
+}
+
 /** Takes linked to a unit change its counters and steps: its page reads it again. */
 export function useInvalidateUnits() {
   const queryClient = useQueryClient()
