@@ -3968,3 +3968,26 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 - Measured on the owner's machine (Windows 11), demo seed 42, 60 days, anchor 2026-09-01, in-process `TestClient`, `now` = the anchor, 5 warm calls after a first one (median): overview 29 ms (205 ms for the first call of the
   process), errors 14 to 15 ms, memory 18 to 27 ms, progress 44 to 45 ms, practice 17 to 22 ms, ai 39 ms (30 days) and 356 ms (366 days), export 210 ms. Every route is under the 500 ms target and the export under 5 s, so no
   index is proposed (no migration 0003).
+
+
+## D-279 — The dashboard draws its charts itself, with no library (M9.b1; SPEC section 5 says "Recharts or equivalent")
+
+- **Decision**: `components/charts/LineChart.tsx` and `BarList.tsx`, plain SVG and HTML, no new dependency. Checked: `npm view recharts version` = 3.10.1 (peer dependencies react 16 to 19), so it was an option.
+- **Why**: the needs are a multi-line chart over time, bars and a funnel; `ResponsiveContainer` measures 0 px in jsdom, so the tests would never see a chart; an accessible alternative has to be written anyway; a `viewBox` scales to 375 px without measuring; the colours come from the CSS tokens
+  (dark mode with the rest of the page). Every chart carries a "Show the numbers" table (the text alternative, and what the tests read); a bar list is text first, the bar only repeats it.
+- A gap (`null`) breaks the line: a bucket with too little data is not drawn as a zero. Recharts stays available if the owner wants hover and zoom later (the data shapes do not change).
+
+## D-280 — The period is in the URL; the default comes from the overview (M9.b1; builds on D-266)
+
+- `/stats?from=&to=&granularity=`: the URL is the state (a link or a reload gives the same screen). Without `from` and `to`, the period is the last 30 study days up to the `study_day` of `/stats/overview` (the browser's clock is never used for the study day, D-266). The default is not written to the URL.
+- `periodProblem` repeats what the backend refuses (a malformed or impossible date, `from` after `to`, more than 366 days counted with both days included): the picker says it at once and no request leaves for it. A 422 `invalid_request` that still comes is shown by `ErrorText` with a retry. A previous period's data stays on screen, dimmed by `aria-busy`, while a new one loads (`keepPreviousData`); the labels of a chart use the `granularity` the answer carries, not the picker's.
+
+## D-281 — One place decides how a statistic is worded (M9.b1; builds on D-266)
+
+- `features/dashboard/format.ts`: a `Rate` or a `Share` that is `insufficient` (or whose `value` is null) is written "Not enough data" with its count (words or reviews so far), never as a number, in the cards, the tables, the bars and the charts (a gap and "Not enough data" in the table). Percentages and rates use `Intl` with the interface language.
+- The trends' windows are said on screen as fixed (the last 28 days against the 28 before, whatever the picker) with the two thresholds (D-268), so the screen does not promise more than the rule gives.
+- **Top 5**: the whole `original_text` can be several sentences (M9.a limit), so the screen cuts an example to 140 characters and keeps the whole text in the `title`. Trends: declining and rising are open, stable and insufficient are folded (the demo has 11 stable ones).
+
+## D-282 — M9.b is cut in two (M9.b1 / M9.b2) (M9.b1; the brief asked for a cut above about 15 files)
+
+- The plan counted about 25 significant files (API types, chart primitives, six sections, picker, fixtures, tests, i18n, CSS). **M9.b1** carries the foundation and three sections (overview, errors, memory, CSV link); **M9.b2** will add progress, practice and AI on the same hooks, tables and charts (the `Rate` / `Share` rules and the picker do not change).

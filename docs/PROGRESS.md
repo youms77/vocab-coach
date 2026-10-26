@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M9.b1** (module I, the statistics dashboard: overview, errors, memory, period picker, CSV link; frontend only) is done on `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`). Not pushed. Next: **M9.b2** (progress, practice, AI) after the owner's go-ahead. See the M9.b1 section.
 - **M9.a** (module I, the statistics backend: every indicator from the logs, `/api/stats/*`, the CSV export, `stats summary | errors | memory | export`; no screen, no migration) is done on `feat/m9a-stats-backend`, cut from `bb7f8fd` (tip of `feat/m8b-curriculum-screens`), in two commits (M9.a1, M9.a2). Not pushed. Next: the owner's review, then **M9.b** (the dashboard). See the M9.a section and its API reference.
 - **M8.b2** (module H, the editor of a scenario unit's content: formulas, dialogue, shadowing lines, final task; frontend only) is done on `feat/m8b-curriculum-screens` after M8.b1 (`4d522c2`). Not pushed. Next: the owner's review of M6 to M8, then the push. See the M8.b2 section.
 - **M8.b1** (module H, the screens of the general English tracks: tracks, units, scenario steps, dialogue listening, shadowing and final talk from a unit; frontend only) is done on `feat/m8b-curriculum-screens`, cut from `a68e04c`. Not pushed. Next: **M8.b2** (the unit content editor) after the owner's go-ahead. See the M8.b1 section.
@@ -28,6 +29,51 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M9.b1 — Statistics dashboard: overview, errors, memory (frontend)
+
+Branch `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`). Not pushed. **No backend change** (`git diff --stat 329160c -- backend` is empty), no migration, **no new dependency** (D-279). Decisions D-279 to D-282. M9.b is cut in two because the plan counted about 25 files (D-282): **M9.b2** will add progress, practice and AI.
+
+### Done
+
+- **`/stats`** (top bar "Statistics" / "Statistiques"): `DashboardPage` with a labelled in-page navigation and three sections, each with its own request, loading line, failure with "Try again" and the previous data kept (`aria-busy`) while another period loads (`StatsSection`).
+  - **Overview** (`GET /stats/overview`): error rate of the last 28 days against the 28 before, retention against the target (with `successes of n`), active terms, streak, study time of the last 7 days, reviews due tomorrow, and the **"Download the CSV export"** link to `/api/export/csv`.
+  - **Errors**: the rate per 100 words as a line chart (all errors and the four biggest level-1 categories), a table by category, the errors outside the rates, the top 5 recurring (the example is cut to 140 characters on screen, the whole text stays in its `title`), the trends of the last 28 days against the 28 before (declining and rising in the open, stable and insufficient folded), the share of fixed errors.
+  - **Memory**: retention (all, recognition, production) against the target, calibration (10 bands, predicted against observed), success by exercise type, rating agreement, lapses and the terms lapsed most (linked to the library), stability by direction, time and reviews before consolidation (quartiles and ranges).
+- **Period picker** (`from`, `to`, `granularity`): the state is in the URL (`/stats?from=...&to=...&granularity=week`), the default (last 30 study days, from the overview's `study_day`) is not written to it. An invalid period (empty, from after to, more than 366 days) is said at once and asked of nobody; a 422 from the backend is shown with a retry (D-280).
+- **Charts without a library** (`components/charts/LineChart.tsx`, `BarList.tsx`; D-279): SVG with a `viewBox`, colours from `--chart-1..5` (light and dark), `role="img"` with a title, a legend, and a **"Show the numbers" table** under every chart. A value flagged `insufficient` is a gap in the line and "Not enough data" in the table, never a zero.
+- **Never a number for `insufficient`** (D-281): `format.ts` is the only place that writes a `Rate` or a `Share`; an insufficient one reads "Not enough data (40 words so far)" / "(4 reviews so far)".
+- `api/stats.ts` (types of the API reference and the hooks `useStatsOverview / Errors / Memory`), `test/statsFixtures.ts`, the dashboard CSS and the chart colour tokens in `styles.css`, the `stats.*` keys in `en.json` and `fr.json` (same keys), the exercise types and the trend statuses worded in both languages.
+- **Tests**: 23 new Vitest tests (759 in all, 736 before): `format.test.ts` (8: insufficient never a number, French, default period, the three refusals of a period) and `Dashboard.test.tsx` (15: figures and counts, insufficient figures, French, the period and the URL, an invalid period asks nothing, a 422 and its retry, chart table with a gap, top 5 and the cut example, trends, retention and insufficient exercise, lapsed terms, consolidation empty and filled, navigation). `npm run check` passes.
+- **Broken-code check** (applied, then reverted): ignoring the `insufficient` flag in `formatRate` and `formatShare` (testing only `value === null`) made 2 tests fail (`never shows a number for an insufficient rate, only the count reached` and `writes a share as a percentage and an insufficient one with its reviews`); with the code restored, 23 of 23 pass.
+- **Checked in the built-in browser** on a demo database in a temporary folder (`VOCAB_DATA_DIR`, seeded `--anchor 2026-10-26`, no `.env`, no AI): all three sections with real numbers (5.75 errors per 100 words, retention 90 % against 90 %, 57 terms consolidated), week granularity, French and English, dark mode, **375 px: `scrollWidth` 375, no element wider than the window** with the 10th top-bar link, no console error. Screenshots timed out (the window was hidden), so the layout was checked through the DOM, not by eye. The temporary folder and the servers are gone.
+
+### Left / known limits
+
+- **M9.b2**: progress (funnel, active curve, decks, tracks, 14-day forecast), practice (study time, streak, words, speech) and AI (calls per provider, errors, rate limits, Azure month): not started.
+- The axis labels of a chart are about 8 px tall at 375 px (the SVG scales down); the "Show the numbers" table carries the exact values. The visual redesign comes after M9.
+- On the demo, `fixed_expression` reads "stable" and `discourse` "rising" with the thresholds 0.5 / 1.5 (owner's option A, D-268); the screen says the thresholds in a sentence and promises no decline.
+- Per-day grouping gives few points: a day under 100 words has no rate. The note under the chart says so; "Week" is the useful granularity for the error rate.
+- The top-5 examples are cut at 140 characters; a spoken unit can be several sentences.
+- If the overview itself fails, the period picker and the other sections wait (the default period needs its `study_day`); a URL with `from` and `to` skips that wait.
+
+### Next step
+
+M9.b2 after the owner's go-ahead, then the owner's review of M9 and the push.
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset --anchor <today, YYYY-MM-DD>
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/stats: the six headline figures, then the period picker (last 30 days) and the Errors and Memory sections.
+2. Group by "Week": the error chart gets points; open "Show the numbers" under it. Set "From" after "To": the message appears and nothing is asked.
+3. Under Errors: the top 5 (long examples cut), "Declining" and "Rising" open, "Stable" folded. Under Memory: retention against the target, the calibration, the lapsed terms (a link opens the term).
+4. "Download the CSV export" gives the zip. Switch to French, then dark mode, then shrink the window to a phone width: no horizontal scroll.
 
 ## M9.a — Statistics: calculations, API, CSV export (backend + CLI, no screen)
 

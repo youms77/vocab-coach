@@ -37,6 +37,7 @@ export function Layout() {
           <NavLink to="/curriculum">{t('nav.curriculum')}</NavLink>
           <NavLink to="/consolidation">{t('nav.consolidation')}</NavLink>
           <NavLink to="/errors">{t('nav.errors')}</NavLink>
+          <NavLink to="/stats">{t('nav.stats')}</NavLink>
           <NavLink to="/settings">{t('nav.settings')}</NavLink>
         </nav>
         {health.data?.demo === true && (

@@ -9,6 +9,7 @@ import { TrackPage } from './features/curriculum/TrackPage'
 import { TracksPage } from './features/curriculum/TracksPage'
 import { UnitPage } from './features/curriculum/UnitPage'
 import { EnrichmentPage } from './features/enrichment/EnrichmentPage'
+import { DashboardPage } from './features/dashboard/DashboardPage'
 import { DrillPage } from './features/drills/DrillPage'
 import { DrillsPage } from './features/drills/DrillsPage'
 import { CategoriesPage } from './features/errors/CategoriesPage'
@@ -78,6 +79,7 @@ export const routes: RouteObject[] = [
       { path: 'errors/new', element: <ManualErrorPage /> },
       { path: 'errors/categories', element: <CategoriesPage /> },
       { path: 'errors/:id', element: <ErrorDetailPage /> },
+      { path: 'stats', element: <DashboardPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

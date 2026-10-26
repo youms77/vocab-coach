@@ -14,7 +14,8 @@
     "speaking": "Speaking",
     "errors": "Errors",
     "consolidation": "Consolidation",
-    "curriculum": "Tracks"
+    "curriculum": "Tracks",
+    "stats": "Statistics"
   },
   "demo": {
     "badge": "Demo data",
@@ -2274,6 +2275,156 @@
       "attempt": "Talk {{number}}",
       "corrected": "Corrected",
       "notCorrected": "Not corrected yet"
+    }
+  },
+  "stats": {
+    "title": "Statistics",
+    "intro": "Everything here is computed from your logs: reviews, errors, productions and AI calls. Nothing is a counter kept on the side.",
+    "demo": "These are the figures of the fictional demo database.",
+    "computedAt": "Computed on {{date}}.",
+    "sections": "Sections of the page",
+    "loading": "Loading the statistics…",
+    "retry": "Try again",
+    "insufficient": {
+      "words_one": "Not enough data ({{count}} word so far)",
+      "words_other": "Not enough data ({{count}} words so far)",
+      "reviews_one": "Not enough data ({{count}} review so far)",
+      "reviews_other": "Not enough data ({{count}} reviews so far)"
+    },
+    "rate": "{{value}} per 100 words",
+    "ofCount": "{{successes}} of {{n}}",
+    "chart": {
+      "noPoints": "No point to draw: every value of this period is missing or has too little data.",
+      "showData": "Show the numbers",
+      "period": "Period",
+      "noValue": "Not enough data",
+      "weekOf": "Week of {{date}}"
+    },
+    "period": {
+      "label": "Period of the statistics",
+      "from": "From",
+      "to": "To",
+      "granularity": "Group by",
+      "day": "Day",
+      "week": "Week",
+      "summary": "From {{from}} to {{to}}, both days included. The headline figures and the trends below do not depend on this period.",
+      "problem": {
+        "invalid": "Enter two valid dates.",
+        "order": "The start date must not be after the end date.",
+        "tooLong": "A period cannot be longer than {{max}} days."
+      }
+    },
+    "export": {
+      "download": "Download the CSV export",
+      "hint": "A zip with one CSV file per table, for your own analysis (for example in pandas)."
+    },
+    "overview": {
+      "title": "Overview",
+      "errorRate": "Errors, last 28 days",
+      "errorRateBefore": "The 28 days before: {{rate}}",
+      "retention": "Retention, last 28 days",
+      "target": "target {{target}}",
+      "activeTerms": "Active terms",
+      "ofTerms": "of {{n}} terms",
+      "streak": "Current streak",
+      "activeDays30_one": "{{count}} active day in the last 30",
+      "activeDays30_other": "{{count}} active days in the last 30",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "studyTime": "Study time, last 7 days",
+      "studyDays_one": "over {{count}} day",
+      "studyDays_other": "over {{count}} days",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "dueTomorrow": "Reviews due tomorrow",
+      "ofCards": "of {{n}} cards"
+    },
+    "errors": {
+      "title": "Errors",
+      "intro": "Errors per 100 words you produced, so that a day of heavy writing does not look like a regression.",
+      "allErrors": "All errors",
+      "periodCounts": "({{errors}} errors in {{words}} words)",
+      "chartTitle": "Errors per 100 words over the period",
+      "chartNote": "A period of fewer than 100 words has no point: with so few words a rate would mislead. Weekly grouping gives more points.",
+      "byCategory": "By category",
+      "category": "Category",
+      "errors": "Errors",
+      "rateColumn": "Per 100 words",
+      "unnormalized": "Not in these rates: {{total}} errors with no word count to divide by (drills {{drill}}, typed confusions in reviews {{review}}, manual entries {{manual}}, other {{other}}).",
+      "topTitle": "Your five most recurring errors",
+      "topEmpty": "No recurring error in this period.",
+      "times_one": "{{count}} time",
+      "times_other": "{{count}} times",
+      "lastSeen": "last on {{date}}",
+      "hasCard": "already has a card",
+      "trendsTitle": "Trends",
+      "trendsWindows": "The last 28 days ({{bStart}} to {{bEnd}}) against the 28 before ({{aStart}} to {{aEnd}}), whatever the period above.",
+      "fixedShare": "Share of errors in categories that keep declining:",
+      "status": {
+        "declining": "Declining",
+        "rising": "Rising",
+        "stable": "Stable",
+        "insufficient": "Not enough data"
+      },
+      "trendDetail": "{{from}} → {{to}} errors, ratio {{ratio}}",
+      "thresholds": "A category declines when its rate falls to {{declining}} of the earlier one or less, and rises from {{rising}}; in between it is stable."
+    },
+    "memory": {
+      "title": "Memory",
+      "intro": "How well the cards hold: retention against your target, calibration of the scheduler, lapses and stability.",
+      "retentionTitle": "Retention",
+      "retentionChart": "Observed retention and target over the period",
+      "targetMean": "mean target {{target}}",
+      "targetLine": "Target",
+      "retentionNote": "Share of reviews of cards already in review that were not forgotten. A point needs at least 10 reviews.",
+      "direction": {
+        "all": "All cards",
+        "receptive": "Recognition",
+        "productive": "Production"
+      },
+      "calibrationTitle": "Calibration",
+      "calibrationIntro": "For each band of predicted recall, what really happened. The closer the two lines, the better the scheduler knows you.",
+      "calibrationChart": "Predicted and observed recall by band",
+      "predicted": "Predicted",
+      "observed": "Observed",
+      "exerciseTitle": "Success by exercise type",
+      "exerciseEmpty": "No review in this period.",
+      "agreement": "Ratings you changed after the automatic one:",
+      "agreementDetail": "{{raised}} raised, {{lowered}} lowered",
+      "lapsesTitle": "Lapses",
+      "lapses_one": "{{count}} lapse",
+      "lapses_other": "{{count}} lapses",
+      "lapsesChart": "Lapses over the period",
+      "lapsesSeries": "Lapses",
+      "topLapsed": "Terms with the most lapses",
+      "termGone": "A term that no longer exists",
+      "stabilityTitle": "Stability now",
+      "stabilityIntro": "How long, in days, each card of a term being learned holds before it needs a review. Cards never reviewed are counted apart.",
+      "stabilityCounts": "{{cards}} cards, {{unreviewed}} never reviewed",
+      "medianDays": "median {{value}} days",
+      "consolidationTitle": "Time before a term is consolidated",
+      "consolidationEmpty": "No term was consolidated in this period.",
+      "consolidationTerms_one": "{{count}} term consolidated",
+      "consolidationTerms_other": "{{count}} terms consolidated",
+      "measure": "Measure",
+      "q1": "First quartile",
+      "median": "Median",
+      "q3": "Third quartile",
+      "measureName": {
+        "days": "Study days since the discovery",
+        "reviews": "Reviews"
+      },
+      "range": "{{low}} to {{high}} days",
+      "rangeOpen": "{{low}} days or more"
+    },
+    "exercise": {
+      "recognition_in_sentence": "Recognition in a sentence",
+      "listening_comprehension": "Listening",
+      "typed_recall": "Typed recall",
+      "gap_fill": "Gap-fill",
+      "sentence_production": "Sentence production",
+      "spoken_answer": "Spoken answer",
+      "self_assessment": "Self-assessment"
     }
   }
 }

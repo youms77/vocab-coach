@@ -14,7 +14,8 @@
     "speaking": "Oral",
     "errors": "Erreurs",
     "consolidation": "Consolidation",
-    "curriculum": "Parcours"
+    "curriculum": "Parcours",
+    "stats": "Statistiques"
   },
   "demo": {
     "badge": "Données de démo",
@@ -2274,6 +2275,156 @@
       "attempt": "Exposé {{number}}",
       "corrected": "Corrigé",
       "notCorrected": "Pas encore corrigé"
+    }
+  },
+  "stats": {
+    "title": "Statistiques",
+    "intro": "Tout est calculé à partir de tes journaux : révisions, erreurs, productions et appels à l'IA. Aucun compteur n'est tenu à part.",
+    "demo": "Ce sont les chiffres de la base de démonstration, fictive.",
+    "computedAt": "Calculé le {{date}}.",
+    "sections": "Sections de la page",
+    "loading": "Chargement des statistiques…",
+    "retry": "Réessayer",
+    "insufficient": {
+      "words_one": "Pas assez de données ({{count}} mot pour l'instant)",
+      "words_other": "Pas assez de données ({{count}} mots pour l'instant)",
+      "reviews_one": "Pas assez de données ({{count}} révision pour l'instant)",
+      "reviews_other": "Pas assez de données ({{count}} révisions pour l'instant)"
+    },
+    "rate": "{{value}} pour 100 mots",
+    "ofCount": "{{successes}} sur {{n}}",
+    "chart": {
+      "noPoints": "Aucun point à tracer : toutes les valeurs de cette période manquent ou reposent sur trop peu de données.",
+      "showData": "Afficher les chiffres",
+      "period": "Période",
+      "noValue": "Pas assez de données",
+      "weekOf": "Semaine du {{date}}"
+    },
+    "period": {
+      "label": "Période des statistiques",
+      "from": "Du",
+      "to": "Au",
+      "granularity": "Regrouper par",
+      "day": "Jour",
+      "week": "Semaine",
+      "summary": "Du {{from}} au {{to}}, les deux jours inclus. Les chiffres clés et les tendances ci-dessous ne dépendent pas de cette période.",
+      "problem": {
+        "invalid": "Saisis deux dates valides.",
+        "order": "La date de début ne doit pas être après la date de fin.",
+        "tooLong": "Une période ne peut pas dépasser {{max}} jours."
+      }
+    },
+    "export": {
+      "download": "Télécharger l'export CSV",
+      "hint": "Un zip avec un fichier CSV par table, pour tes propres analyses (par exemple avec pandas)."
+    },
+    "overview": {
+      "title": "Vue d'ensemble",
+      "errorRate": "Erreurs, 28 derniers jours",
+      "errorRateBefore": "Les 28 jours d'avant : {{rate}}",
+      "retention": "Rétention, 28 derniers jours",
+      "target": "objectif {{target}}",
+      "activeTerms": "Termes actifs",
+      "ofTerms": "sur {{n}} termes",
+      "streak": "Série en cours",
+      "activeDays30_one": "{{count}} jour actif sur les 30 derniers",
+      "activeDays30_other": "{{count}} jours actifs sur les 30 derniers",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours",
+      "studyTime": "Temps d'étude, 7 derniers jours",
+      "studyDays_one": "sur {{count}} jour",
+      "studyDays_other": "sur {{count}} jours",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "dueTomorrow": "Révisions dues demain",
+      "ofCards": "sur {{n}} cartes"
+    },
+    "errors": {
+      "title": "Erreurs",
+      "intro": "Erreurs pour 100 mots produits, pour qu'une journée de forte production ne ressemble pas à une régression.",
+      "allErrors": "Toutes les erreurs",
+      "periodCounts": "({{errors}} erreurs en {{words}} mots)",
+      "chartTitle": "Erreurs pour 100 mots sur la période",
+      "chartNote": "Une période de moins de 100 mots n'a pas de point : avec si peu de mots, un taux tromperait. Le regroupement par semaine donne plus de points.",
+      "byCategory": "Par catégorie",
+      "category": "Catégorie",
+      "errors": "Erreurs",
+      "rateColumn": "Pour 100 mots",
+      "unnormalized": "Hors de ces taux : {{total}} erreurs sans nombre de mots pour les diviser (exercices {{drill}}, confusions tapées en révision {{review}}, saisies manuelles {{manual}}, autres {{other}}).",
+      "topTitle": "Tes cinq erreurs les plus récurrentes",
+      "topEmpty": "Aucune erreur récurrente sur cette période.",
+      "times_one": "{{count}} fois",
+      "times_other": "{{count}} fois",
+      "lastSeen": "dernière le {{date}}",
+      "hasCard": "a déjà une carte",
+      "trendsTitle": "Tendances",
+      "trendsWindows": "Les 28 derniers jours ({{bStart}} au {{bEnd}}) contre les 28 d'avant ({{aStart}} au {{aEnd}}), quelle que soit la période ci-dessus.",
+      "fixedShare": "Part des erreurs dans des catégories qui baissent durablement :",
+      "status": {
+        "declining": "En baisse",
+        "rising": "En hausse",
+        "stable": "Stable",
+        "insufficient": "Pas assez de données"
+      },
+      "trendDetail": "{{from}} → {{to}} erreurs, rapport {{ratio}}",
+      "thresholds": "Une catégorie baisse quand son taux tombe à {{declining}} de l'ancien ou moins, et monte à partir de {{rising}} ; entre les deux, elle est stable."
+    },
+    "memory": {
+      "title": "Mémoire",
+      "intro": "La tenue des cartes : rétention face à ton objectif, calibrage du planificateur, oublis et stabilité.",
+      "retentionTitle": "Rétention",
+      "retentionChart": "Rétention observée et objectif sur la période",
+      "targetMean": "objectif moyen {{target}}",
+      "targetLine": "Objectif",
+      "retentionNote": "Part des révisions de cartes déjà en révision qui n'ont pas été oubliées. Un point demande au moins 10 révisions.",
+      "direction": {
+        "all": "Toutes les cartes",
+        "receptive": "Reconnaissance",
+        "productive": "Production"
+      },
+      "calibrationTitle": "Calibrage",
+      "calibrationIntro": "Pour chaque tranche de rappel prévu, ce qui s'est vraiment passé. Plus les deux courbes sont proches, mieux le planificateur te connaît.",
+      "calibrationChart": "Rappel prévu et observé par tranche",
+      "predicted": "Prévu",
+      "observed": "Observé",
+      "exerciseTitle": "Réussite par type d'exercice",
+      "exerciseEmpty": "Aucune révision sur cette période.",
+      "agreement": "Notes que tu as changées après la note automatique :",
+      "agreementDetail": "{{raised}} relevées, {{lowered}} abaissées",
+      "lapsesTitle": "Oublis",
+      "lapses_one": "{{count}} oubli",
+      "lapses_other": "{{count}} oublis",
+      "lapsesChart": "Oublis sur la période",
+      "lapsesSeries": "Oublis",
+      "topLapsed": "Termes les plus oubliés",
+      "termGone": "Un terme qui n'existe plus",
+      "stabilityTitle": "Stabilité actuelle",
+      "stabilityIntro": "Pendant combien de jours chaque carte d'un terme en cours d'apprentissage tient avant d'avoir besoin d'une révision. Les cartes jamais révisées sont comptées à part.",
+      "stabilityCounts": "{{cards}} cartes, {{unreviewed}} jamais révisées",
+      "medianDays": "médiane {{value}} jours",
+      "consolidationTitle": "Délai avant qu'un terme soit consolidé",
+      "consolidationEmpty": "Aucun terme n'a été consolidé sur cette période.",
+      "consolidationTerms_one": "{{count}} terme consolidé",
+      "consolidationTerms_other": "{{count}} termes consolidés",
+      "measure": "Mesure",
+      "q1": "Premier quartile",
+      "median": "Médiane",
+      "q3": "Troisième quartile",
+      "measureName": {
+        "days": "Jours d'étude depuis la découverte",
+        "reviews": "Révisions"
+      },
+      "range": "{{low}} à {{high}} jours",
+      "rangeOpen": "{{low}} jours ou plus"
+    },
+    "exercise": {
+      "recognition_in_sentence": "Reconnaissance en phrase",
+      "listening_comprehension": "Écoute",
+      "typed_recall": "Rappel tapé",
+      "gap_fill": "Texte à trous",
+      "sentence_production": "Production de phrase",
+      "spoken_answer": "Réponse orale",
+      "self_assessment": "Auto-évaluation"
     }
   }
 }
