@@ -99,3 +99,24 @@ export async function apiUpload<T>(
   }
   return (await response.json()) as T
 }
+
+/**
+ * Downloads a text file the backend serves as an attachment (the Markdown export of a task): the
+ * body is read as text and handed to the browser as a file named after `Content-Disposition`.
+ */
+export async function apiDownload(path: string, fallbackName: string): Promise<void> {
+  const response = await fetch(`/api${path}`)
+  if (!response.ok) {
+    throw await errorFrom(response, `GET /api${path}`)
+  }
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? fallbackName
+  const url = URL.createObjectURL(await response.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  document.body.append(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}

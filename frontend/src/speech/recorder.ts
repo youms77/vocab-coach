@@ -5,7 +5,7 @@
  */
 
 /** What a recording is for; the bounds follow the backend's `DURATION_BOUNDS` (D-179). */
-export type RecordingUse = 'shadowing' | 'speaking' | 'spoken_answer'
+export type RecordingUse = 'shadowing' | 'speaking' | 'spoken_answer' | 'consolidation'
 
 export interface Limits {
   /** Seconds. A shorter take is not sent. */
@@ -20,6 +20,7 @@ export const LIMITS: Record<RecordingUse, Limits> = {
   shadowing: { min: 0.5, max: 30, warnAt: null },
   speaking: { min: 5, max: 180, warnAt: 120 },
   spoken_answer: { min: 1, max: 90, warnAt: null },
+  consolidation: { min: 20, max: 240, warnAt: 200 },
 }
 
 /** The backend refuses a body over 10 MB (413 `audio_too_large`); the client checks first. */

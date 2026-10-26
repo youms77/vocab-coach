@@ -111,6 +111,9 @@ function SpeakingDetail({ id }: { id: number }) {
       </Message>
     )
   }
+  if (production !== undefined && production.kind === 'consolidation') {
+    return <Navigate to={`/consolidation/attempts/${production.id}`} replace />
+  }
   // A written text opened here (a review error leads to `/writing/:id`, a spoken answer to this
   // page): the other page shows it.
   if (production !== undefined && production.kind === 'writing') {

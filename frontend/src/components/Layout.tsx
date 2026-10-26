@@ -34,6 +34,7 @@ export function Layout() {
           <NavLink to="/library">{t('nav.library')}</NavLink>
           <NavLink to="/writing">{t('nav.writing')}</NavLink>
           <NavLink to="/speaking">{t('nav.speaking')}</NavLink>
+          <NavLink to="/consolidation">{t('nav.consolidation')}</NavLink>
           <NavLink to="/errors">{t('nav.errors')}</NavLink>
           <NavLink to="/settings">{t('nav.settings')}</NavLink>
         </nav>

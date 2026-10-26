@@ -106,6 +106,10 @@ export function WritingDetailPage() {
     if (!production.corrected) correct.mutate(id)
   }, [production, autoCorrect, navigate, location.pathname, correct, id])
 
+  // A talk of a consolidation task has its own page.
+  if (production !== undefined && production.kind === 'consolidation') {
+    return <Navigate to={`/consolidation/attempts/${production.id}`} replace />
+  }
   // A spoken text (a review error may come from a spoken answer) has its own page.
   if (production !== undefined && production.kind === 'speaking') {
     return <Navigate to={`/speaking/${production.id}`} replace />

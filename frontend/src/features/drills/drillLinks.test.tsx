@@ -72,12 +72,15 @@ describe('Practise now: the session step', () => {
     await waitFor(() => expect(screen.getByLabelText('Category')).toHaveValue('grammar.preposition'))
   })
 
-  it('has no link for a consolidation task alone, nor for a category that cannot be drilled', async () => {
+  it('has no drill link for a consolidation task alone (it opens the task), nor for a category that cannot be drilled', async () => {
     mockApi(sessionRoutes({ targeted_practice: null, consolidation_task_id: 3 }))
     const first = renderApp('/session')
     await screen.findByText(/A consolidation task/)
     expect(screen.queryByRole('link', { name: 'Practise now' })).toBeNull()
-    expect(screen.getByText(/available in a later version/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open the task' })).toHaveAttribute(
+      'href',
+      '/consolidation/tasks/3',
+    )
     first.unmount()
 
     mockApi(

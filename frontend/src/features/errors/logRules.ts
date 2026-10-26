@@ -8,7 +8,7 @@ import { findFragment } from './fragment'
  * `speaking` error from a free speech (`/speaking/{id}`, M6.b2), a `transcript` error from an
  * analysed conversation (`/transcripts/{id}`, M5.c1), a `drill` error from its drill
  * (`/drills/{id}`, M5.c2: the service gives the error the drill's own id as
- * `production_attempt_id`); a consolidation error has no page yet.
+ * `production_attempt_id`); a `consolidation` error from the page of its attempt (`/consolidation/attempts/{id}`, M7.b).
  */
 export function productionLink(error: ErrorOut): string | null {
   if (error.production_attempt_id === null) return null
@@ -17,6 +17,7 @@ export function productionLink(error: ErrorOut): string | null {
   }
   if (error.source === 'speaking') return `/speaking/${error.production_attempt_id}`
   if (error.source === 'transcript') return `/transcripts/${error.production_attempt_id}`
+  if (error.source === 'consolidation') return `/consolidation/attempts/${error.production_attempt_id}`
   return error.source === 'drill' ? `/drills/${error.production_attempt_id}` : null
 }
 

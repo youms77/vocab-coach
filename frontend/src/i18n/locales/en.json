@@ -12,7 +12,8 @@
     "today": "Today",
     "writing": "Writing",
     "speaking": "Speaking",
-    "errors": "Errors"
+    "errors": "Errors",
+    "consolidation": "Consolidation"
   },
   "demo": {
     "badge": "Demo data",
@@ -296,7 +297,11 @@
     "not_assessable": "Only a shadowing with a sentence can be assessed.",
     "assessment_disabled": "Pronunciation assessment is turned off in the settings.",
     "already_assessed": "This recording was already assessed.",
-    "unsupported_for_assessment": "This recording cannot be assessed: Azure reads only WAV or OGG, and this one was recorded in another format. Record it again with the assessment turned on."
+    "unsupported_for_assessment": "This recording cannot be assessed: Azure reads only WAV or OGG, and this one was recorded in another format. Record it again with the assessment turned on.",
+    "task_not_found": "This consolidation task does not exist (any more).",
+    "not_ready": "This deck is not ready for a consolidation task yet.",
+    "task_open": "This deck already has an open task.",
+    "task_closed": "This task is closed: it takes no new production."
   },
   "home": {
     "title": "Welcome",
@@ -989,7 +994,7 @@
     "unknownDeck": "Deck {{id}}",
     "minutes": "About {{minutes}} min, for a daily budget of {{budget}} min",
     "targeted": "Targeted practice: {{category}} ({{count}} recent errors)",
-    "consolidation": "A consolidation task is ready, for information only",
+    "consolidation": "A consolidation task is ready.",
     "empty": "Nothing to review or discover today. Import a word list or add terms to your library.",
     "start": "Start today's session",
     "resume": "Resume today's session",
@@ -1051,9 +1056,9 @@
     "practice": {
       "targeted": "Targeted practice on your most frequent errors: {{category}} ({{count}} errors in the last 14 days).",
       "consolidation": "A consolidation task (a talk using your deck's terms) is ready.",
-      "later": "The consolidation task is available in a later version of the app.",
       "continue": "Continue",
-      "now": "Practise now"
+      "now": "Practise now",
+      "openTask": "Open the task"
     },
     "summary": {
       "title": "Session summary",
@@ -1884,5 +1889,157 @@
     "weakestLine": "{{phoneme}} in “{{word}}”: {{score}}",
     "assessedAt": "Assessed on {{date}} with {{provider}}.",
     "demoNote": "Demo scores are fictional."
+  },
+  "consolidation": {
+    "title": "Consolidation",
+    "intro": "When most of a deck is solid, use its terms in a real talk, speech or interview answer. The terms you use correctly become active.",
+    "loading": "Loading…",
+    "languages": {
+      "en": "English",
+      "fr": "French"
+    },
+    "types": {
+      "talk": "Talk",
+      "speech": "Speech",
+      "interview_answer": "Interview answer"
+    },
+    "status": {
+      "proposed": "Proposed",
+      "accepted": "Accepted",
+      "completed": "Completed",
+      "dismissed": "Dismissed"
+    },
+    "source": {
+      "ai": "Made by the AI",
+      "template": "Made from a template"
+    },
+    "decks": {
+      "ready": "Decks ready for a task",
+      "waiting": "Decks not ready yet",
+      "noneReady": "No deck is ready yet. Keep reviewing: a deck becomes ready when enough of its productive cards are stable.",
+      "readyLine": "{{ratio}} of its productive cards are stable (at least {{days}} days; {{threshold}} needed). {{count}} terms can be used.",
+      "openTask": "Open the task"
+    },
+    "reasons": {
+      "excluded_kind": "This kind of deck is not used for consolidation.",
+      "deck_done": "This deck is marked done.",
+      "task_open": "A task is already open for this deck.",
+      "no_productive_cards": "It has no productive card yet.",
+      "below_ratio": "{{ratio}} of its productive cards are stable (at least {{days}} days); {{threshold}} needed.",
+      "not_enough_candidates": "Only {{count}} terms are usable so far: at least 8 are needed."
+    },
+    "create": {
+      "type": "Type of task",
+      "count": "Number of terms",
+      "countHint": "Between {{min}} and {{max}}.",
+      "submit": "Create a task",
+      "making": "Making the task… {{seconds}} s",
+      "wait": "The AI is writing the topic and the structure (a few seconds). If it cannot, a template is used."
+    },
+    "tasks": {
+      "title": "Your tasks",
+      "filter": "Show",
+      "all": "All statuses",
+      "empty": "No task yet.",
+      "count_one": "{{count}} task",
+      "count_other": "{{count}} tasks",
+      "date": "Date",
+      "task": "Task",
+      "deck": "Deck",
+      "statusColumn": "Status"
+    },
+    "task": {
+      "title": "Consolidation task",
+      "all": "All tasks",
+      "minutes": "about {{count}} min",
+      "templateNote": "This task was made from a template, not by the AI, so the topic is generic.",
+      "brief": "The task",
+      "showOther": "Also show in {{language}}",
+      "hideOther": "Hide {{language}}",
+      "audience": "Audience:",
+      "structure": "Suggested structure",
+      "terms": "Terms to use",
+      "actions": {
+        "accepted": "Accept",
+        "completed": "Mark as completed",
+        "dismissed": "Dismiss",
+        "completedYes": "Yes, mark as completed",
+        "dismissedYes": "Yes, dismiss"
+      },
+      "confirmLabel": "Confirm",
+      "confirm": {
+        "completed": "Mark this task as completed? It will take no new production.",
+        "dismissed": "Dismiss this task? It will take no new production, and the deck can get another task."
+      },
+      "cancel": "Cancel",
+      "final": {
+        "completed": "This task is completed.",
+        "dismissed": "This task was dismissed."
+      },
+      "templateReason": "The AI could not make it: {{reason}}"
+    },
+    "produce": {
+      "title": "Your production",
+      "intro": "Write or record your talk using the terms above, without looking anything up. The terms are checked after you send it.",
+      "mode": "How to answer",
+      "written": "Write it",
+      "spoken": "Record it"
+    },
+    "write": {
+      "label": "Your text",
+      "submit": "Send for correction",
+      "saving": "Sending…",
+      "hint": "Your text is saved first, then corrected on the next page. Up to 40 sentences."
+    },
+    "speak": {
+      "sending": "Sending…",
+      "hint": "Record between 20 seconds and 4 minutes. The task text is not sent to the speech recogniser."
+    },
+    "attempts": {
+      "title": "Attempts",
+      "none": "No attempt yet.",
+      "written": "written",
+      "oral": "spoken",
+      "corrected": "corrected",
+      "notCorrected": "not corrected"
+    },
+    "export": {
+      "title": "Export",
+      "intro": "A Markdown file with the topic, the structure and the terms, to practise afterwards with ChatGPT voice.",
+      "en": "Download in English (.md)",
+      "fr": "Download in French (.md)"
+    },
+    "attempt": {
+      "title": "Consolidation attempt",
+      "result": "Result",
+      "yourText": "Your text",
+      "correct": "Correct my text",
+      "recordAgain": "Back to the task to record again",
+      "backToTask": "Back to the task",
+      "notCorrected": "This attempt is not corrected yet. No term has changed.",
+      "notCorrectedIncomplete": "The AI answered, but its answer was incomplete. Nothing changed; try again.",
+      "notCorrectedReason": "The AI could not correct it: {{reason}}. Nothing changed; try again later.",
+      "finishTitle": "Finished with this task?",
+      "finishHint": "Nothing completes a task by itself. Complete it when you are happy with your production, or make another attempt.",
+      "another": "Make another attempt"
+    },
+    "summary": {
+      "title": "The terms of the task",
+      "counts": "{{total}} terms: {{correct}} used correctly, {{wrong}} used wrongly, {{absent}} not used.",
+      "groups": {
+        "correct": "Used correctly ({{count}})",
+        "wrong": "Used wrongly ({{count}})",
+        "absent": "Not used ({{count}})",
+        "unknown": "Not checked ({{count}})"
+      },
+      "hints": {
+        "correct": "These terms become active.",
+        "wrong": "The mistake is in your error log and the review card of each term was reinforced.",
+        "absent": "Nothing changes for these terms. Use them in the next attempt.",
+        "unknown": "The AI did not judge these terms."
+      },
+      "nowActive": "now active",
+      "effect": "{{active}} term(s) became active and {{reinforced}} review card(s) were reinforced."
+    }
   }
 }

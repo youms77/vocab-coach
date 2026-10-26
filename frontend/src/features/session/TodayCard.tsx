@@ -94,7 +94,14 @@ export function TodayCard() {
                 )}
               </li>
             )}
-            {consolidation !== undefined && <li className="muted">{t('today.consolidation')}</li>}
+            {consolidation !== undefined && (
+              <li>
+                {t('today.consolidation')}{' '}
+                <Link to={`/consolidation/tasks/${consolidation.consolidation_task_id}`}>
+                  {t('session.practice.openTask')}
+                </Link>
+              </li>
+            )}
           </ul>
         )}
         <PlanWarnings warnings={plan.warnings} decks={decks.data} paces={plan.deadline_paces} />

@@ -7,7 +7,7 @@ import type { AssessableReason, Comparison, PronunciationScores } from './speech
 // backend/app/api/productions.py, api/writing.py and the stored `correction-1` feedback
 // (app/services/corrections.py, D-128).
 
-export type ProductionKind = 'writing' | 'transcript_analysis' | 'drill' | 'shadowing' | 'speaking' | string
+export type ProductionKind = 'writing' | 'transcript_analysis' | 'drill' | 'shadowing' | 'speaking' | 'consolidation' | string
 
 export interface ProductionTarget {
   lexical_item_id: number
@@ -154,6 +154,22 @@ export interface CorrectionResult {
   attempt: Production
   errors: ErrorOut[]
   proposed_categories: ProposedCategory[]
+  /** A corrected consolidation production only (M7.a2): what happened to the terms of the task. */
+  consolidation?: ConsolidationSummary | null
+}
+
+/** Counts, and the ids of the terms made `active` and of the cards that got an Again. */
+export interface ConsolidationSummary {
+  task_id: number
+  production_attempt_id: number
+  modality: string
+  targets: number
+  used: number
+  used_correctly: number
+  misused: number
+  absent: number
+  activated_item_ids: number[]
+  reinforced_card_ids: number[]
 }
 
 export interface ProductionPage {
@@ -224,6 +240,12 @@ export function applyCorrection(queryClient: QueryClient, result: CorrectionResu
   void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
   void queryClient.invalidateQueries({ queryKey: ['error-categories'] })
   void queryClient.invalidateQueries({ queryKey: ['errors'] })
+  // A consolidation production changed terms and cards: the task, its deck and the lists follow.
+  if (result.consolidation != null) {
+    void queryClient.invalidateQueries({ queryKey: ['consolidation'] })
+    void queryClient.invalidateQueries({ queryKey: ['items'] })
+    void queryClient.invalidateQueries({ queryKey: ['decks'] })
+  }
 }
 
 /**

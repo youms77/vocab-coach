@@ -12,7 +12,8 @@
     "today": "Aujourd'hui",
     "writing": "Écriture",
     "speaking": "Oral",
-    "errors": "Erreurs"
+    "errors": "Erreurs",
+    "consolidation": "Consolidation"
   },
   "demo": {
     "badge": "Données de démo",
@@ -296,7 +297,11 @@
     "not_assessable": "Seul un shadowing avec une phrase peut être évalué.",
     "assessment_disabled": "L'évaluation de la prononciation est désactivée dans les réglages.",
     "already_assessed": "Cet enregistrement a déjà été évalué.",
-    "unsupported_for_assessment": "Cet enregistrement ne peut pas être évalué : Azure ne lit que le WAV ou l'OGG, et celui-ci a été enregistré dans un autre format. Réenregistrez-le avec l'évaluation activée."
+    "unsupported_for_assessment": "Cet enregistrement ne peut pas être évalué : Azure ne lit que le WAV ou l'OGG, et celui-ci a été enregistré dans un autre format. Réenregistrez-le avec l'évaluation activée.",
+    "task_not_found": "Cette tâche de consolidation n'existe pas (ou plus).",
+    "not_ready": "Cette liste n'est pas encore prête pour une tâche de consolidation.",
+    "task_open": "Cette liste a déjà une tâche ouverte.",
+    "task_closed": "Cette tâche est fermée : elle n'accepte plus de production."
   },
   "home": {
     "title": "Bienvenue",
@@ -989,7 +994,7 @@
     "unknownDeck": "Paquet {{id}}",
     "minutes": "Environ {{minutes}} min, pour un budget quotidien de {{budget}} min",
     "targeted": "Exercice ciblé : {{category}} ({{count}} erreurs récentes)",
-    "consolidation": "Une tâche de consolidation est prête, pour information",
+    "consolidation": "Une tâche de consolidation est prête.",
     "empty": "Rien à réviser ni à découvrir aujourd'hui. Importez une liste ou ajoutez des termes à votre bibliothèque.",
     "start": "Démarrer la séance du jour",
     "resume": "Reprendre la séance du jour",
@@ -1050,10 +1055,10 @@
     },
     "practice": {
       "targeted": "Exercice ciblé sur vos erreurs les plus fréquentes : {{category}} ({{count}} erreurs ces 14 derniers jours).",
-      "consolidation": "Une tâche de consolidation (un exposé avec les termes de votre paquet) est prête.",
-      "later": "La tâche de consolidation sera disponible dans une prochaine version de l'application.",
+      "consolidation": "Une tâche de consolidation (un exposé avec les termes de votre liste) est prête.",
       "continue": "Continuer",
-      "now": "S'entraîner maintenant"
+      "now": "S'entraîner maintenant",
+      "openTask": "Ouvrir la tâche"
     },
     "summary": {
       "title": "Résumé de la séance",
@@ -1884,5 +1889,157 @@
     "weakestLine": "{{phoneme}} dans « {{word}} » : {{score}}",
     "assessedAt": "Évalué le {{date}} avec {{provider}}.",
     "demoNote": "Les scores de la démo sont fictifs."
+  },
+  "consolidation": {
+    "title": "Consolidation",
+    "intro": "Quand l'essentiel d'une liste est solide, utilisez ses termes dans un vrai exposé, discours ou réponse d'entretien. Les termes bien employés deviennent actifs.",
+    "loading": "Chargement…",
+    "languages": {
+      "en": "anglais",
+      "fr": "français"
+    },
+    "types": {
+      "talk": "Exposé",
+      "speech": "Discours",
+      "interview_answer": "Réponse d'entretien"
+    },
+    "status": {
+      "proposed": "Proposée",
+      "accepted": "Acceptée",
+      "completed": "Terminée",
+      "dismissed": "Écartée"
+    },
+    "source": {
+      "ai": "Faite par l'IA",
+      "template": "Faite à partir d'un gabarit"
+    },
+    "decks": {
+      "ready": "Listes prêtes pour une tâche",
+      "waiting": "Listes pas encore prêtes",
+      "noneReady": "Aucune liste n'est prête. Continuez les révisions : une liste devient prête quand assez de ses cartes productives sont stables.",
+      "readyLine": "{{ratio}} de ses cartes productives sont stables (au moins {{days}} jours ; {{threshold}} demandés). {{count}} termes utilisables.",
+      "openTask": "Ouvrir la tâche"
+    },
+    "reasons": {
+      "excluded_kind": "Ce type de liste n'est pas utilisé pour la consolidation.",
+      "deck_done": "Cette liste est marquée comme terminée.",
+      "task_open": "Une tâche est déjà ouverte pour cette liste.",
+      "no_productive_cards": "Elle n'a pas encore de carte productive.",
+      "below_ratio": "{{ratio}} de ses cartes productives sont stables (au moins {{days}} jours) ; {{threshold}} demandés.",
+      "not_enough_candidates": "Seulement {{count}} termes utilisables pour l'instant : il en faut au moins 8."
+    },
+    "create": {
+      "type": "Type de tâche",
+      "count": "Nombre de termes",
+      "countHint": "Entre {{min}} et {{max}}.",
+      "submit": "Créer une tâche",
+      "making": "Création de la tâche… {{seconds}} s",
+      "wait": "L'IA écrit le sujet et le plan (quelques secondes). Si elle ne peut pas, un gabarit est utilisé."
+    },
+    "tasks": {
+      "title": "Vos tâches",
+      "filter": "Afficher",
+      "all": "Tous les statuts",
+      "empty": "Aucune tâche pour l'instant.",
+      "count_one": "{{count}} tâche",
+      "count_other": "{{count}} tâches",
+      "date": "Date",
+      "task": "Tâche",
+      "deck": "Liste",
+      "statusColumn": "Statut"
+    },
+    "task": {
+      "title": "Tâche de consolidation",
+      "all": "Toutes les tâches",
+      "minutes": "environ {{count}} min",
+      "templateNote": "Cette tâche vient d'un gabarit, pas de l'IA : le sujet est donc générique.",
+      "brief": "La tâche",
+      "showOther": "Afficher aussi en {{language}}",
+      "hideOther": "Masquer le {{language}}",
+      "audience": "Public :",
+      "structure": "Plan suggéré",
+      "terms": "Termes à utiliser",
+      "actions": {
+        "accepted": "Accepter",
+        "completed": "Marquer comme terminée",
+        "dismissed": "Écarter",
+        "completedYes": "Oui, marquer comme terminée",
+        "dismissedYes": "Oui, écarter"
+      },
+      "confirmLabel": "Confirmation",
+      "confirm": {
+        "completed": "Marquer cette tâche comme terminée ? Elle n'acceptera plus de production.",
+        "dismissed": "Écarter cette tâche ? Elle n'acceptera plus de production et la liste pourra recevoir une autre tâche."
+      },
+      "cancel": "Annuler",
+      "final": {
+        "completed": "Cette tâche est terminée.",
+        "dismissed": "Cette tâche a été écartée."
+      },
+      "templateReason": "L'IA n'a pas pu la faire : {{reason}}"
+    },
+    "produce": {
+      "title": "Votre production",
+      "intro": "Écrivez ou enregistrez votre exposé avec les termes ci-dessus, sans rien chercher. Les termes sont vérifiés après l'envoi.",
+      "mode": "Façon de répondre",
+      "written": "Écrire",
+      "spoken": "Enregistrer"
+    },
+    "write": {
+      "label": "Votre texte",
+      "submit": "Envoyer pour correction",
+      "saving": "Envoi…",
+      "hint": "Votre texte est d'abord enregistré, puis corrigé sur la page suivante. 40 phrases au plus."
+    },
+    "speak": {
+      "sending": "Envoi…",
+      "hint": "Enregistrez entre 20 secondes et 4 minutes. Le texte de la tâche n'est pas envoyé au système de reconnaissance vocale."
+    },
+    "attempts": {
+      "title": "Tentatives",
+      "none": "Aucune tentative pour l'instant.",
+      "written": "écrite",
+      "oral": "orale",
+      "corrected": "corrigée",
+      "notCorrected": "non corrigée"
+    },
+    "export": {
+      "title": "Export",
+      "intro": "Un fichier Markdown avec le sujet, le plan et les termes, pour s'entraîner ensuite avec ChatGPT en mode vocal.",
+      "en": "Télécharger en anglais (.md)",
+      "fr": "Télécharger en français (.md)"
+    },
+    "attempt": {
+      "title": "Tentative de consolidation",
+      "result": "Résultat",
+      "yourText": "Votre texte",
+      "correct": "Corriger mon texte",
+      "recordAgain": "Retour à la tâche pour enregistrer à nouveau",
+      "backToTask": "Retour à la tâche",
+      "notCorrected": "Cette tentative n'est pas encore corrigée. Aucun terme n'a changé.",
+      "notCorrectedIncomplete": "L'IA a répondu, mais sa réponse était incomplète. Rien n'a changé ; réessayez.",
+      "notCorrectedReason": "L'IA n'a pas pu corriger : {{reason}}. Rien n'a changé ; réessayez plus tard.",
+      "finishTitle": "Vous avez fini avec cette tâche ?",
+      "finishHint": "Rien ne termine une tâche automatiquement. Terminez-la quand votre production vous convient, ou faites une autre tentative.",
+      "another": "Faire une autre tentative"
+    },
+    "summary": {
+      "title": "Les termes de la tâche",
+      "counts": "{{total}} termes : {{correct}} bien employés, {{wrong}} mal employés, {{absent}} absents.",
+      "groups": {
+        "correct": "Bien employés ({{count}})",
+        "wrong": "Mal employés ({{count}})",
+        "absent": "Absents ({{count}})",
+        "unknown": "Non vérifiés ({{count}})"
+      },
+      "hints": {
+        "correct": "Ces termes deviennent actifs.",
+        "wrong": "L'erreur est dans votre journal d'erreurs et la carte de révision de chaque terme a été renforcée.",
+        "absent": "Rien ne change pour ces termes. Utilisez-les à la prochaine tentative.",
+        "unknown": "L'IA n'a pas jugé ces termes."
+      },
+      "nowActive": "maintenant actif",
+      "effect": "{{active}} terme(s) devenu(s) actif(s) et {{reinforced}} carte(s) de révision renforcée(s)."
+    }
   }
 }

@@ -2,6 +2,9 @@ import type { RouteObject } from 'react-router'
 
 import { Layout } from './components/Layout'
 import { NotFoundPage } from './components/NotFoundPage'
+import { ConsolidationAttemptPage } from './features/consolidation/ConsolidationAttemptPage'
+import { ConsolidationPage } from './features/consolidation/ConsolidationPage'
+import { ConsolidationTaskPage } from './features/consolidation/ConsolidationTaskPage'
 import { EnrichmentPage } from './features/enrichment/EnrichmentPage'
 import { DrillPage } from './features/drills/DrillPage'
 import { DrillsPage } from './features/drills/DrillsPage'
@@ -60,6 +63,9 @@ export const routes: RouteObject[] = [
       { path: 'transcripts', element: <TranscriptPage /> },
       { path: 'transcripts/history', element: <TranscriptHistoryPage /> },
       { path: 'transcripts/:id', element: <TranscriptDetailPage /> },
+      { path: 'consolidation', element: <ConsolidationPage /> },
+      { path: 'consolidation/tasks/:id', element: <ConsolidationTaskPage /> },
+      { path: 'consolidation/attempts/:id', element: <ConsolidationAttemptPage /> },
       { path: 'drills', element: <DrillsPage /> },
       { path: 'drills/:id', element: <DrillPage /> },
       { path: 'errors', element: <ErrorsPage /> },
