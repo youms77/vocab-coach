@@ -52,7 +52,7 @@
   display: inline-block;
   min-width: 4em;
   margin: 0 0.15em;
-  border-bottom: 2px solid var(--text);
+  border-bottom: 2px solid var(--ink);
   vertical-align: baseline;
 }
 
@@ -78,7 +78,7 @@
 }
 
 .drill-result:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -99,7 +99,7 @@
 }
 
 .drill-facts dt {
-  color: var(--text-muted);
+  color: var(--ink-muted);
 }
 
 .drill-facts dd {
@@ -116,7 +116,7 @@
 }
 
 .drill-summary:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -139,7 +139,7 @@
 }
 
 .drill-recap__item--exact {
-  border-left-color: var(--ok);
+  border-left-color: var(--success);
 }
 
 .drill-recap__item--wrong,

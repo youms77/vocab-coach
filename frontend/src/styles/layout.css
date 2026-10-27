@@ -3,9 +3,9 @@
   left: var(--space-4);
   top: -48px;
   padding: var(--space-2) var(--space-3);
-  background: var(--accent);
-  color: var(--accent-contrast);
-  border-radius: var(--radius);
+  background: var(--brand);
+  color: var(--on-brand);
+  border-radius: var(--radius-md);
   z-index: 10;
 }
 
@@ -29,7 +29,7 @@
   align-items: center;
   gap: var(--space-2);
   font-weight: 700;
-  color: var(--text);
+  color: var(--ink);
   text-decoration: none;
 }
 
@@ -39,8 +39,8 @@
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: var(--accent);
-  color: var(--accent-contrast);
+  background: var(--brand);
+  color: var(--on-brand);
   font-weight: 800;
 }
 
@@ -51,23 +51,23 @@
 }
 
 .topbar__nav a {
-  color: var(--text-muted);
+  color: var(--ink-muted);
   text-decoration: none;
   padding: var(--space-1) var(--space-2);
   border-radius: 6px;
 }
 
 .topbar__nav a.active {
-  color: var(--text);
-  background: var(--surface-2);
+  color: var(--ink);
+  background: var(--surface-sunken);
 }
 
 /* Shown when the backend serves the generated demo database. */
 .demo-badge {
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--warn);
+  border: 1px solid var(--warning);
   border-radius: 999px;
-  color: var(--warn);
+  color: var(--warning);
   font-size: 0.8125rem;
   font-weight: 600;
   white-space: nowrap;
@@ -87,20 +87,20 @@
 }
 
 .control__label {
-  color: var(--text-muted);
+  color: var(--ink-muted);
 }
 
 select {
   font: inherit;
-  color: var(--text);
-  background: var(--surface-2);
+  color: var(--ink);
+  background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: var(--space-1) var(--space-2);
 }
 
 .content {
-  max-width: var(--content-width);
+  max-width: var(--content-max);
   margin: 0 auto;
   padding: var(--space-8) var(--space-4);
 }

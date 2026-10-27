@@ -45,7 +45,7 @@
 }
 
 .transcript-problem--warning strong {
-  color: var(--warn);
+  color: var(--warning);
 }
 
 .transcript-problem--error strong {
@@ -79,15 +79,15 @@
 
 .transcript-turn {
   padding: var(--space-2) var(--space-3);
-  background: var(--surface-2);
+  background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-left: 4px solid var(--border);
   border-radius: 6px;
 }
 
 .transcript-turn--user {
-  border-left-color: var(--accent);
-  border-color: var(--accent);
+  border-left-color: var(--brand);
+  border-color: var(--brand);
   border-left-width: 4px;
 }
 
@@ -103,11 +103,11 @@
 
 .transcript-privacy {
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-2);
+  background: var(--surface-sunken);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--warn);
+  border-left: 4px solid var(--warning);
   border-radius: 6px;
-  color: var(--text);
+  color: var(--ink);
 }
 
 .transcript-privacy p {

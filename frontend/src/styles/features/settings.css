@@ -16,7 +16,7 @@
   display: grid;
   gap: var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   padding: var(--space-4);
 }
 
@@ -42,7 +42,7 @@
 }
 
 .provider-card__models dt {
-  color: var(--text-muted);
+  color: var(--ink-muted);
 }
 
 .provider-card__models dd {
@@ -71,7 +71,7 @@ code {
   width: 16px;
   height: 16px;
   border: 2px solid var(--border);
-  border-top-color: var(--accent);
+  border-top-color: var(--brand);
   border-radius: 50%;
   animation: spin 0.9s linear infinite;
 }
@@ -96,7 +96,7 @@ code {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  background: var(--surface-2);
+  background: var(--surface-sunken);
   border-radius: 6px;
 }
 
@@ -148,7 +148,7 @@ td {
 }
 
 th {
-  color: var(--text-muted);
+  color: var(--ink-muted);
   font-weight: 600;
 }
 

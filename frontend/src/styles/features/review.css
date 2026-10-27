@@ -16,8 +16,8 @@
 .review-sentence {
   margin: 0;
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-2);
-  border-left: 3px solid var(--accent);
+  background: var(--surface-sunken);
+  border-left: 3px solid var(--brand);
   border-radius: 6px;
   font-size: 1.15rem;
   overflow-wrap: anywhere;
@@ -66,16 +66,16 @@
   width: 100%;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--surface);
-  color: var(--text);
+  color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .review-option:hover:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--brand);
 }
 
 .review-option:disabled {
@@ -84,13 +84,13 @@
 }
 
 .review-option[aria-pressed='true'] {
-  border-color: var(--text-muted);
+  border-color: var(--ink-muted);
   border-width: 2px;
 }
 
 /* Right and wrong are said by a sign and a text; the border only repeats it. */
 .review-option--correct {
-  border-left: 4px solid var(--ok);
+  border-left: 4px solid var(--success);
 }
 
 .review-option--wrong {
@@ -113,8 +113,8 @@ kbd {
   border: 1px solid var(--border);
   border-bottom-width: 2px;
   border-radius: 4px;
-  background: var(--surface-2);
-  color: var(--text);
+  background: var(--surface-sunken);
+  color: var(--ink);
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   font-size: 0.8125rem;
   line-height: 1.5;
@@ -132,7 +132,7 @@ kbd {
 }
 
 .review-result:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
@@ -144,7 +144,7 @@ kbd {
 .review-summary {
   margin-top: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-2);
+  background: var(--surface-sunken);
   border-radius: 6px;
   overflow-wrap: anywhere;
 }
@@ -187,14 +187,14 @@ kbd {
 }
 
 .rating__button--suggested {
-  border-color: var(--accent);
+  border-color: var(--brand);
   border-width: 2px;
   font-weight: 700;
 }
 
 .rating__badge {
   margin-left: 0;
-  color: var(--text);
+  color: var(--ink);
 }
 
 .review-blocked {
@@ -208,7 +208,7 @@ kbd {
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-4);
   margin: 0;
-  color: var(--text-muted);
+  color: var(--ink-muted);
   font-size: 0.875rem;
 }
 

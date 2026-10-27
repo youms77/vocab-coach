@@ -63,7 +63,7 @@
 .plan-warnings li {
   margin: 0;
   padding-left: var(--space-3);
-  border-left: 3px solid var(--warn);
+  border-left: 3px solid var(--warning);
 }
 
 .plan-warnings li::before {
@@ -105,7 +105,7 @@
 .session-progress progress {
   width: 100%;
   height: 8px;
-  accent-color: var(--accent);
+  accent-color: var(--brand);
 }
 
 .session-progress ul {
@@ -116,7 +116,7 @@
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-4);
   font-size: 0.9375rem;
-  color: var(--text-muted);
+  color: var(--ink-muted);
 }
 
 .step-title:focus {
@@ -124,7 +124,7 @@
 }
 
 .step-title:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--focus-ring);
 }
 
 .wait-countdown {
@@ -140,7 +140,7 @@
 }
 
 .session-summary dt {
-  color: var(--text-muted);
+  color: var(--ink-muted);
   font-size: 0.875rem;
 }
 
@@ -158,8 +158,8 @@
 blockquote.discovery-sentence {
   margin: 0 0 var(--space-2);
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-2);
-  border-left: 3px solid var(--accent);
+  background: var(--surface-sunken);
+  border-left: 3px solid var(--brand);
   border-radius: 6px;
   font-size: 1.15rem;
   overflow-wrap: anywhere;
@@ -176,7 +176,7 @@ mark {
   color: inherit;
   font-weight: 700;
   text-decoration: underline;
-  text-decoration-color: var(--accent);
+  text-decoration-color: var(--brand);
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
 }
@@ -225,11 +225,11 @@ mark {
 
 .grade-result--exact,
 .grade-result--form {
-  border-left-color: var(--ok);
+  border-left-color: var(--success);
 }
 
 .grade-result--typo {
-  border-left-color: var(--warn);
+  border-left-color: var(--warning);
 }
 
 .grade-result--wrong,
@@ -250,7 +250,7 @@ mark {
 }
 
 .grade-diff ins {
-  color: var(--ok);
+  color: var(--success);
   text-decoration: underline;
   font-weight: 700;
 }

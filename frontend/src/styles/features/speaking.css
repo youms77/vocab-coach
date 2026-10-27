@@ -106,7 +106,7 @@
  * only a reinforcement, never the only signal.
  */
 .cmp-word--close .cmp-word__text {
-  border-bottom: 1px dotted var(--text-muted);
+  border-bottom: 1px dotted var(--ink-muted);
 }
 
 .cmp-word--substituted .cmp-word__text {
@@ -116,18 +116,18 @@
 
 .cmp-word--missing .cmp-word__text {
   text-decoration: line-through;
-  color: var(--text-muted);
+  color: var(--ink-muted);
 }
 
 .cmp-word--extra .cmp-word__text {
-  background: var(--surface-2);
+  background: var(--surface-sunken);
   border-radius: 3px;
   padding: 0 var(--space-1);
 }
 
 .cmp-word__note {
   font-size: 0.8125rem;
-  color: var(--text-muted);
+  color: var(--ink-muted);
 }
 
 .comparison--compact .comparison__row {
@@ -164,13 +164,13 @@
 .pronunciation__score {
   min-width: 8rem;
   padding: var(--space-2) var(--space-3);
-  background: var(--surface-2);
+  background: var(--surface-sunken);
   border-radius: 6px;
 }
 
 .pronunciation__score dt {
   font-size: 0.8125rem;
-  color: var(--text-muted);
+  color: var(--ink-muted);
 }
 
 .pronunciation__score dd {

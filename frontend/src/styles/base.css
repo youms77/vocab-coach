@@ -1,3 +1,11 @@
+/* Inter, bundled in the repository (SIL OFL 1.1, see assets/fonts/OFL.txt): the app stays offline (D-288). */
+@font-face {
+  font-family: Inter;
+  src: url('../assets/fonts/InterVariable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 *,
 *::before,
@@ -12,26 +20,41 @@ body {
 
 body {
   background: var(--bg);
-  color: var(--text);
+  color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;
 }
 
 h1,
-h2 {
-  line-height: 1.2;
+h2,
+h3 {
   margin: 0 0 var(--space-3);
 }
 
+/* Page and section titles: title-1; card titles: title-2; sub-headings: title-3. */
 h1 {
-  font-size: 1.9rem;
-  letter-spacing: -0.01em;
+  color: var(--brand-strong);
+  font-size: var(--fs-title-1);
+  line-height: var(--lh-title-1);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 h2 {
-  font-size: 1.15rem;
+  color: var(--brand-strong);
+  font-size: var(--fs-title-2);
+  line-height: var(--lh-title-2);
+  font-weight: 600;
+}
+
+h3 {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-2);
+  font-size: var(--fs-title-3);
+  line-height: var(--lh-title-3);
+  font-weight: 600;
 }
 
 p {
@@ -43,11 +66,21 @@ p:last-child {
 }
 
 a {
-  color: var(--accent);
+  color: var(--brand);
+}
+
+a:hover {
+  color: var(--brand-hover);
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
+/* One switch for every transition and animation that reads --duration. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration: 0ms;
+  }
+}

@@ -46,12 +46,12 @@
 }
 
 .unit-row__number {
-  color: var(--text-muted);
+  color: var(--ink-muted);
   font-weight: 400;
 }
 
 .unit-step--next {
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid var(--brand);
 }
 
 .unit-step__state {
@@ -84,8 +84,8 @@
 }
 
 .unit-dialogue li[aria-current='true'] {
-  background: var(--surface-2);
-  outline: 2px solid var(--accent);
+  background: var(--surface-sunken);
+  outline: 2px solid var(--brand);
 }
 
 .speed-choice {
@@ -130,7 +130,7 @@
 
 .unit-edit-row {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   padding: var(--space-3);
   margin: 0;
   min-width: 0;

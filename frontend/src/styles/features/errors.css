@@ -41,7 +41,7 @@
 }
 
 .facets__list .button[aria-pressed='true'] {
-  border-color: var(--accent);
+  border-color: var(--brand);
   border-width: 2px;
   font-weight: 700;
 }
@@ -88,9 +88,9 @@
 
 .proposal {
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-2);
+  background: var(--surface-sunken);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--warn);
+  border-left: 4px solid var(--warning);
   border-radius: 6px;
 }
 

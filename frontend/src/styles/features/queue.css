@@ -40,7 +40,7 @@
 }
 
 .queue-deck__rank {
-  color: var(--text-muted);
+  color: var(--ink-muted);
 }
 
 .queue-deck .button-row {
@@ -49,13 +49,13 @@
 
 /* The status is a text; the border only repeats it. */
 .queue-status--active {
-  border-color: var(--ok);
-  color: var(--text);
+  border-color: var(--success);
+  color: var(--ink);
 }
 
 .queue-status--paused {
-  border-color: var(--warn);
-  color: var(--text);
+  border-color: var(--warning);
+  color: var(--ink);
 }
 
 .queue-done summary {
