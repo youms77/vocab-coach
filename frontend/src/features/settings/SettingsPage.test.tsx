@@ -102,6 +102,8 @@ const settings: SettingsMap = {
   ui_language: setting('en', { choices: ['en', 'fr'] }),
   tts_rate: setting(1, { type: 'float', minimum: 0.5, maximum: 2 }),
   tts_voice: setting(''),
+  backup_auto_folder: setting(''),
+  backup_auto_keep: setting(10, { minimum: 1, maximum: 60 }),
   ai_provider_order: {
     ...setting('x'),
     value: ['gemini', 'groq', 'ollama'],
@@ -117,6 +119,14 @@ function baseRoutes(aiStatus: AiStatus = status()) {
     'GET /ai/status': () => Response.json(aiStatus),
     'GET /ai/usage': usage,
     'GET /settings': settings,
+    'GET /backup/status': {
+      auto_folder_configured: false,
+      last_auto_at: null,
+      last_auto_error: null,
+      last_manual_at: null,
+      keep: 10,
+      demo: false,
+    },
   }
 }
 

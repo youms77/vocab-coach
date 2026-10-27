@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M10.a2** (the settings card; frontend only) is done on `feat/m10a-backup` after M10.a1. M10.a is complete; not pushed; the card is not seen in a browser. Next: the owner's review, then M10.b (decisions from D-310). See the M10.a2 section.
 - **M10.a1** (module J, full backup and restore: format, services, API, CLI; no migration, no screen) is done on `feat/m10a-backup`, cut from the tip of `feat/rv-visual-redesign`. Not pushed. Decisions D-302 to D-308. Next: **M10.a2** (the settings card). See the M10.a1 section.
 - **RV.b** (visual redesign, screen by screen; frontend only) is done on `feat/rv-visual-redesign` after RV.a: home, session, section headers, import cards, `CorrectionMark`, notices, CSS cleanup (D-295 to D-301). Not pushed. **The eight section illustrations are still missing** (the four headers work without them). Next: the owner's review of RV, the illustrations, then the push; M10.a branches from the tip of this branch and numbers its decisions from D-302. See the RV.b section.
 - **RV.a** (visual redesign, foundations; frontend only) is done on `feat/rv-visual-redesign`, cut from `main` (`9ebb82c`, M1 to M9): layers, tokens, Inter, icons, base components, the sidebar shell, the style guide, the contrast test, readable charts. Not pushed. RV.b followed (see above). See the RV.a section. M10.a comes after RV.
@@ -32,6 +33,36 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M10.a2 — The "Backup" card of the settings page (frontend only)
+
+Same branch `feat/m10a-backup`, after M10.a1 (`9b24fc3`). Not pushed. **No backend change, no migration, no new dependency.** Decision **D-309**.
+
+### Done
+
+- `BackupCard` at the end of `/settings`: warning (all personal data, no key), "Download a backup" (`POST /api/backup` through `apiDownload`), automatic-copy form (folder, copies to keep), last copy and last error in words, "Make a copy now", and the "Restore" block (commands to copy, "stop the app first"). English and French, same keys. Demo: form and copy button disabled with a notice.
+
+### Verified
+
+- **Tests**: 869 Vitest tests in 74 files (863 in 73 before: **+6**, all in `BackupCard.test.tsx`: warning and restore commands, POST download with the server's file name, saving and the reason of a refused folder, out-of-range number never sent, last error in words and copy now, demo lock). The existing `SettingsPage.test.tsx` fixtures gained the two settings and the status route; no assertion was changed. `npm run check` is green (ruff, 2,929 pytest tests, typecheck, oxlint, Vitest) and `npm --prefix frontend run build` passes. Translation keys are type-checked.
+- Hard-coded colours outside `tokens.css`: only the `#000` of D-294, as before.
+
+### Not seen
+
+- **The card was not opened in a browser** (no screenshot, no 375 px or dark check, no focus-ring check): only the tests and the build ran. Please look at it in light and dark, in English and French, and at phone width.
+
+### Left / known limits
+
+- No progress bar for a large download (the browser shows its own). The status is not refreshed by a timer.
+- The folder is validated by the server only; the page does not offer a folder picker (a browser cannot give a full path).
+
+### Next step
+
+The owner's review of M10.a, then the push after the owner's go-ahead. Then **M10.b** (one-port mode, security and performance reviews). **M10.b numbers its decisions from D-310.**
+
+### Owner's manual scenario (2 minutes)
+
+The commands of M10.a1, then in the browser: (1) Settings shows the "Backup" card; (2) "Download a backup" saves a zip; (3) on your own database, enter an OneDrive folder, "Save", then "Make a copy now": the file `vocab-coach-backup-...zip` appears in the folder and the card shows the date.
 
 ## M10.a1 — Full backup and restore: backend and CLI (module J)
 

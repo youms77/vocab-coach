@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useAiStatus } from '../../api/ai'
 import { AzureCard } from './AzureCard'
+import { BackupCard } from './BackupCard'
 import { ErrorText } from './ErrorText'
 import { GeneralSettings } from './GeneralSettings'
 import { ProviderCard } from './ProviderCard'
@@ -57,6 +58,7 @@ export function SettingsPage() {
       <AzureCard />
       <UsagePanel />
       <GeneralSettings />
+      <BackupCard />
     </div>
   )
 }

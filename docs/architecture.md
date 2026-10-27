@@ -260,7 +260,7 @@ Breakpoints (CSS constants, written out in each media query because a query cann
 | `features/queue/` | `/queue` (M4.c2): `QueuePage` (order, status, pace, warnings, moves, status changes), `queueOrder.ts` (D-027 order, groups, moves, D-026 transitions; pure) |
 | `features/discovery/` | module B in the session: `DiscoveryFlow` (start, steps, complete, errors), `ReadAndGuess`, `SheetStep` (reuses `SheetView`), `ExercisesStep` and `GradeResult`, `ProductionSteps` (repetition, personal sentence), `highlight.ts` (M4.b) |
 | `speech/` | browser speech synthesis: `voices.ts` (voice choice, slow rate), `useSpeech.ts` (store, hook, cancel on route change), `SpeakButton` (M4.b, D-112) |
-| `features/settings/` | `/settings`: provider cards (key / address form, connection test), provider order, AI usage, study settings; `errorMessage.ts` maps the API's `detail.code` to i18n keys (M2.c2) |
+| `features/settings/` | `/settings`: provider cards (key / address form, connection test), provider order, AI usage, study settings, the `BackupCard` (download, automatic copy, restore commands; `api/backup.ts`, D-309); `errorMessage.ts` maps the API's `detail.code` to i18n keys (M2.c2) |
 | `api/` | `client.ts` (`apiGet`, `apiSend`, `ApiError` with `code`), `health.ts`, `ai.ts`, `settings.ts`, library, import, triage, duplicates and enrichment modules, and (M4.b, M4.c) `session.ts`, `discovery.ts`, `reviews.ts` (grade, reveal, record; types mirroring the backend contracts, query and mutation hooks) |
 | `i18n/` | i18next setup, `locales/en.json`, `locales/fr.json`, typed keys |
 | `theme.ts`, `sidebar.ts`, `useActiveTheme.ts` | theme preference (`vocab-coach.theme`), sidebar fold state (`vocab-coach.sidebar`), the theme in effect for what CSS cannot switch (RV.a) |

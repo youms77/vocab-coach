@@ -16,6 +16,8 @@ const KNOWN_CODES = [
   'env_file_locked',
   'test_in_progress',
   'demo_read_only',
+  'backup_not_configured',
+  'database_out_of_date',
   'env_file_write_failed',
   'database_unavailable',
   'item_not_found',

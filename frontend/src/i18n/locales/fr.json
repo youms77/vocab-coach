@@ -221,6 +221,45 @@
       "usage": "{{minutes}} min d'audio envoyées en {{count}} évaluations (mois {{month}}). Niveau gratuit : environ {{limit}} min par mois, vérifié le {{checked}}.",
       "usageNote": "Cela compte ce que cette application a envoyé, pas ce que compte Microsoft.",
       "usageError": "L'utilisation mensuelle n'a pas pu être chargée."
+    },
+    "backup": {
+      "title": "Sauvegarde",
+      "intro": "Un seul fichier zip avec toutes vos données : termes, révisions, erreurs, statistiques et vos enregistrements. L'application continue de fonctionner pendant la création.",
+      "warning": "L'archive contient toutes vos données personnelles et aucune clé d'IA (les clés restent dans le fichier .env). Gardez-la dans un endroit privé.",
+      "download": "Télécharger une sauvegarde",
+      "downloading": "Préparation de la sauvegarde…",
+      "loadError": "L'état de la sauvegarde n'a pas pu être chargé.",
+      "demoNote": "Base de démonstration : la copie automatique est désactivée. Vous pouvez quand même télécharger une sauvegarde des données de démonstration.",
+      "autoTitle": "Copie automatique",
+      "folder": "Dossier des copies automatiques",
+      "folderHint": "Le chemin complet d'un dossier existant sur cet ordinateur, par exemple dans OneDrive ou Google Drive. Laissez vide pour désactiver. Il ne peut pas être dans un dépôt Git. Une copie est faite à la fin d'une session, et au démarrage de l'application si la dernière a plus de 24 heures.",
+      "keep": "Copies à conserver",
+      "lastAuto": "Dernière copie automatique",
+      "lastManual": "Dernier téléchargement",
+      "never": "Jamais",
+      "lastError": "La dernière copie automatique a échoué : {{reason}}",
+      "copyNow": "Faire une copie maintenant",
+      "copying": "Copie en cours…",
+      "errors": {
+        "not_absolute": "le dossier n'est pas un chemin complet.",
+        "not_found": "le dossier n'existe pas.",
+        "not_writable": "on ne peut pas écrire dans le dossier.",
+        "inside_repository": "le dossier est dans un dépôt Git.",
+        "file_locked": "un autre programme (un client de synchronisation, par exemple) occupait le fichier. Un nouvel essai aura lieu à la prochaine copie.",
+        "write_failed": "le fichier n'a pas pu être écrit.",
+        "database_out_of_date": "la base de données n'est pas à jour.",
+        "unknown": "un problème inattendu. Le détail est dans le journal du serveur."
+      },
+      "reasons": {
+        "not_absolute": "Saisissez un chemin complet, par exemple C:/Users/vous/OneDrive/vocab-coach.",
+        "not_found": "Ce dossier n'existe pas.",
+        "not_writable": "L'application ne peut pas écrire dans ce dossier.",
+        "inside_repository": "Ce dossier est dans un dépôt Git : une sauvegarde contient toutes vos données personnelles."
+      },
+      "restoreTitle": "Restaurer",
+      "restoreIntro": "La restauration se fait depuis un terminal, dans le dossier backend, vers une base vide. Vérifiez d'abord l'archive ; avec --replace, les données actuelles sont conservées dans des fichiers .bak.",
+      "restoreStop": "Arrêtez d'abord l'application (Ctrl+C dans sa fenêtre).",
+      "restoreKeys": "Les clés d'IA ne sont pas dans une sauvegarde : saisissez-les à nouveau dans les réglages, ou copiez votre fichier .env."
     }
   },
   "errors": {
@@ -324,7 +363,9 @@
     "unit_generated": "Cette unité était déjà écrite. La page l'affiche maintenant.",
     "unit_changed": "Cette unité a changé entre-temps. Rechargez la page et réessayez.",
     "invalid_content": "Le contenu de l'unité a été refusé :",
-    "invalid_step": "Cette étape est cochée par vos enregistrements, pas par un bouton."
+    "invalid_step": "Cette étape est cochée par vos enregistrements, pas par un bouton.",
+    "backup_not_configured": "Le dossier de sauvegarde n'est pas défini.",
+    "database_out_of_date": "La base de données n'est pas à jour. Lancez d'abord la mise à jour."
   },
   "home": {
     "title": "Bienvenue",

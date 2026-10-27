@@ -111,3 +111,29 @@
   gap: var(--space-6);
 }
 
+
+/* The backup card (M10.a2): the restore commands and the last-copy list. */
+.code-block {
+  overflow-x: auto;
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  font-size: var(--fs-body-sm);
+}
+
+.backup-status {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.backup-status dt {
+  color: var(--ink-muted);
+}
+
+.backup-status dd {
+  margin: 0;
+}

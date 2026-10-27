@@ -221,6 +221,45 @@
       "usage": "{{minutes}} min of audio sent in {{count}} assessments (month {{month}}). Free tier: about {{limit}} min a month, checked on {{checked}}.",
       "usageNote": "This counts what this app sent, not what Microsoft counts.",
       "usageError": "The monthly use could not be loaded."
+    },
+    "backup": {
+      "title": "Backup",
+      "intro": "One zip file with all your data: terms, reviews, errors, statistics and your recordings. The app keeps working while it is made.",
+      "warning": "The archive contains all your personal data and no AI key (keys stay in the .env file). Keep it somewhere private.",
+      "download": "Download a backup",
+      "downloading": "Preparing the backup…",
+      "loadError": "The backup status could not be loaded.",
+      "demoNote": "Demo database: the automatic copy is off. You can still download a backup of the demo data.",
+      "autoTitle": "Automatic copy",
+      "folder": "Folder for automatic copies",
+      "folderHint": "A full path to an existing folder on this computer, for example in OneDrive or Google Drive. Leave empty to turn it off. It cannot be inside a Git repository. A copy is made when a session ends and when the app starts if the last one is over 24 hours old.",
+      "keep": "Copies to keep",
+      "lastAuto": "Last automatic copy",
+      "lastManual": "Last download",
+      "never": "Never",
+      "lastError": "The last automatic copy failed: {{reason}}",
+      "copyNow": "Make a copy now",
+      "copying": "Copying…",
+      "errors": {
+        "not_absolute": "the folder is not a full path.",
+        "not_found": "the folder does not exist.",
+        "not_writable": "the folder cannot be written to.",
+        "inside_repository": "the folder is inside a Git repository.",
+        "file_locked": "another program (a sync client, for instance) kept the file busy. It will be tried again at the next copy.",
+        "write_failed": "the file could not be written.",
+        "database_out_of_date": "the database is not up to date.",
+        "unknown": "an unexpected problem. The details are in the server log."
+      },
+      "reasons": {
+        "not_absolute": "Enter a full path, such as C:/Users/you/OneDrive/vocab-coach.",
+        "not_found": "This folder does not exist.",
+        "not_writable": "The app cannot write in this folder.",
+        "inside_repository": "This folder is inside a Git repository: a backup holds all your personal data."
+      },
+      "restoreTitle": "Restore",
+      "restoreIntro": "Restoring is done from a terminal, in the backend folder, into an empty database. Check the archive first; with --replace the current data is kept as .bak files.",
+      "restoreStop": "Stop the app first (Ctrl+C in its window).",
+      "restoreKeys": "AI keys are not in a backup: enter them again in Settings, or copy your .env file."
     }
   },
   "errors": {
@@ -324,7 +363,9 @@
     "unit_generated": "This unit was already written. The page shows it now.",
     "unit_changed": "This unit changed meanwhile. Reload the page and try again.",
     "invalid_content": "The content of the unit was refused:",
-    "invalid_step": "This step is ticked by your recordings, not by a button."
+    "invalid_step": "This step is ticked by your recordings, not by a button.",
+    "backup_not_configured": "The backup folder is not set.",
+    "database_out_of_date": "The database is not up to date. Run the update first."
   },
   "home": {
     "title": "Welcome",
