@@ -15,6 +15,8 @@ export default defineConfig({
     host: devServer.host,
     port: devServer.port,
     strictPort: true,
+    // Tests only: the unit limits test reads backend/app/domain/curriculum_unit.py (D-262).
+    fs: process.env.VITEST ? { allow: ['..'] } : undefined,
     proxy: {
       '/api': { target: backendUrl, changeOrigin: true },
     },

@@ -1,4 +1,5 @@
-"""Written productions and their AI correction (module E, M5.a1).
+"""Productions and their AI correction (module E, M5.a1). Spoken productions are recorded, played
+and transcribed through `app/api/speech.py` (M6.a1); they are read here like the others.
 
 `POST /productions/{id}/correct` calls the AI, so it is a plain `def` route with **no database
 session in its dependencies**: the service opens short sessions itself and none is open while the
@@ -20,12 +21,21 @@ from app.ai import Gateway, get_gateway
 from app.api.clock import NowDep
 from app.api.error_log import ErrorOut, errors_out
 from app.api.errors import require_database
+from app.api.speech import ComparisonOut, audio_url, comparison_out
 from app.db.engine import get_engine, get_session
 from app.db.models import ErrorCategory, ErrorEvent, ProductionAttempt
 from app.domain.enums import Modality, ProductionKind
 from app.domain.events import ProductionOrigin
 from app.domain.transcript_import import MAX_PASTED_CHARS, UserByLabel, UserByMode
-from app.services import corrections, productions, transcripts
+from app.services import (
+    consolidation_attempts,
+    corrections,
+    productions,
+    pronunciation,
+    speaking,
+    speech,
+    transcripts,
+)
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
@@ -59,18 +69,40 @@ class ProductionOut(BaseModel):
     # `format: "correction-1"`: `output` (the AI's validated answer), `spans` (position of each
     # `wrong` in `text`, Unicode code points), `error_event_ids` (same order as `output.errors`),
     # `targets` (checks and disagreements), `prompt_version`, `provider`, `model`. A transcript
-    # has `format: "transcript-1"` with the same keys (units as `sentences`); a drill has none
-    # here (read it with `/api/drills/{id}`).
+    # has `format: "transcript-1"` with the same keys (units as `sentences`), a spoken production
+    # `format: "speaking-1"` with the same keys and `output.structure`; a drill has none here
+    # (read it with `/api/drills/{id}`).
     feedback: dict[str, Any] | None
     ai_call_id: int | None
     study_session_id: int | None
     targets: list[TargetOut]
     created_at: datetime
     updated_at: datetime
+    # Spoken productions (M6.a1). `audio_url` streams the recording; `transcription_status` is
+    # `pending` (to transcribe again), `ok` or `silence`, null without a recording; `comparison`
+    # is the word-by-word comparison of a transcribed shadowing, computed again on each read.
+    audio_url: str | None = None
+    audio_seconds: float | None = None
+    transcription_status: Literal["pending", "ok", "silence"] | None = None
+    comparison: ComparisonOut | None = None
+    # Pronunciation assessment (M6.c1): the stored scores (`format: "azure-pa-1"`: `provider`,
+    # `model`, `assessed_at`, `status` ok|silence, `overall` {accuracy, fluency, completeness,
+    # pronunciation}, `words` [{word, accuracy, error_type, offset_ms, duration_ms, phonemes
+    # [{phoneme, accuracy}]}], `duration_s`); whether the take can be assessed now and, if not,
+    # why (`not_shadowing`, `no_target`, `no_audio`, `disabled`, `not_configured`,
+    # `already_assessed`, `unsupported_format`, `too_long`).
+    pronunciation: dict[str, Any] | None = None
+    assessable: bool = False
+    assessable_reason: str | None = None
 
 
 def production_out(session: Session, attempt: ProductionAttempt) -> ProductionOut:
+    comparison = speech.comparison_of(session, attempt)
+    view = pronunciation.assessment_view(session, attempt)
     return ProductionOut(
+        pronunciation=view.scores,
+        assessable=view.assessable,
+        assessable_reason=view.reason,
         id=attempt.id,
         kind=attempt.kind,
         modality=attempt.modality,
@@ -95,6 +127,10 @@ def production_out(session: Session, attempt: ProductionAttempt) -> ProductionOu
         ],
         created_at=attempt.created_at,
         updated_at=attempt.updated_at,
+        audio_url=audio_url(attempt.id) if attempt.audio_path else None,
+        audio_seconds=attempt.audio_seconds,
+        transcription_status=speech.transcription_state(session, attempt),
+        comparison=comparison_out(comparison) if comparison is not None else None,
     )
 
 
@@ -175,6 +211,10 @@ class CorrectionOut(BaseModel):
     attempt: ProductionOut
     errors: list[ErrorOut]
     proposed_categories: list[ProposedCategoryOut]  # new categories waiting for your decision
+    # A consolidation production (M7.a2), once corrected: what happened to the terms of the task
+    # (`task_id`, `production_attempt_id`, `modality`, `targets`, `used`, `used_correctly`,
+    # `misused`, `absent`, `activated_item_ids`, `reinforced_card_ids`); null otherwise.
+    consolidation: dict[str, Any] | None = None
 
 
 def correction_out(session: Session, result: corrections.CorrectionResult) -> CorrectionOut:
@@ -198,6 +238,7 @@ def correction_out(session: Session, result: corrections.CorrectionResult) -> Co
         )
     }
     return CorrectionOut(
+        consolidation=result.consolidation,
         status=result.status,
         reason=str(result.reason) if result.reason is not None else None,
         attempt=production_out(session, attempt),
@@ -242,9 +283,10 @@ def correct(
 ) -> CorrectionOut:
     """Correct a production with the AI: its errors are classified and logged. Takes a few
     seconds (a long transcript, several calls). A written production uses `production_correction`,
-    a transcript `transcript_analysis`; other kinds get 422 `not_correctable`. 409
-    `already_corrected` when it was corrected before; with `status` `unavailable` or `incomplete`
-    nothing was written and you can try again."""
+    a transcript `transcript_analysis`, a spoken production `speaking_correction` (409
+    `not_transcribed` before its transcription, 422 `nothing_to_correct` for silence); other kinds
+    get 422 `not_correctable`. 409 `already_corrected` when it was corrected before; with `status`
+    `unavailable` or `incomplete` nothing was written and you can try again."""
     factory = _factory(engine)
     with factory() as session:
         kind = productions.get_production(session, production_id).kind
@@ -259,9 +301,15 @@ def correct(
             else None,
             clock=lambda: now,
         )
+    elif transcript is not None:
+        raise transcripts.NotATranscript("Only a transcript takes a transcript body.")
+    elif kind is ProductionKind.CONSOLIDATION:
+        result = consolidation_attempts.correct_consolidation(
+            factory, gateway, production_id, clock=lambda: now
+        )
+    elif kind is ProductionKind.SPEAKING:
+        result = speaking.correct_speaking(factory, gateway, production_id, clock=lambda: now)
     else:
-        if transcript is not None:
-            raise transcripts.NotATranscript("Only a transcript takes a transcript body.")
         result = corrections.correct_production(
             factory,
             gateway,

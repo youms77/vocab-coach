@@ -1,0 +1,99 @@
+# Fallback tasks of the consolidation module (docs/SPEC.md module G), used when the AI cannot write
+# the task (no key, no network, quota, unusable answer). One template per task type; the 8 to 15
+# terms of the task are spread over the sections in turn. `{deck}` and `{domain}` are replaced by
+# the name and the domain of the deck. Fictional, generic text. Bump `version` whenever this file
+# changes.
+
+version: 1
+
+templates:
+  talk:
+    title:
+      en: "A short talk on {deck}"
+      fr: "Un court exposé sur {deck}"
+    prompt:
+      en: "Give a short talk on {deck} ({domain}). Present the topic, the context, how you worked and what you found, then conclude. Speak or write it in your own words."
+      fr: "Faites un court exposé sur {deck} ({domain}). Présentez le sujet, le contexte, la méthode et les résultats, puis concluez. Dites-le ou écrivez-le avec vos propres mots."
+    audience:
+      en: "Classmates and a lecturer"
+      fr: "Des camarades de classe et un enseignant"
+    target_minutes: 3
+    sections:
+      - heading: {en: "Introduction", fr: "Introduction"}
+        guidance:
+          en: "Say what the talk is about and why it matters."
+          fr: "Dites de quoi parle l'exposé et pourquoi c'est important."
+      - heading: {en: "Context", fr: "Contexte"}
+        guidance:
+          en: "Explain the background your audience needs."
+          fr: "Expliquez le contexte dont votre public a besoin."
+      - heading: {en: "Method", fr: "Méthode"}
+        guidance:
+          en: "Describe what you did, step by step."
+          fr: "Décrivez ce que vous avez fait, étape par étape."
+      - heading: {en: "Results", fr: "Résultats"}
+        guidance:
+          en: "Present what you found and what it means."
+          fr: "Présentez ce que vous avez trouvé et ce que cela signifie."
+      - heading: {en: "Conclusion", fr: "Conclusion"}
+        guidance:
+          en: "Sum up and say what could be done next."
+          fr: "Résumez et dites ce qui pourrait être fait ensuite."
+
+  speech:
+    title:
+      en: "A speech about {deck}"
+      fr: "Un discours à propos de {deck}"
+    prompt:
+      en: "Prepare a short speech about {deck} ({domain}) for a professional audience. Open with a hook, make two or three points and end with a clear message."
+      fr: "Préparez un court discours à propos de {deck} ({domain}) pour un public professionnel. Ouvrez avec une accroche, développez deux ou trois idées et terminez par un message clair."
+    audience:
+      en: "Colleagues at a team meeting"
+      fr: "Des collègues lors d'une réunion d'équipe"
+    target_minutes: 3
+    sections:
+      - heading: {en: "Opening", fr: "Ouverture"}
+        guidance:
+          en: "Catch the attention of the audience."
+          fr: "Attirez l'attention du public."
+      - heading: {en: "First point", fr: "Premier point"}
+        guidance:
+          en: "Make your first main point with an example."
+          fr: "Développez votre première idée avec un exemple."
+      - heading: {en: "Second point", fr: "Deuxième point"}
+        guidance:
+          en: "Make your second main point and link it to the first."
+          fr: "Développez votre deuxième idée et reliez-la à la première."
+      - heading: {en: "Closing", fr: "Clôture"}
+        guidance:
+          en: "End with one clear message to remember."
+          fr: "Terminez par un message clair à retenir."
+
+  interview_answer:
+    title:
+      en: "An interview answer about {deck}"
+      fr: "Une réponse d'entretien à propos de {deck}"
+    prompt:
+      en: "In a job interview you are asked: \"Tell us about your experience with {deck} ({domain}).\" Answer in about two minutes."
+      fr: "Lors d'un entretien d'embauche, on vous demande : « Parlez-nous de votre expérience avec {deck} ({domain}). » Répondez en deux minutes environ."
+    audience:
+      en: "A recruiter and a future manager"
+      fr: "Un recruteur et un futur responsable"
+    target_minutes: 2
+    sections:
+      - heading: {en: "Situation", fr: "Situation"}
+        guidance:
+          en: "Set the scene in a few words."
+          fr: "Plantez le décor en quelques mots."
+      - heading: {en: "Task", fr: "Mission"}
+        guidance:
+          en: "Say what you had to do."
+          fr: "Dites ce que vous deviez faire."
+      - heading: {en: "Action", fr: "Action"}
+        guidance:
+          en: "Explain what you did and how."
+          fr: "Expliquez ce que vous avez fait et comment."
+      - heading: {en: "Result", fr: "Résultat"}
+        guidance:
+          en: "Give the outcome and what you learned."
+          fr: "Donnez le résultat et ce que vous avez appris."

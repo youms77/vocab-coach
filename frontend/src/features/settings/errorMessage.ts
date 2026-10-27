@@ -70,6 +70,34 @@ const KNOWN_CODES = [
   'drill_not_found',
   'already_answered',
   'not_drillable',
+  'audio_too_large',
+  'unsupported_audio',
+  'audio_empty',
+  'audio_too_short',
+  'audio_too_long',
+  'invalid_target',
+  'no_audio',
+  'already_transcribed',
+  'not_transcribed',
+  'nothing_to_correct',
+  'region_required',
+  'invalid_region',
+  'not_assessable',
+  'assessment_disabled',
+  'already_assessed',
+  'unsupported_for_assessment',
+  'wordlist_missing',
+  'track_not_started',
+  'not_a_wordlist_track',
+  'not_a_scenario_track',
+  'not_a_scenario_unit',
+  'track_not_found',
+  'unit_not_found',
+  'syllabus_unavailable',
+  'unit_generated',
+  'unit_changed',
+  'invalid_content',
+  'invalid_step',
 ] as const
 
 // These say *why* a value was refused (never the value itself): the English detail is kept.
@@ -93,6 +121,17 @@ const TRANSCRIPT_CODES = ['invalid_transcript', 'text_too_long'] as const
 function codesOf(error: ApiError): string[] {
   const codes = error.detail.codes
   return Array.isArray(codes) ? codes.filter((code): code is string => typeof code === 'string') : []
+}
+
+// The recording refusals carry their bounds (`min_s`, `max_s`, `max_bytes`) for the sentence.
+function audioParams(error: ApiError): Record<string, string> {
+  const number = (value: unknown) => (typeof value === 'number' ? String(value) : '?')
+  const bytes = error.detail.max_bytes
+  return {
+    min: number(error.detail.min_s),
+    max: number(error.detail.max_s),
+    mb: typeof bytes === 'number' ? String(Math.round(bytes / 1024 / 1024)) : '10',
+  }
 }
 
 export interface DescribedError {
@@ -127,7 +166,21 @@ export function describeError(t: TFunction, error: unknown): DescribedError {
           : error.message,
       )
     }
-    return { text: t(`errors.${key}`), detail: withDetail ? error.message : null, reasons }
+    // The content of a unit was refused: each problem names a location, never the text (D-246).
+    if (error.code === 'invalid_content') {
+      const problems = error.detail.problems
+      if (Array.isArray(problems)) {
+        reasons.push(...problems.filter((p): p is string => typeof p === 'string'))
+      }
+    }
+    return {
+      text: (t as unknown as (key: string, options: Record<string, string>) => string)(
+        `errors.${key}`,
+        audioParams(error),
+      ),
+      detail: withDetail ? error.message : null,
+      reasons,
+    }
   }
   if (error.status === 502 || error.status === 504) {
     // Vite's proxy answers this way when the backend is down.

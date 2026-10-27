@@ -1,7 +1,7 @@
 # Fictional production prompts for the demo seed (D-033): writing and speaking topics, plus
 # correct sentences used to fill the simulated texts up to their word count. Written for the demo.
 
-dataset_version: 3
+dataset_version: 7
 
 prompts:
   - kind: writing
@@ -66,3 +66,30 @@ tutor_lines:
   - "I see. And how did your supervisor react?"
   - "Good. What will you do next?"
   - "Thanks for sharing. Is there anything you would change?"
+
+# Speaking (module F, M6.a2b): what the fictional recogniser and corrector of the demo need.
+speech:
+  # Connectors the fictional correction looks for in a free speech (only those actually said are
+  # listed in its `structure`, as the real task must).
+  connectors: [so, but, because, then, after, also, when, first, finally, overall, still]
+  # The fictional comments on the organisation of a free speech, one picked per speech.
+  structure:
+    - comment_en: "You describe your project step by step. End with one sentence that sums up your main point."
+      comment_fr: "Vous décrivez votre projet étape par étape. Terminez par une phrase qui résume votre idée principale."
+      suggestions:
+        - {text_en: "To sum up, ...", text_fr: "Pour résumer, ..."}
+        - {text_en: "Start with the result, then explain how you got it.", text_fr: "Commencez par le résultat, puis expliquez comment vous l'avez obtenu."}
+    - comment_en: "Your ideas come in a clear order. Link the last two parts with a connector."
+      comment_fr: "Vos idées viennent dans un ordre clair. Reliez les deux dernières parties par un connecteur."
+      suggestions:
+        - {text_en: "That is why ...", text_fr: "C'est pourquoi ..."}
+    - comment_en: "Good examples. Announce the plan in your first sentence, so the listener can follow."
+      comment_fr: "Bons exemples. Annoncez le plan dès la première phrase, pour que l'auditeur suive."
+      suggestions:
+        - {text_en: "I will talk about two things: ... and ...", text_fr: "Je vais parler de deux choses : ... et ..."}
+        - {text_en: "First, ... Then, ...", text_fr: "D'abord, ... Ensuite, ..."}
+  # What the learner says when the term does not come in a spoken answer (the term is not heard).
+  forgotten_answers:
+    - "Sorry, I forgot the word. It is the idea we saw in the reading last week."
+    - "Hmm, I know it but I can't remember the exact expression right now."
+    - "I would say it is a kind of problem in the data, but I don't remember the name."

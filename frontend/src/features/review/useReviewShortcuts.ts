@@ -6,7 +6,8 @@ import { hasCommandModifier, isTyping } from '../../components/keyboard'
 /**
  * The actions the current phase allows (D-122). A missing handler means its keys do nothing now:
  * the player passes `choose` and `reveal` while answering, `rate` and `acceptProposed` once the
- * answer is shown, and `replay` whenever there is something to hear.
+ * answer is shown, and `replay` whenever there is something to hear. A spoken answer (D-207) has
+ * `record` (Space starts and stops the recording) and `send` (Enter sends the take).
  */
 export interface ReviewShortcutHandlers {
   /** 1 to 4 while answering a choice exercise (0-based index). */
@@ -17,6 +18,10 @@ export interface ReviewShortcutHandlers {
   rate?: (rating: Rating) => void
   /** Enter once the answer is shown, when a rating is proposed. */
   acceptProposed?: () => void
+  /** Space: starts the recording, or stops it (a spoken answer, before and during the take). */
+  record?: () => void
+  /** Enter: sends the recording for checking (a spoken answer, once the take is ready). */
+  send?: () => void
   /** R (normal) and Shift+R (slow). */
   replay?: (slow: boolean) => void
 }
@@ -89,6 +94,12 @@ export function useReviewShortcuts(handlers: ReviewShortcutHandlers) {
         if (event.key === 'Enter' && h.acceptProposed !== undefined) {
           event.preventDefault()
           h.acceptProposed()
+        } else if (event.key === 'Enter' && h.send !== undefined) {
+          event.preventDefault()
+          h.send()
+        } else if (event.key === ' ' && h.record !== undefined) {
+          event.preventDefault()
+          h.record()
         } else if (h.reveal !== undefined) {
           event.preventDefault()
           h.reveal()

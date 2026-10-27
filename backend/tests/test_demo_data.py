@@ -3,6 +3,7 @@
 One full 60-day seed is built per test session and shared (read-only) by these tests.
 """
 
+import os
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from datetime import datetime, time
@@ -10,11 +11,14 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
-from app.db.engine import create_db_engine
+from app.config import Settings, get_settings
+from app.db.engine import create_db_engine, get_engine, get_session
 from app.db.models import (
+    AICallLog,
     Card,
     Deck,
     DeckItem,
@@ -25,6 +29,7 @@ from app.db.models import (
     ExerciseTemplate,
     LexicalItem,
     ProductionAttempt,
+    ProductionTarget,
     ReviewLog,
     StudySession,
 )
@@ -48,14 +53,19 @@ from app.domain.exercises import (
     RECOGNITION,
     SELF_ASSESSMENT,
     SELF_GRADED_TYPES,
+    SPOKEN_ANSWER,
     TYPED_RECALL,
 )
+from app.domain.grading import production_rating, production_warnings
 from app.domain.planner import BlockKind
+from app.domain.speech_compare import compare, words
 from app.domain.study_day import study_day_bounds
 from app.domain.usage_sheet import is_usable
-from app.services import error_cards
+from app.main import create_app
+from app.services import error_cards, speech
 from app.services.planning import plan_today
 from app.services.study_sessions import SESSION_FORMAT, compute_summary
+from app.speech.audio_store import DEMO_AUDIO_DIR, AudioStore
 from tests.demo_support import DEMO_ANCHOR, DEMO_SEED
 
 DOUALA = ZoneInfo("Africa/Douala")
@@ -65,10 +75,16 @@ WAITING_STATUSES = (ItemStatus.QUEUED, ItemStatus.TRIAGE, ItemStatus.DISCOVERING
 
 
 @pytest.fixture(scope="module")
-def demo_engine(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Engine]:
-    path: Path = tmp_path_factory.mktemp("demo") / "vocab-coach-demo.sqlite3"
-    seed_demo(path, seed=DEMO_SEED, days=60, anchor=DEMO_ANCHOR)
-    engine = create_db_engine(sqlite_url(path))
+def demo_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The folder of the seeded demo: `vocab-coach-demo.sqlite3` and `audio-demo/`."""
+    folder = tmp_path_factory.mktemp("demo")
+    seed_demo(folder / "vocab-coach-demo.sqlite3", seed=DEMO_SEED, days=60, anchor=DEMO_ANCHOR)
+    return folder
+
+
+@pytest.fixture(scope="module")
+def demo_engine(demo_dir: Path) -> Iterator[Engine]:
+    engine = create_db_engine(sqlite_url(demo_dir / "vocab-coach-demo.sqlite3"))
     yield engine
     engine.dispose()
 
@@ -107,7 +123,7 @@ def test_decks_tell_the_planned_story(db: Session) -> None:
         statuses[deck_id][status] += 1
 
     causal = statuses[decks["Causal inference reading"].id]
-    assert causal[ItemStatus.QUEUED] == 0 and causal[ItemStatus.ACTIVE] in range(4, 7)
+    assert causal[ItemStatus.QUEUED] == 0 and causal[ItemStatus.ACTIVE] in range(12, 16)
     assert statuses[decks["Thesis defence"].id][ItemStatus.QUEUED] == 0
     assert decks["Thesis defence"].status == DeckStatus.DONE
     campus = statuses[decks["Campus life"].id]
@@ -187,8 +203,16 @@ def test_productions_have_word_counts_in_range(db: Session) -> None:
     ).all()
     assert len(attempts) >= 10
     for attempt in attempts:
-        assert attempt.word_count == len(attempt.text.split())
-        assert attempt.word_count >= 80
+        if attempt.kind == ProductionKind.SHADOWING:  # a repeated sentence (D-175)
+            assert attempt.word_count == 0
+            continue
+        if attempt.kind == ProductionKind.SPEAKING:  # the words heard (D-182)
+            assert attempt.word_count == len(words(attempt.text))
+        else:
+            assert attempt.word_count == len(attempt.text.split())
+        # Spoken answers, the silent take and the last speech (not corrected) are short.
+        if attempt.kind != ProductionKind.SPEAKING or _origin(db, attempt.id) == "speaking":
+            assert attempt.word_count >= 80 or attempt.ai_feedback is None
 
 
 def test_lexical_errors_from_failed_reviews(db: Session) -> None:
@@ -239,11 +263,17 @@ def test_review_exercise_types_follow_the_exercise_choice(db: Session) -> None:
             reps[card.id],
             templates[card.lexical_item_id],
         )
+        if log.exercise_type == "consolidation_misuse":  # the Again of a consolidation text (M7.a2)
+            assert (log.final_rating, log.auto_rating, log.production_attempt_id) == (1, 1, None)
+            reps[card.id] += 1
+            continue
         assert (log.exercise_type, log.exercise_template_id) == (
             choice.exercise_type,
             choice.template_id,
         )
-        assert (log.auto_rating is None) == (log.exercise_type in SELF_GRADED_TYPES)
+        # A spoken answer's proposed rating comes from its spoken check (see below).
+        if log.exercise_type != SPOKEN_ANSWER:
+            assert (log.auto_rating is None) == (log.exercise_type in SELF_GRADED_TYPES)
         reps[card.id] += 1
         used[log.exercise_type] += 1
     assert {SELF_ASSESSMENT, TYPED_RECALL, GAP_FILL, RECOGNITION} <= set(used)
@@ -497,4 +527,195 @@ def test_the_demo_still_has_no_receptive_card_for_an_error_card(db: Session) -> 
         select(func.count())
         .select_from(Card)
         .where(Card.lexical_item_id.in_(item_ids), Card.direction == CardDirection.RECEPTIVE)
+    )
+
+
+# --- speaking (module F, M6.a2b) --------------------------------------------------------------
+
+
+def _origin(db: Session, attempt_id: int) -> str | None:
+    payload = db.scalar(
+        select(EventLog.payload).where(
+            EventLog.event_type == EventType.PRODUCTION_RECORDED,
+            EventLog.entity_id == attempt_id,
+        )
+    )
+    return payload.get("origin") if payload is not None else None
+
+
+def _oral(db: Session, kind: ProductionKind) -> list[ProductionAttempt]:
+    return list(
+        db.scalars(
+            select(ProductionAttempt)
+            .where(ProductionAttempt.kind == kind)
+            .order_by(ProductionAttempt.id)
+        )
+    )
+
+
+def test_every_recording_has_its_file_and_only_recordings_have_one(
+    db: Session, demo_dir: Path
+) -> None:
+    store = AudioStore(demo_dir / DEMO_AUDIO_DIR)
+    recorded = (ProductionKind.SPEAKING, ProductionKind.SHADOWING)
+    paths = []
+    for attempt in db.scalars(select(ProductionAttempt)):
+        if attempt.kind in recorded:
+            assert attempt.audio_path is not None and store.exists(attempt.audio_path)
+            assert attempt.modality == "oral"
+            paths.append(attempt.audio_path)
+        else:  # a pasted transcript is `oral` but has no recording
+            assert attempt.audio_path is None
+    files = sorted(p.relative_to(store.root).as_posix() for p in store.root.rglob("*.wav"))
+    assert files == sorted(paths) and len(paths) == len(set(paths))
+    assert [p.name for p in demo_dir.iterdir() if ".tmp-" in p.name or ".old-" in p.name] == []
+
+
+def test_free_speeches_were_transcribed_then_corrected_by_the_speech_services(
+    db: Session,
+) -> None:
+    speeches = [a for a in _oral(db, ProductionKind.SPEAKING) if _origin(db, a.id) == "speaking"]
+    corrected = [a for a in speeches if a.ai_feedback is not None]
+    assert len(corrected) >= 3
+    states = Counter(speech.transcription_state(db, a) for a in speeches)
+    assert states["silence"] == 1 and states["pending"] == 0
+    # The last session leaves a silent take and a speech not corrected yet (screens of M6.b).
+    uncorrected = [a for a in speeches if a.ai_feedback is None]
+    assert sorted(speech.transcription_state(db, a) for a in uncorrected) == ["ok", "silence"]
+    for attempt in corrected:
+        feedback = attempt.ai_feedback
+        assert feedback is not None and feedback["format"] == "speaking-1"
+        assert (feedback["provider"], feedback["prompt_version"]) == ("demo", "demo-speaking-v1")
+        assert feedback["output"]["structure"] is not None
+        assert 5 <= (attempt.audio_seconds or 0) <= 180
+        ids = feedback["error_event_ids"]
+        errors = db.scalars(select(ErrorEvent).where(ErrorEvent.id.in_(ids))).all()
+        assert len(errors) == len(ids) == len(feedback["output"]["errors"])
+        assert {e.source for e in errors} <= {ErrorSource.SPEAKING}
+        assert all(e.production_attempt_id == attempt.id for e in errors)
+        assert not any(c.startswith(("spelling", "pronunciation")) for c in _codes(db, errors))
+    transcribed = _events(db, EventType.PRODUCTION_TRANSCRIBED)
+    assert {(e.payload["provider"], e.payload["model"]) for e in transcribed} == {
+        ("demo", "demo-transcription-v1")
+    }
+    spoken_errors = db.scalars(select(ErrorEvent).where(ErrorEvent.source == ErrorSource.SPEAKING))
+    assert all(e.production_attempt_id is not None for e in spoken_errors)
+
+
+def _codes(db: Session, errors: list[ErrorEvent]) -> list[str]:
+    return [db.get_one(ErrorCategory, e.category_id).code for e in errors]
+
+
+def test_shadowings_compare_the_sentence_of_a_term(db: Session) -> None:
+    every = _oral(db, ProductionKind.SHADOWING)
+    shadowings = [a for a in every if a.curriculum_unit_id is None]  # the units have their own
+    assert 4 <= len(shadowings) <= 8
+    sentences = {t.sentence for t in load_dataset().all_terms() if t.sentence}
+    missed = 0
+    for attempt in shadowings:
+        assert attempt.prompt_text in sentences
+        result = speech.pronunciation_of(db, attempt.id)
+        assert result is not None and result.target_text == attempt.prompt_text
+        assert result.transcript == attempt.text and result.provider == "demo"
+        assert len(result.unrecognized_words) <= 2
+        assert result.unrecognized_words == [
+            {"position": u.position, "word": u.word, "heard": u.heard}
+            for u in compare(attempt.prompt_text, attempt.text).unrecognized
+        ]
+        missed += len(result.unrecognized_words)
+        targets = db.scalars(
+            select(ProductionTarget).where(ProductionTarget.production_attempt_id == attempt.id)
+        ).all()
+        assert len(targets) == 1
+    assert missed >= 1
+    assert len(_events(db, EventType.PRONUNCIATION_CHECKED)) == len(every)
+
+
+def test_every_spoken_answer_review_is_linked_to_its_recording(db: Session) -> None:
+    logs = db.scalars(select(ReviewLog).where(ReviewLog.exercise_type == SPOKEN_ANSWER)).all()
+    assert logs
+    for log in logs:
+        assert log.production_attempt_id is not None
+        attempt = db.get_one(ProductionAttempt, log.production_attempt_id)
+        assert (attempt.kind, _origin(db, attempt.id)) == ("speaking", "review")
+        assert attempt.study_session_id == log.study_session_id
+        assert log.audio_path == attempt.audio_path is not None
+        card = db.get_one(Card, log.card_id)
+        assert production_rating(attempt.ai_feedback, card.lexical_item_id) == log.auto_rating
+        if log.final_rating == 1:
+            assert production_warnings(attempt.ai_feedback, card.lexical_item_id) == [
+                "term_not_heard"
+            ]
+    answers = [a for a in _oral(db, ProductionKind.SPEAKING) if _origin(db, a.id) == "review"]
+    assert len(answers) == len(logs)
+
+
+def test_the_demo_recordings_play_through_the_api(
+    demo_dir: Path, demo_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(Settings.model_config, "env_file", demo_dir / "no.env")
+    for name in [name for name in os.environ if name.upper().startswith("VOCAB_")]:
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("VOCAB_DEMO", "1")
+    monkeypatch.setenv("VOCAB_DATA_DIR", str(demo_dir))
+    get_settings.cache_clear()
+    try:
+        app = create_app()
+
+        def demo_session() -> Iterator[Session]:
+            with Session(demo_engine) as session:
+                yield session
+
+        app.dependency_overrides[get_session] = demo_session
+        app.dependency_overrides[get_engine] = lambda: demo_engine
+        base = f"http://127.0.0.1:{get_settings().port}"
+        with TestClient(app, base_url=base) as client:
+            for kind in ("speaking", "shadowing"):
+                listed = client.get("/api/productions", params={"kind": kind})
+                assert listed.status_code == 200, listed.text
+                items = listed.json()["items"]
+                assert items and all(item["audio_url"] for item in items)
+                for item in items:
+                    played = client.get(item["audio_url"])
+                    assert played.status_code == 200
+                    assert played.headers["content-type"] == "audio/wav"
+                    assert played.content[:4] == b"RIFF"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_a_few_shadowings_carry_pronunciation_scores(db: Session) -> None:
+    """The last 2 or 3 shadowings with missed words are scored (D-217), through the same service
+    as a real assessment, with the demo's provenance and no `ai_call_log` row."""
+    shadowings = _oral(db, ProductionKind.SHADOWING)
+    scored = [a for a in shadowings if speech.pronunciation_of(db, a.id).scores is not None]
+    assert 2 <= len(scored) <= 3
+    for attempt in scored:
+        result = speech.pronunciation_of(db, attempt.id)
+        assert result.unrecognized_words  # the take had missed words
+        doc = result.scores
+        assert (doc["format"], doc["provider"], doc["model"]) == (
+            "azure-pa-1",
+            "demo",
+            "demo-pa-v1",
+        )
+        assert doc["status"] == "ok" and doc["words"]
+        assert result.transcript == attempt.text  # the comparison is untouched
+    kinds = {
+        w["error_type"] for a in scored for w in speech.pronunciation_of(db, a.id).scores["words"]
+    }
+    assert "Mispronunciation" in kinds and "None" in kinds
+    events = _events(db, EventType.PRONUNCIATION_ASSESSED)
+    assert len(events) == len(scored)
+    assert {(e.payload["provider"], e.payload["model"]) for e in events} == {("demo", "demo-pa-v1")}
+    assert all(e.payload["ai_call_id"] is None for e in events)
+    assert {e.payload["status"] for e in events} == {"ok"}
+    assert any(e.payload["mispronounced"] + e.payload["omitted"] for e in events)
+    assert (
+        db.scalar(
+            select(func.count())
+            .select_from(AICallLog)
+            .where(AICallLog.task == "pronunciation_assessment")
+        )
+        == 0
     )

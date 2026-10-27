@@ -31,10 +31,11 @@ from app.ai.policy import (
     unavailable_reason,
 )
 from app.ai.prompt_loader import PromptLibrary
-from app.ai.providers import Provider, build_providers
+from app.ai.providers import PronunciationProvider, Provider, build_providers
 from app.ai.redact import clean_message
-from app.ai.schemas import AiOutput, TranscriptionOutput
-from app.ai.tasks import TASKS, TRANSCRIPTION_TASK, TaskSpec
+from app.ai.schemas import AiOutput, TranscriptionOutput, TranscriptionSegment
+from app.ai.schemas.pronunciation import PronunciationAssessmentOutput
+from app.ai.tasks import PRONUNCIATION_TASK, TASKS, TRANSCRIPTION_TASK, TaskSpec
 from app.ai.types import (
     AiResult,
     AiStatus,
@@ -42,6 +43,7 @@ from app.ai.types import (
     Capability,
     ErrorKind,
     InputTooLong,
+    PronunciationRequest,
     ProviderError,
     ProviderRequest,
     ProviderResponse,
@@ -60,8 +62,8 @@ logger = logging.getLogger("app.ai")
 ProviderMap = Mapping[str, Provider]
 # (provider, repair message or None, request timeout) -> response
 type SendFn = Callable[[Provider, str | None, float], ProviderResponse]
-# model text -> (validated data, "") or (None, validation message)
-type ParseFn = Callable[[str], tuple[Any, str]]
+# provider response -> (validated data, "") or (None, validation message)
+type ParseFn = Callable[[ProviderResponse], tuple[Any, str]]
 
 
 class Gateway:
@@ -150,13 +152,15 @@ class Gateway:
             timeout_s=spec.timeout_s,
             pin=pin_provider,
             send=send,
-            parse=lambda text: _validate(schema, text, context),
+            parse=lambda response: _validate(schema, response.text, context),
         )
 
     def transcribe(
         self, audio: AudioClip, *, language: str = "en", pin_provider: str | None = None
     ) -> AiResult[TranscriptionOutput]:
-        """Speech to text, through the same retry / fallback / journal path."""
+        """Speech to text, through the same retry / fallback / journal path. The output carries the
+        provider's audio duration and segments when it gives them (D-171). There is no prompt: a
+        target sentence would pull the recognition towards it (D-172)."""
 
         def send(provider: Provider, repair: str | None, timeout_s: float) -> ProviderResponse:
             return provider.transcribe(
@@ -170,7 +174,47 @@ class Gateway:
             timeout_s=60.0,
             pin=pin_provider,
             send=send,
-            parse=lambda text: (TranscriptionOutput(text=text), ""),
+            parse=lambda response: (_transcription_output(response), ""),
+        )
+
+    def assess_pronunciation(
+        self,
+        audio: AudioClip,
+        *,
+        reference_text: str,
+        language: str = "en-US",
+        pin_provider: str | None = None,
+    ) -> AiResult[PronunciationAssessmentOutput]:
+        """Score a recording against `reference_text`, word by word (Azure, M6.c1). Same retry,
+        budget and journal path as the other calls. `ai_provider_order` does not apply: every
+        provider holding the capability is tried, cooldowns respected (D-212). The reference text
+        is required here (D-172 is about transcription: assessing against the target is the point).
+        """
+
+        def send(provider: Provider, repair: str | None, timeout_s: float) -> ProviderResponse:
+            assessor: PronunciationProvider = provider  # type: ignore[assignment]
+            return assessor.assess_pronunciation(
+                PronunciationRequest(
+                    audio=audio,
+                    reference_text=reference_text,
+                    language=language,
+                    timeout_s=timeout_s,
+                )
+            )
+
+        def parse(response: ProviderResponse) -> tuple[Any, str]:
+            if response.assessment is None:
+                return None, "the provider returned no assessment"
+            return response.assessment, ""
+
+        return self._run(
+            task=PRONUNCIATION_TASK,
+            prompt_label=None,
+            capability=Capability.PRONUNCIATION_ASSESSMENT,
+            timeout_s=30.0,
+            pin=pin_provider,
+            send=send,
+            parse=parse,
         )
 
     def status(self) -> list[ProviderStatus]:
@@ -181,7 +225,7 @@ class Gateway:
         for name, provider in self._providers.items():
             health = self._health.snapshot(name, now)
             configured = provider.is_configured()
-            enabled = name in order
+            enabled = name in order or _outside_order(provider)
             result.append(
                 ProviderStatus(
                     name=name,
@@ -283,7 +327,7 @@ class Gateway:
                         error.message,
                     )
                 else:
-                    data, problem = parse(response.text)
+                    data, problem = parse(response)
                     error = (
                         None
                         if data is not None
@@ -408,7 +452,12 @@ class Gateway:
         self, capability: Capability, pin: str | None, now: datetime
     ) -> tuple[list[Provider], list[ErrorKind]]:
         """Providers to try, in order, and the failure kinds of those skipped (cooldown, auth)."""
-        names = [pin] if pin is not None else self._current_order()
+        if pin is not None:
+            names = [pin]
+        elif capability in ORDERLESS_CAPABILITIES:
+            names = [name for name, p in self._providers.items() if capability in p.capabilities]
+        else:
+            names = self._current_order()
         candidates: list[Provider] = []
         skipped: list[ErrorKind] = []
         for name in names:
@@ -467,6 +516,34 @@ class Gateway:
 
     def _mask(self, text: str) -> str:
         return clean_message(text, self._secrets(), 1000)
+
+
+# Capabilities whose providers are not listed in `ai_provider_order`: the setting that switches
+# the feature on is checked by the service (D-212).
+ORDERLESS_CAPABILITIES = frozenset({Capability.PRONUNCIATION_ASSESSMENT})
+
+
+def _outside_order(provider: Provider) -> bool:
+    return bool(provider.capabilities) and provider.capabilities <= ORDERLESS_CAPABILITIES
+
+
+def _transcription_output(response: ProviderResponse) -> TranscriptionOutput:
+    details = response.transcription
+    if details is None:
+        return TranscriptionOutput(text=response.text)
+    return TranscriptionOutput(
+        text=response.text,
+        duration_s=details.duration_s,
+        segments=[
+            TranscriptionSegment(
+                start=segment.start,
+                end=segment.end,
+                no_speech_prob=segment.no_speech_prob,
+                avg_logprob=segment.avg_logprob,
+            )
+            for segment in details.segments
+        ],
+    )
 
 
 def _validate[T: BaseModel](

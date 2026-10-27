@@ -8,7 +8,18 @@ terms. `python -m app errors list | show | add | categories | card | suggestions
 and edits the error log (`card` makes a review card from an error) and
 `write correct --file <txt>` has the AI correct a text; `transcript analyse --file <txt>` finds
 your errors in a conversation transcript; `drill new <code>` and `drill list` are targeted drills.
-`--demo` (before the command) works on the demo database."""
+`consolidation status | new <deck_id> | show <id> | export <id> | write <id> --file |
+speak <id> --file` are the consolidation tasks. `curriculum tracks | show <code> | start <code> |
+open <code> <n> | generate <code> <n> | unit <id> | step | terms | edit` are the general English
+tracks (word lists, then scenario units written by the AI).
+`stats summary`, `stats errors | memory [--from] [--to] [--granularity]` print statistics and
+`stats export [--out file.zip] [--force]` writes every event table as CSV in a zip archive.
+`speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
+`speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
+texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
+the AI correct what was heard, `speech correct <id>` corrects it again, `speech assess <id>`
+scores a shadowing's pronunciation with Azure (optional). `--demo` (before the command) works on
+the demo database."""
 
 import argparse
 import os
@@ -27,7 +38,8 @@ from app.db import migrate
 from app.db.engine import create_db_engine, sqlite_file
 from app.db.taxonomy import SyncResult, sync_taxonomy
 from app.domain.enums import ErrorSource
-from app.domain.settings_defaults import KNOWN_AI_PROVIDERS
+from app.domain.settings_defaults import KNOWN_AI_PROVIDERS, KNOWN_SPEECH_PROVIDERS
+from app.domain.stats.common import Granularity
 
 SQLITE_SIDE_FILES = ("-wal", "-shm")
 
@@ -142,7 +154,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "test",
         help="one real call per configured provider (uses free quota, writes ai_call_log)",
     )
-    test.add_argument("--provider", choices=KNOWN_AI_PROVIDERS, help="test this provider only")
+    test.add_argument(
+        "--provider",
+        choices=(*KNOWN_AI_PROVIDERS, *KNOWN_SPEECH_PROVIDERS),
+        help="test this provider only (azure: assess one second of silence)",
+    )
     test.add_argument(
         "--audio", type=Path, metavar="FILE", help="also transcribe this short clip (Groq Whisper)"
     )
@@ -262,7 +278,193 @@ def _build_parser() -> argparse.ArgumentParser:
         help="number of items, 5 to 15 (default 10)",
     )
     drill_commands.add_parser("list", help="your drills, newest first, with their scores")
+
+    curriculum = commands.add_parser(
+        "curriculum", help="general English tracks: NGSL, NAWL and speaking scenarios (module H)"
+    )
+    curriculum_commands = curriculum.add_subparsers(dest="curriculum_command", required=True)
+    curriculum_commands.add_parser("tracks", help="the tracks and where you are in each")
+    k_show = curriculum_commands.add_parser("show", help="the units of one track, 25 per page")
+    k_show.add_argument("code")
+    k_show.add_argument("--page", type=_positive, default=1, help="page number (default 1)")
+    k_start = curriculum_commands.add_parser("start", help="start a track (creates its deck)")
+    k_start.add_argument("code")
+    k_open = curriculum_commands.add_parser(
+        "open", help="open a unit: its words wait in the triage queue"
+    )
+    k_open.add_argument("code")
+    k_open.add_argument("number", type=_positive)
+    k_generate = curriculum_commands.add_parser(
+        "generate", help="have the AI write a scenario unit (a few seconds; needs a key)"
+    )
+    k_generate.add_argument("code")
+    k_generate.add_argument("number", type=_positive)
+    k_unit = curriculum_commands.add_parser("unit", help="print a unit with its steps")
+    k_unit.add_argument("unit_id", type=_positive)
+    k_unit.add_argument("--json", action="store_true", help="the content as JSON")
+    k_step = curriculum_commands.add_parser(
+        "step", help="mark the formulas or the dialogue as done"
+    )
+    k_step.add_argument("unit_id", type=_positive)
+    k_step.add_argument("step", choices=["formulas", "dialogue"])
+    k_terms = curriculum_commands.add_parser(
+        "terms", help="put the formulas of a unit in the triage queue"
+    )
+    k_terms.add_argument("unit_id", type=_positive)
+    k_terms.add_argument(
+        "--indices", type=int, nargs="+", help="formulas to add, 0-based (default: all)"
+    )
+    k_edit = curriculum_commands.add_parser(
+        "edit", help="replace parts of a unit's content from a JSON file"
+    )
+    k_edit.add_argument("unit_id", type=_positive)
+    k_edit.add_argument("--file", type=Path, required=True)
+
+    stats_parser = commands.add_parser(
+        "stats", help="statistics and CSV export (module I, read-only)"
+    )
+    stats_commands = stats_parser.add_subparsers(dest="stats_command", required=True)
+    for name, help_text in (
+        ("errors", "error rates per 100 words, top 5 recurring errors, lasting trends"),
+        ("memory", "retention, success by exercise type, lapses, time before consolidation"),
+    ):
+        stats_command = stats_commands.add_parser(name, help=help_text)
+        stats_command.add_argument(
+            "--from", dest="start", type=_iso_date, help="first study day (YYYY-MM-DD)"
+        )
+        stats_command.add_argument("--to", dest="end", type=_iso_date, help="last study day")
+        stats_command.add_argument(
+            "--granularity", choices=[g.value for g in Granularity], default="day"
+        )
+    stats_commands.add_parser("summary", help="the headline figures (last 28 and 7 study days)")
+    s_export = stats_commands.add_parser(
+        "export", help="all event tables as CSV in a zip archive, for pandas"
+    )
+    s_export.add_argument(
+        "--out", type=Path, help="target .zip (default: data/exports/vocab-coach-export-DATE.zip)"
+    )
+    s_export.add_argument("--force", action="store_true", help="replace an existing file")
+
+    consolidation = commands.add_parser(
+        "consolidation", help="consolidation tasks: use your solid terms in a talk (module G)"
+    )
+    consolidation_commands = consolidation.add_subparsers(
+        dest="consolidation_command", required=True
+    )
+    consolidation_commands.add_parser("status", help="the decks, ready or not and why")
+    c_new = consolidation_commands.add_parser(
+        "new", help="have the AI write a task for a ready deck (a template without AI)"
+    )
+    c_new.add_argument("deck_id", type=_positive)
+    c_new.add_argument(
+        "--type",
+        choices=["talk", "speech", "interview_answer"],
+        default="talk",
+        help="the kind of task (default talk)",
+    )
+    c_new.add_argument(
+        "--count",
+        type=int,
+        default=None,
+        choices=range(8, 16),
+        metavar="N",
+        help="number of terms, 8 to 15 (default 12)",
+    )
+    c_show = consolidation_commands.add_parser("show", help="one task in full")
+    c_show.add_argument("task_id", type=_positive)
+    c_write = consolidation_commands.add_parser(
+        "write", help="submit your written text for a task, have it corrected and check the terms"
+    )
+    c_write.add_argument("task_id", type=_positive)
+    c_write.add_argument("--file", type=Path, required=True, help="a UTF-8 text file")
+    c_speak = consolidation_commands.add_parser(
+        "speak", help="submit your recorded talk (20 to 240 s) for a task"
+    )
+    c_speak.add_argument("task_id", type=_positive)
+    c_speak.add_argument(
+        "--file", type=Path, required=True, help="the clip (.m4a, .webm, .ogg, .wav, .mp3)"
+    )
+    c_speak.add_argument(
+        "--duration", type=float, default=None, help="seconds; measured by Groq when omitted"
+    )
+    c_export = consolidation_commands.add_parser(
+        "export", help="the Markdown page to paste into a voice chat with a tutor"
+    )
+    c_export.add_argument("task_id", type=_positive)
+    c_export.add_argument("--lang", choices=["en", "fr"], default="en")
+    c_export.add_argument("--out", type=Path, default=None, help="write to this file")
+
+    speech = commands.add_parser("speech", help="recordings and speech recognition (module F)")
+    speech_commands = speech.add_subparsers(dest="speech_command", required=True)
+    shadow = speech_commands.add_parser(
+        "shadow", help="store a recording of a sentence, transcribe it and compare it"
+    )
+    shadow.add_argument(
+        "--file", type=Path, required=True, help="the clip (.m4a, .webm, .ogg, .wav, .mp3)"
+    )
+    shadow.add_argument("--target", required=True, help="the sentence you repeated")
+    shadow.add_argument("--item", type=_positive, help="the id of the term worked on")
+    shadow.add_argument(
+        "--unit", type=_positive, help="the scenario unit this take belongs to (module H)"
+    )
+    shadow.add_argument(
+        "--duration",
+        type=float,
+        help="length in seconds (without it, the duration measured by Groq is used)",
+    )
+    shadow.add_argument(
+        "--assess",
+        action="store_true",
+        help="then score the pronunciation with Azure (needs the pronunciation_assessment setting)",
+    )
+    assess = speech_commands.add_parser(
+        "assess",
+        help="score a stored shadowing with Azure, word by word (the recording goes to Microsoft)",
+    )
+    assess.add_argument("production_id", type=_positive)
+    transcribe = speech_commands.add_parser(
+        "transcribe", help="transcribe again a recording that has no transcription yet"
+    )
+    transcribe.add_argument("production_id", type=_positive)
+    compare = speech_commands.add_parser(
+        "compare", help="compare a sentence with what was heard, word by word (no AI)"
+    )
+    compare.add_argument("target", help="the sentence to say")
+    compare.add_argument("heard", help="what speech recognition wrote")
+    speak = speech_commands.add_parser(
+        "speak", help="store free speaking (5 to 180 s), transcribe it and correct what was heard"
+    )
+    speak.add_argument(
+        "--file", type=Path, required=True, help="the clip (.m4a, .webm, .ogg, .wav, .mp3)"
+    )
+    speak.add_argument("--prompt", help="the topic you spoke about (at most 500 characters)")
+    speak.add_argument(
+        "--unit",
+        type=_positive,
+        help="the final task of this scenario unit (module H): its prompt and terms are used",
+    )
+    speak.add_argument(
+        "--duration",
+        type=float,
+        help="length in seconds (without it, the duration measured by Groq is used)",
+    )
+    speak.add_argument(
+        "--no-correct",
+        action="store_true",
+        help="transcribe only; correct it later with `speech correct <id>`",
+    )
+    correct = speech_commands.add_parser(
+        "correct", help="have the AI correct a transcribed free speaking (or a spoken answer)"
+    )
+    correct.add_argument("production_id", type=_positive)
     return parser
+
+
+def _iso_date(value: str) -> date:
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a date (YYYY-MM-DD)") from None
 
 
 def _positive(value: str) -> int:
@@ -374,9 +576,12 @@ def _errors(args: argparse.Namespace, url: str) -> int:
     return cli_errors.run_errors_categories(url, proposed_only=args.proposed)
 
 
-def _demo_seed(args: argparse.Namespace, demo_file: Path) -> int:
+def _demo_seed(args: argparse.Namespace, settings: Settings) -> int:
     # Imported here: the simulation pulls in every service, which other commands do not need.
     from app.demo.seed import DemoSeedError, check_target, is_seeded, render_summary, seed_demo
+    from app.speech.audio_store import AudioStore
+
+    demo_file = settings.demo_database_file
 
     if args.if_missing and is_seeded(demo_file):
         print(f"Demo database already seeded ({demo_file}).")
@@ -385,7 +590,12 @@ def _demo_seed(args: argparse.Namespace, demo_file: Path) -> int:
         check_target(demo_file, reset=args.reset)  # refuse before announcing anything
         print(f"Generating the demo database ({demo_file})...", flush=True)
         summary = seed_demo(
-            demo_file, seed=args.seed, days=args.days, anchor=args.anchor, reset=args.reset
+            demo_file,
+            seed=args.seed,
+            days=args.days,
+            anchor=args.anchor,
+            reset=args.reset,
+            audio_dir=AudioStore.demo(settings).root,
         )
     except DemoSeedError as exc:
         print(str(exc), file=sys.stderr)
@@ -413,7 +623,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "demo":
         # Never the personal database: always the demo file, whatever VOCAB_DATABASE_URL says.
-        return _demo_seed(args, settings.demo_database_file)
+        return _demo_seed(args, settings)
     if args.command == "ai":
         return _ai(args, settings)
     url = settings.resolved_database_url
@@ -446,6 +656,95 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.drill_command == "new":
             return cli_drill.run_drill_new(url, settings, args.category_code, count=args.count)
         return cli_drill.run_drill_list(url)
+    if args.command == "curriculum":
+        from app import cli_curriculum
+
+        if args.curriculum_command == "tracks":
+            return cli_curriculum.run_curriculum_tracks(url)
+        if args.curriculum_command == "show":
+            return cli_curriculum.run_curriculum_show(url, args.code, args.page)
+        if args.curriculum_command == "start":
+            return cli_curriculum.run_curriculum_start(url, args.code)
+        if args.curriculum_command == "generate":
+            return cli_curriculum.run_curriculum_generate(url, settings, args.code, args.number)
+        if args.curriculum_command == "unit":
+            return cli_curriculum.run_curriculum_unit(url, args.unit_id, as_json=args.json)
+        if args.curriculum_command == "step":
+            return cli_curriculum.run_curriculum_step(url, args.unit_id, args.step)
+        if args.curriculum_command == "terms":
+            return cli_curriculum.run_curriculum_terms(url, args.unit_id, args.indices)
+        if args.curriculum_command == "edit":
+            return cli_curriculum.run_curriculum_edit(url, args.unit_id, args.file)
+        return cli_curriculum.run_curriculum_open(url, args.code, args.number)
+    if args.command == "stats":
+        from app import cli_stats
+
+        if args.stats_command == "summary":
+            return cli_stats.run_stats_summary(url)
+        if args.stats_command == "export":
+            return cli_stats.run_stats_export(
+                url, settings.resolved_data_dir, args.out, force=args.force
+            )
+        run = (
+            cli_stats.run_stats_errors
+            if args.stats_command == "errors"
+            else cli_stats.run_stats_memory
+        )
+        return run(url, args.start, args.end, Granularity(args.granularity))
+    if args.command == "consolidation":
+        from app import cli_consolidation
+        from app.domain.consolidation import TaskType
+
+        if args.consolidation_command == "status":
+            return cli_consolidation.run_consolidation_status(url)
+        if args.consolidation_command == "new":
+            return cli_consolidation.run_consolidation_new(
+                url, settings, args.deck_id, task_type=TaskType(args.type), count=args.count
+            )
+        if args.consolidation_command == "show":
+            return cli_consolidation.run_consolidation_show(url, args.task_id)
+        if args.consolidation_command in ("write", "speak"):
+            from app import cli_consolidation_attempts as attempts
+
+            if args.consolidation_command == "write":
+                return attempts.run_consolidation_write(url, settings, args.task_id, args.file)
+            return attempts.run_consolidation_speak(
+                url, settings, args.task_id, args.file, duration=args.duration
+            )
+        return cli_consolidation.run_consolidation_export(
+            url, args.task_id, lang=args.lang, out=args.out
+        )
+    if args.command == "speech":
+        from app import cli_speech
+
+        if args.speech_command == "compare":
+            return cli_speech.run_speech_compare(args.target, args.heard)
+        if args.speech_command == "transcribe":
+            return cli_speech.run_speech_transcribe(url, settings, args.production_id)
+        if args.speech_command == "speak":
+            return cli_speech.run_speech_speak(
+                url,
+                settings,
+                args.file,
+                prompt=args.prompt,
+                duration=args.duration,
+                correct=not args.no_correct,
+                unit_id=args.unit,
+            )
+        if args.speech_command == "correct":
+            return cli_speech.run_speech_correct(url, settings, args.production_id)
+        if args.speech_command == "assess":
+            return cli_speech.run_speech_assess(url, settings, args.production_id)
+        return cli_speech.run_speech_shadow(
+            url,
+            settings,
+            args.file,
+            target=args.target,
+            item_id=args.item,
+            duration=args.duration,
+            assess=args.assess,
+            unit_id=args.unit,
+        )
     if args.command == "transcript":
         from app import cli_transcript
 

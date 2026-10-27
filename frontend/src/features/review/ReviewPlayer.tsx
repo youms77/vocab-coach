@@ -15,12 +15,17 @@ import {
   useRevealReview,
 } from '../../api/reviews'
 import type { ReviewStep } from '../../api/session'
+import { reviewAnswer } from '../../api/speech'
 import { KeyHints } from '../../components/KeyHints'
+import { unsupportedReason } from '../../speech/recorder'
+import { useClipSender } from '../../speech/useClipSender'
+import { type Clip, useRecorder } from '../../speech/useRecorder'
 import { useSpeech } from '../../speech/useSpeech'
 import { StepHeading } from '../session/StepHeading'
 import { ErrorText } from '../settings/ErrorText'
 import { RatingButtons } from './RatingButtons'
 import {
+  type CheckNotice,
   initialReviewState,
   type ReviewAction,
   type ReviewState,
@@ -29,6 +34,7 @@ import {
 } from './reviewMachine'
 import { ReviewPrompt } from './ReviewPrompt'
 import { ReviewResult } from './ReviewResult'
+import { SpokenAnswer } from './SpokenAnswer'
 import { promptOptions, replayText, termOf, text } from './stepText'
 import { type ReviewShortcutHandlers, useReviewShortcuts } from './useReviewShortcuts'
 
@@ -40,6 +46,14 @@ const CONTINUE_CODES = ['not_due', 'review_not_allowed']
 const SESSION_CODES = ['session_closed', 'session_not_found']
 /** Refusals of the AI check that a self-graded fallback would not fix: handled as for `grade`. */
 const CHECK_BLOCKING_CODES = [...CONTINUE_CODES, ...SESSION_CODES, 'exercise_mismatch']
+/** The server refused the recording itself: record again (nothing was stored, D-183). */
+const AUDIO_CODES = [
+  'audio_too_short',
+  'audio_too_long',
+  'audio_empty',
+  'unsupported_audio',
+  'audio_too_large',
+]
 /** After this many seconds of waiting for the AI, the user may rate the sentence themselves (D-142). */
 export const SKIP_AFTER_SECONDS = 5
 
@@ -75,8 +89,11 @@ function announcement(
   )
 }
 
-/** The wait for the AI check: a counter, and after a few seconds a way out (D-142). */
-function CheckingPanel({ onSkip }: { onSkip: () => void }) {
+/**
+ * The wait for the AI check: a counter, and after a few seconds a way out (D-142). A spoken
+ * answer has two AI steps and says so (D-206).
+ */
+function CheckingPanel({ onSkip, spoken = false }: { onSkip: () => void; spoken?: boolean }) {
   const { t } = useTranslation()
   // Mounted when the wait begins: it counts its own seconds.
   const [seconds, setSeconds] = useState(0)
@@ -88,15 +105,18 @@ function CheckingPanel({ onSkip }: { onSkip: () => void }) {
     <div className="review-checking">
       {/* The counter ticks every second: it is hidden from screen readers, the status is not. */}
       <p className="visually-hidden" role="status">
-        {t('review.aiCheck.checking')}
+        {spoken ? t('review.spoken.checking') : t('review.aiCheck.checking')}
       </p>
       <p aria-hidden="true">
-        <span className="spinner" /> {t('review.aiCheck.elapsed', { seconds })}
+        <span className="spinner" />{' '}
+        {spoken
+          ? t('review.spoken.elapsed', { seconds })
+          : t('review.aiCheck.elapsed', { seconds })}
       </p>
-      <p className="muted">{t('review.aiCheck.hint')}</p>
+      <p className="muted">{spoken ? t('review.spoken.twoSteps') : t('review.aiCheck.hint')}</p>
       {seconds >= SKIP_AFTER_SECONDS && (
         <button type="button" className="button" onClick={onSkip}>
-          {t('review.aiCheck.skip')}
+          {spoken ? t('review.spoken.skip') : t('review.aiCheck.skip')}
         </button>
       )}
     </div>
@@ -145,7 +165,11 @@ export function ReviewPlayer({
     return true
   }, [])
 
-  // The AI check of a typed sentence (D-129, D-142): how to stop waiting for it.
+  // The microphone of a spoken answer (D-206). The player owns the hook: Space and Enter drive it.
+  const recorder = useRecorder('spoken_answer')
+  const spokenCard = review.exercise_type === 'spoken_answer'
+
+  // The AI check of a typed sentence or a spoken answer (D-129, D-142): how to stop waiting for it.
   const checkAbort = useRef<AbortController | null>(null)
   const mounted = useRef(true)
   useEffect(() => {
@@ -275,6 +299,11 @@ export function ReviewPlayer({
 
   function showAnswer() {
     if (!transition({ type: 'submit', choiceIndex: null, responseTimeMs: elapsed() })) return
+    revealSolution()
+  }
+
+  /** The solution of a self-graded card; the phase is `checking` already. */
+  function revealSolution() {
     reveal.mutate(
       {
         card_id: review.card_id,
@@ -290,6 +319,74 @@ export function ReviewPlayer({
       },
     )
   }
+
+  /** Space, or the Start button: opens the microphone once per take (the reducer is the guard). */
+  function startCapture() {
+    if (!transition({ type: 'startCapture' })) return
+    recorder.start()
+  }
+
+  function toggleRecording() {
+    const phase = current.current.phase
+    if (phase === 'answering') startCapture()
+    else if (phase === 'capturing') recorder.stop()
+  }
+
+  /** Enter: one upload per take (the second press is refused by the reducer). */
+  function sendTake() {
+    const clip = recorder.clip
+    if (clip === null || recorder.tooShort) return
+    sender.send(clip)
+  }
+
+  /** The recording to `review-answer`: transcription and correction, up to about 90 s (D-183). */
+  function sendSpoken(clip: Clip) {
+    const templateId = review.exercise_template_id
+    if (templateId === null) return
+    if (!transition({ type: 'submitSpoken' })) return
+    const controller = new AbortController()
+    checkAbort.current = controller
+    reviewAnswer(
+      {
+        blob: clip.blob,
+        card_id: review.card_id,
+        session_id: sessionId,
+        exercise_template_id: templateId,
+        durationS: clip.durationS,
+        response_time_ms: current.current.responseTimeMs ?? 0,
+      },
+      controller.signal,
+    ).then(
+      (answer) => {
+        // After "Skip the check" the phase has moved on: a late answer changes nothing.
+        if (mounted.current) transition({ type: 'spokenChecked', answer })
+      },
+      (error: unknown) => {
+        if (!mounted.current || current.current.phase !== 'checking_spoken') return
+        const code = codeOf(error) ?? ''
+        if (AUDIO_CODES.includes(code)) {
+          // Nothing was stored: the same take can be sent again, or recorded again.
+          transition({ type: 'spokenFailed', error })
+        } else if (CHECK_BLOCKING_CODES.includes(code)) {
+          recorder.reset()
+          transition({ type: 'checkFailed', error })
+          failed(error)
+        } else {
+          fallBackToReveal({ kind: 'spoken_failed', error })
+        }
+      },
+    )
+  }
+
+  /** The self-graded path of M4.c for a spoken card; a recording, if any, is not rated. */
+  function fallBackToReveal(notice: CheckNotice | null) {
+    if (!transition({ type: 'spokenFallback', notice, responseTimeMs: elapsed() })) return
+    recorder.reset()
+    checkAbort.current?.abort()
+    revealSolution()
+  }
+
+  const sender = useClipSender(sendSpoken)
 
   function rate(rating: Rating) {
     const before = current.current
@@ -337,6 +434,21 @@ export function ReviewPlayer({
     )
   }
 
+  // The recorder and the phase tell the same story: the machine follows the hook (D-206).
+  const recording = recorder.status
+  const clip = recorder.clip
+  const phase = state.phase
+  useEffect(() => {
+    if (!spokenCard) return
+    if (recording === 'stopped' && clip !== null) {
+      // The answer ends with the recording: that is the response time (D-121).
+      transition({ type: 'captured', responseTimeMs: elapsed() })
+    } else if (recording === 'idle' || recording === 'error') {
+      // Cancelled, "Record again", refused or absent microphone: back to the start.
+      transition({ type: 'discardCapture' })
+    }
+  }, [spokenCard, recording, clip, phase, transition])
+
   // Focus: the card's title on a new card (StepHeading), the result once the answer is shown.
   const resultRef = useRef<HTMLDivElement>(null)
   const answered = state.result !== null
@@ -365,6 +477,13 @@ export function ReviewPlayer({
   const proposed = (state.result?.proposed_rating ?? null) as Rating | null
   const errorCode = codeOf(state.error)
   const blocked = errorCode !== null && [...CONTINUE_CODES, 'exercise_mismatch'].includes(errorCode)
+  // The microphone is refused, absent or unsupported: "Answer without recording" is the way on.
+  const unsupported = unsupportedReason() !== null
+  const micFailed = recorder.reason !== null || unsupported
+  // Space and Enter only drive a recorder that can exist (a template, a browser that records).
+  const hasRecorder = review.exercise_template_id !== null && !unsupported
+  // The recorder as the spoken answer sees it: the Start button goes through the machine.
+  const machineRecorder = { ...recorder, start: startCapture }
 
   const handlers: ReviewShortcutHandlers = {}
   const hints: [string, string][] = []
@@ -372,6 +491,11 @@ export function ReviewPlayer({
     if (review.input === 'choice') {
       handlers.choose = choose
       hints.push([`1–${optionCount}`, t('review.keys.choose')])
+    } else if (spokenCard) {
+      if (hasRecorder) {
+        handlers.record = toggleRecording
+        hints.push([t('review.keys.space'), t('review.keys.record')])
+      }
     } else if (review.input === 'none') {
       handlers.reveal = showAnswer
       hints.push([`${t('review.keys.space')}|${t('review.keys.enter')}`, t('review.keys.show')])
@@ -380,6 +504,16 @@ export function ReviewPlayer({
       if (review.exercise_type === 'sentence_production') {
         hints.push([`${t('review.keys.shift')}+${t('review.keys.enter')}`, t('review.keys.newLine')])
       }
+    }
+  }
+  if (!blocked && spokenCard && hasRecorder) {
+    if (state.phase === 'capturing') {
+      handlers.record = toggleRecording
+      hints.push([t('review.keys.space'), t('review.keys.stop')])
+    }
+    if (state.phase === 'captured') {
+      handlers.send = sendTake
+      hints.push([t('review.keys.enter'), t('review.keys.send')])
     }
   }
   if (!blocked && state.phase === 'answered') {
@@ -413,6 +547,21 @@ export function ReviewPlayer({
       />
       {state.phase === 'answering' && state.error !== null && !blocked && <ErrorText error={state.error} />}
       {state.phase === 'checking_production' && <CheckingPanel onSkip={skipCheck} />}
+      {spokenCard && !blocked && state.result === null && (
+        <SpokenAnswer
+          review={review}
+          state={state}
+          recorder={machineRecorder}
+          tooLarge={sender.tooLarge}
+          micFailed={micFailed}
+          onSend={sender.send}
+          onAgain={sender.clear}
+          onDecline={() => fallBackToReveal(null)}
+        />
+      )}
+      {state.phase === 'checking_spoken' && (
+        <CheckingPanel spoken onSkip={() => fallBackToReveal({ kind: 'spoken_skipped' })} />
+      )}
 
       {state.result !== null && (
         <div
@@ -427,6 +576,7 @@ export function ReviewPlayer({
             result={state.result}
             answer={state.answer}
             check={state.check}
+            spoken={state.spoken}
             notice={state.notice}
           />
         </div>

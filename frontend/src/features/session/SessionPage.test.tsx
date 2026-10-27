@@ -172,7 +172,10 @@ describe('Session page', () => {
     renderApp('/session')
 
     await screen.findByText(/A consolidation task/)
-    expect(screen.getByText(/available in a later version/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open the task' })).toHaveAttribute(
+      'href',
+      '/consolidation/tasks/3',
+    )
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await screen.findByRole('heading', { name: 'Session summary' })
 

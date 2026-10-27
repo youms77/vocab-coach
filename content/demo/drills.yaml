@@ -7,7 +7,7 @@
 # `wrong` is demo-only: what the simulated learner types when they miss a gap-fill (a choice item
 # is missed by picking the first wrong option).
 
-dataset_version: 3
+dataset_version: 7
 
 drills:
   - code: grammar.preposition.fixed_expression

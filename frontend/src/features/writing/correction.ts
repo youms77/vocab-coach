@@ -5,14 +5,17 @@ import type {
   NaturalnessNote,
   ProductionTarget,
   SentenceStatus,
+  SpeakingStructure,
   TargetCheck,
 } from '../../api/productions'
 import { type MarkRange, type Segment, segment, toUtf16Ranges } from './spans'
 
 /*
  * The neutral shape the correction view draws. `readFeedback` is the only place that knows the
- * stored format: "correction-1" (a written text) and "transcript-1" (the same keys plus `units`,
- * where units play the part of sentences and are grouped by the user's turn, D-151).
+ * stored format: "correction-1" (a written text), "transcript-1" (the same keys plus `units`,
+ * where units play the part of sentences and are grouped by the user's turn, D-151) and
+ * "speaking-1" (the keys of "correction-1" plus `output.structure`; a unit is a "part" that may
+ * hold several sentences, D-179).
  */
 
 export interface ErrorEntry {
@@ -47,9 +50,11 @@ export interface TargetEntry {
   disagreement: boolean
 }
 
+export type CorrectionKind = 'text' | 'transcript' | 'speaking'
+
 export interface CorrectionModel {
-  /** `text` is a written paragraph; `transcript` is your turns of a conversation. */
-  kind: 'text' | 'transcript'
+  /** `text` is a written paragraph; `transcript` your turns of a conversation; `speaking` what a recogniser heard. */
+  kind: CorrectionKind
   overall: string
   /** The original text cut into plain and highlighted segments. */
   segments: Segment[]
@@ -67,6 +72,8 @@ export interface CorrectionModel {
   naturalText: string | null
   targets: TargetEntry[]
   sentenceStatuses: Map<number, SentenceStatus>
+  /** Speaking only, and only for a monologue: how the speech is organised. */
+  structure: SpeakingStructure | null
 }
 
 export interface CorrectionSource {
@@ -93,7 +100,7 @@ function targetEntries(
 function fromOutput(
   source: CorrectionSource,
   feedback: Feedback,
-  kind: 'text' | 'transcript',
+  kind: CorrectionKind,
 ): CorrectionModel | null {
   const output: CorrectionOutput | undefined = feedback.output
   if (output === undefined || !Array.isArray(output.errors)) return null
@@ -156,6 +163,7 @@ function fromOutput(
     naturalText: output.natural_text ?? null,
     targets: targetEntries(checks, source.targets ?? []),
     sentenceStatuses: new Map((output.sentences ?? []).map((s) => [s.index, s.status])),
+    structure: kind === 'speaking' ? (output.structure ?? null) : null,
   }
 }
 
@@ -168,6 +176,8 @@ export function readFeedback(source: CorrectionSource): CorrectionModel | null {
       return fromOutput(source, feedback, 'text')
     case 'transcript-1':
       return fromOutput(source, feedback, 'transcript')
+    case 'speaking-1':
+      return fromOutput(source, feedback, 'speaking')
     default:
       return null
   }

@@ -11,7 +11,11 @@
     "label": "Principale",
     "today": "Aujourd'hui",
     "writing": "Écriture",
-    "errors": "Erreurs"
+    "speaking": "Oral",
+    "errors": "Erreurs",
+    "consolidation": "Consolidation",
+    "curriculum": "Parcours",
+    "stats": "Statistiques"
   },
   "demo": {
     "badge": "Données de démo",
@@ -43,7 +47,8 @@
       "names": {
         "gemini": "Google Gemini",
         "groq": "Groq",
-        "ollama": "Ollama (sur cet ordinateur)"
+        "ollama": "Ollama (sur cet ordinateur)",
+        "azure": "Microsoft Azure AI Speech"
       },
       "capabilities": {
         "text": "Texte",
@@ -184,6 +189,29 @@
           "hint": "1,0 correspond à la vitesse normale."
         }
       }
+    },
+    "azure": {
+      "title": "Évaluation de la prononciation (facultative, Azure)",
+      "intro": "Note chaque mot et chaque son d'un shadowing par rapport à la phrase que vous avez répétée. Désactivée par défaut ; le reste de l'application fonctionne sans elle.",
+      "privacy": "Quand vous demandez une évaluation, l'enregistrement est envoyé à Microsoft. Utilisez uniquement une ressource gratuite F0, jamais S0. L'inclusion de l'évaluation de la prononciation dans le niveau F0 n'est pas confirmée.",
+      "demoNote": "Base de démonstration : la clé, la région et le réglage ne peuvent pas être modifiés ici.",
+      "loadError": "L'état d'Azure n'a pas pu être chargé.",
+      "keyLabel": "Clé Azure Speech",
+      "regionLabel": "Région",
+      "regionPlaceholder": "westeurope",
+      "regionHint": "La région de votre ressource, par exemple westeurope. Enregistrée dans .env avec la clé ; la clé n'est plus jamais affichée.",
+      "regionCurrent": "Région actuelle : {{region}}.",
+      "regionRequired": "Saisissez la région de votre ressource Azure.",
+      "keyRequired": "Collez votre clé.",
+      "keyEmptyKeepRegion": "Collez votre clé pour l'enregistrer.",
+      "enableLabel": "Autoriser l'évaluation de la prononciation des shadowings",
+      "enableHint": "Les nouveaux shadowings sont alors enregistrés en WAV (16 kHz, mono) pour qu'Azure puisse les lire. Les anciens enregistrements ne peuvent pas être évalués.",
+      "enableNeedsKey": "Enregistrez d'abord une clé et une région.",
+      "enableSaved": "Réglage enregistré.",
+      "usageTitle": "Utilisation de ce mois",
+      "usage": "{{minutes}} min d'audio envoyées en {{count}} évaluations (mois {{month}}). Niveau gratuit : environ {{limit}} min par mois, vérifié le {{checked}}.",
+      "usageNote": "Cela compte ce que cette application a envoyé, pas ce que compte Microsoft.",
+      "usageError": "L'utilisation mensuelle n'a pas pu être chargée."
     }
   },
   "errors": {
@@ -255,7 +283,39 @@
     "text_too_long_transcript": "Cette conversation est trop longue : 60 000 caractères collés au plus, et 6 000 caractères dans vos propres tours.",
     "drill_not_found": "Cet exercice n'existe pas (ou plus).",
     "already_answered": "Vous avez déjà répondu à cette question.",
-    "not_drillable": "Vous ne pouvez pas vous entraîner sur cette catégorie."
+    "not_drillable": "Vous ne pouvez pas vous entraîner sur cette catégorie.",
+    "audio_too_large": "L'enregistrement dépasse {{mb}} Mo : il ne peut pas être envoyé. Enregistrez une prise plus courte.",
+    "unsupported_audio": "Ce format audio n'est pas accepté. Utilisez l'enregistreur de cette page.",
+    "audio_empty": "L'enregistrement est vide. Vérifiez votre micro et recommencez.",
+    "audio_too_short": "L'enregistrement est trop court : il doit durer au moins {{min}} s.",
+    "audio_too_long": "L'enregistrement est trop long : {{max}} s au plus.",
+    "invalid_target": "La phrase à répéter doit contenir entre 1 et 400 caractères et au moins un mot.",
+    "no_audio": "Il n'y a pas d'enregistrement pour cet élément (ou son fichier a disparu).",
+    "already_transcribed": "Cet enregistrement a déjà été transcrit.",
+    "not_transcribed": "Cet enregistrement n'a pas encore de transcription : transcrivez-le d'abord.",
+    "nothing_to_correct": "Rien n'a été entendu : il n'y a rien à corriger.",
+    "region_required": "Saisissez la région de votre ressource Azure.",
+    "invalid_region": "Cette région n'est pas valide (lettres et chiffres seulement, par exemple westeurope).",
+    "not_assessable": "Seul un shadowing avec une phrase peut être évalué.",
+    "assessment_disabled": "L'évaluation de la prononciation est désactivée dans les réglages.",
+    "already_assessed": "Cet enregistrement a déjà été évalué.",
+    "unsupported_for_assessment": "Cet enregistrement ne peut pas être évalué : Azure ne lit que le WAV ou l'OGG, et celui-ci a été enregistré dans un autre format. Réenregistrez-le avec l'évaluation activée.",
+    "task_not_found": "Cette tâche de consolidation n'existe pas (ou plus).",
+    "not_ready": "Cette liste n'est pas encore prête pour une tâche de consolidation.",
+    "task_open": "Cette liste a déjà une tâche ouverte.",
+    "task_closed": "Cette tâche est fermée : elle n'accepte plus de production.",
+    "wordlist_missing": "Le fichier de la liste de mots de ce parcours est absent de cette installation.",
+    "track_not_started": "Commencez d'abord le parcours.",
+    "not_a_wordlist_track": "Ce parcours n'a pas d'unités de mots : il est fait de scénarios à l'oral.",
+    "not_a_scenario_track": "Ce parcours est une liste de mots : ses unités ne sont pas écrites par l'IA.",
+    "not_a_scenario_unit": "Cette unité est une liste de mots, pas un scénario à l'oral.",
+    "track_not_found": "Ce parcours n'existe pas.",
+    "unit_not_found": "Cette unité n'existe pas.",
+    "syllabus_unavailable": "Le fichier du programme n'a pas pu être lu. Vérifiez content/curriculum.yaml.",
+    "unit_generated": "Cette unité était déjà écrite. La page l'affiche maintenant.",
+    "unit_changed": "Cette unité a changé entre-temps. Rechargez la page et réessayez.",
+    "invalid_content": "Le contenu de l'unité a été refusé :",
+    "invalid_step": "Cette étape est cochée par vos enregistrements, pas par un bouton."
   },
   "home": {
     "title": "Bienvenue",
@@ -558,7 +618,8 @@
     "quota": "le quota gratuit est épuisé ou la limite de débit est atteinte ; réessayez plus tard",
     "auth": "la clé d'IA a été refusée",
     "timeout": "l'IA a mis trop de temps à répondre",
-    "all_failed": "les fournisseurs d'IA ont renvoyé des erreurs"
+    "all_failed": "les fournisseurs d'IA ont renvoyé des erreurs",
+    "incomplete": "la reconnaissance vocale n'a renvoyé aucun texte exploitable"
   },
   "sheet": {
     "title": "Fiche d'usage et exercices",
@@ -665,7 +726,10 @@
       "open": "Ouvrir la version {{version}}",
       "close": "Fermer"
     },
-    "exampleLabel": "l’exemple {{index}}"
+    "exampleLabel": "l’exemple {{index}}",
+    "shadow": "Répéter cette phrase (shadowing)",
+    "originSentence": "Phrase d’origine",
+    "originLabel": "phrase d’origine"
   },
   "exercises": {
     "title": "Exercices",
@@ -751,6 +815,7 @@
     "unsupported": "Ce navigateur n'a pas de synthèse vocale : l'audio n'est pas disponible.",
     "noEnglishVoice": "Aucune voix anglaise n'est installée dans ce navigateur : l'audio n'est pas disponible.",
     "nonAmerican": "Voix non américaine ({{name}}) : aucune voix en-US n'a été trouvée.",
+    "disabledWhileRecording": "L'écoute est désactivée pendant l'enregistrement.",
     "voice": {
       "legend": "Voix",
       "label": "Voix de la synthèse vocale",
@@ -759,6 +824,179 @@
       "hint": "Les voix viennent de ce navigateur et de son système ; les voix en-US sont en tête de liste.",
       "fallback": "Cette voix n'est pas disponible dans ce navigateur : le choix automatique s'applique.",
       "test": "Tester"
+    }
+  },
+  "recorder": {
+    "range": "Entre {{min}} et {{max}} secondes.",
+    "rangeSpeaking": "Visez 1 à 2 minutes.",
+    "start": "Démarrer l'enregistrement",
+    "stop": "Arrêter l'enregistrement",
+    "cancel": "Annuler",
+    "requesting": "En attente de l'autorisation du micro…",
+    "recording": "Enregistrement en cours… {{time}}",
+    "started": "Enregistrement démarré.",
+    "stopped": "Enregistrement arrêté : {{time}}.",
+    "length": "Durée : {{time}}",
+    "listen": "Écouter",
+    "again": "Réenregistrer",
+    "send": "Envoyer",
+    "sending": "Envoi…",
+    "longWarning": "Cette prise s'allonge : elle s'arrête d'elle-même à {{max}} secondes.",
+    "tooShort": "Cette prise est trop courte (au moins {{min}} s). Réenregistrez-la.",
+    "tooLarge": "Cette prise dépasse {{mb}} Mo et ne peut pas être envoyée. Enregistrez-en une plus courte.",
+    "deniedHelp": "Autorisez le micro pour 127.0.0.1 dans les paramètres du site de votre navigateur (l'icône à côté de l'adresse), puis réessayez.",
+    "errors": {
+      "unsupported": "Votre navigateur ne peut pas enregistrer le son (pas de MediaRecorder ou d'accès au micro).",
+      "denied": "L'accès au micro a été refusé.",
+      "no_device": "Aucun micro n'a été trouvé.",
+      "busy": "Le micro est utilisé par un autre programme ou onglet.",
+      "failed": "L'enregistrement a échoué. Réessayez."
+    }
+  },
+  "speaking": {
+    "privacy": "Votre enregistrement est envoyé à Groq pour être transcrit ; il reste dans votre dossier de données, jamais dans Git.",
+    "comparison": {
+      "summary_one": "{{recognized}} mot reconnu sur {{count}}",
+      "summary_other": "{{recognized}} mots reconnus sur {{count}}",
+      "target": "Cible",
+      "heard": "Entendu",
+      "nothing": "rien",
+      "closeHidden": "proche, compté comme reconnu",
+      "heardAs": "entendu : {{word}}",
+      "notHeard": "non entendu",
+      "extra": "mot en trop",
+      "unrecognized": "Mots non reconnus",
+      "log": "Noter comme erreur d'intelligibilité",
+      "warning": "La reconnaissance vocale n'est pas un juge de prononciation : un mot qu'elle a manqué peut être parfaitement clair pour une personne (accent, bruit, homophones). Prenez cela comme des indices."
+    },
+    "title": "Prise de parole libre",
+    "intro": "Choisissez un sujet et parlez une à deux minutes. Une reconnaissance vocale écrit ce qu'elle a entendu, puis l'IA le corrige, marque chaque erreur et l'ajoute à votre journal d'erreurs.",
+    "historyLink": "Mes prises de parole précédentes",
+    "shadowingLink": "S'entraîner en répétant une phrase",
+    "step2": "2. Votre voix",
+    "sending": "Envoi et transcription…",
+    "submitHint": "Votre enregistrement est d'abord sauvegardé et transcrit, puis corrigé. Chaque étape prend quelques secondes, parfois jusqu'à une minute.",
+    "topics": {
+      "title": "Choisir un sujet",
+      "intro": "Trois suggestions pour aujourd'hui, ou parlez de votre propre sujet. Vous pouvez aussi parler sans sujet.",
+      "theme": "Thème des sujets",
+      "allThemes": "Tous les thèmes",
+      "tags": {
+        "interview": "Entretien",
+        "presenting": "Présentation",
+        "academic": "Universitaire",
+        "data_science": "Science des données",
+        "everyday": "Vie quotidienne",
+        "campus": "Campus"
+      },
+      "loading": "Chargement des sujets…",
+      "empty": "Aucun sujet pour ce thème.",
+      "use": "Utiliser ce sujet",
+      "chosen": "Choisi",
+      "own": "Parler de mon propre sujet",
+      "ownLabel": "Votre sujet ({{max}} caractères au plus)",
+      "current": "Sujet :",
+      "clear": "Retirer le sujet"
+    },
+    "detail": {
+      "title": "Votre prise de parole et sa correction",
+      "loading": "Chargement…",
+      "topic": "Sujet ou question :",
+      "another": "Parler à nouveau",
+      "allSpeeches": "Toutes mes prises de parole",
+      "errorLog": "Ouvrir le journal d'erreurs",
+      "notSpeaking": "Cet enregistrement n'est pas un texte parlé : il n'a pas de page ici.",
+      "recording": "Votre enregistrement",
+      "noAudio": "Il n'y a pas d'enregistrement pour cette prise de parole (ou son fichier a disparu).",
+      "result": "Transcription et correction",
+      "heard": "Ce que la reconnaissance vocale a entendu",
+      "notTranscribed": "Cet enregistrement n'est pas encore transcrit.",
+      "transcribe": "Transcrire",
+      "transcribing": "Transcription… {{seconds}} s",
+      "tryAgain": "Réessayer",
+      "unavailable": "La transcription n'est pas disponible : {{reason}}. Votre enregistrement est conservé.",
+      "silence": "Aucune parole n'a été entendue dans cet enregistrement.",
+      "recordAgain": "Enregistrer à nouveau",
+      "correct": "Corriger ma prise de parole",
+      "checking": "Correction… {{seconds}} s",
+      "checkingHint": "L'IA corrige ce qui a été entendu. Votre enregistrement est déjà sauvegardé ; vous pouvez attendre ici.",
+      "notCorrected": "Cette prise de parole est transcrite mais pas encore corrigée.",
+      "notCorrectedIncomplete": "Cette prise de parole n'est pas corrigée : la réponse de l'IA n'a pas pu être utilisée.",
+      "notCorrectedReason": "Cette prise de parole n'est pas corrigée : {{reason}}.",
+      "textTooLong": "Cette prise de parole est trop longue pour être corrigée d'un coup (plus de 4 000 caractères une fois écrite).",
+      "correctionLabel": "Correction",
+      "ready_one": "Correction prête : {{count}} erreur trouvée.",
+      "ready_other": "Correction prête : {{count}} erreurs trouvées.",
+      "readyNoErrors": "Correction prête : aucune erreur trouvée."
+    },
+    "history": {
+      "title": "Mes prises de parole",
+      "intro": "Vos enregistrements de prise de parole libre, du plus récent au plus ancien.",
+      "mixed": "Cette liste contient aussi vos réponses orales en révision : pour celles-ci, la colonne du sujet est la question de la carte.",
+      "empty": "Aucune prise de parole pour l'instant. Enregistrez la première.",
+      "count_one": "{{count}} prise de parole",
+      "count_other": "{{count}} prises de parole",
+      "date": "Date",
+      "topic": "Sujet ou question",
+      "words": "Mots entendus",
+      "status": "État",
+      "corrected": "Corrigée",
+      "notCorrected": "Non corrigée",
+      "silent": "Aucune parole entendue",
+      "notTranscribed": "Non transcrite"
+    },
+    "unit": {
+      "title": "Tâche finale de l'unité"
+    }
+  },
+  "shadowing": {
+    "title": "Shadowing",
+    "intro": "Écoutez une phrase, répétez-la à voix haute, puis comparez ce que vous avez dit avec ce que la reconnaissance vocale a entendu.",
+    "historyLink": "Historique des shadowings",
+    "step1": "1. La phrase",
+    "step2": "2. Votre voix",
+    "targetLabel": "Phrase à répéter",
+    "chars": "{{chars}} / {{max}} caractères",
+    "tooLong": "La phrase est trop longue ({{chars}} caractères sur {{max}}).",
+    "sentenceLabel": "la phrase",
+    "needSentence": "Saisissez ou collez d'abord une phrase : elle débloque l'enregistreur.",
+    "sending": "Envoi et transcription…",
+    "detail": {
+      "title": "Votre shadowing",
+      "another": "Répéter une autre phrase",
+      "allShadowings": "Tous les shadowings",
+      "errorLog": "Ouvrir le journal d'erreurs",
+      "loading": "Chargement…",
+      "target": "La phrase",
+      "recording": "Votre enregistrement",
+      "noAudio": "Il n'y a pas d'enregistrement pour ce shadowing (ou son fichier a disparu).",
+      "playBoth": "Écouter les deux",
+      "stopBoth": "Arrêter",
+      "playingVoice": "Lecture de la voix de synthèse…",
+      "playingRecording": "Lecture de votre enregistrement…",
+      "result": "Transcription et comparaison",
+      "notShadowing": "Cet enregistrement n'est pas un shadowing : il n'a pas de page ici.",
+      "notTranscribed": "Cet enregistrement n'est pas encore transcrit.",
+      "transcribe": "Transcrire",
+      "transcribing": "Transcription… {{seconds}} s",
+      "tryAgain": "Réessayer",
+      "unavailable": "La transcription n'est pas disponible : {{reason}}. Votre enregistrement est conservé.",
+      "silence": "Aucune parole n'a été entendue dans cet enregistrement.",
+      "recordAgain": "Réenregistrer",
+      "ready": "Transcription prête : {{recognized}} mots reconnus sur {{count}}.",
+      "logExplanation": "La reconnaissance vocale a entendu « {{heard}} » au lieu de « {{target}} ». Vérifiez comment vous le prononcez avant de garder cette entrée."
+    },
+    "history": {
+      "title": "Historique des shadowings",
+      "intro": "Vos prises de shadowing, les plus récentes d'abord.",
+      "empty": "Aucun shadowing pour l'instant.",
+      "count_one": "{{count}} shadowing",
+      "count_other": "{{count}} shadowings",
+      "date": "Date",
+      "sentence": "Phrase",
+      "result": "Résultat",
+      "silent": "Aucune parole entendue",
+      "notTranscribed": "Non transcrit"
     }
   },
   "today": {
@@ -773,11 +1011,13 @@
     "unknownDeck": "Paquet {{id}}",
     "minutes": "Environ {{minutes}} min, pour un budget quotidien de {{budget}} min",
     "targeted": "Exercice ciblé : {{category}} ({{count}} erreurs récentes)",
-    "consolidation": "Une tâche de consolidation est prête, pour information",
+    "consolidation": "Une tâche de consolidation est prête.",
     "empty": "Rien à réviser ni à découvrir aujourd'hui. Importez une liste ou ajoutez des termes à votre bibliothèque.",
     "start": "Démarrer la séance du jour",
     "resume": "Reprendre la séance du jour",
-    "openSession": "Une séance est déjà ouverte aujourd'hui."
+    "openSession": "Une séance est déjà ouverte aujourd'hui.",
+    "tryTracks": "Rien de nouveau à apprendre :",
+    "tryTracksLink": "essayez un parcours d'anglais général"
   },
   "plan": {
     "warningsTitle": "Avertissements",
@@ -834,10 +1074,10 @@
     },
     "practice": {
       "targeted": "Exercice ciblé sur vos erreurs les plus fréquentes : {{category}} ({{count}} erreurs ces 14 derniers jours).",
-      "consolidation": "Une tâche de consolidation (un exposé avec les termes de votre paquet) est prête.",
-      "later": "La tâche de consolidation sera disponible dans une prochaine version de l'application.",
+      "consolidation": "Une tâche de consolidation (un exposé avec les termes de votre liste) est prête.",
       "continue": "Continuer",
-      "now": "S'entraîner maintenant"
+      "now": "S'entraîner maintenant",
+      "openTask": "Ouvrir la tâche"
     },
     "summary": {
       "title": "Résumé de la séance",
@@ -904,7 +1144,11 @@
     "repetition": {
       "title": "Dites-le à voix haute",
       "instructions": "Écoutez à vitesse normale, puis lentement, et répétez la phrase à voix haute.",
-      "recordingLater": "L'enregistrement de votre voix arrivera dans une prochaine version.",
+      "recordTitle": "Enregistrez-vous",
+      "recordingHint": "L'enregistrement est facultatif : envoyez une prise pour la comparer à la phrase, ou continuez sans.",
+      "yourTake": "Votre prise",
+      "unavailable": "La transcription n'est pas disponible : {{reason}}. Votre prise est conservée ; vous pouvez continuer.",
+      "silence": "Aucune parole n'a été entendue dans cette prise. Vous pouvez réessayer ou continuer.",
       "done": "C'est fait, je l'ai répétée"
     },
     "personal": {
@@ -971,7 +1215,6 @@
       "sentenceProduction": "Écrivez une phrase pour cette situation, avec le terme que vous révisez.",
       "selfGradedLater": "L'IA vérifie votre phrase quand elle est disponible. Sinon, seule la présence du terme est vérifiée et vous vous notez vous-même.",
       "spokenAnswer": "Répondez à voix haute à cette question, avec le terme que vous révisez.",
-      "recordingLater": "Rien n'est encore enregistré : l'enregistrement de votre voix arrive dans une prochaine version. Répondez à voix haute, puis comparez avec un exemple.",
       "selfReceptive": "Dites-vous ce que signifie ce terme, puis vérifiez.",
       "selfProductive": "Retrouvez le terme anglais, puis vérifiez."
     },
@@ -996,7 +1239,6 @@
     "check": "Vérifier",
     "checking": "Vérification…",
     "showAnswer": "Montrer la réponse",
-    "showExample": "Montrer un exemple de réponse",
     "result": {
       "label": "Correction",
       "meaning": "Sens : {{meaning}}",
@@ -1007,7 +1249,8 @@
       "noSentence": "Vous n'avez pas écrit de phrase.",
       "term_missing": "Votre phrase ne contient pas le terme.",
       "compare": "Comparez avec votre propre réponse, puis notez-vous.",
-      "answerIs": "Le terme :"
+      "answerIs": "Le terme :",
+      "term_not_heard": "Le terme n'a pas été entendu : vous l'avez peut-être oublié, ou la reconnaissance vocale l'a raté. Notez-vous vous-même."
     },
     "summary": {
       "label": "À propos de « {{term}} »",
@@ -1045,7 +1288,10 @@
       "replaySlow": "écouter lentement",
       "space": "Espace",
       "enter": "Entrée",
-      "shift": "Maj"
+      "shift": "Maj",
+      "record": "démarrer l'enregistrement",
+      "stop": "arrêter l'enregistrement",
+      "send": "envoyer"
     },
     "aiCheck": {
       "checking": "Vérification de votre phrase…",
@@ -1058,6 +1304,20 @@
         "incomplete": "La vérification par l'IA n'a pas pu être utilisée. Évaluez vous-même votre phrase.",
         "skipped": "Vérification passée. Évaluez vous-même votre phrase.",
         "failed": "La vérification par l'IA a échoué : {{error}} Évaluez vous-même votre phrase."
+      }
+    },
+    "spoken": {
+      "withoutRecording": "Répondre sans enregistrer",
+      "twoSteps": "Deux étapes d'IA vérifient votre réponse (transcription, puis correction) : cela peut prendre jusqu'à environ 90 secondes. Votre enregistrement reste sur cet ordinateur.",
+      "checking": "Vérification de votre réponse…",
+      "elapsed": "Vérification de votre réponse… {{seconds}} s",
+      "skip": "Passer la vérification et m'évaluer moi-même",
+      "silence": "Aucune parole n'a été entendue dans votre enregistrement. Comparez avec l'exemple de réponse et notez-vous.",
+      "unavailable": "Votre enregistrement n'a pas pu être transcrit : {{reason}}. Comparez avec l'exemple de réponse et notez-vous.",
+      "correctionFailed": "La correction n'est pas disponible : {{reason}}. Ce qui a été entendu est affiché ci-dessus ; notez-vous vous-même.",
+      "notice": {
+        "skipped": "Vérification passée. Notez-vous vous-même.",
+        "failed": "La vérification a échoué : {{error}} Notez-vous vous-même."
       }
     },
     "errorLogged": {
@@ -1154,7 +1414,14 @@
     "turn": "Votre tour {{n}}",
     "contextSent": "Analysé avec le contexte de l'interlocuteur : la fin du tour qui précède chacun des vôtres a été lue.",
     "contextNotSent": "Analysé sans le contexte de l'interlocuteur.",
-    "noErrorsTurns": "Aucune erreur trouvée dans vos tours."
+    "noErrorsTurns": "Aucune erreur trouvée dans vos tours.",
+    "structureTitle": "Structure",
+    "connectors": "Connecteurs utilisés",
+    "noConnectors": "Aucun connecteur repéré dans cette prise de parole.",
+    "structureSuggestions": "Suggestions",
+    "part": "Passage {{n}}",
+    "heardTitle": "Ce que la reconnaissance vocale a entendu",
+    "heardNote": "La correction porte sur ce qui a été entendu : une faute que la reconnaissance a lissée n'est pas signalée, et un mot mal entendu peut l'être."
   },
   "writing": {
     "title": "Écriture",
@@ -1430,6 +1697,7 @@
     "manual": {
       "title": "Ajouter une erreur",
       "intro": "Notez une erreur que vous avez repérée vous-même. Elle rejoint votre journal comme les autres.",
+      "prefilled": "Pré-rempli depuis votre shadowing : relisez, corrigez ce qui ne va pas, puis ajoutez. Rien n'est enregistré tant que vous ne l'avez pas fait.",
       "original": "La phrase où vous l'avez faite (facultatif)",
       "wrong": "La forme incorrecte",
       "correction": "La correction",
@@ -1595,6 +1863,671 @@
       "pronunciation": "La prononciation ne peut pas être travaillée à l'écrit.",
       "proposed": "Cette catégorie est seulement proposée : acceptez-la d'abord dans la page des catégories.",
       "rejected": "Cette catégorie a été rejetée."
+    }
+  },
+  "pronunciation": {
+    "title": "Prononciation",
+    "button": "Évaluer ma prononciation",
+    "running": "Évaluation… {{seconds}} s",
+    "tryAgain": "Réessayer",
+    "privacy": "Cela envoie l'enregistrement à Microsoft Azure. Cela utilise une partie du quota gratuit mensuel.",
+    "estimate": "Une estimation automatique, pas le jugement d'un professeur. Scores de 0 à 100 ; un score bas sur un mot invite à réécouter, ce n'est pas un verdict.",
+    "unavailable": "L'évaluation n'a pas pu être faite : {{reason}}. Rien n'a été enregistré ; vous pouvez réessayer.",
+    "incomplete": "Azure a répondu de façon inattendue. Rien n'a été enregistré ; vous pouvez réessayer.",
+    "silence": "Azure n'a entendu aucune parole dans cet enregistrement : il n'y a rien à noter.",
+    "reasons": {
+      "not_shadowing": "Seuls les shadowings peuvent être évalués.",
+      "no_target": "Ce shadowing n'a pas de phrase à comparer.",
+      "no_audio": "L'enregistrement est introuvable.",
+      "disabled": "Désactivée dans les réglages.",
+      "not_configured": "Azure n'est pas configuré dans les réglages.",
+      "already_assessed": "Déjà évalué.",
+      "unsupported_format": "Cet enregistrement n'est pas dans un format qu'Azure lit (il a été fait avant l'activation de l'évaluation).",
+      "too_long": "L'enregistrement dépasse 30 secondes."
+    },
+    "settingsLink": "Ouvrir les réglages",
+    "overall": "Scores globaux",
+    "accuracy": "Précision",
+    "fluency": "Fluidité",
+    "completeness": "Complétude",
+    "pronunciation": "Prononciation",
+    "scoreValue": "{{value}} / 100",
+    "noScore": "pas de score",
+    "words": "Mot par mot",
+    "wordsHint": "Chaque mot indique son score et, le cas échéant, le type de problème. Les scores bas sont signalés par des mots, pas seulement par la couleur.",
+    "wordLine": "{{score}}, {{type}}",
+    "errorTypes": {
+      "None": "correct",
+      "Mispronunciation": "mal prononcé",
+      "Omission": "omis",
+      "Insertion": "ajouté",
+      "other": "à vérifier"
+    },
+    "weakest": "Sons les plus faibles",
+    "weakestEmpty": "Aucun son ne ressort.",
+    "weakestLine": "{{phoneme}} dans « {{word}} » : {{score}}",
+    "assessedAt": "Évalué le {{date}} avec {{provider}}.",
+    "demoNote": "Les scores de la démo sont fictifs."
+  },
+  "consolidation": {
+    "title": "Consolidation",
+    "intro": "Quand l'essentiel d'une liste est solide, utilisez ses termes dans un vrai exposé, discours ou réponse d'entretien. Les termes bien employés deviennent actifs.",
+    "loading": "Chargement…",
+    "languages": {
+      "en": "anglais",
+      "fr": "français"
+    },
+    "types": {
+      "talk": "Exposé",
+      "speech": "Discours",
+      "interview_answer": "Réponse d'entretien"
+    },
+    "status": {
+      "proposed": "Proposée",
+      "accepted": "Acceptée",
+      "completed": "Terminée",
+      "dismissed": "Écartée"
+    },
+    "source": {
+      "ai": "Faite par l'IA",
+      "template": "Faite à partir d'un gabarit"
+    },
+    "decks": {
+      "ready": "Listes prêtes pour une tâche",
+      "waiting": "Listes pas encore prêtes",
+      "noneReady": "Aucune liste n'est prête. Continuez les révisions : une liste devient prête quand assez de ses cartes productives sont stables.",
+      "readyLine": "{{ratio}} de ses cartes productives sont stables (au moins {{days}} jours ; {{threshold}} demandés). {{count}} termes utilisables.",
+      "openTask": "Ouvrir la tâche"
+    },
+    "reasons": {
+      "excluded_kind": "Ce type de liste n'est pas utilisé pour la consolidation.",
+      "deck_done": "Cette liste est marquée comme terminée.",
+      "task_open": "Une tâche est déjà ouverte pour cette liste.",
+      "no_productive_cards": "Elle n'a pas encore de carte productive.",
+      "below_ratio": "{{ratio}} de ses cartes productives sont stables (au moins {{days}} jours) ; {{threshold}} demandés.",
+      "not_enough_candidates_one": "Seulement {{count}} terme utilisable pour l'instant : il en faut au moins 8.",
+      "not_enough_candidates_other": "Seulement {{count}} termes utilisables pour l'instant : il en faut au moins 8."
+    },
+    "create": {
+      "type": "Type de tâche",
+      "count": "Nombre de termes",
+      "countHint": "Entre {{min}} et {{max}}.",
+      "submit": "Créer une tâche",
+      "making": "Création de la tâche… {{seconds}} s",
+      "wait": "L'IA écrit le sujet et le plan (quelques secondes). Si elle ne peut pas, un gabarit est utilisé."
+    },
+    "tasks": {
+      "title": "Vos tâches",
+      "filter": "Afficher",
+      "all": "Tous les statuts",
+      "empty": "Aucune tâche pour l'instant.",
+      "count_one": "{{count}} tâche",
+      "count_other": "{{count}} tâches",
+      "date": "Date",
+      "task": "Tâche",
+      "deck": "Liste",
+      "statusColumn": "Statut"
+    },
+    "task": {
+      "title": "Tâche de consolidation",
+      "all": "Toutes les tâches",
+      "minutes": "environ {{count}} min",
+      "templateNote": "Cette tâche vient d'un gabarit, pas de l'IA : le sujet est donc générique.",
+      "brief": "La tâche",
+      "showOther": "Afficher aussi en {{language}}",
+      "hideOther": "Masquer le {{language}}",
+      "audience": "Public :",
+      "structure": "Plan suggéré",
+      "terms": "Termes à utiliser",
+      "actions": {
+        "accepted": "Accepter",
+        "completed": "Marquer comme terminée",
+        "dismissed": "Écarter",
+        "completedYes": "Oui, marquer comme terminée",
+        "dismissedYes": "Oui, écarter"
+      },
+      "confirmLabel": "Confirmation",
+      "confirm": {
+        "completed": "Marquer cette tâche comme terminée ? Elle n'acceptera plus de production.",
+        "dismissed": "Écarter cette tâche ? Elle n'acceptera plus de production et la liste pourra recevoir une autre tâche."
+      },
+      "cancel": "Annuler",
+      "final": {
+        "completed": "Cette tâche est terminée.",
+        "dismissed": "Cette tâche a été écartée."
+      },
+      "templateReason": "L'IA n'a pas pu la faire : {{reason}}"
+    },
+    "produce": {
+      "title": "Votre production",
+      "intro": "Écrivez ou enregistrez votre exposé avec les termes ci-dessus, sans rien chercher. Les termes sont vérifiés après l'envoi.",
+      "mode": "Façon de répondre",
+      "written": "Écrire",
+      "spoken": "Enregistrer"
+    },
+    "write": {
+      "label": "Votre texte",
+      "submit": "Envoyer pour correction",
+      "saving": "Envoi…",
+      "hint": "Votre texte est d'abord enregistré, puis corrigé sur la page suivante. 40 phrases au plus."
+    },
+    "speak": {
+      "sending": "Envoi…",
+      "hint": "Enregistrez entre 20 secondes et 4 minutes. Le texte de la tâche n'est pas envoyé au système de reconnaissance vocale."
+    },
+    "attempts": {
+      "title": "Tentatives",
+      "none": "Aucune tentative pour l'instant.",
+      "written": "écrite",
+      "oral": "orale",
+      "corrected": "corrigée",
+      "notCorrected": "non corrigée"
+    },
+    "export": {
+      "title": "Export",
+      "intro": "Un fichier Markdown avec le sujet, le plan et les termes, pour s'entraîner ensuite avec ChatGPT en mode vocal.",
+      "en": "Télécharger en anglais (.md)",
+      "fr": "Télécharger en français (.md)"
+    },
+    "attempt": {
+      "title": "Tentative de consolidation",
+      "result": "Résultat",
+      "yourText": "Votre texte",
+      "correct": "Corriger mon texte",
+      "recordAgain": "Retour à la tâche pour enregistrer à nouveau",
+      "backToTask": "Retour à la tâche",
+      "notCorrected": "Cette tentative n'est pas encore corrigée. Aucun terme n'a changé.",
+      "notCorrectedIncomplete": "L'IA a répondu, mais sa réponse était incomplète. Rien n'a changé ; réessayez.",
+      "notCorrectedReason": "L'IA n'a pas pu corriger : {{reason}}. Rien n'a changé ; réessayez plus tard.",
+      "finishTitle": "Vous avez fini avec cette tâche ?",
+      "finishHint": "Rien ne termine une tâche automatiquement. Terminez-la quand votre production vous convient, ou faites une autre tentative.",
+      "another": "Faire une autre tentative"
+    },
+    "summary": {
+      "title": "Les termes de la tâche",
+      "counts": "{{total}} termes : {{correct}} bien employés, {{wrong}} mal employés, {{absent}} absents.",
+      "groups": {
+        "correct": "Bien employés ({{count}})",
+        "wrong": "Mal employés ({{count}})",
+        "absent": "Absents ({{count}})",
+        "unknown": "Non vérifiés ({{count}})"
+      },
+      "hints": {
+        "correct": "Ces termes deviennent actifs.",
+        "wrong": "L'erreur est dans votre journal d'erreurs et la carte de révision de chaque terme a été renforcée.",
+        "absent": "Rien ne change pour ces termes. Utilisez-les à la prochaine tentative.",
+        "unknown": "L'IA n'a pas jugé ces termes."
+      },
+      "nowActive": "maintenant actif",
+      "effect": "{{active}} terme(s) devenu(s) actif(s) et {{reinforced}} carte(s) de révision renforcée(s)."
+    }
+  },
+  "curriculum": {
+    "title": "Parcours d'anglais général",
+    "intro": "Apprenez l'anglais courant au-delà de vos propres listes : les mots les plus fréquents, les mots académiques et des scénarios à l'oral. Tout se retrouve dans votre bibliothèque et vos révisions.",
+    "loading": "Chargement…",
+    "kind": {
+      "wordlist": "Liste de mots",
+      "scenarios": "Scénarios à l'oral"
+    },
+    "units_one": "{{count}} unité",
+    "units_other": "{{count}} unités",
+    "writtenCount_one": "{{count}} unité écrite",
+    "writtenCount_other": "{{count}} unités écrites",
+    "openedCount": "{{opened}} ouvertes, {{triaged}} triées",
+    "wordlistMissing": "Le fichier de la liste de mots est absent de cette installation : ce parcours ne peut pas être commencé.",
+    "start": "Commencer",
+    "startNamed": "Commencer le parcours « {{title}} »",
+    "continue": "Continuer",
+    "continueNamed": "Continuer le parcours « {{title}} »",
+    "deckLink": "Ouvrir le paquet de ce parcours",
+    "licence": "NGSL / NAWL 1.2, Browne, Culligan & Phillips, CC BY-SA 4.0",
+    "trackTitle": "Parcours",
+    "unitTitle": "Unité",
+    "allTracks": "Tous les parcours",
+    "backToTrack": "Retour au parcours",
+    "backToUnit": "Retour à l'unité",
+    "notStartedTitle": "Ce parcours n'est pas commencé",
+    "notStarted": "Commencez-le pour créer son paquet et ouvrir ses unités.",
+    "startThis": "Commencer ce parcours",
+    "unitsHeading_one": "{{count}} unité",
+    "unitsHeading_other": "{{count}} unités",
+    "unitNumber": "Unité {{number}}",
+    "open": "Ouvrir",
+    "openNamed": "Ouvrir l'unité {{number}}",
+    "notWritten": "Pas encore écrite",
+    "words_one": "{{count}} mot",
+    "words_other": "{{count}} mots",
+    "state": {
+      "not_opened": "Pas ouverte",
+      "opened": "Ouverte, mots à trier",
+      "triaged": "Mots triés"
+    },
+    "progress": {
+      "not_started": "Pas commencée",
+      "in_progress": "En cours",
+      "done": "Terminée"
+    },
+    "generate": {
+      "button": "Écrire cette unité avec l'IA",
+      "writing": "Écriture de l'unité… {{seconds}} s",
+      "status": "L'IA écrit l'unité. Cela prend quelques secondes.",
+      "tryAgain": "Réessayer",
+      "incomplete": "L'IA n'a pas rendu d'unité utilisable.",
+      "unavailable": "L'IA est indisponible : {{reason}}.",
+      "nothingWritten": "Rien n'a été écrit.",
+      "configure": "Configurer l'IA"
+    },
+    "word": {
+      "triageTitle": "Trier ces mots",
+      "triage_one": "Trier ces mots (il en reste {{count}})",
+      "triage_other": "Trier ces mots (il en reste {{count}})",
+      "allSorted": "Tous les mots de cette unité sont triés.",
+      "terms_one": "{{count}} mot",
+      "terms_other": "{{count}} mots"
+    },
+    "unit": {
+      "level": "Niveau {{level}}",
+      "stepsOf": "{{done}} étapes sur {{total}}",
+      "nextStep": "Prochaine étape : {{step}}",
+      "completed": "Unité terminée",
+      "completedAnnouncement": "Unité terminée.",
+      "nextUnit": "Unité suivante : {{title}}"
+    },
+    "edit": {
+      "open": "Modifier l'unité",
+      "title": "Modifier l'unité",
+      "intro": "Changez ce que vous voulez, puis enregistrez. Rien n'est écrit avant l'enregistrement, et seules les parties modifiées sont envoyées.",
+      "badge": "Modifiée par vous",
+      "saved": "L'unité a été enregistrée.",
+      "save": "Enregistrer l'unité",
+      "saving": "Enregistrement…",
+      "cancel": "Annuler",
+      "nothingChanged": "Rien n'a encore changé.",
+      "shadowWarning": "Attention : si vous modifiez une phrase à répéter (son texte, ou les phrases cochées), les prises enregistrées pour l'ancienne phrase ne comptent plus. Une unité terminée peut repasser « en cours ».",
+      "libraryNote": "Une formule déjà dans votre bibliothèque garde son lien tant que son texte ne change pas.",
+      "rowUp": "Monter {{name}}",
+      "rowDown": "Descendre {{name}}",
+      "rowRemove": "Supprimer {{name}}",
+      "formulas": {
+        "legend": "Formules",
+        "count": "{{count}} formules ({{min}} à {{max}} attendues)",
+        "name": "la formule {{number}}",
+        "text": "Formule",
+        "type": "Type",
+        "functionEn": "Ce qu'elle fait (anglais)",
+        "functionFr": "Ce qu'elle fait (français)",
+        "register": "Registre",
+        "add": "Ajouter une formule"
+      },
+      "dialogue": {
+        "legend": "Dialogue",
+        "settingEn": "Situation (anglais)",
+        "settingFr": "Situation (français)",
+        "speakerName": "Nom du personnage {{number}}",
+        "count": "{{count}} répliques ({{min}} à {{max}} attendues)",
+        "name": "la réplique {{number}}",
+        "speaker": "Personnage de la réplique {{number}}",
+        "text": "Texte de la réplique {{number}}",
+        "add": "Ajouter une réplique"
+      },
+      "shadowing": {
+        "legend": "Phrases à répéter",
+        "hint": "Cochez les répliques que vous voulez répéter à voix haute.",
+        "count": "{{count}} phrases cochées ({{min}} à {{max}} attendues)",
+        "tick": "Répéter la réplique {{number}}",
+        "words": "{{count}} mots"
+      },
+      "finalTask": {
+        "legend": "Tâche finale",
+        "promptEn": "Consigne (anglais)",
+        "promptFr": "Consigne (français)",
+        "minutes": "Durée",
+        "minutesOption_one": "{{count}} minute",
+        "minutesOption_other": "{{count}} minutes",
+        "formulas": "Formules à utiliser",
+        "count": "{{count}} formules cochées (au moins {{min}} attendues)",
+        "tick": "Utiliser la formule {{number}}"
+      },
+      "problems": {
+        "empty": "Ne doit pas être vide.",
+        "count": "{{min}} à {{max}} sont attendues.",
+        "shadowingWords": "Cette réplique compte {{words}} mots ; il en faut {{min}} à {{max}} pour la répéter.",
+        "speakersDiffer": "Les deux noms doivent être différents.",
+        "refsMin": "Cochez au moins {{min}} formules.",
+        "tooLong": "{{max}} caractères au plus."
+      },
+      "summary_one": "L'unité n'a pas été enregistrée : {{count}} problème à corriger.",
+      "summary_other": "L'unité n'a pas été enregistrée : {{count}} problèmes à corriger.",
+      "unlocated": "Autres problèmes relevés par le serveur :",
+      "stale": {
+        "hint": "L'unité a changé depuis l'ouverture de l'éditeur (dans un autre onglet, par exemple). Vos modifications sont toujours là : rien n'est perdu et rien n'a été enregistré.",
+        "load": "Charger la dernière version",
+        "loading": "Lecture de la dernière version…",
+        "confirm": "Remplacer vos modifications par la dernière version de l'unité ?",
+        "yes": "Remplacer mes modifications",
+        "keep": "Continuer à modifier"
+      }
+    },
+    "steps": {
+      "formulas": "Étape {{number}} : formules",
+      "dialogue": "Étape {{number}} : dialogue",
+      "shadowing": "Étape {{number}} : shadowing",
+      "final_task": "Étape {{number}} : tâche finale"
+    },
+    "stepNames": {
+      "formulas": "formules",
+      "dialogue": "dialogue",
+      "shadowing": "shadowing",
+      "final_task": "tâche finale"
+    },
+    "stepState": {
+      "done": "Faite",
+      "todo": "À faire",
+      "next": "Prochaine étape"
+    },
+    "formulas": {
+      "french": "En français",
+      "frenchNamed": "En français : « {{text}} »",
+      "inLibrary": "Dans votre bibliothèque",
+      "addOne": "Ajouter à ma bibliothèque",
+      "addOneNamed": "Ajouter à ma bibliothèque : « {{text}} »",
+      "selected_one": "{{count}} formule sélectionnée.",
+      "selected_other": "{{count}} formules sélectionnées.",
+      "add": "Ajouter ces formules à ma bibliothèque",
+      "added": "Ajoutées : {{imported}} nouvelles, {{attached}} déjà dans votre bibliothèque, {{skipped}} ignorées.",
+      "toTriage": "Trier ces termes maintenant",
+      "markRead": "J'ai lu les formules"
+    },
+    "dialogue": {
+      "showEnglish": "Afficher en anglais",
+      "hideEnglish": "Masquer l'anglais",
+      "speakers": "Interlocuteurs : {{first}} et {{second}}",
+      "play": "Écouter tout le dialogue",
+      "stop": "Arrêter",
+      "speed": "Vitesse",
+      "normal": "Normale",
+      "slow": "Lente",
+      "playing": "Écoute du dialogue.",
+      "showText": "Afficher le texte",
+      "hideText": "Masquer le texte",
+      "listenFirst": "Écoutez d'abord, puis vérifiez le texte.",
+      "listenLine": "Écouter la réplique {{number}}",
+      "markListened": "J'ai écouté le dialogue"
+    },
+    "shadowing": {
+      "intro": "Écoutez une réplique, puis répétez-la à voix haute. Un enregistrement compte dès qu'il est transcrit : la reconnaissance vocale n'est pas un juge de prononciation.",
+      "done": "Faite",
+      "todo": "Pas encore faite",
+      "takes_one": "{{count}} enregistrement",
+      "takes_other": "{{count}} enregistrements",
+      "shadow": "Répéter cette réplique",
+      "shadowNamed": "Répéter cette réplique, numéro {{number}}"
+    },
+    "finalTask": {
+      "showFrench": "Afficher en français",
+      "hideFrench": "Masquer le français",
+      "minutes_one": "Environ {{count}} minute",
+      "minutes_other": "Environ {{count}} minutes",
+      "formulas": "Formules à utiliser",
+      "record": "Enregistrer mon exposé",
+      "attempts": "Vos exposés ({{count}})",
+      "attempt": "Exposé {{number}}",
+      "corrected": "Corrigé",
+      "notCorrected": "Pas encore corrigé"
+    }
+  },
+  "stats": {
+    "title": "Statistiques",
+    "intro": "Tout est calculé à partir de tes journaux : révisions, erreurs, productions et appels à l'IA. Aucun compteur n'est tenu à part.",
+    "demo": "Ce sont les chiffres de la base de démonstration, fictive.",
+    "computedAt": "Calculé le {{date}}.",
+    "sections": "Sections de la page",
+    "loading": "Chargement des statistiques…",
+    "retry": "Réessayer",
+    "insufficient": {
+      "words_one": "Pas assez de données ({{count}} mot pour l'instant)",
+      "words_other": "Pas assez de données ({{count}} mots pour l'instant)",
+      "reviews_one": "Pas assez de données ({{count}} révision pour l'instant)",
+      "reviews_other": "Pas assez de données ({{count}} révisions pour l'instant)"
+    },
+    "rate": "{{value}} pour 100 mots",
+    "ofCount": "{{successes}} sur {{n}}",
+    "chart": {
+      "noPoints": "Aucun point à tracer : toutes les valeurs de cette période manquent ou reposent sur trop peu de données.",
+      "showData": "Afficher les chiffres",
+      "period": "Période",
+      "noValue": "Pas assez de données",
+      "weekOf": "Semaine du {{date}}"
+    },
+    "period": {
+      "label": "Période des statistiques",
+      "from": "Du",
+      "to": "Au",
+      "granularity": "Regrouper par",
+      "day": "Jour",
+      "week": "Semaine",
+      "summary": "Du {{from}} au {{to}}, les deux jours inclus. Les chiffres clés et les tendances ci-dessous ne dépendent pas de cette période.",
+      "problem": {
+        "invalid": "Saisis deux dates valides.",
+        "order": "La date de début ne doit pas être après la date de fin.",
+        "tooLong": "Une période ne peut pas dépasser {{max}} jours."
+      }
+    },
+    "export": {
+      "download": "Télécharger l'export CSV",
+      "hint": "Un zip avec un fichier CSV par table, pour tes propres analyses (par exemple avec pandas)."
+    },
+    "overview": {
+      "title": "Vue d'ensemble",
+      "errorRate": "Erreurs, 28 derniers jours",
+      "errorRateBefore": "Les 28 jours d'avant : {{rate}}",
+      "retention": "Rétention, 28 derniers jours",
+      "target": "objectif {{target}}",
+      "activeTerms": "Termes actifs",
+      "ofTerms": "sur {{n}} termes",
+      "streak": "Série en cours",
+      "activeDays30_one": "{{count}} jour actif sur les 30 derniers",
+      "activeDays30_other": "{{count}} jours actifs sur les 30 derniers",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours",
+      "studyTime": "Temps d'étude, 7 derniers jours",
+      "studyDays_one": "sur {{count}} jour",
+      "studyDays_other": "sur {{count}} jours",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "dueTomorrow": "Révisions dues demain",
+      "ofCards": "sur {{n}} cartes"
+    },
+    "errors": {
+      "title": "Erreurs",
+      "intro": "Erreurs pour 100 mots produits, pour qu'une journée de forte production ne ressemble pas à une régression.",
+      "allErrors": "Toutes les erreurs",
+      "periodCounts": "({{errors}} erreurs en {{words}} mots)",
+      "chartTitle": "Erreurs pour 100 mots sur la période",
+      "chartNote": "Une période de moins de 100 mots n'a pas de point : avec si peu de mots, un taux tromperait. Le regroupement par semaine donne plus de points.",
+      "byCategory": "Par catégorie",
+      "category": "Catégorie",
+      "errors": "Erreurs",
+      "rateColumn": "Pour 100 mots",
+      "unnormalized": "Hors de ces taux : {{total}} erreurs sans nombre de mots pour les diviser (exercices {{drill}}, confusions tapées en révision {{review}}, saisies manuelles {{manual}}, autres {{other}}).",
+      "topTitle": "Tes cinq erreurs les plus récurrentes",
+      "topEmpty": "Aucune erreur récurrente sur cette période.",
+      "times_one": "{{count}} fois",
+      "times_other": "{{count}} fois",
+      "lastSeen": "dernière le {{date}}",
+      "hasCard": "a déjà une carte",
+      "trendsTitle": "Tendances",
+      "trendsWindows": "Les 28 derniers jours ({{bStart}} au {{bEnd}}) contre les 28 d'avant ({{aStart}} au {{aEnd}}), quelle que soit la période ci-dessus.",
+      "fixedShare": "Part des erreurs dans des catégories qui baissent durablement :",
+      "status": {
+        "declining": "En baisse",
+        "rising": "En hausse",
+        "stable": "Stable",
+        "insufficient": "Pas assez de données"
+      },
+      "trendDetail": "{{from}} → {{to}} erreurs, rapport {{ratio}}",
+      "thresholds": "Une catégorie baisse quand son taux tombe à {{declining}} de l'ancien ou moins, et monte à partir de {{rising}} ; entre les deux, elle est stable."
+    },
+    "memory": {
+      "title": "Mémoire",
+      "intro": "La tenue des cartes : rétention face à ton objectif, calibrage du planificateur, oublis et stabilité.",
+      "retentionTitle": "Rétention",
+      "retentionChart": "Rétention observée et objectif sur la période",
+      "targetMean": "objectif moyen {{target}}",
+      "targetLine": "Objectif",
+      "retentionNote": "Part des révisions de cartes déjà en révision qui n'ont pas été oubliées. Un point demande au moins 10 révisions.",
+      "direction": {
+        "all": "Toutes les cartes",
+        "receptive": "Reconnaissance",
+        "productive": "Production"
+      },
+      "calibrationTitle": "Calibrage",
+      "calibrationIntro": "Pour chaque tranche de rappel prévu, ce qui s'est vraiment passé. Plus les deux courbes sont proches, mieux le planificateur te connaît.",
+      "calibrationChart": "Rappel prévu et observé par tranche",
+      "predicted": "Prévu",
+      "observed": "Observé",
+      "exerciseTitle": "Réussite par type d'exercice",
+      "exerciseEmpty": "Aucune révision sur cette période.",
+      "agreement": "Notes que tu as changées après la note automatique :",
+      "agreementDetail": "{{raised}} relevées, {{lowered}} abaissées",
+      "lapsesTitle": "Oublis",
+      "lapses_one": "{{count}} oubli",
+      "lapses_other": "{{count}} oublis",
+      "lapsesChart": "Oublis sur la période",
+      "lapsesSeries": "Oublis",
+      "topLapsed": "Termes les plus oubliés",
+      "termGone": "Un terme qui n'existe plus",
+      "stabilityTitle": "Stabilité actuelle",
+      "stabilityIntro": "Pendant combien de jours chaque carte d'un terme en cours d'apprentissage tient avant d'avoir besoin d'une révision. Les cartes jamais révisées sont comptées à part.",
+      "stabilityCounts": "{{cards}} cartes, {{unreviewed}} jamais révisées",
+      "medianDays": "médiane {{value}} jours",
+      "consolidationTitle": "Délai avant qu'un terme soit consolidé",
+      "consolidationEmpty": "Aucun terme n'a été consolidé sur cette période.",
+      "consolidationTerms_one": "{{count}} terme consolidé",
+      "consolidationTerms_other": "{{count}} termes consolidés",
+      "measure": "Mesure",
+      "q1": "Premier quartile",
+      "median": "Médiane",
+      "q3": "Troisième quartile",
+      "measureName": {
+        "days": "Jours d'étude depuis la découverte",
+        "reviews": "Révisions"
+      },
+      "range": "{{low}} à {{high}} jours",
+      "rangeOpen": "{{low}} jours ou plus"
+    },
+    "progress": {
+      "title": "Progression",
+      "intro": "Où en sont tes termes, comment la bibliothèque a bougé sur la période, tes decks et tes parcours, et les révisions à venir.",
+      "funnelTitle": "Termes par statut, maintenant",
+      "funnelIntro": "L'entonnoir d'apprentissage, des termes qui attendent dans la file à ceux que tu utilises activement.",
+      "outside": "Hors de l'entonnoir :",
+      "evolutionTitle": "Termes par statut sur la période",
+      "evolutionNote": "Reconstitué depuis le journal d'événements à la fin de chaque jour ou semaine, pas lu dans un compteur.",
+      "evolutionChart": "Nombre de termes par statut à la fin de chaque période",
+      "activeTitle": "Vocabulaire actif",
+      "activeChart": "Termes actifs sur la période",
+      "activeSeries": "Termes actifs",
+      "decksTitle": "Decks",
+      "decksEmpty": "Aucun deck pour l'instant.",
+      "deck": "Deck",
+      "deckStatus": "État",
+      "deckTerms": "Termes",
+      "deckDone": "Consolidés ou au-delà",
+      "tracksTitle": "Parcours d'anglais général",
+      "tracksEmpty": "Aucun parcours.",
+      "track": "Parcours",
+      "trackUnits": "Unités",
+      "trackOpened": "Ouvertes ou écrites",
+      "trackDone": "Terminées",
+      "notStarted": "pas commencé",
+      "forecastTitle": "Révisions des 14 prochains jours",
+      "forecastIntro": "Les cartes à revoir chaque jour d'étude, à partir d'aujourd'hui. Les cartes en retard comptent aujourd'hui.",
+      "forecastTotal_one": "{{count}} carte, environ {{minutes}} minutes",
+      "forecastTotal_other": "{{count}} cartes, environ {{minutes}} minutes",
+      "forecastChart": "Cartes à revoir chacun des 14 prochains jours d'étude",
+      "forecastCards": "Cartes à revoir"
+    },
+    "practice": {
+      "title": "Pratique",
+      "intro": "Combien tu as travaillé, à quelle régularité, et combien tu as écrit et dit.",
+      "studyTitle": "Temps d'étude",
+      "studyTotal": "{{minutes}} minutes",
+      "activeDays_one": "sur {{count}} jour actif",
+      "activeDays_other": "sur {{count}} jours actifs",
+      "studyNote": "Compté d'après tes actions seulement : une longue lecture sans clic n'est pas comptée. La ligne en pointillés est la durée des séances, pour comparer.",
+      "studyChart": "Temps d'étude en minutes sur la période",
+      "studySeries": "Temps d'étude",
+      "sessionSeries": "Séances",
+      "streakTitle": "Séries",
+      "currentStreak_one": "Série en cours : {{count}} jour",
+      "currentStreak_other": "Série en cours : {{count}} jours",
+      "longestStreak_one": "Plus longue série : {{count}} jour",
+      "longestStreak_other": "Plus longue série : {{count}} jours",
+      "endedOn": "terminée le {{date}}",
+      "activeLast30_one": "{{count}} jour actif sur les 30 derniers",
+      "activeLast30_other": "{{count}} jours actifs sur les 30 derniers",
+      "wordsTitle": "Mots produits",
+      "wordsWritten_one": "{{count}} mot écrit",
+      "wordsWritten_other": "{{count}} mots écrits",
+      "wordsOral_one": "{{count}} mot dit",
+      "wordsOral_other": "{{count}} mots dits",
+      "wordsNote": "Tes propres mots seulement : une conversation collée compte tes phrases, pas celles de l'autre personne.",
+      "wordsChart": "Mots écrits et dits sur la période",
+      "writtenSeries": "Écrits",
+      "oralSeries": "Dits",
+      "speechTitle": "Parole enregistrée",
+      "speechTotal": "{{minutes}} minutes de parole",
+      "speechEmpty": "Aucun enregistrement sur cette période.",
+      "minutes": "{{value}} min",
+      "speechChart": "Minutes de parole enregistrée sur la période",
+      "speechSeries": "Parole enregistrée",
+      "kind": {
+        "writing": "Écriture",
+        "speaking": "Expression orale",
+        "consolidation": "Consolidation",
+        "transcript_analysis": "Analyse de transcription",
+        "drill": "Exercices ciblés",
+        "shadowing": "Shadowing"
+      }
+    },
+    "ai": {
+      "title": "Usage de l'IA",
+      "intro": "Ce qui a été demandé aux offres gratuites, par fournisseur. Seulement des comptes et des durées : aucune clé, aucune requête ni réponse n'est gardée ici.",
+      "callsTitle": "Appels par fournisseur",
+      "empty": "Aucun appel à l'IA sur cette période.",
+      "requests_one": "{{count}} requête",
+      "requests_other": "{{count}} requêtes",
+      "provider": "Fournisseur",
+      "successes": "Réussies",
+      "errors": "Erreurs",
+      "rateLimited": "Débit limité",
+      "quotaExhausted": "Quota épuisé",
+      "tokens": "Jetons en entrée / sortie",
+      "duration": "Durée moyenne",
+      "milliseconds": "{{value}} ms",
+      "tokensNote": "Les limites de débit et les quotas épuisés sont comptés à part des autres erreurs. Un fournisseur qui ne donne pas ses jetons affiche 0.",
+      "errorsTitle": "Erreurs par code",
+      "times_one": "{{count}} fois",
+      "times_other": "{{count}} fois",
+      "perDayTitle": "Requêtes par jour",
+      "perDayNote": "Toujours par jour, quel que soit le regroupement ci-dessus.",
+      "chart": "Requêtes à l'IA par jour et par fournisseur",
+      "allProviders": "Tous les fournisseurs",
+      "azureTitle": "Prononciation Azure, ce mois-ci",
+      "azureUse_one": "{{month}} (UTC) : {{minutes}} minutes d'audio, {{count}} évaluation.",
+      "azureUse_other": "{{month}} (UTC) : {{minutes}} minutes d'audio, {{count}} évaluations.",
+      "azureNote": "L'offre gratuite d'Azure a sa propre limite mensuelle : vérifie-la dans le portail Azure."
+    },
+    "exercise": {
+      "recognition_in_sentence": "Reconnaissance en phrase",
+      "listening_comprehension": "Écoute",
+      "typed_recall": "Rappel tapé",
+      "gap_fill": "Texte à trous",
+      "sentence_production": "Production de phrase",
+      "spoken_answer": "Réponse orale",
+      "self_assessment": "Auto-évaluation"
     }
   }
 }

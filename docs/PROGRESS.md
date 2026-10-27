@@ -4,15 +4,1212 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **Last milestone completed**: M5.a3 - cards made from errors, suggestions for recurring errors, and the demo's
-  module E through the services (backend), on branch `claude/m5a3-error-cards-fa8d12`, cut from the tip of
-  `feat/m5c-transcripts-drills` (M5.c1 + M5.c2, both committed, not pushed, no PR yet). `main` has M1.a to M5.b2
-  (M5.b as PR #17, `bab1a95`). No migration; M5.c is frontend only and M5.a3 backend only.
-- **Next**: the pull request of M5.c, then the one of M5.a3 (in that order), then the screens for cards from errors and
-  suggestions (not planned yet) or M6 (speaking). Order of M5.c before M5.a3: D-151.
-- Gemini (`gemini-3.5-flash-lite`) is configured; the M5.a1 and M5.a2 live tests pass with the owner's key. M5.a3 needs no
-  AI. The owner's manual scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1 and M5.c2) are still to run.
+- **M9.b** (module I, the statistics dashboard, frontend only) is done on `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`): **M9.b1** (overview, errors, memory, period picker, CSV link) and **M9.b2** (progress, practice, AI). Not pushed. Next: the owner's review of M9, then the push. See the M9.b2 and M9.b1 sections.
+- **M9.a** (module I, the statistics backend: every indicator from the logs, `/api/stats/*`, the CSV export, `stats summary | errors | memory | export`; no screen, no migration) is done on `feat/m9a-stats-backend`, cut from `bb7f8fd` (tip of `feat/m8b-curriculum-screens`), in two commits (M9.a1, M9.a2). Not pushed. Next: the owner's review, then **M9.b** (the dashboard). See the M9.a section and its API reference.
+- **M8.b2** (module H, the editor of a scenario unit's content: formulas, dialogue, shadowing lines, final task; frontend only) is done on `feat/m8b-curriculum-screens` after M8.b1 (`4d522c2`). Not pushed. Next: the owner's review of M6 to M8, then the push. See the M8.b2 section.
+- **M8.b1** (module H, the screens of the general English tracks: tracks, units, scenario steps, dialogue listening, shadowing and final talk from a unit; frontend only) is done on `feat/m8b-curriculum-screens`, cut from `a68e04c`. Not pushed. Next: **M8.b2** (the unit content editor) after the owner's go-ahead. See the M8.b1 section.
+- **M8.a2** (module H, speaking scenario units written by the AI, edited, taken through four steps up to `done`; demo v7; backend + CLI, no migration) is done on `feat/m8-curriculum` after M8.a1. Not pushed. Next: **M8.b** (the screens of module H), after the owner's review. See the M8.a2 section and its API reference.
+- **M8.a1** (module H, general English tracks: word lists, syllabus, tracks, units, triage; backend only, no AI) is done on `feat/m8-curriculum`, cut from `e9917e3` (tip of `feat/m7b-consolidation-screens`). Not pushed. Next: **M8.a2** (scenario units through a `curriculum_unit` AI task, progress by steps, demo v7, live test), after the owner's go-ahead and the rest of the M8.a2 brief (see its section). See the M8.a1 section.
+- **M7.b** (module G, the screens; frontend only) is done on `feat/m7b-consolidation-screens`, cut from `bcfcb55` (tip of `feat/m7-consolidation`: M7.a1 and M7.a2, backend). Not pushed; M6 and M7 are not in `main`. See its section.
+- **Last milestone completed before it**: M6.c2 (module F, the pronunciation-assessment screens; see its section), on branch `feat/m6c2-pronunciation-screens`
+  cut from the tip of `feat/m6c-pronunciation` (M6.c1, backend), itself cut from `feat/m6b-speaking-screens`. Before it: M6.b2.2 (module F, frontend: the spoken answer in the review player; before it M6.b2.1, free speaking and the `speaking-1` correction), on branch
+  `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (M6.a2, after M6.a1, PR #21, **not
+  merged into `main` yet**). Not pushed. `main` (`7904aa3`, CI green) has M1.a to M5.a3. No migration since `0002`.
+- **M6 — Speaking** (module F, SPEC section 9) is cut in five (D-168), M6.a2 in two (D-178): **M6.a1** (done: local
+  recordings, Groq Whisper, shadowing, comparison, playback, CLI), **M6.a2a** (done: free speaking corrected by
+  `speaking_correction`, spoken answers in reviews, CLI), **M6.a2b** (done: the demo through the services,
+  `direct_writes.py` removed, D-035 closed), **M6.b1** (done: the recorder, the shadowing pages, the comparison, the
+  optional recording of the discovery), **M6.b2.1** (done: free speaking and the `speaking-1` correction), **M6.b2.2** (done: the spoken answer in
+  reviews; API references in the M6.a1 and M6.a2a sections) and **M6.c** (Azure AI Speech, optional): **M6.c1** (done: backend, off by default) then **M6.c2** (done: the screens).
+- **Next**: the owner's review of M6.b1, M6.b2.1, M6.b2.2, M6.a2 and M6.c1 (the manual scenarios; M6.c1's first real Azure request settles D-211),
+  then push and the pull request with the owner's go-ahead (after PR #21); M6.c2's manual scenario below needs an Azure F0 key (the first real Azure request settles D-211 and the WAV).
+- **Left from M5, not scheduled**: the screens for cards from errors and suggestions ("M5.d", API in the M5.a3 section
+  below) and an undo for a dismissed suggestion. The owner decides when they come.
+- Gemini (`gemini-3.5-flash-lite`) and Groq are configured in the owner's `.env`; the M5.a1, M5.a2 and M6.a2a live tests
+  pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
+  scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M9.b2 — Statistics dashboard: progress, practice, AI (frontend)
+
+Same branch `claude/m9b-dashboard-f352c1`, after M9.b1 (`c4be921`). Not pushed. **No backend change** (`git diff --stat 329160c -- backend` is empty), no migration, **no new dependency**. Decisions D-283 and D-284. With this step the dashboard of the SPEC (module I) is complete.
+
+### Done
+
+- **Progress** (`GET /stats/progress`, `ProgressSection`): the five funnel statuses now as a bar list (counts, bars relative to the biggest stage), the four statuses outside the funnel in a line, the **rebuilt** terms-by-status chart per bucket, the **active vocabulary** curve, the decks table (state, terms, "consolidated or beyond" as `n of total`), the tracks table (title in the interface language, units, opened or written, completed, "not started"), and the **14-day forecast** (cards due per study day, with the total and the estimated minutes). Status and deck-state words reuse `library.status.*` and `queue.status.*`.
+- **Practice** (`GET /stats/practice`, `PracticeSection`): study time in minutes from the learner's actions with the **sessions' own duration as a dashed line, never added** (D-284), active days, the streaks of the whole history (current, longest and when it ended, active days in the last 30), words written and said (totals and a chart), minutes of recorded speech in total, by kind (bars) and per bucket.
+- **AI** (`GET /stats/ai`, `AiSection`): a table of calls per provider (succeeded `n of total`, errors, **rate limits and used-up quotas in their own columns**, tokens in / out, mean duration or "–"), the errors by code, requests per day and provider (always per day), and the Azure month (audio minutes and assessments). No quota number is written anywhere: the screen points to the Azure portal for the limit (D-284).
+- `api/stats.ts` (types of the three answers, `useStatsProgress / Practice / Ai` with `keepPreviousData`), fixtures `progressStats`, `practiceStats`, `aiStats`, `providerDay`, the `stats.progress.* / practice.* / ai.*` keys in `en.json` and `fr.json` (same keys), three links in the in-page navigation. No new CSS: the sections reuse the primitives of M9.b1.
+- **Tests**: 16 new Vitest tests (775 in all, 759 before) in `DashboardActivity.test.tsx` (funnel and outside statuses, charts with their tables, decks, tracks in the language, forecast total, a section failing alone with its retry, the period in the URL for the three routes, study time without sessions, streaks, words and speech by kind, empty speech, calls per provider with rate limits apart, errors by code, Azure month, no AI call, French) and the navigation test of M9.b1 (now six links). `npm run check` passes.
+- **Broken-code check** (applied, then reverted): adding the sessions' seconds to the study time in `PracticeSection` made `shows the study time from the actions, with the sessions only alongside` fail (1 failed, 15 passed); with the code restored, 16 of 16 pass.
+- **Checked in the built-in browser** on a demo database in a temporary folder (`VOCAB_DATA_DIR`, seeded `--anchor 2026-10-27`, no `.env`, no AI call), week grouping: funnel (37 queued, 16 learning, 39 consolidated, 15 active), 283 minutes of study over 25 active days, streak 12 days (longest 18), 731 words written and 870 said, 5.1 minutes of speech, the Azure month (3 assessments); dark tokens applied to the charts; **375 px: `scrollWidth` 375, no element wider than the window outside a scrolling `.table-wrap`**, no console error. French is covered by a test, not by eye. The temporary folder and the servers are gone.
+
+### Left / known limits
+
+- The funnel bars compare stages with each other; there is no conversion rate between stages (the API has none and the SPEC does not ask for one).
+- The AI table counts what the gateway logged: a provider that does not report tokens shows 0; the demo has almost no AI call, so the table is mostly the empty message there.
+- The funnel chart has five lines that can overlap at the same values; the numbers table under it carries the exact values.
+- Axis labels are small at 375 px (as in M9.b1); the three wide tables scroll inside their own wrapper.
+- A language switch was not clicked through in the browser (French checked by test only).
+
+### Next step
+
+The owner's review of M9 (manual scenario below), then the push of M6 to M9 and the pull request. The visual redesign comes after M9.
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset --anchor <today, YYYY-MM-DD>
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/stats?granularity=week and use the links under the title: Progress, Practice, AI use.
+2. Progress: the funnel counts, the rebuilt chart with "Show the numbers", the decks and tracks tables, the 14-day forecast with its total.
+3. Practice: the study time (the dashed line is the sessions, not added), the streaks, words written and said, speech by kind.
+4. AI use: the table per provider (the demo has few calls), the Azure month. Change "From" and "To": the three sections follow. Switch to French and to a phone width: no horizontal scroll.
+
+## M9.b1 — Statistics dashboard: overview, errors, memory (frontend)
+
+Branch `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`). Not pushed. **No backend change** (`git diff --stat 329160c -- backend` is empty), no migration, **no new dependency** (D-279). Decisions D-279 to D-282. M9.b is cut in two because the plan counted about 25 files (D-282): **M9.b2** will add progress, practice and AI.
+
+### Done
+
+- **`/stats`** (top bar "Statistics" / "Statistiques"): `DashboardPage` with a labelled in-page navigation and three sections, each with its own request, loading line, failure with "Try again" and the previous data kept (`aria-busy`) while another period loads (`StatsSection`).
+  - **Overview** (`GET /stats/overview`): error rate of the last 28 days against the 28 before, retention against the target (with `successes of n`), active terms, streak, study time of the last 7 days, reviews due tomorrow, and the **"Download the CSV export"** link to `/api/export/csv`.
+  - **Errors**: the rate per 100 words as a line chart (all errors and the four biggest level-1 categories), a table by category, the errors outside the rates, the top 5 recurring (the example is cut to 140 characters on screen, the whole text stays in its `title`), the trends of the last 28 days against the 28 before (declining and rising in the open, stable and insufficient folded), the share of fixed errors.
+  - **Memory**: retention (all, recognition, production) against the target, calibration (10 bands, predicted against observed), success by exercise type, rating agreement, lapses and the terms lapsed most (linked to the library), stability by direction, time and reviews before consolidation (quartiles and ranges).
+- **Period picker** (`from`, `to`, `granularity`): the state is in the URL (`/stats?from=...&to=...&granularity=week`), the default (last 30 study days, from the overview's `study_day`) is not written to it. An invalid period (empty, from after to, more than 366 days) is said at once and asked of nobody; a 422 from the backend is shown with a retry (D-280).
+- **Charts without a library** (`components/charts/LineChart.tsx`, `BarList.tsx`; D-279): SVG with a `viewBox`, colours from `--chart-1..5` (light and dark), `role="img"` with a title, a legend, and a **"Show the numbers" table** under every chart. A value flagged `insufficient` is a gap in the line and "Not enough data" in the table, never a zero.
+- **Never a number for `insufficient`** (D-281): `format.ts` is the only place that writes a `Rate` or a `Share`; an insufficient one reads "Not enough data (40 words so far)" / "(4 reviews so far)".
+- `api/stats.ts` (types of the API reference and the hooks `useStatsOverview / Errors / Memory`), `test/statsFixtures.ts`, the dashboard CSS and the chart colour tokens in `styles.css`, the `stats.*` keys in `en.json` and `fr.json` (same keys), the exercise types and the trend statuses worded in both languages.
+- **Tests**: 23 new Vitest tests (759 in all, 736 before): `format.test.ts` (8: insufficient never a number, French, default period, the three refusals of a period) and `Dashboard.test.tsx` (15: figures and counts, insufficient figures, French, the period and the URL, an invalid period asks nothing, a 422 and its retry, chart table with a gap, top 5 and the cut example, trends, retention and insufficient exercise, lapsed terms, consolidation empty and filled, navigation). `npm run check` passes.
+- **Broken-code check** (applied, then reverted): ignoring the `insufficient` flag in `formatRate` and `formatShare` (testing only `value === null`) made 2 tests fail (`never shows a number for an insufficient rate, only the count reached` and `writes a share as a percentage and an insufficient one with its reviews`); with the code restored, 23 of 23 pass.
+- **Checked in the built-in browser** on a demo database in a temporary folder (`VOCAB_DATA_DIR`, seeded `--anchor 2026-10-26`, no `.env`, no AI): all three sections with real numbers (5.75 errors per 100 words, retention 90 % against 90 %, 57 terms consolidated), week granularity, French and English, dark mode, **375 px: `scrollWidth` 375, no element wider than the window** with the 10th top-bar link, no console error. Screenshots timed out (the window was hidden), so the layout was checked through the DOM, not by eye. The temporary folder and the servers are gone.
+
+### Left / known limits
+
+- **M9.b2** (progress, practice, AI) is done: see its section.
+- The axis labels of a chart are about 8 px tall at 375 px (the SVG scales down); the "Show the numbers" table carries the exact values. The visual redesign comes after M9.
+- On the demo, `fixed_expression` reads "stable" and `discourse` "rising" with the thresholds 0.5 / 1.5 (owner's option A, D-268); the screen says the thresholds in a sentence and promises no decline.
+- Per-day grouping gives few points: a day under 100 words has no rate. The note under the chart says so; "Week" is the useful granularity for the error rate.
+- The top-5 examples are cut at 140 characters; a spoken unit can be several sentences.
+- If the overview itself fails, the period picker and the other sections wait (the default period needs its `study_day`); a URL with `from` and `to` skips that wait.
+
+### Next step
+
+The owner's review of M9 and the push (M9.b2 is done).
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset --anchor <today, YYYY-MM-DD>
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/stats: the six headline figures, then the period picker (last 30 days) and the Errors and Memory sections.
+2. Group by "Week": the error chart gets points; open "Show the numbers" under it. Set "From" after "To": the message appears and nothing is asked.
+3. Under Errors: the top 5 (long examples cut), "Declining" and "Rising" open, "Stable" folded. Under Memory: retention against the target, the calibration, the lapsed terms (a link opens the term).
+4. "Download the CSV export" gives the zip. Switch to French, then dark mode, then shrink the window to a phone width: no horizontal scroll.
+
+## M9.a — Statistics: calculations, API, CSV export (backend + CLI, no screen)
+
+Branch `feat/m9a-stats-backend`, cut from `bb7f8fd` (tip of `feat/m8b-curriculum-screens`), in two commits on the approved cut: **M9.a1** (`72212b4`: domain, errors, memory, export) and **M9.a2** (progress, practice, AI, overview, `stats summary`). Not pushed. **No migration** (`alembic check`: no operation), no new dependency (no pandas, D-265), **no frontend file** (`git diff --stat bb7f8fd -- frontend` is empty). Decisions D-265 to D-278.
+
+### Done
+
+- **Pure domain** `app/domain/stats/` (dataclasses in, a "instant -> study day" function, no session, no clock, no `fsrs`): `common.py` (periods, day / ISO-week buckets, `Rate` and `Share` with `insufficient`, quartiles as pandas, ranges), `errors.py` (rates per 100 words at levels 1 and 2, errors outside the rates, top 5 recurring, lasting trends at every level, share of fixed errors), `memory.py` (retention against the target replayed from `setting.changed`, calibration from the stored `retrievability`, success by exercise type, rating agreement, lapses, stability, time before consolidation), `progress.py` (funnel snapshot and rebuild), `practice.py` (activity blocks, streaks, words, recorded speech). Definitions: D-266 to D-270, D-273, D-275.
+- **Services**: `app/services/stats.py` (`read_only` = `PRAGMA query_only` then reset; loaders that accept every payload version; errors, memory) and `stats_progress.py` (progress, practice, AI, overview), reusing `forecast_load`, `ai_usage`, `pronunciation.monthly_usage`, `curriculum.list_tracks` and `decks_out` (made public, D-274). `error_cards.carded_keys` made public.
+- **Export**: `app/services/export.py` + `export_dictionary.py` (D-271): zip of 17 CSV, `manifest.json`, `data_dictionary.md`, one read snapshot, atomic file for the CLI.
+- **API** (reference below): `/api/stats/overview | errors | memory | progress | practice | ai`, `/api/export/csv`, `/api/export/csv/{table}`. **CLI**: `stats summary | errors | memory | export`.
+- **Tests**: 104 new, all green. Domain on hand-built cases: `test_stats_common.py` (10), `test_stats_errors.py` (26), `test_stats_memory.py` (11), `test_stats_progress_practice.py` (10); old payload versions and vanished ids: `test_stats_service.py` (1); API with every 422 and all tables counted before and after: `tests/api/test_stats_api.py` (13), `tests/api/test_stats_progress_api.py` (8); export: `tests/api/test_export_api.py` (7: stable headers, `csv.DictReader` counts = database, formats, no secret, 404); CLI: `test_cli_stats.py` (9); demo: `test_demo_stats.py` (9).
+- **Broken-code checks** (applied, then reverted):
+  1. counting only the words of productions that have an error: 6 tests fail, among them `test_three_errors_for_600_words_is_half_an_error_per_100_words` and `test_a_deleted_error_is_not_counted`;
+  2. counting learning and relearning reviews in the retention: `test_nine_successes_out_of_ten_review_reviews_is_0_9` and `test_calibration_bins_by_predicted_recall` fail;
+  3. the UTC date instead of the study day in the service: `test_a_production_at_0330_in_douala_counts_for_the_previous_study_day` (API) and `test_value_formats` (export, `study_day` of a 03:30 review) fail. The domain 03:30 tests take the day function as an argument, so they cannot see this break; the API test was added for it.
+
+### Demo (seed 42, 60 days, anchor 2026-09-01)
+
+- **Witness categories** (default thresholds), words 1 710 in window A, 1 601 in window B: `grammar.preposition.fixed_expression` 42 -> 24 errors, ratio 0.610, **stable** (not `declining`: the demo model gives about 0.6, the threshold is 0.5; owner's option A, D-268); `grammar.tense.past_simple_vs_present_perfect` 27 -> 30, ratio 1.187, **stable**; `discourse` 4 -> 6, ratio 1.602, **rising**.
+- Consistency checked by `test_demo_stats.py`: level 1 sums to the total (also per bucket); the funnel snapshot equals the counts of `lexical_item` (117 terms, 15 active) and the rebuild ends on it; the reviews of the period (by exercise type + reinforcements) equal the `review_log` rows of the period.
+- Other values: share of fixed errors 12 of 114 (10.5 %); retention 2026-07-03 to 2026-09-01 0.887 (339 of 382) against 0.90; time before consolidation 58 terms, median 5.5 study days and 6 reviews; summary at the anchor: 5.75 errors per 100 words (last 28) against 6.67 (28 before), retention 90.0 % (188 of 209), 15 active terms, streak 12, 74 min over the last 7 study days, 10 reviews due tomorrow.
+- **Performance** (owner's machine, in-process `TestClient`, median of 5 warm calls, D-278): overview 29 ms (205 ms for the first call of the process), errors 14 to 15 ms, memory 18 to 27 ms, progress 44 to 45 ms, practice 17 to 22 ms, ai 39 ms (30 days) and 356 ms (366 days), export 210 ms. All under 500 ms and 5 s: no index proposed.
+
+### Left / known limits
+
+- **M9.b**: the dashboard (frontend). Nothing in `frontend/` changed here.
+- The CLI has no `--at`: on a demo seeded with an old anchor, "today" is the real day and the 28-day windows are empty. The manual scenario seeds with today's anchor.
+- Proposed for later, not done: a demo dataset v8 where `fixed_expression` falls to 0.5 x so the witness reads `declining`.
+- The examples of the top 5 are the whole `original_text` of the error: for a spoken or transcribed unit it can be several sentences (seen on the demo). M9.b may shorten them on screen.
+- The export was read back with pandas 3.1.0 (in a throwaway environment, `uv run --with pandas`): the 17 CSV give the manifest's row counts and the instants parse as `datetime64[us, UTC]`.
+- `/stats/ai` runs two queries per day (356 ms for 366 days); fine now, the first route to group if the history grows a lot.
+- Study time counts the learner's actions only (listening to a dialogue or reading a sheet leaves no trace): a long reading without a click is not counted.
+- The rebuild of the funnel starts from the event log: a term whose `item.created` was never written (none known; every creation goes through `create_item`) is counted from its first status change.
+
+### Next step
+
+The owner's review of M9.a (manual scenario below), then **M9.b** (dashboard screens on this API) after the go-ahead. The push of M6 to M9 is still waiting for the owner's review.
+
+### API reference for M9.b
+
+All under `/api`, read-only, errors in the D-063 format. Every `/stats/*` answer except `overview` starts with `computed_at` (UTC), `study_day` (today), `from`, `to`, `granularity`, `demo` (the demo marker). Query of those routes: `from`, `to` (YYYY-MM-DD, study days, both included; default: the last 30 up to today), `granularity` = `day` | `week` (ISO weeks from Monday). **422 `invalid_request`** for `from` > `to`, more than 366 days, a malformed date or granularity (`errors[{loc, message}]`).
+
+Shared shapes: `Rate` = `{value|null, errors, words, insufficient}` (errors per 100 words; null under 100 words in its bucket, 300 in a trend window); `Share` = `{value|null, successes, n, insufficient}` (null under 10); a bucket has `key` (the day, or the Monday of the week), `first_day`, `last_day` (clipped to the period); every bucket of the period is returned, empty ones included; `Quartiles` = `{n, q1, median, q3, minimum, maximum}` (null when `n` is 0); a range = `{low, high|null, count}`.
+
+| Route | Answer |
+|---|---|
+| `GET /stats/overview` (no query) | `{computed_at, study_day, demo, error_rate_last_28: Rate, error_rate_previous_28: Rate, retention_last_28: Share, target_retention|null (mean over those reviews), current_target, active_terms {value, n = all terms}, current_streak {value, n = active days in the last 30}, study_minutes_last_7, study_days_last_7, reviews_due_tomorrow {value, n = cards that can be reviewed}}` |
+| `GET /stats/errors` | `rates {rate, level1[{code, level, rate}], level2[...], unnormalized {total, by_reason {drill, review, manual, other}}, unnormalized_by_category {code: n}, buckets[{key, first_day, last_day, rate, level1, level2, unnormalized}]}` (every bucket lists the categories of the period, zeros included; level 1 sums to the total); `top_recurring[{key, erroneous_text, correction, category, count, first_at, last_at, examples[≤2], has_card}]` (≤5); `trends {window_a {start, end}, window_b, words_a, words_b, by_status {declining, rising, stable, insufficient: [{code, level (1-3), status, window_a: Rate, window_b: Rate, ratio|null}]}, fixed_share: Share}` (windows: the last 28 study days against the 28 before, whatever `from`/`to`) |
+| `GET /stats/memory` | `default_target`; `retention {all, receptive, productive: Share, target|null, buckets[{key, first_day, last_day, all, receptive, productive, target|null}]}`; `calibration[{low, high, predicted|null, observed: Share}]` (10 bins); `success_by_exercise[{exercise_type, success: Share}]`; `rating_agreement {changed: Share, raised, lowered}`; `lapses {total, buckets[{key, first_day, last_day, lapses, review_state_reviews}], top_items[{item_id, lapses}]}`; `top_lapsed_terms[{item_id, term|null, lapses}]` (≤10); `stability[{direction, cards, unreviewed, ranges[], median_days|null}]` (now, whatever the period); `time_to_consolidation {n, days: Quartiles, reviews: Quartiles, distribution[], items[{item_id, days, reviews}]}` |
+| `GET /stats/progress` | `funnel_order` (5 statuses), `outside_funnel` (4), `snapshot {status: count}` (9 keys, now), `rebuilt[{key, first_day, last_day, counts {9 statuses}}]` (at the end of each bucket), `active[{key, active}]`, `decks[DeckOut]` (exactly `GET /api/decks`), `tracks[{code, title_en, title_fr, kind, started, unit_count, opened_units, triaged_units, done_units}]`, `forecast[{day, cards, seconds}]` (14 study days from today, overdue cards today) |
+| `GET /stats/practice` | `study_time {seconds, session_seconds, active_days, buckets[{key, first_day, last_day, seconds, blocks, actions, session_seconds}]}` (`session_seconds` for comparison, never added); `streaks {current, longest, longest_end|null, active_days_last_30}` (whole history); `words[{key, first_day, last_day, written, oral}]`, `words_written`, `words_oral`; `speech[{key, first_day, last_day, seconds, by_kind {kind: seconds}}]`, `speech_seconds`, `speech_by_kind` |
+| `GET /stats/ai` | `days[{day, requests, successes, providers[ProviderDay]}]` (every study day, oldest first; always per day); `totals[ProviderDay]`; `azure_month {month "YYYY-MM" UTC, audio_seconds, assessments}`. `ProviderDay` = `{provider, models[], requests, successes, errors {code: n}, rate_limited, quota_exhausted, input_tokens, output_tokens, avg_duration_ms|null}`. No key, prompt or answer. |
+| `GET /export/csv` | `application/zip`, `Content-Disposition: attachment; filename="vocab-coach-export-YYYYMMDD.zip"` (17 CSV, `manifest.json`, `data_dictionary.md`, D-271) |
+| `GET /export/csv/{table}` | `text/csv; charset=utf-8`, `attachment; filename="<table>.csv"`; 404 `unknown_table` (`tables`: the list) |
+
+Times are seconds unless named `_ms` or `_minutes`; instants are ISO 8601 UTC; days are study days. 503 `database_unavailable` when there is no database (as every route).
+
+### Owner's manual scenario (about 2 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+uv run python -m app --demo stats summary
+uv run python -m app --demo stats errors --granularity week
+uv run python -m app --demo stats memory
+uv run python -m app --demo stats export --out $env:TEMP\vc-export.zip
+```
+
+1. `stats summary`: eight lines (errors of the last 28 days against the 28 before, retention against the target, active terms, streak, minutes of the last 7 days, reviews due tomorrow).
+2. `stats errors --granularity week`: rates by category, the top 5 with examples, the trends (`discourse` rising; `fixed_expression` declines but stays "stable" with the default thresholds, see D-268).
+3. `stats export`: 17 tables and their row counts. Running it again says the file exists (exit 2); add `--force`.
+4. `cd ..; .\start.ps1 -Demo`, then http://127.0.0.1:8000/docs: try `GET /api/stats/overview` and `GET /api/stats/progress` (with `granularity=week`).
+5. In a Python with pandas: `import zipfile, pandas as pd; z = zipfile.ZipFile(r"C:\Users\<you>\AppData\Local\Temp\vc-export.zip"); pd.read_csv(z.open("review_log.csv"), parse_dates=["reviewed_at"])`.
+
+## M8.b2 — The editor of a scenario unit's content (frontend)
+
+Branch `feat/m8b-curriculum-screens`, after `4d522c2`. Not pushed. **No backend change** (`git diff --stat a68e04c -- backend` is empty), no migration, no new dependency. Decisions D-260 to D-264.
+
+### Done
+
+- **"Edit the unit"** on a scenario unit's page: a form on a local draft (`unitForm.ts`, like `sheetForm.ts`) that takes the place of the four steps. Parts: formulas (text, type, function EN/FR, register; add, remove, up, down), dialogue (setting EN/FR, two names, lines with the speaker among the two and the text; add, remove, up, down),
+  lines to shadow (checkboxes), final task (prompts EN/FR, 1 or 2 minutes, checkboxes on the formulas). Labels on every field, keyboard use, focus kept on the row moved or on the field added, grids `minmax(0, 1fr)`, no table.
+- **Sending**: `useEditUnitContent` (`PUT /curriculum/units/{id}/content`) sends only the parts that changed, with `expected_revision`, 0-based positions and the key `register`; changing the formulas also sends the final task (D-261). Success refreshes the unit, tracks, library, triage and Today.
+- **Checks**: client limits from `UNIT_LIMITS` (equal to `curriculum_unit.py`, a test reads the Python file); `422 invalid_content` shows each problem at its field or in a list; `409 unit_changed` keeps the edits and "Load the latest version" needs an inline confirmation (D-263).
+- **After a save**: "The unit was saved.", the "Edited by you" badge, the focus back on the button. A visible warning says that changing a line to shadow makes the old line's takes stop counting and a completed unit can go back to "in progress" (D-248). "Write this unit with the AI" does not exist for a written unit.
+- **Tests**: 21 new Vitest tests (736 in all, 715 before): `unitForm.test.ts` (10: limits equal to the Python constants, only the changed parts, 0-based positions and the key `register`, client problems, where a server problem goes) and `UnitEditor.test.tsx` (11: sending, rows, client limits, 422 at the field and in a list, 409 with confirmation, warning, cancel, French, no AI button). Broken-code check (c) run and reverted: replacing the draft by the server version on a 409 made the conflict test fail.
+- Checked in the built-in browser on a demo database in a temporary folder (`VOCAB_DATA_DIR`, keys emptied, no AI call): unit "Presenting data" edited (register and a line) and saved with the badge; a second tab saved the same unit; the first tab's save was refused with its edits kept, and "Load the latest version" asked its confirmation and then replaced them; English and French, light and dark, 375 px (one column, no horizontal scroll).
+  Screenshots timed out (the window was hidden), so the layout was checked through the DOM (widths, overflow, grid columns, focus), not by eye.
+
+### Left / known limits
+
+- Not checked client-side: "at least half of the formulas appear in the dialogue" and duplicate formulas (the server answers, D-262). Server problems stay on screen until the next save or a move, add or remove (D-263).
+- Editing never calls the AI and there is no regeneration over an existing unit (D-250). Leaving the editor with Cancel discards the draft without asking (like the sheet editor).
+- Existing from M8.b1, not from this step: the dialogue step puts a `<fieldset>` in a `<p>` (React warns about the DOM nesting in tests).
+
+### Next step
+
+The owner's review of M6 to M8 (manual scenarios), then the push and the pull request.
+
+### Owner's manual scenario (about 2 minutes, demo, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/curriculum/units/2 (the unit "Presenting data", number 3 of "Speaking scenarios"). Click "Edit the unit": the four steps give way to the form.
+2. Change the register of a formula and the text of a dialogue line. Under "Lines to shadow", read the warning. Click "Save the unit": the form closes, "The unit was saved." and the badge "Edited by you" appear, the button "Edit the unit" has the focus.
+3. Click "Edit the unit" again and change the length of the final task. Open the same unit in a second tab, edit anything there and save.
+4. Back in the first tab, click "Save the unit": the message "The unit changed since you opened the editor" appears and your edit is still on screen. "Load the latest version", then "Keep editing": nothing changes. "Load the latest version", then "Replace my edits": the form shows the second tab's version.
+5. Remove formulas until fewer than 8 are left and save: the form refuses and says where. Switch to French: the labels and messages follow.
+
+## M8.b1 — General English tracks: the screens (frontend)
+
+Branch `feat/m8b-curriculum-screens`, cut from `a68e04c` (tip of `feat/m8-curriculum`). Not pushed; M6, M7 and M8 are not in `main`. **No backend change** (`git diff --stat a68e04c -- backend` is empty), no migration, no new dependency. Decisions D-254 to D-259.
+
+### Done
+
+- **`/curriculum`**: one card per track (title and description in the interface language, kind, unit count, opened / sorted or written units, Start or Continue); a track whose word list is missing says why and its button is disabled; the NGSL / NAWL licence line with the link.
+- **`/curriculum/:code`**: "Start this track" when needed (idempotent), 25 units per page (`?page=`), state in words (`not_opened / opened / triaged`, `not started / in progress / done`), `title_fr` in French; word unit: "Open" then its page (a second visit is a link, nothing is created);
+  scenario unit: "Write this unit with the AI" (counter, one request on a double click, reasons and "Try again", "Configure the AI").
+- **`/curriculum/units/:id`**: word unit (its terms with their status in words, links to the library, "Triage these words (n left)", no sheet, no definition); scenario unit: header (level, "n of 4 steps", next step), four steps in the advised order
+  (formulas with FR on demand, listening and checkboxes to add them to the library; the dialogue played line after line with two voices, text collapsed; shadowing lines with takes and a worded done mark; the final task and its takes), "Unit completed" and the link to the next unit.
+- **Speaking pages**: `ShadowingPage` / `SpeakingPage` read `unitId` once and clear it, send `unit_id`, keep `?unit=` to the detail pages, "Back to the unit"; the detail pages keep `?unit=` when they clear their state.
+- Top bar "Tracks" / "Parcours" (no horizontal scroll at 375 px in English and French); the Today card suggests a track when there is nothing new to learn; the 12 error codes of module H are worded in both languages.
+- **Tests**: 50 new Vitest tests (715 in all, 665 before): `features/curriculum/` (screens, speaking integration, privacy at every navigation, rules), `speech/dialogueVoices.test.ts`, two in `TodayCard.test.tsx`. Broken-code checks run and reverted: (a) `ShadowingPage` no longer clearing its state made 3 tests fail (the reload ones); (b) the generation button without its `ref` guard made the double-click test fail.
+- Checked in the built-in browser on a demo database in a temporary folder (`VOCAB_DATA_DIR`, keys emptied, no real AI): the track list, the unit list (unit 1 done, unit 3 in progress with "shadowing" next), the unavailable-AI answer with "Try again" and "Configure the AI", the unit page, the shadowing page from a unit line (state cleared, read-only line, after a reload a free page), starting "General everyday English" and opening unit 1 (25 words to triage), the real speech synthesis playing the dialogue, light and dark, English and French, 375 px.
+
+### Left / known limits
+
+- **M8.b2** (the unit content editor) is done: see its section.
+- The final task's "corrected" state is the unit's, not per take (D-259). The dialogue with the real two voices was only listened to by a browser check, not by ear. The recorder and the transcription of a unit's takes were tested with the fake recorder only.
+- Reloading `/speaking` or `/speaking/shadowing` loses the unit context (free page, D-255). A scenario track card has no "done" count (D-259).
+- No real AI was called: the generation was checked up to the "unavailable" answer. The first real generation from the screen is part of the manual scenario if a Gemini key is set.
+
+### Next step
+
+M8.b2 (editing a unit's content) after the owner's go-ahead, then the owner's review of M6 to M8 and the push.
+
+### Owner's manual scenario (about 2 minutes, demo, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/curriculum: three cards. Under "Speaking scenarios" (Continue): unit 1 "Done", unit 3 "In progress", the others "Not written yet" (without a key, "Write this unit with the AI" ends with the reason, "Nothing was written" and "Try again").
+2. Open unit 3: "2 of 4 steps", "Next step: shadowing" highlighted. "Listen to the whole dialogue" plays line after line with two voices, "Stop" stops it, "Show the text" expands the lines.
+3. In step 3 click "Shadow this line" on a line: the shadowing page has the line (read-only) and "Back to the unit"; record and send, then go back: the line shows one more take.
+4. Back on `/curriculum`, "Start" on "General everyday English", "Open" unit 1, "Triage these words (25 left)": the 25 words wait on the triage page.
+5. Switch to French: the top bar says "Parcours", titles of the units are in French.
+
+## M8.a2 — Speaking scenario units: AI generation, edits, steps, demo v7 (backend + CLI)
+
+Branch `feat/m8-curriculum`, after M8.a1. Not pushed. **No migration** (`alembic check`: no operation), no new dependency, no frontend file. Decisions D-246 to D-253.
+
+### Done
+
+- **AI task `curriculum_unit` v1** (`app/ai/prompts/curriculum_unit.v1.txt`, `app/ai/schemas/curriculum_unit.py`, `app/ai/tasks.py`, rules in `app/domain/curriculum_unit.py`): 8 to 15 formulas, a dialogue (2 fictional speakers, 8 to 16 lines), 5 to 8 lines to shadow, a final task (1 or 2 minutes, at least 3 formulas). One repair then `incomplete` (D-079). Budgets and their justification in `tasks.py` (D-249). Prior check: `gemini-3.5-flash-lite` is "Stable" on the official models page, 2026-10-26 (D-246).
+- **`app/services/curriculum_units.py`**: `generate_unit` (D-038: read, AI call with no session, short write that re-checks; AI failure = a result, nothing written), `edit_content` (revision, whole parts, D-250), `mark_step`, `refresh_progress`, `add_terms` (formulas to triage, D-251).
+- **Progress** (D-248): four steps `formulas`, `dialogue` (marked) and `shadowing`, `final_task` (derived from the takes linked to the unit); `curriculum_unit.progress` goes `not_started` / `in_progress` / `done`; `content.progress.steps` keeps the dates. Takes reuse M6: `unit_id` on `POST /speech/shadowing` and `POST /speech/speaking`, `speech shadow|speak --unit` (D-252); the final talk is corrected by the existing `speaking_correction`.
+- Five events: `curriculum.unit_generated`, `unit_edited`, `unit_step_completed`, `unit_completed`, `unit_terms_added`.
+- **Demo v7** (D-253): `content/demo/units.yaml`, three units (done, in progress, written only); the other generators keep their sequences.
+- Tests: schema and rules (`tests/ai/test_curriculum_unit_schema.py`), service, API, CLI, demo v7 (`tests/test_demo_curriculum.py`) and one live test (`tests/live/test_live_curriculum_unit.py`, passed with the owner's Gemini key). Full backend suite green, `ruff check` and `ruff format --check` clean.
+
+### Left / known limits
+
+- **M8.b**: no screen yet (no frontend file was touched). The listening of the dialogue (speech synthesis) is the screen's job; the learner marks `dialogue` after it.
+- No regeneration over an existing unit (409 `unit_generated`), even if the learner dislikes it: edit it, or ask for a `replace` option (D-250).
+- A take counts for the `shadowing` step whatever was heard (no accuracy threshold). Editing a line makes the old takes of the previous text stop counting; `done` can go back to `in_progress` after an edit.
+- The syllabus has 16 units; only the three of the demo are written there. In the real database a unit is written when the owner runs `curriculum generate`.
+- Placement test, new planner rule, new correction task and statistics (M9) are not part of this milestone.
+
+### API reference for M8.b
+
+All under `/api/curriculum`, errors `{"detail": {"code", "message", ...}}` (D-063). The routes of M8.a1 are unchanged; `GET /units/{id}` and the `unit` of every answer below gain a `scenario` field (null for a word unit).
+
+| Route | Answer |
+|---|---|
+| `POST /tracks/{code}/units/{n}/generate` | HTTP 200 `{status: ok\|incomplete\|unavailable, reason, detail, unit}`; the AI takes a few seconds; on `incomplete` / `unavailable` nothing was written (`unit` null), try again; 409 `track_not_started`, 409 `unit_generated`, 422 `not_a_scenario_track`, 404 `unit_not_found` / `track_not_found` |
+| `GET /units/{id}` | `unit` with `scenario`: `revision`, `edited`, `provider`, `model`, `prompt_version`, `level`, `formulas[{index, text, item_type, function_en, function_fr, register, item_id}]`, `dialogue {setting_en, setting_fr, speakers, lines[{speaker, text}]}`, `shadowing[{line_index, text, take_count, done}]`, `final_task {prompt_en, prompt_fr, minutes, formula_refs, target_item_ids, attempt_ids, corrected}`, `steps {formulas, dialogue, shadowing, final_task}`, `next_step` (null when done) |
+| `PUT /units/{id}/content` | body `{expected_revision, formulas?, dialogue?, shadowing?, final_task?}` (positions 0-based; `formulas` items use the key `register`); the updated `unit`; 409 `unit_changed` (`revision`), 422 `invalid_content` (`problems[]`), 422 `not_a_scenario_unit`; a body with a wrong shape gives the standard FastAPI 422 |
+| `POST /units/{id}/steps/{step}` | `step` = `formulas` or `dialogue`; `{changed, unit}` (again: `changed: false`); 422 `invalid_step` for the derived steps |
+| `POST /units/{id}/terms` | body `{indices?}` (0-based, all by default); `{imported, attached, skipped, unit}`; the formulas wait in the triage queue (`GET /api/triage?deck_id=`); 422 `invalid_content` for an unknown index |
+| `POST /speech/shadowing?unit_id=` | a shadowing take of one of the unit's lines (`target_text` = the line); counts when transcribed |
+| `POST /speech/speaking?unit_id=` | the final talk; `prompt_text` and `target_item_ids` default to the unit's; then `POST /api/productions/{id}/correct` completes the `final_task` step |
+
+`unit.progress` is `not_started` / `in_progress` / `done`; `content_status` is `generated` or `edited`; `state` is `opened` until the formulas are in the library and triaged.
+
+### Owner's manual scenario (about 5 minutes, the generation needs your Gemini key)
+
+On the demo database (nothing touches `data/vocab-coach.sqlite3`):
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+uv run python -m app --demo curriculum show speaking_scenarios
+uv run python -m app --demo curriculum unit 1        # done: all four steps ticked
+uv run python -m app --demo curriculum unit 3        # in progress: next step "shadowing"
+uv run python -m app --demo curriculum generate speaking_scenarios 2   # job_interview_2, with the AI
+uv run python -m app --demo curriculum step 4 formulas
+uv run python -m app --demo curriculum terms 4 --indices 0 1 2
+```
+
+To do the same for the real "Job interview" unit: `uv run python -m app curriculum start speaking_scenarios`, then `curriculum generate speaking_scenarios 1`, `curriculum unit <id>`, `curriculum step <id> formulas`, `curriculum step <id> dialogue`, then for each shadowing line `speech shadow --file clip.wav --target "<line>" --unit <id>`, then `speech speak --file talk.wav --unit <id>` (it corrects the talk), and `curriculum unit <id>` shows `done`. Without a key, `generate` ends with exit code 1 and "Nothing was written": nothing is lost, run it again later.
+
+## M8.a1 — General English tracks: word lists, syllabus, units (backend + CLI, no AI)
+
+Branch `feat/m8-curriculum`, cut from `e9917e3`. Not pushed. **No migration** (`alembic check`: no operation), no new dependency, no frontend file, no AI call. Decisions D-240 to D-245.
+
+### Done
+
+- `content/curriculum.yaml` (version 1): `general_everyday` (NGSL, 25 words per unit), `academic` (NAWL, 25), `speaking_scenarios` (the 8 SPEC themes x 2 = 16 units with EN/FR titles, 2 to 4 goals, situations, level B1-B2).
+- `content/wordlists/`: NGSL 1.2 and NAWL 1.2 **unchanged** (CC BY-SA 4.0, verified on the official site) + `NOTICE`; README licence section, SPEC section 8 (D-240). `.gitattributes` keeps them byte for byte.
+- `app/domain/curriculum.py` (pure): syllabus validation, the two readers (`TRUE`/`FALSE` fix, ISO-8859-1), unit slicing (NGSL 113 units, last with 9 words; NAWL 39 units, alphabetical, D-244).
+- `app/services/curriculum.py`: tracks, detail with paginated units, `start_track` (source + `curriculum` deck, idempotent, D-241), `open_unit` (terms in triage through `importing.commit`, new `origin` and
+  `record_completed` arguments, D-243), computed unit state (D-245). Events `curriculum.track_started`, `curriculum.unit_opened`.
+- `/api/curriculum/...` (below) and `python -m app curriculum tracks | show <code> [--page N] | start <code> | open <code> <n>`.
+- Tests: 25 new (domain with the real files, service, API, CLI, `POST /api/triage` with the 25 decisions of a unit at once). Full backend suite green, `ruff check` and `ruff format --check` clean.
+
+### Left / known limits
+
+- **M8.a2**: scenario units are listed from the YAML with `content_status: pending`; no generation route yet. The brief of M8.a2 was cut off in section 3 ("Storage ... progress `{steps:`"): the rest of its spec (storage and progress format, demo v7, live test, API) is still needed.
+- Units opened under a deck that was later deleted keep `deck_id = NULL` (D-241). No usage sheet is generated when a unit opens (D-242). Inflected forms of the NAWL are not imported (D-244).
+- A word-list unit has `content_status = generated` (a slice, no AI); M8.b may prefer to hide that field for these units.
+- **Incident, to settle with the owner**: during development my first API tests overrode `get_engine` but not `get_session`, so they **wrote into the real database `data/vocab-coach.sqlite3`** (2 curriculum decks "Academic English" and
+  "General everyday English", 50 terms, 2 units, 2 tracks, 2 sources, and 160 events dated 2026-10-26, among them 25 `item.triaged`). The tests are fixed (they no longer touch it) and `data/` is not in Git. I could not delete the
+  events, because `event_log` is append-only (trigger) and I did not bypass it. The other tables were left as they are so that nothing is orphaned. A copy of the database taken after the incident (so already polluted) is in my scratchpad. The simplest cleanup, if that database holds nothing
+  you want to keep: `Remove-Item data\vocab-coach.sqlite3*` then `cd backend; uv run python -m app db upgrade`. Otherwise tell me and I will remove those rows with the trigger dropped and recreated in one transaction.
+
+### API reference for M8.b
+
+All under `/api/curriculum`, errors `{"detail": {"code", "message", ...}}` (D-063).
+
+| Route | Answer |
+|---|---|
+| `GET /tracks` | list of `TrackSummary`: `code`, `kind` (`wordlist` / `scenarios`), `source` (`ngsl` / `nawl` / null), `title {en, fr}`, `description {en, fr}`, `unit_size`, `unit_count`, `available`, `reason` (`wordlist_missing` / null), `started`, `deck_id`, `opened_units`, `triaged_units`, `syllabus_version` |
+| `GET /tracks/{code}?limit=25&offset=0` | `{track, total_units, limit, offset, units[]}`; unit: `number`, `code`, `title`, `title_fr` (scenarios), `state` (`not_opened` / `opened` / `triaged`), `unit_id`, `first_rank`, `last_rank`, `word_count`, `content_status`, `progress` |
+| `POST /tracks/{code}/start` | `{track, created}`; 409 `wordlist_missing`; creates the deck of a word-list track, the track row of a scenario track; again: same result, `created: false` |
+| `POST /tracks/{code}/units/{n}/open` | `{created, imported, attached, skipped, unit}`; the unit: `id`, `track_code`, `number`, `code`, `title`, `state`, `progress`, `content_status`, `deck_id`, `first_rank`, `last_rank`, `terms[{item_id, term, status}]`; 409 `track_not_started` (`track`), 422 `not_a_wordlist_track`, 404 `unit_not_found` / `track_not_found` |
+| `GET /units/{id}` | the same `unit` |
+
+Triage of the opened terms uses the existing `GET /api/triage?deck_id=` and `POST /api/triage` (the 25 decisions at once work). Statistics (M9) count `curriculum.unit_opened`, not `import.completed`.
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app db upgrade
+uv run python -m app curriculum tracks
+uv run python -m app curriculum start general_everyday
+uv run python -m app curriculum show general_everyday
+uv run python -m app curriculum open general_everyday 1
+uv run python -m app curriculum open general_everyday 1   # again: "already open", nothing changes
+```
+
+Expect 3 tracks (113 / 39 / 16 units), a deck "General everyday English" at the end of the queue, 25 words (the, be, and, ...) waiting for triage (Triage page of the app), a second `open` that changes nothing, and `show --page 5` ending with `ngsl_113` (9 words).
+
+## M7.b — Consolidation screens (frontend)
+
+Branch `feat/m7b-consolidation-screens`, cut from `bcfcb55`. Not pushed. **No backend change** (`git diff --stat bcfcb55 -- backend` is empty), no migration, no new dependency. Decisions D-235 to D-239.
+
+### Done
+
+- **`/consolidation`**: decks ready (ratio against the threshold, usable terms, type of task, number of terms 8 to 15), decks not ready with the reason in words (`excluded_kind`, `deck_done`, `task_open` with a link,
+  `no_productive_cards`, `below_ratio`, `not_enough_candidates`), the tasks (status filter, pages). A creation that fell back to a template says so, with the reason.
+- **`/consolidation/tasks/:id`**: title, prompt, audience, structure, terms (links to the library), badges (status, AI or template), Accept / Mark as completed / Dismiss with a confirmation,
+  written production (draft kept, 4000 characters) or recording (20 s to 4 min, the existing recorder), attempts, Markdown export EN or FR.
+- **`/consolidation/attempts/:id`**: automatic correction on arrival (once), the existing correction view, the transcription retry for a talk, the summary of the terms (used correctly with "now active", used wrongly,
+  not used), "mark as completed" offered but never done by itself. Redirects from `/writing/:id` and `/speaking/:id`; consolidation errors of the error log link to it.
+- Links from the Today card and the session's `practice_info` step, a `Consolidation` entry in the top bar. The setting `consolidation_share` was already in Settings (bounds from the API).
+- Every string is in `en.json` and `fr.json` (same keys). **665 Vitest tests** (644 before): `npm run check` passes. Checked in the built-in browser on the demo with a real Gemini key: creation, written
+  attempt, correction, summary (2 terms became active, 1 misused), Today link.
+
+### Left / known limits
+
+- `ProductionOut` has no `consolidation_task_id`: the attempt page learns its task from `?task=ID` (D-235). Proposal for the owner: add that field (small, additive) to drop the query string.
+- After a reload the summary shows the groups but not the "now active" marks or the reinforced count (only the correction call returns them, D-237).
+- Not done, absent from the SPEC and not added: statistics on consolidation, regenerating or editing a task, a deadline on a task.
+- The demo database must be at the last migration: the first correction in the browser failed with `table review_log has no column production_attempt_id` on a demo database left at revision `0001`;
+  `demo seed --reset` fixed it. Worth a look: `start.ps1 -Demo` should probably upgrade the demo database.
+- Spoken production and the export download were tested with the fake recorder and a stubbed download only (no real microphone, no Firefox).
+- Style unchanged (the redesign comes after M9).
+
+### Owner's manual scenario (about 5 minutes, with your Gemini key)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/consolidation: "Causal inference reading" and "Campus life" are ready; the other decks say why they are not.
+2. Pick "Talk", 10 terms, "Create a task": after a few seconds the task page opens (with no key, a notice says it was made from a template and why).
+3. "Also show in French" shows the French text under the English one. Write a short text using some of the terms (the example is `content/examples/m7_consolidation.txt`), "Send for correction".
+4. The correction page lists the errors, then "The terms of the task": terms used well are "now active", a misused one is in your error log, the others are "not used". Reload: the groups stay.
+5. Back to the task: it is "Accepted" and has one attempt. "Mark as completed" asks for a confirmation. Download the EN and FR exports.
+6. "Record it": record 20 s or more; the talk is transcribed then corrected on the attempt page.
+7. Settings > Consolidation: change "Share of a deck to consolidate" (0.5 to 1.0). Today shows an "Open the task" link for the open task.
+
+## M7.a2 — Consolidation: productions, correction, `active` status, demo v6 (backend + CLI)
+
+Same branch `feat/m7-consolidation` (after M7.a1). Not pushed. **No migration** (`alembic check`: no operation), no frontend change
+(`git diff --stat 7ffbec6 -- frontend` is empty), no new dependency. Decisions D-229 to D-234. M7 (backend) is complete; the screens are M7.b.
+
+- **Done**: the written production of a task (`POST /api/consolidation/tasks/{id}/attempts/written`) and the spoken one
+  (`POST /api/speech/consolidation`, 20 to 240 s); `/api/productions/{id}/correct` routes them (`production_correction` in `paragraph` mode,
+  `speaking_correction` in `monologue` mode, errors of source `consolidation`); the result is applied to the terms **in the same write transaction** as the
+  correction (terms used correctly become `active`, a term used wrongly gets a FSRS Again, `consolidation.attempt_checked`); CLI `consolidation write | speak`;
+  `production.recorded` version 6; demo v6 (a completed task at day -10 on "Causal inference reading"); `content/examples/m7_consolidation.txt`;
+  live test `tests/live/test_live_consolidation.py`.
+- **Departures from the milestone prompt** (approved plan): see M7.a1, plus: the `consolidation` production kind is used for the spoken talk as well
+  (modality `oral`), so `speech.py` counts its words like free speaking.
+- **Left (not scheduled)**: the screens (M7.b); a "complete the task" action is the user's (`POST .../status {"to": "completed"}`), nothing completes a task by itself.
+- **Known limits**: the AI judges the use of a term; on the example text it called the misused term correct once in seven live passes (D-233). A term used
+  correctly but with an unrelated error tied to it by `target_ref` counts as misused (the rule of the prompt, D-229).
+
+### Demo v6 (measured on seeds 1 to 12, 60 days, anchor 2026-09-01)
+
+- Every seed makes one task on "Causal inference reading" on 2026-08-22 (day -10), 15 terms (the most fragile), one text, one misused term, one or two
+  terms forgotten; 12 to 14 terms become `active` through it (seed 42: 13). The direct switch of the dataset (`fate: active`, day -5) is kept only for the
+  terms that task did not select: seed 42 ends with 14 active terms, 13 of them through the task.
+- At the anchor a deck is ready with no open task in **all twelve seeds** ("Causal inference reading": ratio 0.83 to 1.0, 10 to 16 candidates; "Campus life" is ready too
+  in seeds 1, 2, 4, 6, 9, 12 and 42). Seed 42: Causal 0.90 with 15 candidates, Campus life 0.90 with 9.
+- Seeding takes 5 to 6.5 s on this machine (the 14 to 16 s noted at M6.c1 are not reproduced; not explained).
+
+### Manual scenario of M7 (2 minutes, with your Gemini key)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+uv run python -m app --demo consolidation status                       # "Causal inference reading" is ready
+uv run python -m app --demo consolidation new 1 --count 10             # topic, structure, terms (note the task id)
+uv run python -m app --demo consolidation write <task_id> --file ..\content\examples\m7_consolidation.txt
+uv run python -m app --demo consolidation export <task_id> --lang fr --out $env:TEMP\consolidation.md
+notepad $env:TEMP\consolidation.md
+```
+
+1. `status`: one deck is ready. 2. `new`: the title, the prompt, the sections and ten terms. 3. `write`: the correction, then
+"now active (6)" (the six terms used well), "review card reinforced (1): noisy estimate", "not used (...)". 4. The exported file is ready to paste into a
+voice chat. 5. Without a key (`$env:VOCAB_GEMINI_API_KEY = ""` for the command, or no key in `.env`): `consolidation new` makes the task from a template
+and says so ("made from a template instead"); `write` then says the AI could not correct (exit 1) and keeps the text.
+
+### API reference for M7.b
+
+All under `/api`, errors in the D-063 format. A task is created with the AI (a few seconds) or from a template, never an error because of the AI.
+
+| Route | Request | Answer |
+|---|---|---|
+| `GET /consolidation/decks` | - | one per deck: `{deck_id, name, ready, reason, ratio, stable_cards, productive_cards, threshold_ratio, min_stability_days, candidates (count), open_task_id}`; `reason` is `excluded_kind`, `deck_done`, `task_open`, `no_productive_cards`, `below_ratio` or `not_enough_candidates` |
+| `POST /consolidation/tasks` | `{deck_id, task_type: talk\|speech\|interview_answer, term_count? (8-15), study_session_id?}` | 201 `{status: "ok", source: "ai"\|"template", reason, task}`; 404 `deck_not_found`; 409 `not_ready` (+`reason`), `task_open` (+`task_id`) |
+| `GET /consolidation/tasks` | `deck_id?`, `status?`, `limit`, `offset` | `{items: [task], total, limit, offset}`, newest first |
+| `GET /consolidation/tasks/{id}` | - | `task`; 404 `task_not_found` |
+| `POST /consolidation/tasks/{id}/status` | `{to: accepted\|completed\|dismissed}` | `task`; 409 `invalid_transition` |
+| `GET /consolidation/tasks/{id}/export` | `lang=en\|fr` | `text/markdown; charset=utf-8`, `Content-Disposition: attachment; filename="consolidation-task-<id>-<lang>.md"` |
+| `POST /consolidation/tasks/{id}/attempts/written` | `{text (4000 chars, 40 sentences), study_session_id?}` | 201 a production (`kind: "consolidation"`, `modality: "written"`, `targets` = the terms); 409 `task_closed`; 422 `text_too_long`, `invalid_request` |
+| `POST /speech/consolidation` | raw audio body, `?task_id&duration_s (20-240)&study_session_id` | 201 as `POST /speech/speaking`; 409 `task_closed`; 422 `audio_too_short`, `audio_too_long`; the task prompt is never sent to the recogniser |
+| `POST /productions/{id}/correct` | - | as before; for a consolidation production `CorrectionOut.consolidation` is `{task_id, production_attempt_id, modality, targets, used, used_correctly, misused, absent, activated_item_ids, reinforced_card_ids}` (null while uncorrected or when the AI failed: nothing changed, try again) |
+
+`task` = `{id, deck: {id, name}, status: proposed|accepted|completed|dismissed, task_type, source: ai|template, title, prompt, audience (each `{en, fr}`),
+target_minutes, sections: [{heading, guidance (`{en, fr}`), item_ids}], targets: [{item_id, term, item_status, used_correctly_count}],
+attempts: [{production_id, modality, corrected, created_at}], created_at}`. Terms come without their sheet (read it with `/api/items/{id}` or the library).
+The first attempt makes a `proposed` task `accepted`. The corrected production is read with `GET /productions/{id}` (`feedback`: `correction-1` for written,
+`speaking-1` for spoken, so the M5/M6 correction views apply).
+
+## M7.a1 — Consolidation: readiness, tasks, export (backend + CLI)
+
+Branch `feat/m7-consolidation`, cut from `7ffbec6` (tip of `feat/m6c2-pronunciation-screens`; `main` has no M6). Not pushed. **No migration**, no
+frontend change (`git diff --stat 7ffbec6 -- frontend` is empty), no new dependency. Decisions D-223 to D-228. M7.a2 (written and spoken productions,
+correction, `active` status, demo v6, live tests) is still to do.
+
+- **Done**: pure readiness and selection rules (`app/domain/consolidation.py`), the `consolidation_task` AI task v1 and its template fallback,
+  the service (create, list, statuses, export), `GET /api/consolidation/decks`, `POST|GET /api/consolidation/tasks`, `GET .../tasks/{id}`,
+  `POST .../status`, `GET .../export`, CLI `consolidation status | new | show | export`, two events.
+- **Departures from the prompt** (approved plan): `consolidation_share` reused with bounds 0.5..1.0 instead of `consolidation_ready_ratio` (D-224);
+  reason `deck_done` and code `task_closed` added (D-225).
+- Done in M7.a2: productions, correction, applying the result, `production.recorded` v6, `consolidation.attempt_checked`, demo v6,
+  examples, live tests, API reference for M7.b.
+
+### How to try it (M7.a1, no key needed)
+
+```powershell
+cd backend
+uv run python -m app db upgrade
+uv run python -m app consolidation status
+uv run python -m app consolidation new <deck_id> --count 10   # a template when no key is set
+uv run python -m app consolidation show <task_id>
+uv run python -m app consolidation export <task_id> --lang fr --out $env:TEMP\consolidation.md
+```
+
+A ready deck on the demo database is guaranteed by the demo v6 of M7.a2; until then, build one with your own data.
+
+## M6.c2 — The pronunciation-assessment screens (frontend)
+
+Branch `feat/m6c2-pronunciation-screens`, cut from `c1aba7c` (tip of `feat/m6c-pronunciation`). Not pushed. **No backend change**, no migration,
+no new dependency. Decisions D-219 to D-222.
+
+### Done
+
+- **Settings > Azure card** (`AzureCard.tsx`, D-220): key + region, connection test, the `pronunciation_assessment` checkbox, the month's use, the
+  warnings (audio goes to Microsoft, F0 only, F0 inclusion unconfirmed). Locked on the demo.
+- **WAV 16 kHz mono in the browser** (`speech/wav.ts`, D-219): applied to a new shadowing only when the setting is `azure` and a key is saved.
+  The recorder itself is unchanged.
+- **Scores on the shadowing page** (`AssessmentSection`, `PronunciationView`, D-221): button greyed from `assessable_reason`, overall scores, each word
+  with its error type in words, weakest sounds, "automatic estimate, not a teacher's judgment".
+- **Tests**: 644 Vitest tests (619 before). `npm run check` passes. In the built-in browser (Chromium) a real webm/opus take was converted to a valid
+  WAV 16 kHz mono 16-bit.
+
+### Left / known limits
+
+- **Never run against Azure** (as M6.c1): the answer shape, F0 inclusion and the WAV being accepted are unverified. No real microphone, no Firefox.
+- Recordings made before the setting was turned on cannot be assessed (webm). The discovery's spoken repetition and free speaking are not
+  converted or assessable (out of scope). The assessment of the history list is not shown (detail page only).
+- Seed or demo: the demo scores (v5) show on the demo's shadowing pages; nothing can be sent there.
+
+### Owner's manual scenario (about 5 minutes, needs an Azure F0 key)
+
+1. Settings > "Pronunciation assessment": paste the key and the region (`westeurope`...), Save, "Test connection" (it should say it works).
+2. Tick "Allow pronunciation assessment of shadowings"; the month's use appears (0 min).
+3. Speaking > Shadowing: type a sentence, record it, Send. On the take's page, "Pronunciation" shows "Assess my pronunciation"; click it.
+4. The scores, the words and the weakest sounds appear; the month's use in Settings goes up. Reload: the scores are still there.
+5. Switch the setting off: the next shadowing is recorded as before; the old assessed take still shows its scores.
+
+## M6.c1 — Pronunciation assessment with Azure (backend, optional)
+
+Branch `feat/m6c-pronunciation`, cut from the tip of `feat/m6b-speaking-screens` (`863f39f`), in two parts with a stop between them: **M6.c1a**
+(adapter, gateway, configuration) and **M6.c1b** (service, storage, event, API, CLI, demo, docs). Not pushed. **No migration**, no frontend change
+(`git diff --stat feat/m6b-speaking-screens -- frontend` is empty), no new dependency, no audio file tracked. Decisions D-211 to D-218.
+
+The module is **off by default** (`pronunciation_assessment` = `off`) and the app is unchanged without an Azure key. Screens are M6.c2.
+
+### Done
+
+- **Pure module** `app/domain/pronunciation.py`: `audio_kind` / `audio_problem` (WAV PCM 16 kHz mono 16-bit or OGG Opus mono, from the bytes; webm, m4a
+  and mp3 refused), `audio_duration_s`, `silent_wav`, `summarize`, `weakest_phonemes`, `scores_document` (`azure-pa-1`), dated constants (D-211).
+- **Adapter** `app/ai/providers/azure_speech.py` (no SDK), **gateway capability** `pronunciation_assessment` outside `ai_provider_order`
+  (`Gateway.assess_pronunciation`), `PronunciationAssessmentOutput` (D-212, D-213).
+- **Configuration**: five `.env` variables (key and region written together), `PUT/DELETE /api/ai/providers/azure/credential` with `region`, the
+  setting, the demo guard, `POST /api/ai/test` and `ai test --provider azure`, `speech_providers` in `GET /api/ai/status` (D-214).
+- **Service** `app/services/pronunciation.py` (`assess`, `store_assessment`, `assessable_reason`, `monthly_usage`), storage in
+  `pronunciation_result.scores` in **both write orders**, the event `pronunciation.assessed` (D-215, D-216).
+- **API and CLI**: below. **Demo dataset v5** (D-217): the last 3 shadowings with missed words carry fictional scores.
+- **Tests** (all without network): adapter on a loopback server, gateway, `.env`, API, CLI, service (each refusal with zero calls and zero rows,
+  both orders, second writer during the call, usage), demo. `tests/live/test_live_azure.py` exists and **was not run** (no key, no clip here).
+
+### Left / known limits
+
+- **Never run against Azure.** The answer shape, whether the F0 tier includes pronunciation assessment, the wording of an F0 quota error and the
+  availability of the feature per region are unverified (D-211). The heuristic that reads "quota" in a 403/429 may misclassify (D-213).
+- M6.c2 (the screens) must send WAV 16 kHz mono (or OGG Opus): the browser records webm, which Azure refuses (D-211).
+- Two concurrent assessments of the same production could both pass the last check (microsecond window, no unique index, D-215).
+- Seed time is 14 to 16 s here against 4.5 s at M6.a2b, whatever the number of assessments (D-217); not explained.
+- The owner's manual scenario (below) is still to run.
+
+### API reference for M6.c2 (additions only; nothing existing changes)
+
+- `GET /api/settings` → `pronunciation_assessment: {value: "off"|"azure", choices: ["off","azure"], ...}`; `PATCH /api/settings
+  {"pronunciation_assessment": "azure"}` (409 `demo_read_only` on the demo database).
+- `GET /api/ai/status` → new `speech_providers: [ProviderState]` (Azure: `name`, `capabilities: ["pronunciation_assessment"]`, `configured`,
+  `available`, `models`, `credential_source`, `region`), outside `providers` and `order`.
+- `PUT /api/ai/providers/azure/credential {"value": "<key>", "region": "westeurope"}` (`region` optional once one is stored; 422
+  `region_required` / `invalid_region` / `invalid_credential`); `DELETE` clears both; `POST /api/ai/test {"provider": "azure"}`.
+- `POST /api/productions/{id}/pronunciation` (no body; the recording is sent to Microsoft; a few seconds) → 200
+  `{production_id, status: "ok"|"silence"|"unavailable"|"incomplete", reason, scores}`. Refusals, before any call: 404 `production_not_found`, 422
+  `not_assessable`, 404 `no_audio`, 409 `assessment_disabled`, 409 `already_assessed`, 422 `unsupported_for_assessment`, 422 `audio_too_long`.
+  `unavailable` (`reason`: `no_provider_configured`, `quota`, `auth`, `network`, `timeout`, `all_failed`) and `incomplete` store nothing and can
+  be repeated.
+- `GET /api/productions/{id}`, `GET /api/productions` and the answers of `POST /api/speech/shadowing`, `/speaking` and `/productions/{id}/transcribe`
+  gain `pronunciation: scores | null`, `assessable: bool`, `assessable_reason: null | not_shadowing | no_target | no_audio | disabled |
+  not_configured | already_assessed | unsupported_format | too_long`.
+- `scores` (`format: "azure-pa-1"`): `{provider, model, assessed_at, status: "ok"|"silence", overall: {accuracy, fluency, completeness,
+  pronunciation} (0-100, null on silence), words: [{word, accuracy, error_type: "None"|"Mispronunciation"|"Omission"|"Insertion"|other, offset_ms,
+  duration_ms, phonemes: [{phoneme (IPA), accuracy}]}], duration_s}`. The comparison (`comparison`) of a take is independent and stays; a take assessed
+  before any transcription has `comparison: null` and `transcription_status: "pending"` until it is transcribed.
+- `GET /api/speech/pronunciation/usage` → `{month: "YYYY-MM", audio_seconds, assessments, limit_seconds: 18000, limit_checked_on: "2026-10-24", note}`.
+  Show the note: the scores are an automatic estimate, and F0 inclusion is unverified.
+- Always show: "automatic estimate, not a teacher's judgment", and that the recording goes to Microsoft. Active recall: the scores belong after the
+  attempt (they come from an assessed take).
+- CLI: `speech assess <id>`; `speech shadow --file <clip> --target "<sentence>" --assess`. Exit codes: 0 done (silence included), 1 unavailable, 2
+  usage (setting off, unknown production, refused clip). Output: the four scores, each word with its score and error type, the 5 weakest phonemes.
+
+### How to test (2 minutes, Windows)
+
+1. In `.env`: `VOCAB_AZURE_SPEECH_KEY=` and `VOCAB_AZURE_SPEECH_REGION=` (an **F0** resource, never S0). In `backend`: `uv run python -m app ai status`
+   shows "Pronunciation assessment (azure...): configured".
+2. `uv run python -m app ai test --provider azure` (one second of silence; "ok" even for "no speech").
+3. Turn the setting on: `Invoke-RestMethod -Method Patch -Uri http://127.0.0.1:8000/api/settings -ContentType application/json -Body '{"pronunciation_assessment":"azure"}'`
+   (the app must run) or through the API docs at `/docs`.
+4. Make a WAV with Windows speech: `Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer;
+   $f = New-Object System.Speech.AudioFormat.SpeechAudioFormatInfo(16000, [System.Speech.AudioFormat.AudioBitsPerSample]::Sixteen,
+   [System.Speech.AudioFormat.AudioChannel]::Mono); $s.SetOutputToWaveFile("$env:TEMP\take.wav", $f); $s.Speak("We account for regional
+   fixed effects in all specifications."); $s.Dispose()`.
+5. `uv run python -m app speech shadow --file $env:TEMP\take.wav --target "We account for regional fixed effects in all specifications." --assess`
+   (with a Groq key it is transcribed too; without it, only the scores).
+6. Optional live test: `$env:VOCAB_RUN_LIVE='1'; $env:VOCAB_LIVE_AZURE_AUDIO="$env:TEMP\take.wav"; uv run pytest tests/live/test_live_azure.py -m live -v -s`.
+7. Clean up: `Remove-Item $env:TEMP\take.wav`; remove the two Azure lines from `.env` (or `DELETE /api/ai/providers/azure/credential`) and set the
+   setting back to `off`.
+
+## M6.b2.2 — The spoken answer in the review player (frontend)
+
+Second half of M6.b2, same branch `feat/m6b-speaking-screens` (`git diff --stat e5600ce -- backend` is empty). Two code commits, then the docs.
+**No backend change**, no migration, no new dependency. SPEC.md unchanged. Decisions D-206 to D-210; D-123 and D-117 annotated.
+
+### Done
+
+- **The recorder in two parts** (D-206): `RecorderView` (presentation, takes the object returned by `useRecorder`) and `Recorder` (view + hook,
+  unchanged for its users: its 41 tests did not change). `useClipSender` (own file) holds the 10 MB check shared by the Send button and Enter.
+- **The machine** (D-206): phases `capturing` (microphone open), `captured` (clip ready), `checking_spoken` (`review-answer` running), actions
+  `startCapture`, `captured` (fixes `responseTimeMs`), `discardCapture`, `submitSpoken`, `spokenChecked` (refused outside `checking_spoken`: the
+  same state object), `spokenFailed` (back to `captured`), `spokenFallback` (to `checking`, the reveal of M4.c). The phase `recording` (rating
+  being saved) is not renamed. The result stays a `GradeResult` (`outcome` null, `proposed_rating` only with a correction, `term_not_heard`).
+- **The player** (D-206, D-208): owns `useRecorder('spoken_answer')`; `reviewAnswer()` in `api/speech.ts` (plain function over `apiUpload`, under an
+  `AbortController`); "Checking your answer… n s" (polite status said once), "Skip the check and rate myself" after 5 s; every fallback goes to
+  `reveal` **without** `production_attempt_id`; audio refusals go back to `captured`; `not_due`, `review_not_allowed`, `exercise_mismatch`,
+  `session_closed`, `session_not_found` as for `grade`. `409 production_mismatch` is the existing single resend.
+- **Keys** (D-207): Space starts and stops the take, Enter sends it; `KeyHints` follows the phase; nothing while `checking_spoken`.
+- **The prompt and the result** (D-209): the question alone, no "Show an example" and no `recordingLater` sentence; the result says what was
+  heard (the compact `CorrectionView`), `term_not_heard` in words, the example "one possibility among others", the sheet summary, the suggested
+  rating (1 or 3) or four plain buttons; transcription unavailable or silent and a failed correction are said, and the rating still carries the
+  production. The two-step sentence ("up to about 90 seconds") is under Send and during the wait.
+- **i18n** EN/FR under `review.spoken.*`, `review.keys.record|stop|send`, `review.result.term_not_heard`; `review.prompt.recordingLater` and
+  `review.showExample` removed. CSS: a few lines (`.spoken-answer`).
+- **Tests**: 619 Vitest tests (567 before): `ReviewPlayer.spoken.test.tsx` (41), 10 reducer tests, 2 shortcut tests; two older `spoken_answer`
+  tests rewritten (Space and Enter no longer reveal the example; the card is revealed by "Answer without recording").
+
+### Verified (Windows 11, 2026-10-24)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, pytest green, then typecheck, oxlint `--deny-warnings`, **619 vitest tests**;
+  `npm --prefix frontend run build` passes. `git diff --stat e5600ce -- backend` is empty; `frontend/package-lock.json` untouched.
+- **Checks by breaking the code** (each applied, run, then undone with `git checkout`):
+  - (c) the example answer written into the page while the take is `captured`: `shows nothing of the solution before the answer, in every phase`
+    fails with `expected '<div><div class="shell">…' not to contain 'drill down into'`.
+  - (d) the guard of `submitSpoken` removed from `sendSpoken`: `a double Enter sends one recording` fails with `expected [ … ] to have a length of 1 but got 2`.
+  - (e) the phase guard of `spokenChecked` removed (a late answer accepted after the way out, which would send the production): the reducer test
+    `a late answer, after the way out or in any other phase, changes nothing` fails (`expected { phase: 'answered', … } to be { phase: 'answering', … }`).
+    The player-level test of the late answer did **not** fail by itself: the abort makes the mocked request reject before the late answer, so
+    the reducer is the second line of defence, and its own test is the one that catches the break.
+- **In-app browser**, demo database in a temporary folder (`VOCAB_DATA_DIR`, the four keys emptied; `data/` and `.env` untouched; both servers
+  stopped, ports 5173 and 8000 free): the demo had **no `spoken_answer` card** among today's 18 reviews, so the page replaced the `next` answer
+  by a real card of the database (card 136 / template 274, then 138 / 280) — only that step was substituted, everything else is the real
+  backend. Seen: the question alone and "Space start recording"; a refused microphone (`getUserMedia` rejected in the page): the message, the
+  help, "Answer without recording" as the main button; a real `MediaRecorder` on a synthetic 440 Hz tone (the pane has no microphone):
+  Space to start, Space to stop ("Recording stopped: 0:02", the two-step sentence, "Enter send"), Enter sent a real
+  `POST /api/speech/review-answer?card_id=136&session_id=50&exercise_template_id=274&duration_s=2.03&response_time_ms=30855`; the backend
+  (no AI provider) answered "could not be transcribed: no AI provider is set up", the example appeared, four rating buttons, key 3 saved the
+  review (`review_log` 826: `exercise_type spoken_answer`, `final_rating 3`, `auto_rating` null, `audio_path` filled, `production_attempt_id` set).
+  375 px, EN and FR (second card, same path): `scrollWidth` 375 on the card, the take and the result; dark theme (the browser's).
+  `/speaking/history` lists ids 25, 26 and 31 (and my two test takes), each opens its page, `/writing/31` redirects to `/speaking/31`.
+- **Not verified**: a real microphone and Groq (the "answer ok" path of `review-answer`, with a heard text, a correction and a suggested
+  rating, is tested with mocks only); the 5-second way out and the late answer in a real browser (tests with fake timers only); the degraded
+  mode with a failing provider mid-way.
+
+### Owner's manual scenario (about 2 minutes, with your Groq key and a microphone)
+
+1. `/speaking`: choose a subject, speak for a minute slipping in "I live in campus" and "I study here since two years", Stop, Listen, Send; read
+   the correction and the Structure section; play your recording back from "Your recording".
+2. `/speaking/shadowing`: type or paste a sentence of a usage sheet, record it, then "Play both".
+3. In a session, a `spoken_answer` card if one comes up (the demo has none today; in your own data it depends on the planner): press Space,
+   answer aloud with the term, press Space, press Enter. Read "What the speech recognition heard", the marks, the example answer, the
+   suggested rating; Enter accepts it. Try "Answer without recording" on another card, and with the microphone blocked in the browser.
+
+### Departures from the prompt
+
+- The result's title for what was heard is the correction view's own ("What the speech recognition heard"), not a second "What was heard"
+  heading (they would say the same thing); when there is no correction the heard text is shown by the same view (D-209).
+- `checkFailed` also leaves `checking_spoken` (the blocking refusals); `spokenFallback` takes a nullable notice (nothing to say when the user
+  chose to answer without recording), so no `spoken_declined` notice exists (D-208, D-210).
+- "Start recording" and "Answer without recording" are both primary buttons when the microphone failed (the view has no prop to calm the first).
+- `useClipSender` is its own file (oxlint's fast-refresh rule); `RecorderPanel.tsx` only exports components and the type.
+
+### Left / notes
+
+- M6.c (Azure AI Speech, optional) and the microphone choice in the settings. The owner's manual scenarios. Push and the pull request: with
+  the owner's go-ahead (after PR #21).
+- A card with no `exercise_template_id` shows no recorder (only "Answer without recording"): the server needs the template for `review-answer`.
+
+### Known issues
+
+- "Length: 0:01" shows the whole seconds (1.8 s reads 0:01), as in the other recorders.
+- A real recording of a spoken answer was never made (see "Not verified").
+
+## M6.b2.1 — Free speaking and the `speaking-1` correction (frontend)
+
+First half of M6.b2 (the owner approved the cut with the plan: about 25 files in all). Same branch `feat/m6b-speaking-screens`
+(`git diff --stat e5600ce -- backend` is empty), two commits, then the docs. **No backend change**, no migration, no new dependency. SPEC.md
+unchanged. Decisions D-202 to D-205 (the prompt said "from D-193", which M6.b1 had used up to D-201). The oral answers in reviews are
+**M6.b2.2**, still to do.
+
+### Done
+
+- **`speaking-1` in the correction model** (D-202): `readFeedback` has a third branch (`kind: 'speaking'`, same keys as `correction-1` plus
+  `output.structure`). Errors are grouped under "Part n" ("Passage n" in French). `CorrectionView` titles the text "What the speech
+  recognition heard", adds the note that the correction is about what was heard, and shows the **Structure** section (comment, "Connectors
+  you used", suggestions, French on demand) when `structure` exists; it is absent in answer mode and in the compact view. `correction-1` and
+  `transcript-1` tests are unchanged.
+- **Free speaking** (D-203): `/speaking` (three subjects a day filtered by "Topic theme", your own subject up to 500 characters, or none;
+  recorder 5 to 180 s with the 120 s warning; `POST /speech/speaking` with `duration_s` and `prompt_text`), then `/speaking/:id` with the
+  state `{autoCorrect: true}` (history replaced). `/speaking/:id` runs the correction once, says "Correcting… n s", and tells every refusal
+  (`silence` / `nothing_to_correct`, `not_transcribed`, `already_corrected`, `text_too_long`, an AI failure with its reason and "Try again").
+  `/speaking/history`: 20 per page, the page in the URL, spoken answers of reviews included (the page says so).
+- **Redirects and links** (D-204): `/writing/:id` of a spoken production goes to `/speaking/:id` and back (`replace`), another kind on
+  `/speaking/:id` gets a message and a link to the error log; `productionLink` sends a `speaking` error to `/speaking/:id`; the top bar's
+  "Speaking" points to `/speaking`.
+- **`TopicPicker`** takes a `source` (D-205): the speaking page has its own themes (with "Presenting") and wording; the writing page is
+  unchanged.
+- **Tests**: 567 Vitest tests (525 before): `readFeedback` on `speaking-1` (monologue, answer mode, no key), the Structure section and its
+  French, the new-take page (exact request, history replaced, state consumed, subjects, own subject, no subject, too short, a refusal,
+  an unavailable transcription), the page of one speech (marks, versions, structure; reload without action; `autoCorrect` once even in
+  StrictMode; "Correcting… n s"; `pending` then Transcribe then the correction; `not_transcribed`; silence; `nothing_to_correct`;
+  `text_too_long`; AI failure then "Try again"; incomplete; `already_corrected`; network failure; French; unknown id), the redirects,
+  the history, the top bar, `productionLink`, nothing in the storages or `history.state`.
+
+### Verified (Windows 11, 2026-10-24)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **2 425 pytest passed** (14 live deselected), then the frontend:
+  typecheck, oxlint `--deny-warnings`, **567 vitest tests**; exit code 0. `git diff --stat e5600ce -- backend` is empty.
+- **In-app browser**, on a demo database made in a temporary folder (`VOCAB_DATA_DIR`, the keys emptied through the environment; the
+  repository's `data/` and `.env` untouched; both servers stopped afterwards): a corrected speech (structure, 11 errors in "Part n",
+  versions, French on demand), the silent take ("No speech was heard", "Record again"), the speech not corrected (the transcription, the
+  note, "Correct my speech", then the correction, which the demo's fictional AI answered), the history, the redirect `/writing/31` →
+  `/speaking/31` (a spoken answer), the error log's "Open the text" link → `/speaking/32`, the refused microphone (the message and the help
+  for 127.0.0.1), a real `curl --data-binary @clip.wav -H "Content-Type: audio/wav"` of a 6 s WAV to `/api/speech/speaking` (201; the demo's
+  recogniser calls a tone silence) then its page.
+- **375 px**, EN and FR: no horizontal scroll on `/speaking`, `/speaking/history`, `/speaking/:id` (corrected, not corrected, silent)
+  and `/speaking/shadowing` (`scrollWidth` 375); the top bar wraps to two rows in French, as in D-145. Dark theme (the browser's).
+- **Not verified**: a real microphone and Groq (as in M6.b1), the degraded mode without a key on the correction (the demo has a fictional AI;
+  the unavailable and incomplete answers are covered by the tests), a review error that comes from a spoken answer (the demo logs none: the
+  redirect was checked on the production's id).
+
+### Owner's manual scenario (about 2 minutes, with your Groq key and a microphone)
+
+1. `/speaking`, choose a subject, speak for a minute slipping in "I live in campus" and "I study here since two years", Stop, Listen, Send.
+2. The page of the speech shows "Correcting… n s", then the heard text with the marks, the errors by part, the corrected and the natural
+   versions, and the Structure section. Play your recording back from "Your recording".
+3. Reload the page: nothing starts by itself. Open **My previous speeches** and the error log: an error's link opens the speech.
+4. In a session, a `spoken_answer` card is answered aloud since M6.b2.2 (see its section).
+
+### Departures from the prompt
+
+- The plan's cut in two (b2.1 and b2.2, approved): this section is b2.1 only.
+- Decisions start at D-202, not D-193 (D-201 was the last).
+- The subject is optional (the recorder works without one), a click on "Transcribe" goes on to the correction (the click is the user's
+  action), and `/writing/:id` only gains the redirect for `speaking` (D-203, D-204).
+- `applyCorrectionError` also reads the production again for `not_transcribed` (it did for `already_corrected`).
+
+### Left / notes
+
+- **M6.b2.2**: done (see its section above).
+- M6.c (Azure AI Speech), the microphone choice in the settings. The owner's manual scenarios. Push and the pull request: with the owner's
+  go-ahead (after PR #21).
+
+### Known issues
+
+- The page title of a missing production says "This text does not exist (any more)" (the shared `production_not_found` sentence).
+- A real recording was never made (see "Not verified").
+
+## M6.b1 — The recorder and shadowing (frontend)
+
+Branch `feat/m6b-speaking-screens`, cut from the tip of `feat/m6a2-speaking-correction` (`e5600ce`): `main` does not contain M6.a2
+(`git branch --contains e5600ce` lists only that branch). Not pushed. Three commits in the order of the approved plan: the recorder
+and the upload layer, the shadowing pages, the integrations (discovery, term page, manual error), then the docs. **No backend
+change** (`git diff --stat e5600ce -- backend` is empty), no migration, no new dependency. SPEC.md unchanged. Decisions D-193 to
+D-201; D-117 and D-123 annotated.
+
+### Done
+
+- **Recorder** (D-193): `src/speech/` gets `recorder.ts` (types, bounds, failure reasons), `useRecorder.ts`, `activeRecording.ts`
+  (one recording at a time, cut on a route change) and `RecorderPanel.tsx` (`Recorder`: Start / Stop, "Recording… 0:42" with a red dot
+  and the text, then Listen / Record again / Send). The speech synthesis is cut before the microphone opens; "Listen" is off while
+  recording; every track is stopped at the end, on cancel, on unmount and on a route change; the `blob:` URL is revoked.
+  Bounds: shadowing 0.5 to 30 s, free speaking 5 to 180 s (warning at 120 s), spoken answer 1 to 90 s; over 10 MB refused.
+- **Upload layer** (D-194): `apiUpload`, `api/speech.ts` (types read from the backend, hooks), the spoken fields of `Production`,
+  ten new error codes with their bounds, `incomplete` among the AI reasons.
+- **Shadowing** (D-196): `/speaking/shadowing` (sentence from the navigation state or typed, 1 to 400 code points, Listen and Listen
+  slowly, recorder, Send), `/speaking/shadowing/:id` (recording with `<audio controls>`, "Play both", Transcribe / silence /
+  unavailable and Try again / 409 re-read, comparison), `/speaking/shadowing/history` (20 per page, the page in the URL). "Speaking" in
+  the top bar. The privacy sentence (recording sent to Groq, kept in your data folder) is on every page that sends one.
+- **Comparison** (D-197): `ComparisonView` from the backend's `steps`: Target and Heard rows, marks that always have a text, a summary in
+  words, the list of unrecognised words, the warning that speech recognition is not a pronunciation judge, always shown.
+- **"Play both"** (D-195): the synthetic voice, then the recording; cancellable; `speak()` now reports its end.
+- **Manual error** (D-198): "Log as an intelligibility error" on a substituted word opens `/errors/new` filled in (category
+  `pronunciation.intelligibility`); nothing is created before the click on "Add to my log".
+- **Discovery step 4** (D-199): an optional recording of the sentence on screen (`origin=discovery`, term and session), compact
+  comparison; a failure never blocks the way on. **Term page** (D-200): "Shadow this sentence" on the examples and on the original
+  sentence, inside the revealed sheet.
+- **Tests**: 525 Vitest tests (447 before): the recorder's rules, its five failure reasons, the tracks stopped at the end, on
+  unmount, on cancel while asking and on a route change, the speech cut before recording, the blob URL revoked, the exact body and
+  `Content-Type`, the shadowing pages (every transcription state, "Play both" in order and cancelled), the comparison on hand-made steps,
+  the prefilled manual form, the discovery's optional recording and its failures, nothing in the storages or `history.state`, French.
+
+### Verified (Windows 11, 2026-10-21)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **2 425 pytest passed** (14 live deselected), then the frontend: typecheck, oxlint `--deny-warnings`, **525 vitest tests**; exit code 0. `npm --prefix frontend run build` passes. `git diff --stat e5600ce -- backend` is empty.
+- Break checks, applied then undone (`git checkout` of the file, the tree is clean):
+  - **(a)** both `track.stop()` calls of `useRecorder.ts` replaced by `void track`: **7 tests fail** (the six "microphone is released"
+    tests of `RecorderPanel.test.tsx` and the first test of `ShadowingPages.test.tsx`), all with
+    `AssertionError: expected false to be true`.
+  - **(b)** the `cancelSpeech()` call of `start` removed: **1 test fails**, "cuts the speech synthesis before it records"
+    (`AssertionError: expected 0 to be greater than 0`).
+- **In-app browser**, on a demo database made in a temporary folder (`VOCAB_DATA_DIR`, the keys emptied through the environment; the
+  repository's `data/` and `.env` untouched; the servers were stopped afterwards): the history (6 shadowings, "7 of 8 words recognised"...),
+  a detail (comparison, `<audio>` of 1 s that the server streams, ready state 4), "Play both" (the voice spoke, the clip played to its
+  end, the button went back), "Log as an intelligibility error" (form filled, category label "Intelligibility", router state cleared),
+  the manual-error form, the term page's "Shadow this sentence" on the original sentence (EN and FR); a `curl --data-binary @clip.wav -H
+  "Content-Type: audio/wav"` of a 3 s WAV made with `wave` to `/api/speech/shadowing` (201, no Groq key: `unavailable`,
+  `no_provider_configured`), then its page: "This recording is not transcribed yet" and, after "Transcribe", "The transcription is not
+  available: no AI provider is set up. Your recording is kept." with "Try again".
+- **375 px**, EN and FR: no horizontal scroll on the new pages, the term page and the error form (`scrollWidth` 375); the top bar's
+  seven links wrap to a second row in French ("Oral", "Erreurs", "Réglages"), as D-145 accepted.
+- **Not verified with a real microphone**: the in-app browser blocks the microphone (the permission request stays pending, and
+  "Cancel" works). The refusal state was shown by making `getUserMedia` reject in the page. So what a real `MediaRecorder` produces, its
+  `stop` timing, the browser's microphone indicator going out, a real take transcribed by Groq and the quality of the recording are
+  **untested** (only the fakes and the `curl` clip).
+
+### Owner's manual scenario (about 2 minutes, with your Groq key and a microphone)
+
+1. `.\start.ps1 -Demo` (or without `-Demo` for your data), open **Speaking**. Type "We account for regional fixed effects." Click
+   Listen, then Start recording (allow the microphone for 127.0.0.1 the first time), say it, Stop, Listen, Send.
+2. The page of the take shows the comparison within a few seconds. Click **Play both** (voice then your recording). If a word was
+   missed, "Log as an intelligibility error" opens the form filled in: read it, then add it or leave.
+3. Open a term in the library, **Show the usage sheet**, click "Shadow this sentence" on an example: the field is filled in. Reload the
+   page: it is empty again.
+4. In a session, at a term's "Say it aloud" step, record yourself (optional) and see the compact comparison; "Done, I repeated it" goes on.
+5. Without a Groq key the take is kept and its page says why, with "Try again".
+
+### Departures from the prompt
+
+- The component's file is `RecorderPanel.tsx` (a `Recorder.tsx` collides with `recorder.ts` on Windows, D-193).
+- The reason of an unavailable first transcription travels in the router state to the next page (D-196).
+- The original sentence of a term is displayed in the revealed sheet, with its "Shadow" link (it was only in the edit form, D-200).
+- The discovery keeps the single button "Done, I repeated it" for "Continue" and "Skip" (D-199).
+- Not planned: `useSpeech().speak` returns a boolean and takes `onDone` (D-195); `aiReason.ts` knows `incomplete`.
+
+### Left / notes
+
+- **M6.b2**: free speaking, the `speaking-1` branch of the correction model, spoken answers in the review player (extends D-143, replaces
+  the "nothing is recorded yet" mention of D-123), the redirects between `/writing/:id` and `/speaking/:id`, the "Speaking" link to
+  `/speaking`. `api/speech.ts` already has `useSpeaking`, `useSpeakingTopics` and the `ReviewAnswerOut` type.
+- M6.c (Azure AI Speech), the microphone choice in the settings. The owner's manual scenarios. Push and the pull request: with the
+  owner's go-ahead (after PR #21).
+
+### Known issues
+
+- A real recording was never made in this session (see "Not verified").
+- One full run of the Vitest suite, out of five, showed one failing test that I could not name (a run under load: the next four
+  passed, 525 of 525); the cause is probably a test with a 5 s timeout, not one of the new ones.
+- `history.state` is cleared by a `replace` navigation after the first render, so the router state is briefly in the browser's
+  history until the effect runs (the proposal is a sentence from the sheet, never a recording).
+- The comparison counts these / those as close (D-173, unchanged); the heard text of a substituted word comes from the transcription's
+  tokens, so the manual form may warn "not found in the sentence" if the recogniser's spelling had punctuation inside a word.
+
+## M6.a2b — The demo through the speech services (backend)
+
+Same branch as M6.a2a (`feat/m6a2-speaking-correction`). Commits in the order of the approved plan: injectable file
+names, the speech flows in the caller's transaction, the atomic `audio-demo/`, the fictional AI and the clips with
+dataset v4, the simulation (and `direct_writes.py` deleted), the docs. **No migration** (`alembic check`: no new
+upgrade operation), **no frontend change**, no new dependency, no new setting. SPEC.md unchanged. Decisions D-187 to
+D-192; D-035 closed, D-169 annotated.
+
+### Done
+
+- **Names** (D-187): `AudioStore(root, names=...)`, `uuid4().hex` by default; a name must be 32 hexadecimal
+  characters. The demo draws its names from its seed: same seed, same `audio_path`.
+- **The speech flows in the caller's transaction** (D-189): `speech.store_recording`, `speaking.store_speaking`,
+  `spoken_review.store_spoken_answer` (with an injected corrector): the same checks, a given transcription, no AI call,
+  no commit. The AI paths are unchanged.
+- **Atomic `audio-demo/`** (D-188): the clips are written into `audio-demo.tmp-<pid>/`; the old folder is set aside,
+  the database replaced, the new folder moved in, the old one deleted. A failure leaves the previous database and
+  recordings intact; on Windows a recording or the database held open is reported and changes nothing.
+- **Fictional AI and clips** (D-190): transcriptions (segments, a silent take), mishearings of 0 to 2 words, spoken
+  corrections validated by `SpeakingCorrectionOutput` and its real context; provenance `demo`, `demo-speaking-v1`,
+  model `demo-transcription-v1`; one-second WAV clips made with `wave` (`app/demo/clips.py`).
+- **Dataset v4 and the history** (D-191): free speeches recorded, transcribed and corrected (errors of source
+  `speaking`), shadowings of the terms' original sentences through the real comparator, every `spoken_answer` review
+  checked by `store_spoken_answer` then recorded with its `production_attempt_id`, and in the last session a silent
+  take and a speech not corrected yet. `app/demo/direct_writes.py` is deleted (`grep -r direct_writes backend` is
+  empty). Seed 42 over 60 days: 17 recordings (6 corrected free speeches, 3 spoken answers, 6 shadowings with 8
+  unrecognised words, 1 silent take, 1 speech not corrected).
+- **Tests**: 2 425 backend tests (2 335 after M6.a2a): `test_audio_store.py` (names), `test_speech_service.py`,
+  `test_speaking_service.py`, `api/test_spoken_review_api.py` (the caller's-transaction flows), `test_demo_seed.py`
+  (the swap, a failing build, a recording and a database in use on Windows), `test_demo_fictional_ai.py`
+  (transcriptions, mishearings checked by the comparator, spoken corrections, clips), `test_demo_data.py` (every
+  recording has its file, free speeches, shadowings, spoken answers linked, playback through the API).
+
+### Verified (Windows 11, 2026-10-21)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **2 425 pytest passed** (14 live deselected),
+  then the frontend: typecheck, oxlint `--deny-warnings`, 447 vitest tests. Exit code 0. `alembic check` on a fresh
+  database: no new upgrade operation. `git diff --stat feat/m6a1-recordings-transcription -- frontend` is empty;
+  `git ls-files | grep -E '\.(wav|webm|mp3|m4a|ogg|flac|opus|aac|mp4)$'` is empty; `grep -r direct_writes backend`
+  finds nothing (after `ruff clean`; `.venv` aside).
+- **Seed time**, 60 days, seed 42, three fresh runs: 4.4 to 4.6 s (4.3 s before M6.a2b on this machine; target 7 s).
+- **Seeds 1 to 12** (60 days): 13 to 24 recordings, 5 or 6 shadowings with 3 to 9 unrecognised words, one silent take
+  each, every spoken answer linked; seed 2 has no `spoken_answer` review.
+- **CLI on a temporary data folder** (`VOCAB_DATA_DIR`): `demo seed --anchor 2026-09-01` prints "Dataset v4" and
+  "Recordings: 17 files in ...udio-demo" (exit 0); again without `--reset`: refused, nothing changed; with
+  `--reset`: rebuilt, `audio-demo/` replaced, no `.tmp-` or `.old-` folder left.
+- **Real server** (`python -m app --demo`, port 8765, that folder): `/api/health` says `demo: true`;
+  `GET /api/productions?kind=shadowing` lists 6 shadowings (one: "previous studies" heard "previous study", reported
+  as unrecognised); `?kind=speaking` lists 11; `GET /api/productions/{id}/audio` answers 200 `audio/wav` with
+  `accept-ranges: bytes`.
+- Not run by me: `start.ps1 -Demo` with the browser, and the owner's scenario below.
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+1. Stop the app if it runs. In `backend`: `uv run python -m app demo seed --reset`. The summary says "Dataset v4" and
+   "Recordings: N files in ...\data\audio-demo" (17 for seed 42 and the anchor 2026-09-01; about as many with
+   today's anchor).
+2. At the root: `.\start.ps1 -Demo` (or `start.cmd -Demo`). The app opens with the "Demo data" badge.
+3. Open `http://127.0.0.1:8000/docs`:
+   - `GET /api/productions` with `kind=speaking`: free speeches (`audio_url`, `transcription_status: ok`, a
+     `speaking-1` feedback), spoken answers (their prompt is the card's question), one `silence` and one speech without
+     feedback (not corrected yet);
+   - `GET /api/productions` with `kind=shadowing`: five or six shadowings, each with a `comparison` whose `unrecognized` lists
+     0 to 2 words;
+   - `GET /api/productions/{id}/audio` with one of the ids: the response is a short WAV (one second of a soft tone, or
+     of silence for the silent take). Every clip lasts one second whatever `audio_seconds` says (D-190).
+4. While the app runs, `uv run python -m app demo seed --reset` is refused ("the file is in use"), and nothing changes.
+
+### Departures from the prompt (for the whole of M6.a2)
+
+- **M6.a2a** (see its section): 180 s and the SPEC sentence; `/correct` of a spoken answer in `answer` mode with the
+  source `review`; silence as `unavailable` / `silence`; `review_log.audio_path`; `sentence_production` refuses a spoken
+  production; the early checks also for the shadowing; 4 500 characters per corrected unit; `production.corrected` v2
+  for every kind; and, not planned (D-186): the solution always returned by `review-answer`, `text_too_long` for an
+  over-long spoken answer, the checks run three times, a private `_recorded_origin`, the prompt edited in place.
+- **M6.a2b**, approved with the plan: the demo uses the speech flows in the caller's transaction, not the entry points
+  that commit (D-189); the old `audio-demo/` is set aside **before** the database is replaced (D-188); `audio_dir`
+  instead of `audio_store`, `AudioStore.clear()` removed; the transcription version in `model`; "every oral
+  production has a file" read as every `speaking` and `shadowing` production (a pasted transcript is `oral` without a
+  recording); a failed spoken answer leaves the term out (no confusion error); the last session's silent take and
+  uncorrected speech; one-second clips with realistic declared durations.
+- **M6.a2b**, not in the plan: `demo seed` prints the number of recordings; two assertions of `test_demo_data` follow
+  the new rows (a spoken answer's proposed rating, a spoken production's word count).
+
+### Left / notes
+
+- M6.b1, M6.b2 (screens), M6.c (Azure). The owner's manual scenarios. Push and the pull request: with the owner's
+  go-ahead (after PR #21).
+
+### Known issues
+
+- The demo's clips last one second whatever `audio_seconds` declares (D-190).
+- With some seeds no `spoken_answer` review happens in 60 days (seed 2 of 1 to 12); the default seed 42 has three.
+- If a program opens an old demo recording between the two renames of the swap, `rmtree(ignore_errors=True)` leaves
+  it in `audio-demo.old-<pid>/` (harmless, deleted by hand).
+- Those of M6.a2a below still hold.
+
+## M6.a2a — Corrected free speaking and spoken answers in reviews (backend)
+
+Branch `feat/m6a2-speaking-correction`, cut from the tip of `feat/m6a1-recordings-transcription` (`067feed`; M6.a1 is
+PR #21, not merged into `main`). Commits in the order of the approved plan: the domain, the AI task, the store refactor
+(`production.corrected` v2), free speaking and its topics, a test update (`production.recorded` v5), spoken answers in
+reviews, the CLI and the live tests, the prompt tuned against the real model, the docs. **No migration** (`alembic
+check`: no new upgrade operation), **no frontend change**, no new dependency, no new setting. SPEC.md: one sentence in
+module F ("up to 3 accepted", approved with the plan). Decisions D-178 to D-186; D-101 updated.
+
+### Done
+
+- **Domain** (D-179): `RecordingKind` and its duration bounds (shadowing 0.5 to 30 s, free speaking 5 to 180 s, spoken
+  answer 1 to 90 s), `MAX_SPEAKING_CHARS = 4000`, `speech_units` (at most 40 units of whole consecutive sentences,
+  balanced, exact positions); `production_rating` reads `speaking-1` (term not heard: no rating, `term_not_heard`);
+  `domain/topics.py` shared by the writing and the speaking topics.
+- **AI task** `speaking_correction` v1 (D-180): spoken rules (hesitations, false starts, self-corrections, the
+  recogniser's spelling and homophones ignored; register and discourse only when clearly wrong; the rest goes in
+  `structure`); `SpeakingCorrectionOutput` inherits every validator of `production_correction` and adds `structure`
+  (comment, connectors found in the text, suggestions), required for a monologue. `production_correction` unchanged.
+- **Store** (D-181): `format: "speaking-1"` with the keys of `correction-1` and `output.structure`; spoken errors dated
+  at the recording; `production.corrected` v2 with `kind`.
+- **Free speaking** (D-182): `POST /api/speech/speaking`, then `POST /api/productions/{id}/correct`; checks before the
+  file is written and again in the transaction; `word_count` = the words heard; `production.recorded` v5 (origin
+  `speaking`); refusals `not_correctable`, `already_corrected`, `not_transcribed`, `nothing_to_correct`,
+  `text_too_long`; `GET /api/speaking/topics` and `content/speaking_topics.yaml` (26 fictional topics, EN and FR).
+- **Spoken answers in reviews** (D-183): `POST /api/speech/review-answer` (every refusal before any write and any AI
+  call, then three short transactions: recording, transcription, correction in `answer` mode); `POST /api/reviews`
+  takes the production back for `spoken_answer`, computes `auto_rating` again, fills `review_log.audio_path`, refuses
+  (409 `production_mismatch`) a production of another kind or a free speech.
+- **CLI** (D-184): `speech speak --file <clip> [--prompt] [--duration] [--no-correct]`, `speech correct <id>`.
+- **Examples** (fictional): `content/examples/m6_speaking.txt` (three errors among hesitations and a self-correction)
+  and `m6_speaking_clean.txt` (correct).
+- **Tests**: 2 335 backend tests (2 230 before): `test_speaking_domain.py`, `ai/test_speaking_correction_schema.py`
+  (every validator rejected, repaired once, then `incomplete`), `test_correction_store.py`, `api/test_speaking_api.py`,
+  `test_speaking_service.py`, `api/test_spoken_review_api.py`, `test_cli_speaking.py`, `api/test_guard.py` (+4),
+  `api/test_session_api.py` (the anti-leak walk calls `review-answer`), and `tests/live/test_live_speaking.py` (off by
+  default, 3 tests). `production_correction`'s tests are not modified.
+
+### Verified (Windows 11, 2026-10-20)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **2 335 pytest passed** (14 live deselected),
+  then the frontend: typecheck, oxlint `--deny-warnings`, 447 vitest tests. Exit code 0. `alembic check`: no new
+  upgrade operation. `git diff --stat feat/m6a1-recordings-transcription -- frontend` is empty;
+  `git ls-files | grep -E '\.(wav|webm|mp3|m4a|ogg|flac|opus|aac|mp4)$'` is empty.
+- **Live, with the owner's keys** (D-185): `test_live_speaking.py` three passes, 2 passed and 1 skipped (the audio test
+  without a clip) each time; the example gave exactly its three codes in 9 of 9 runs after the prompt was tuned, the
+  clean text 0 errors in 7 of 7; the two M5.a1 live tests pass. **Audio pass** with a synthetic clip of
+  `m6_speaking.txt` (Windows System.Speech, voice Zira, 33 s, in a temporary folder, never committed): Groq answered a
+  real `verbose_json` (duration 33.08 s), the correction gave the three codes.
+- **CLI on a temporary database** (`VOCAB_DATA_DIR` in a temporary folder, `db upgrade`): `speech speak` on the clip
+  without `--duration` (Groq measured 33.08 s; three `speaking` errors, the structure and the "what was heard" note;
+  exit 0); `errors list` shows them; with `VOCAB_GROQ_API_KEY` emptied: without `--duration` nothing is stored (exit
+  2), with `--duration 40` the production is kept and the message gives `speech transcribe 2` then `speech correct 2`
+  (exit 1); `speech correct 2` before the transcription: "transcribe it first" (exit 2); with the key back
+  `speech transcribe 2` (exit 0), `speech correct 2` (three errors, exit 0), again: "already corrected" (exit 2);
+  `--demo speech speak --duration 33 --no-correct` after `demo seed --days 7` writes into `audio-demo/` (exit 0).
+- Not run by me: a recording of the owner's own voice, and the owner's scenario below.
+
+### Owner's manual scenario (about 2 minutes)
+
+1. With the **Windows Sound Recorder** (Enregistreur vocal), record 30 to 60 s reading
+   `content/examples/m6_speaking.txt` aloud, hesitations included. It saves an `.m4a` file.
+2. In `backend`: `uv run python -m app speech speak --file "<path to the .m4a>" --prompt "Describe where you study and
+   for how long."` It prints what Groq heard, the errors (expect "in campus", "since two years" and "never presented",
+   unless Whisper smoothed one over), the more natural version and the comment on the structure.
+3. `uv run python -m app errors list`: the errors are there with the source `speaking`.
+4. Without a Groq key (comment out `VOCAB_GROQ_API_KEY` in `.env`): the same command plus `--duration 40` keeps the
+   recording and says `unavailable`; put the key back, then `uv run python -m app speech transcribe <id>` and
+   `uv run python -m app speech correct <id>`.
+5. Optional: `$env:VOCAB_RUN_LIVE='1'; $env:VOCAB_LIVE_AUDIO='<path to the .m4a>'; uv run pytest
+   tests/live/test_live_speaking.py -m live -v -s` (not `test_live_speech.py` with this clip: it takes at most 30 s).
+
+### API reference for the screens (M6.b2)
+
+| Route | Request | Success |
+|---|---|---|
+| `POST /api/speech/speaking` | body: the recording (types and 10 MB as the shadowing); query: `duration_s` (5 to 180), `prompt_text?` (at most 500), `target_item_ids?` (repeated, at most 15), `study_session_id?` | 201 `SpeechOut` (`comparison: null`) |
+| `POST /api/productions/{id}/correct` | none, for a `speaking` production | 200 `CorrectionOut`, `attempt.feedback.format = "speaking-1"` |
+| `GET /api/speaking/topics?count=3&tag=` | `count` 1 to 10; `tag`: `interview`, `presenting`, `academic`, `data_science`, `everyday`, `campus` | 200 `[{id, en, fr, tags}]` |
+| `POST /api/speech/review-answer` | body: the recording; query: `card_id`, `session_id`, `exercise_template_id`, `duration_s` (1 to 90), `response_time_ms` (>= 0) | 200 `ReviewAnswerOut` |
+| `POST /api/reviews` | as before, plus `production_attempt_id` = the `review-answer` production for a `spoken_answer` | 200 `RecordOut` |
+
+`speaking-1` = the `correction-1` keys (`output.sentences` are the units, `spans` code points into `text`,
+`error_event_ids`, `targets`) and `output.structure` = `{comment_en, comment_fr, connectors_used: [], suggestions:
+[{text_en, text_fr}]}` (null in `answer` mode is allowed). `ReviewAnswerOut` = `{production_attempt_id, transcription:
+{status: ok | silence | unavailable, text|null, reason|null}, status: ok | incomplete | unavailable, reason|null,
+feedback|null, errors: [ErrorOut] (source review), proposed_rating: 1 | 3 | null, warnings: [] | ["term_not_heard"],
+solution: {example_answer}, sheet_summary|null}`; `reason` is a transcription reason (`no_provider_configured`,
+`quota`, `network`, `auth`, `timeout`, `all_failed`, `incomplete`), `silence`, `text_too_long`, or the correction's.
+A spoken production in `ProductionOut` has `kind: speaking`, `audio_url`, `transcription_status` and `comparison: null`;
+`GET /api/productions?kind=speaking` lists them (spoken answers included: their prompt is the card's question).
+Errors: 409 `not_transcribed`, `already_corrected`, `not_due`, `review_not_allowed`, `session_closed`,
+`production_mismatch` (`POST /reviews`); 422 `not_correctable`, `nothing_to_correct`, `text_too_long`,
+`invalid_production`, `exercise_mismatch`, `audio_empty`, `audio_too_short` / `audio_too_long` (+ `min_s`, `max_s`);
+404 `card_not_found`, `session_not_found`, `item_not_found`; 413 `audio_too_large`; 415 `unsupported_audio`.
+The screens must say that the correction is about what the recogniser heard; `review-answer` makes two AI calls
+(allow about 90 s); the example answer is shown only from its answer (active recall).
+
+### Departures from the prompt
+
+- Approved with the plan: 180 s and the SPEC sentence; `/correct` of a spoken answer in `answer` mode with the source
+  `review`; silence as `unavailable` / `silence`; `review_log.audio_path`; `sentence_production` refuses a spoken
+  production; the early checks also for the shadowing; 4 500 characters per corrected unit; `production.corrected` v2
+  for every kind; the demo fingerprint changes.
+- Not planned (D-186): `review-answer` always returns the solution once the recording exists; `unavailable` /
+  `text_too_long` for an over-long spoken answer; the review checks run three times through `speech.Check`; a private
+  `_recorded_origin` in `review_flow` (import cycle); the prompt was edited in place (v1 never released, D-185).
+
+### Left / notes
+
+- **M6.a2b** (next, D-178): the demo through the services (spoken productions, answers and their fictional
+  corrections), dataset v4, `direct_writes.py` removed, D-035 closed.
+- M6.b1, M6.b2 (screens), M6.c (Azure). The owner's manual scenarios. Push and the pull request: with the owner's
+  go-ahead (after PR #21).
+
+### Known issues
+
+- The correction is about what Whisper heard: a mistake it smoothed over is not reported, a misheard word may be
+  (the prompt asks to ignore likely homophones). The synthetic clip kept every mistake; a human voice is untested.
+- The model's corrected text sometimes keeps the fillers ("Um, so, ...") although the prompt asks to leave them out.
+- In `--demo`, the hint after a failure gives the command without `--demo` (as in M6.a1).
+- A lite model is not deterministic: 9 of 9 and 7 of 7 runs were right, but a run may still miss or over-report.
+
+## M6.a1 — Recordings, transcription and word-by-word comparison (backend)
+
+Branch `feat/m6a1-recordings-transcription`, cut from `main` (`7904aa3`), with the "Current state" fix of `docs/m5-wrap-up`
+cherry-picked first. Then one commit per step (the domain, the gateway, the store and the service, the API, the CLI and
+the demo), a test update, a CLI fix and the docs. **No migration** (`alembic check`: no new upgrade operation), **no frontend change**, no new dependency,
+no new setting. SPEC.md unchanged. Decisions D-168 to D-177.
+
+### Done
+
+- **Comparator** (`domain/speech_compare.py`, `speech-compare-1`, D-173): words cleaned as in the grading (D-102),
+  contractions (it's = it is = it has, don't = do not, 'd = would or had, John's = Johns...), numbers 0 to 100 in words
+  or digits, % / percent / per cent, hyphens (well-known = well known, e-mail = email); minimal and deterministic
+  alignment by dynamic programming with backtracking: `match` (also k:l merges), `close` (counted as recognised),
+  `substituted`, `missing`, `extra`; `unrecognized` with positions and what was heard; `word_accuracy`. **The `close`
+  rule chosen by the owner**: a British / American spelling, or one edit on a target word of 5 letters or more, except
+  on the first letter or for a final -s / -d.
+- **Rules** (`domain/speech_rules.py`): 10 MB, target 400 characters, duration bounds per production kind (shadowing
+  0.5 to 30 s), Whisper's silence rule (`no_speech_prob > 0.6` and `avg_logprob <= -1.0` on every segment).
+- **Gateway** (D-171, D-172): Groq Whisper asked for `verbose_json`, read tolerantly; `TranscriptionOutput` gains
+  `duration_s` and `segments`; `Gateway.transcribe` unchanged and still without a prompt. Whisper free limits checked
+  again: unchanged.
+- **Storage** (`app/speech/audio_store.py`, D-169): `data/audio/YYYY/MM/<uuid4>.<ext>` (`data/audio-demo/` in demo mode),
+  atomic write, paths resolved only inside the folder; `demo seed` empties `audio-demo/`.
+- **Service** (`services/speech.py`): validation, file, a short transaction (production `shadowing` / `oral`, target,
+  `text=""`, `word_count=0`, `production.recorded` v4; the file is deleted if it fails), transcription with no session
+  open and never with the target as a prompt, then a short transaction (text, `pronunciation_result`,
+  `production.transcribed`, `pronunciation.checked`). Silence stores no text and no comparison; an AI failure stores
+  nothing more and can be retried. **No error is ever created from the comparison** (D-174).
+- **API** (D-170, D-175): `POST /api/speech/shadowing` (raw body), `POST /api/productions/{id}/transcribe`,
+  `GET /api/productions/{id}/audio` (streamed, `Range` answered); `ProductionOut` gains `audio_url`, `audio_seconds`,
+  `transcription_status`, `comparison`. The API guard accepts an `audio/*` body under `/api/speech/` only.
+- **CLI** (D-176): `speech shadow`, `speech transcribe`, `speech compare`; `--demo` uses `data/audio-demo/`.
+- **Events** (open set, no migration): `production.recorded` v4 (`shadowing` origin), `production.transcribed`,
+  `pronunciation.checked`, with no text in their payloads.
+- **Privacy**: `.env.example` and the README say recordings sent to Groq leave the machine and stay in `data/`; the CI
+  refuses `flac`, `opus`, `aac`, `mp4` files too.
+- **Tests**: 2 230 backend tests (1 951 before): `test_speech_compare.py` (tolerances, close, properties on 500 random
+  pairs), `test_speech_rules.py`, `test_audio_store.py`, `test_speech_service.py`, `api/test_speech_api.py`,
+  `api/test_guard.py` (+9), `test_cli_speech.py`, `test_demo_seed.py` (+3), the Groq adapter and gateway tests (+20), and
+  `tests/live/test_live_speech.py` (off by default); `api/test_transcripts_api.py` now expects `production.recorded` v4. Every
+  clip is made in memory with `wave`.
+
+### Verified (Windows 11, 2026-10-18)
+
+- `npm run check` from the root: ruff and `ruff format --check` clean, **2 230 pytest passed** (11 live deselected),
+  then the frontend: typecheck, oxlint `--deny-warnings`, 447 vitest tests. Exit code 0. `alembic check`: no new upgrade
+  operation. `git ls-files | grep -E '\.(wav|webm|mp3|m4a|ogg|flac|opus|aac|mp4)$'` is empty.
+- **On a temporary database, no key** (`VOCAB_DATA_DIR` in a temporary folder, keys emptied): `speech compare "We account
+  for regional fixed effects." "we account for regional fix effect"` flags `fixed -> fix` and `effects -> effect` (4 of
+  6, exit 0); `speech shadow` with a WAV made by `wave` and `--duration 2` keeps the production and prints
+  `unavailable (no_provider_configured)` (exit 1), the file is under `data/audio/2026/10/`; the same without
+  `--duration` stores nothing (exit 2). Through a `TestClient`: `GET /api/productions/1/audio` gives the same bytes as
+  `audio/wav`, `Range: bytes=0-9` gives 206; `GET /api/productions?kind=shadowing` shows `audio_url`, `audio_seconds`,
+  `transcription_status: pending`; `POST /api/productions/1/transcribe` answers 200 `unavailable`.
+- Not run by me: a real transcription (no Groq key here, no recording of the owner's voice), so the real `verbose_json`
+  answer is still unseen (read from the documentation; the live test checks it); the owner's scenario below.
+
+### Owner's manual scenario (about 2 minutes)
+
+1. With the **Windows Sound Recorder** (Enregistreur vocal), record yourself saying "We account for regional fixed
+   effects in all specifications." It saves an `.m4a` file (in `Documents\Sound recordings`, or `Enregistrements audio`).
+2. With your Groq key in `.env`, in `backend`: `uv run python -m app speech shadow --file "<path to the .m4a>" --target
+   "We account for regional fixed effects in all specifications."` It prints the duration measured by Groq, the
+   transcription, the words not recognised and the path of the file under `data\audio\YYYY\MM\`. Open that folder: the
+   file is there. At the root, `git status` does not show it.
+3. Without a Groq key (comment out `VOCAB_GROQ_API_KEY` in `.env`): the same command plus `--duration 4` records the
+   production and says the transcription is `unavailable (no_provider_configured)`; put the key back and run
+   `uv run python -m app speech transcribe <id>`.
+4. Without AI: `uv run python -m app speech compare "We account for regional fixed effects." "we account for regional fix
+   effect"`.
+5. Optional, the live test with your clip: `$env:VOCAB_RUN_LIVE='1'; $env:VOCAB_LIVE_AUDIO='<path to the .m4a>'; uv run
+   pytest tests/live/test_live_speech.py -m live -v -s`.
+
+### API reference for the screens (M6.b1)
+
+| Route | Request | Success |
+|---|---|---|
+| `POST /api/speech/shadowing` | body: the recording, `Content-Type` = its type (`audio/webm`, `audio/ogg`, `audio/mp4`, `audio/x-m4a`, `audio/wav`, `audio/x-wav`, `audio/mpeg`; `;codecs=...` allowed), at most 10 MB; query: `target_text` (1 to 400 characters), `duration_s` (0.5 to 30), `item_id?`, `origin?` (`shadowing` default, `discovery`), `study_session_id?` | 201 `SpeechOut` |
+| `POST /api/productions/{id}/transcribe` | none | 200 `SpeechOut` |
+| `GET /api/productions/{id}/audio` | `Range` allowed | 200 or 206, the file, type from its extension |
+
+`SpeechOut` = `{production_id, audio_url, audio_seconds, transcription: {status: ok | silence | unavailable, text|null,
+reason|null}, comparison|null}`; `comparison` = `{version, word_accuracy (4 decimals), target_word_count,
+heard_word_count, recognized_count, unrecognized: [{position, word, heard|null}], steps: [{op: match | close |
+substituted | missing | extra, target_start, target_end, heard_start, heard_end, target|null, heard|null}]}`.
+`reason` is `no_provider_configured`, `quota`, `network`, `auth`, `timeout`, `all_failed` or `incomplete`.
+`ProductionOut` (list and detail) gains `audio_url|null`, `audio_seconds|null`, `transcription_status` (`pending` |
+`ok` | `silence` | null) and `comparison|null`; `GET /api/productions?kind=shadowing` lists the shadowings.
+Errors: 413 `audio_too_large` (+ `max_bytes`); 415 `unsupported_audio` (an audio type not accepted),
+`unsupported_media_type` (not audio at all, from the guard); 422 `invalid_request`, `audio_empty`, `audio_too_short` /
+`audio_too_long` (+ `min_s`, `max_s`), `invalid_target`, `no_audio` (transcribe); 404 `item_not_found`,
+`session_not_found`, `production_not_found`, `no_audio` (playback); 409 `session_closed`, `already_transcribed`.
+The screen must say that speech recognition is not a pronunciation judge (SPEC module F), and must not show the
+target before the user has tried, where the exercise needs it (active recall).
+
+### Departures from the prompt
+
+- `production.transcribed` also carries `model` and `ai_call_id` (as `production.corrected`); `ProductionOut` also gains
+  `transcription_status` (D-175). Approved with the plan.
+- Groq's `duration`, when present, replaces `audio_seconds` after the transcription; silence is also detected from the
+  segments (D-171). Approved with the plan.
+- The guard accepts `audio/*` under `/api/speech/` (D-170) and the CI list gains four extensions (D-177). Approved with
+  the plan.
+- Not in the milestone: the code `duration_required` (422, CLI path only), the extras `min_s` / `max_s` / `max_bytes` on
+  the errors, and a README paragraph.
+
+### Left / notes
+
+- M6.a2, M6.b1, M6.b2, M6.c (D-168). Local transcription (faster-whisper) to propose later; audio backup in M10.
+- The first real `verbose_json` answer: run the live test once with a clip (scenario step 5).
+- The owner's manual scenarios (M2.c2 to M5.c2) and the one above. Push and the pull request: with the owner's go-ahead.
+
+### Known issues
+
+- The comparator counts these / those and quite / quiet as close (one edit apart), and does not know homophones
+  (their / there), numbers above a hundred in words or ordinals (D-173).
+- The target sentence is a query parameter, so it shows in uvicorn's console access log (not a secret, D-170).
+- `demo seed` cannot delete a demo recording another program holds open on Windows; it stays in `audio-demo/` (D-169).
+- `audio_url` is given whenever a path is stored; a file deleted by hand gives 404 `no_audio` on playback (D-169).
 
 ## M5.a3 — Cards from errors, recurring errors, the demo through the services (backend)
 
@@ -97,9 +1294,7 @@ card per error, approved). Decisions D-163 to D-167.
 ### Left / notes
 
 - **The screens** for cards from errors and suggestions (not planned yet: "M5.d"), and an undo for a dismissal.
-- **The M5.c pull request** (frontend only): this branch is cut from its tip, so open M5.c's PR first, then this one
-  (backend, `content/demo`, docs); `docs/PROGRESS.md` and `docs/DECISIONS.md` will need a textual merge if both are
-  based on `main`.
+- The pull requests: done, M5.c as PR #18 then this branch as PR #19, both merged into `main` on 2026-10-18.
 - **M6**: speaking, which removes the last direct write of the demo.
 - The owner's manual scenarios (M2.c2 to M5.c2) and the one above.
 
@@ -2057,14 +3252,13 @@ holds the HTTP foundation, Groq (text + Whisper), Ollama and the CLI; Gemini is 
 
 - None known.
 
-## Next step: M5.c2, then M5.a3
+## Next step: M6 (speaking)
 
-- **M5.c2** (frontend): the drills screens (`/drills`, `/drills/:id`), the "Practise now" link of `practice_info` and of
-  the Today card, "Practise this category", and the `drill` link of the error log (D-151).
-- **M5.a3** (backend): cards made from errors, suggestions for recurring errors, the demo's errors through the
-  services (D-138).
-- Before or alongside: the owner's real calls (M2.c2, M3.c3, M5.a1, M5.a2, M5.b1, M5.b2 and M5.c1 scenarios) and the
-  D-056 "to confirm" list.
+- M5.c2 and M5.a3 are done and merged (PR #18, PR #19); see "Current state" at the top.
+- **M6** (module F): see SPEC section 9 and "Current state". "M5.d" (screens for cards from errors and suggestions) is
+  left unscheduled.
+- Before or alongside: the owner's real calls (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1 and M5.c2
+  scenarios) and the D-056 "to confirm" list.
 - The demo database stays without `ai_call_log` rows until a later milestone decides how to simulate them.
 
 ## M0 — Foundation ✅

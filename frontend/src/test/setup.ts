@@ -6,6 +6,7 @@ import { afterEach, beforeEach } from 'vitest'
 
 import i18n from '../i18n'
 import { cancelSpeech } from '../speech/useSpeech'
+import { uninstallFakeRecorder } from './fakeRecorder'
 import { uninstallFakeSpeech } from './fakeSpeech'
 
 beforeEach(async () => {
@@ -17,4 +18,5 @@ afterEach(() => {
   cleanup()
   cancelSpeech()
   uninstallFakeSpeech()
+  uninstallFakeRecorder()
 })

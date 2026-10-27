@@ -8,7 +8,7 @@ import { GradeResult } from '../discovery/GradeResult'
 import { describeError } from '../settings/errorMessage'
 import { aiReasonText } from '../settings/aiReason'
 import { CorrectionView } from '../writing/CorrectionView'
-import type { CheckNotice, ProductionCheck } from './reviewMachine'
+import type { CheckNotice, ProductionCheck, SpokenCheck } from './reviewMachine'
 import { text } from './stepText'
 
 const CHOICE_TYPES = ['recognition_in_sentence', 'listening_comprehension']
@@ -66,8 +66,51 @@ function NoticeText({ notice }: { notice: CheckNotice }) {
     case 'failed':
       message = t('review.aiCheck.notice.failed', { error: describeError(t, notice.error).text })
       break
+    case 'spoken_skipped':
+      message = t('review.spoken.notice.skipped')
+      break
+    case 'spoken_failed':
+      message = t('review.spoken.notice.failed', { error: describeError(t, notice.error).text })
+      break
   }
   return <p className="form-message form-message--warn">{message}</p>
+}
+
+/** What the recogniser heard, then the AI's correction of it (or why there is none). */
+function SpokenCheckView({ spoken, result }: { spoken: SpokenCheck; result: Result }) {
+  const { t } = useTranslation()
+  const { transcription } = spoken
+  const heard = text(transcription.text)
+  if (transcription.status === 'silence' || spoken.reason === 'silence') {
+    return <p className="form-message form-message--warn">{t('review.spoken.silence')}</p>
+  }
+  if (transcription.status !== 'ok' || heard === null) {
+    return (
+      <p className="form-message form-message--warn">
+        {t('review.spoken.unavailable', { reason: aiReasonText(t, transcription.reason) })}
+      </p>
+    )
+  }
+  return (
+    <div className="review-check">
+      {/* The correction view titles the text as what the recognition heard. */}
+      <CorrectionView
+        compact
+        level={3}
+        text={heard}
+        feedback={spoken.status === 'ok' ? spoken.feedback : null}
+        errors={spoken.errors}
+      />
+      {spoken.status !== 'ok' && (
+        <p className="form-message form-message--warn">
+          {t('review.spoken.correctionFailed', { reason: aiReasonText(t, spoken.reason) })}
+        </p>
+      )}
+      {result.warnings.includes('term_not_heard') && (
+        <p className="form-message form-message--warn">{t('review.result.term_not_heard')}</p>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -79,6 +122,7 @@ export function ReviewResult({
   result,
   answer,
   check = null,
+  spoken = null,
   notice = null,
 }: {
   review: ReviewStep
@@ -86,6 +130,8 @@ export function ReviewResult({
   answer: string
   /** The AI's correction of the typed sentence (sentence production, status ok). */
   check?: ProductionCheck | null
+  /** What was heard of the spoken answer and how it was checked (status of `review-answer`). */
+  spoken?: SpokenCheck | null
   /** Why the AI check was not used, when the sentence was self-graded instead. */
   notice?: CheckNotice | null
 }) {
@@ -144,6 +190,7 @@ export function ReviewResult({
         {result.warnings.includes('term_missing') && (
           <p className="form-message form-message--warn">{t('review.result.term_missing')}</p>
         )}
+        {spoken !== null && <SpokenCheckView spoken={spoken} result={result} />}
         {check !== null && (
           <div className="review-check">
             <h3>{t('review.aiCheck.found')}</h3>
@@ -165,7 +212,9 @@ export function ReviewResult({
             <SpeakButton text={example} label={t('review.result.exampleLabel')} />
           </p>
         )}
-        <p className="muted">{t('review.result.compare')}</p>
+        {(type === 'sentence_production' || result.proposed_rating === null) && (
+          <p className="muted">{t('review.result.compare')}</p>
+        )}
       </div>
     )
   } else {

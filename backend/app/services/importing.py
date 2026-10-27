@@ -271,8 +271,13 @@ def commit(
     target: ImportTarget,
     intake: Intake,
     at: datetime,
+    origin: ItemOrigin = ItemOrigin.IMPORT,
+    record_completed: bool = True,
 ) -> ImportSummary:
     """Import the validated rows into the target deck, all or nothing (the caller commits).
+
+    `origin` is recorded on the new terms. A caller with its own event (the curriculum, D-243)
+    passes `record_completed=False` so that `import.completed` counts user imports only.
 
     Defaults: an exact duplicate is attached, a possible one creates a new term; a term already
     in the target deck is skipped; an attached `known` or `archived` term keeps its status.
@@ -316,7 +321,7 @@ def commit(
                 session,
                 term=term,
                 at=at,
-                origin=ItemOrigin.IMPORT,
+                origin=origin,
                 sentence=sentence,
                 item_type=row.item_type,
                 deck_id=deck.id,
@@ -337,18 +342,19 @@ def commit(
         ambiguous=sum(1 for _, _, ambiguous in checked if ambiguous),
         item_ids=item_ids,
     )
-    record_event(
-        session,
-        ImportCompleted(
-            deck_id=deck.id,
-            lines_read=summary.lines_read,
-            imported=imported,
-            attached=attached,
-            skipped=summary.skipped,
-            ambiguous=summary.ambiguous,
-        ),
-        occurred_at=at,
-    )
+    if record_completed:
+        record_event(
+            session,
+            ImportCompleted(
+                deck_id=deck.id,
+                lines_read=summary.lines_read,
+                imported=imported,
+                attached=attached,
+                skipped=summary.skipped,
+                ambiguous=summary.ambiguous,
+            ),
+            occurred_at=at,
+        )
     session.flush()
     return summary
 

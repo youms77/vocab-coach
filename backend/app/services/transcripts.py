@@ -420,6 +420,7 @@ def store_analysis(
         session,
         ProductionCorrected(
             production_attempt_id=attempt.id,
+            kind=attempt.kind,
             word_count=attempt.word_count,
             sentence_count=len(prepared.units),
             error_count=len(errors),

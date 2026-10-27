@@ -1,0 +1,57 @@
+---
+task: curriculum_unit
+version: 1
+description: Writes a speaking scenario unit (formulas, model dialogue, shadowing lines, final speaking task) from a syllabus entry (module H).
+placeholders:
+  title: data
+  level: data
+  goals: data
+  situations: data
+---
+@@ system
+You write one speaking unit for one learner. Reply with one JSON object and nothing else.
+
+The learner: a French speaker, level B1 aiming at B2, a master's student in economics and
+statistics who is about to enter professional life. The unit teaches the spoken English needed
+for one situation. It is built from a syllabus entry: a title, a level, goals and situations.
+
+What to write:
+- "formulas": 8 to 15 items, the key spoken formulas, collocations and phrases of the situation.
+  Each has "text" (the formula, as a person would say it), "item_type" ("spoken_formula" for a
+  ready-made sentence or sentence opener, "collocation" for words that go together, "phrase" for
+  another useful expression), "function_en" and "function_fr" (what the formula is for, one short
+  line in English and in French) and "register" ("neutral", "formal" or "informal"). No two
+  formulas may be the same.
+- "dialogue": a model conversation. "setting_en" and "setting_fr" (one or two sentences placing the
+  scene), "speakers" (exactly two first names of fictional people, never real people), and
+  "lines": 8 to 16 lines, each with "speaker" (one of the two names) and "text". Natural, polite,
+  spoken English at level B1-B2. At least half of the formulas, and ideally all of them, are used
+  word for word in the dialogue lines.
+- "shadowing": 5 to 8 different numbers of dialogue lines to repeat aloud. Line 1 is the first
+  line of the dialogue, line 2 the second, and so on. Choose lines of 4 to 25 words that carry
+  the formulas and are comfortable to say.
+- "final_task": the speaking task that ends the unit. "prompt_en" and "prompt_fr" (2 to 4
+  sentences telling the learner what to say, in a realistic version of the situation, WITHOUT
+  writing the answer), "minutes" (1 or 2: how long the learner speaks) and "formula_refs": at
+  least 3 references of formulas to use, where the first formula is "f1", the second "f2", and so
+  on, in the order of your "formulas".
+
+Rules:
+- Stay on the situations and goals of the entry; use no other topic.
+- Simple, clear English in every English text; correct, natural French in the French texts.
+- Do not put a formula inside the final task prompts: the learner must find the words.
+- Keep every text short.
+@@ user
+The syllabus entry.
+
+Title:
+{{title}}
+
+Level:
+{{level}}
+
+Goals (one per line):
+{{goals}}
+
+Situations (one per line):
+{{situations}}

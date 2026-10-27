@@ -6,14 +6,16 @@ from app.ai.providers import build_providers
 from app.ai.providers.gemini import DEFAULT_MODEL, GeminiProvider
 from app.ai.types import Capability
 from app.config import Settings
-from app.domain.settings_defaults import KNOWN_AI_PROVIDERS
+from app.domain.settings_defaults import KNOWN_AI_PROVIDERS, KNOWN_SPEECH_PROVIDERS
 
 KEY = "AIzaSyTest_0123456789abcdefghij"
 
 
 def test_every_known_provider_is_built_configured_or_not() -> None:
     providers = build_providers(Settings(_env_file=None))
-    assert set(providers) == set(KNOWN_AI_PROVIDERS) == {"gemini", "groq", "ollama"}
+    assert set(KNOWN_AI_PROVIDERS) == {"gemini", "groq", "ollama"}
+    # Azure holds a capability of its own: it is built, but never part of the provider order.
+    assert set(providers) == set(KNOWN_AI_PROVIDERS) | set(KNOWN_SPEECH_PROVIDERS)
     assert not any(provider.is_configured() for provider in providers.values())
     gemini = providers["gemini"]
     assert isinstance(gemini, GeminiProvider) and gemini.capabilities == {Capability.TEXT}

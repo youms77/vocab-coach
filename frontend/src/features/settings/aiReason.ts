@@ -1,7 +1,16 @@
 import type { TFunction } from 'i18next'
 
 // The gateway's `UnavailableReason` values (backend/app/ai/types.py); D-095 words them for any task.
-const REASONS = ['no_provider_configured', 'network', 'quota', 'auth', 'timeout', 'all_failed'] as const
+// `incomplete` is the transcription's: the provider answered without a usable text (D-171).
+const REASONS = [
+  'no_provider_configured',
+  'network',
+  'quota',
+  'auth',
+  'timeout',
+  'all_failed',
+  'incomplete',
+] as const
 type Reason = (typeof REASONS)[number]
 
 const isReason = (value: string | null): value is Reason =>

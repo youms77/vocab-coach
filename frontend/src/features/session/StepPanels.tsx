@@ -101,7 +101,6 @@ export function PracticeInfoPanel({
         )}
         {practice.consolidation_task_id !== null && <li>{t('session.practice.consolidation')}</li>}
       </ul>
-      {practice.consolidation_task_id !== null && <p className="muted">{t('session.practice.later')}</p>}
       <p className="today-actions">
         {targeted !== null && isDrillableCode(targeted.category_code) && (
           <Link
@@ -110,6 +109,11 @@ export function PracticeInfoPanel({
             className="button"
           >
             {t('session.practice.now')}
+          </Link>
+        )}
+        {practice.consolidation_task_id !== null && (
+          <Link to={`/consolidation/tasks/${practice.consolidation_task_id}`} className="button">
+            {t('session.practice.openTask')}
           </Link>
         )}
         <button type="button" className="button button--primary" onClick={onContinue} disabled={busy}>

@@ -280,6 +280,21 @@ def test_transcription_goes_to_groq_and_is_journalled(
     assert ollama.requests == []
 
 
+def test_the_duration_and_segments_reach_the_transcription_output(
+    make_server: ServerFactory, make_gateway: GatewayFactory
+) -> None:
+    groq = make_server(fixture_reply("groq", "transcription_verbose_hallucination"))
+    clip = AudioClip(data=b"RIFFxxxx", filename="a.wav", content_type="audio/wav")
+
+    result = make_gateway(_groq(groq)).transcribe(clip)
+
+    assert result.ok and result.data is not None
+    assert result.data.duration_s == 1.8
+    [segment] = result.data.segments
+    assert (segment.start, segment.end) == (0.0, 1.8)
+    assert (segment.no_speech_prob, segment.avg_logprob) == (0.9214, -1.3127)
+
+
 def test_oversized_audio_is_refused_without_a_request(
     make_server: ServerFactory, make_gateway: GatewayFactory, engine
 ) -> None:

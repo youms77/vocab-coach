@@ -5,6 +5,9 @@ import { apiGet, apiSend } from './client'
 /** Provider names, in the order the backend always lists them. */
 export type ProviderName = 'gemini' | 'groq' | 'ollama'
 
+/** Optional speech providers, outside the text providers (D-214). */
+export type SpeechProviderName = 'azure'
+
 /** Why a provider failed last (D-039 kinds). */
 export type ProviderErrorKind =
   | 'rate_limited'
@@ -30,12 +33,19 @@ export interface ProviderState {
   credential_kind: 'api_key' | 'base_url'
 }
 
+export interface SpeechProviderState extends Omit<ProviderState, 'name'> {
+  name: SpeechProviderName
+  region: string | null
+}
+
 export interface AiStatus {
   ai_off: boolean
   degraded: boolean
   demo: boolean
   order: ProviderName[]
   providers: ProviderState[]
+  /** Optional speech providers (Azure), outside the text providers and the order (D-214). */
+  speech_providers?: SpeechProviderState[]
 }
 
 export type UnavailableReason =
@@ -47,7 +57,7 @@ export type UnavailableReason =
   | 'all_failed'
 
 export interface ConnectionTestResult {
-  provider: ProviderName
+  provider: ProviderName | SpeechProviderName
   status: 'ok' | 'incomplete' | 'unavailable'
   reason: UnavailableReason | null
   model: string | null
@@ -106,18 +116,22 @@ export function useAiUsage(days = 7) {
 }
 
 /** Saves (value) or removes (null) a provider's key or address in `.env`. */
-export function useCredentialMutation(provider: ProviderName) {
+export function useCredentialMutation(provider: ProviderName | SpeechProviderName) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (value: string | null) =>
+    mutationFn: (value: string | null | { value: string; region?: string }) =>
       value === null
-        ? apiSend<ProviderState>('DELETE', `/ai/providers/${provider}/credential`)
-        : apiSend<ProviderState>('PUT', `/ai/providers/${provider}/credential`, { value }),
+        ? apiSend<ProviderState | SpeechProviderState>('DELETE', `/ai/providers/${provider}/credential`)
+        : apiSend<ProviderState | SpeechProviderState>(
+            'PUT',
+            `/ai/providers/${provider}/credential`,
+            typeof value === 'string' ? { value } : value,
+          ),
     onSettled: () => queryClient.invalidateQueries({ queryKey: aiStatusKey }),
   })
 }
 
-export function useConnectionTest(provider: ProviderName) {
+export function useConnectionTest(provider: ProviderName | SpeechProviderName) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationKey: ['ai', 'test', provider],

@@ -5,25 +5,31 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.ai.schemas.pronunciation import PronunciationAssessmentOutput
 from app.ai.types import (
     Capability,
     ErrorKind,
+    PronunciationRequest,
     ProviderError,
     ProviderRequest,
     ProviderResponse,
+    TranscriptionDetails,
     TranscriptionRequest,
 )
 
 
 @dataclass
 class Success:
-    """A successful answer. `content` is serialised to JSON when it is not already a string."""
+    """A successful answer. `content` is serialised to JSON when it is not already a string;
+    `transcription` plays a transcription's duration and segments."""
 
     content: Any = field(default_factory=lambda: {"ok": True, "echo": "ping"})
     input_tokens: int | None = 10
     output_tokens: int | None = 5
     model: str | None = None
     latency_s: float = 0.0
+    transcription: TranscriptionDetails | None = None
+    assessment: PronunciationAssessmentOutput | None = None  # plays a pronunciation assessment
 
 
 @dataclass
@@ -62,6 +68,7 @@ class FakeProvider:
         self.script: list[Step] = list(script)
         self.requests: list[ProviderRequest] = []
         self.transcriptions: list[TranscriptionRequest] = []
+        self.assessments: list[PronunciationRequest] = []
         self._advance = advance
         self._calls = 0
 
@@ -83,6 +90,10 @@ class FakeProvider:
         self.transcriptions.append(request)
         return self._play()
 
+    def assess_pronunciation(self, request: PronunciationRequest) -> ProviderResponse:
+        self.assessments.append(request)
+        return self._play()
+
     def _play(self) -> ProviderResponse:
         step = self.script[min(self._calls, len(self.script) - 1)] if self.script else Success()
         self._calls += 1
@@ -101,4 +112,6 @@ class FakeProvider:
             model=step.model or self.model,
             input_tokens=step.input_tokens,
             output_tokens=step.output_tokens,
+            transcription=step.transcription,
+            assessment=step.assessment,
         )
