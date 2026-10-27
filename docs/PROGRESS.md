@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M10.a1** (module J, full backup and restore: format, services, API, CLI; no migration, no screen) is done on `feat/m10a-backup`, cut from the tip of `feat/rv-visual-redesign`. Not pushed. Decisions D-302 to D-308. Next: **M10.a2** (the settings card). See the M10.a1 section.
 - **RV.b** (visual redesign, screen by screen; frontend only) is done on `feat/rv-visual-redesign` after RV.a: home, session, section headers, import cards, `CorrectionMark`, notices, CSS cleanup (D-295 to D-301). Not pushed. **The eight section illustrations are still missing** (the four headers work without them). Next: the owner's review of RV, the illustrations, then the push; M10.a branches from the tip of this branch and numbers its decisions from D-302. See the RV.b section.
 - **RV.a** (visual redesign, foundations; frontend only) is done on `feat/rv-visual-redesign`, cut from `main` (`9ebb82c`, M1 to M9): layers, tokens, Inter, icons, base components, the sidebar shell, the style guide, the contrast test, readable charts. Not pushed. RV.b followed (see above). See the RV.a section. M10.a comes after RV.
 - **M9.b** (module I, the statistics dashboard, frontend only) is done on `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`): **M9.b1** (overview, errors, memory, period picker, CSV link) and **M9.b2** (progress, practice, AI). Not pushed. Next: the owner's review of M9, then the push. See the M9.b2 and M9.b1 sections.
@@ -31,6 +32,52 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M10.a1 — Full backup and restore: backend and CLI (module J)
+
+Branch `feat/m10a-backup`, cut from the tip of `feat/rv-visual-redesign` (as planned: RV is not merged, so decisions continue from D-301). Not pushed. **No migration** (`alembic check`: no new upgrade operations), **no new dependency**, no change to the frontend yet (M10.a2). Decisions **D-302 to D-308**.
+
+### Done
+
+- **Format** `vocab-coach-backup-1` (D-302): manifest, `tables/*.jsonl`, `audio/...`; exact encoding including clock columns and the two kinds of JSON null.
+- **Services**: `backup_format.py` (pure), `backup.py` (creation in one read transaction, `backup.created` after it), `backup_verify.py` (D-303), `backup_restore.py` (D-304, D-305), `backup_auto.py` (D-307).
+- **API** (D-308): `POST /api/backup`, `GET /api/backup/status`, `POST /api/backup/auto/run`; `backup_auto_folder` and `backup_auto_keep` in the settings registry, the folder checked in `PATCH /api/settings` (422 `invalid_setting` with `reason`); copy after `POST /api/session/{id}/end` (`BackgroundTasks`) and at startup.
+- **CLI**: `backup create | verify | restore | auto`.
+- Docs: README "Backup and restore", `architecture.md`, DECISIONS.
+
+### Verified
+
+- **Tests**: 2,929 pytest tests (2,879 before: **+50**), all green; `ruff check` and `ruff format --check` clean; `alembic check` clean. New files: `test_backup_roundtrip`, `test_backup_service`, `test_backup_verify`, `test_backup_restore`, `test_backup_auto`, `test_cli_backup`, `api/test_backup_api`, helpers `backup_support.py` and `backup_old_schema.py`; two fixtures added to `tests/conftest.py` (the demo source and an autouse switch for the startup copy).
+- **Round trip** (seed 42, 60 days, fixed anchor `2026-09-01`): fingerprint of all tables **identical, clock columns included**; recordings identical byte for byte; `GET /api/stats/overview` equal before and after.
+- **Restore from `0001`**: an archive built by hand at `0001` restores and the database reaches `head`. Unknown revision: refused (`backup_from_newer_version`), nothing written.
+- **Hostile archives** (each refused with no write in the target folder): `../x`, absolute path and drive letter, backslash, bad sha256, changed data, zip bomb (limit lowered by the test), no manifest, not a zip, unlisted member, unknown format.
+- **Target**: not empty without `--replace`: refused; with `--replace --yes`: `.bak` database and `audio.bak-` folder present and equal to the old ones. Demo to personal and personal to demo: refused.
+- **Injected failure** in the middle of the insertion (6th table): database and recordings folder unchanged, no temporary file or folder left. **Windows**: a real second connection holding the database during the restore gives `file_locked` ("stop the app"), nothing changed.
+- **Rotation**: 12 copies with `keep=10` leave 10, five foreign files with close names untouched. Folder inside a Git repository refused (allowed under `data/`); three retries 200 ms apart; startup copy only after 24 h; no copy on the demo.
+- **No key** in the archive; creating a backup writes only the `backup.created` event; reading statistics writes nothing.
+- **Two broken-code checks, then restored** (`grep BROKEN` returns nothing): (a) `created_at` regenerated at insertion: the round-trip test **fails** (fingerprints differ); (b) member-name check removed: the `../x` test **fails** (`unexpected_member` instead of `unsafe_member_name`: a second layer still refuses it, see D-303).
+
+### Seen / not seen
+
+- The CLI part of the manual scenario was run by me on a temporary `VOCAB_DATA_DIR` (seed, create 4,472 rows and 24 recordings, verify, restore with `--replace --yes`, a second restore refused with exit 2). The browser part (start the app on the demo, the settings card) belongs to M10.a2 and was not run. I ran `alembic check` without a temporary `VOCAB_DATA_DIR`, so it opened `data/vocab-coach.sqlite3` read-only (its modification time, 2026-10-26 13:51, did not change); everything else used temporary folders.
+
+### Left / known limits
+
+- The settings card (M10.a2). A restore from the interface is out of scope.
+- The `-wal` of an old database is moved with it; a database held open by a running app is refused (Windows) rather than restored.
+- A JSON value equal to `{"$json": "null"}` would be read back as a JSON null (D-302); no column holds one.
+- `backup.created` events are not in the archive that they describe (accepted).
+
+### Owner's manual scenario (2 minutes)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+uv run python -m app --demo backup create --out $env:TEMP\vc-backup.zip
+uv run python -m app --demo backup verify $env:TEMP\vc-backup.zip
+uv run python -m app --demo backup restore $env:TEMP\vc-backup.zip --replace --yes
+cd ..; .\start.ps1 -Demo
+```
 
 ## RV.b — Visual redesign: screen by screen (frontend only)
 

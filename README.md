@@ -327,11 +327,43 @@ events = pd.read_csv(archive.open("event_log.csv"), parse_dates=["occurred_at"])
 events["payload"] = events["payload"].map(json.loads)
 ```
 
-## Backup
+## Backup and restore
 
 Your data lives in the `data/` folder (database and audio recordings), which is never committed.
-Export/restore and automatic copies to a synced folder arrive in milestone M10.
-Until then, back up `data/` yourself if it matters to you.
+A **backup** is one zip file with all of it: every table as JSON lines, your recordings, and a
+`manifest.json` with checksums. It holds **all your personal data and no AI key** (keys stay in
+`.env`): keep it somewhere private.
+
+**Download one**: Settings, "Backup" card, "Download a backup". Or from a terminal:
+
+```powershell
+cd backend
+uv run python -m app backup create                      # data/backups/vocab-coach-backup-DATE-TIME.zip
+uv run python -m app backup create --out C:\backups\my-backup.zip
+uv run python -m app backup verify C:\backups\my-backup.zip # checks it, writes nothing
+```
+
+**Automatic copy**: in the same card, choose a folder (OneDrive, Google Drive...) and how many copies
+to keep (1 to 60, default 10). A copy is made when a study session ends, when the app starts if the
+last one is over 24 hours old, and on demand ("Make a copy now" or `backup auto`). The oldest copies
+beyond that number are deleted, and only files named exactly `vocab-coach-backup-YYYYMMDD-HHMMSS.zip`.
+The folder must be an absolute path, writable, and not inside a Git repository (except `data/`).
+There is no automatic copy on the demo data.
+
+**Restore** (from a terminal, with the app **stopped**; there is no restore button on purpose):
+
+```powershell
+cd backend
+uv run python -m app backup restore C:\backups\my-backup.zip                  # into an empty database
+uv run python -m app backup restore C:\backups\my-backup.zip --replace --yes  # replaces what is there
+```
+
+The archive is checked first (checksums, safe file names, a schema version this app knows); the new
+database is built next to the old one and swapped in only when it is complete, so a failure leaves
+your data as it was. With `--replace`, the previous database is kept as `*.bak-YYYYMMDD-HHMMSS` and
+the previous recordings as `audio.bak-...` in `data/`. A demo backup only restores into the demo
+database (`--demo`), and a personal backup only into the personal one. Afterwards, enter your AI keys
+again in Settings (or copy your `.env`): they are not in the backup.
 
 ## Development
 

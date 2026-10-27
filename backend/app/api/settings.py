@@ -17,11 +17,14 @@ from app.config import get_settings
 from app.db.engine import get_engine, get_session
 from app.db.settings_store import get_all_settings, set_setting
 from app.domain.settings_defaults import SETTINGS, SettingError
+from app.services import backup_auto
 from app.services.demo_guard import is_demo
 
 router = APIRouter(prefix="/settings", tags=["settings"], dependencies=[Depends(require_database)])
 
-DEMO_LOCKED_SETTINGS = frozenset({"ai_provider_order", "pronunciation_assessment"})
+DEMO_LOCKED_SETTINGS = frozenset(
+    {"ai_provider_order", "pronunciation_assessment", "backup_auto_folder"}
+)
 
 SessionDep = Annotated[Session, Depends(get_session)]
 EngineDep = Annotated[Engine, Depends(get_engine)]
@@ -64,19 +67,30 @@ def list_settings(session: SessionDep) -> dict[str, SettingInfo]:
 def update_settings(
     changes: dict[str, Any], session: SessionDep, engine: EngineDep
 ) -> dict[str, SettingInfo]:
-    # Provider order and pronunciation assessment are part of the owner's real setup: the demo
-    # database leaves them alone.
+    # Provider order, pronunciation assessment and the backup folder are part of the owner's real
+    # setup: the demo database leaves them alone.
     if DEMO_LOCKED_SETTINGS.intersection(changes) and is_demo(get_settings(), engine):
         raise api_error(
             409,
             "demo_read_only",
-            "The demo database is read-only for AI keys, provider order and pronunciation.",
+            "The demo database is read-only for AI keys, provider order, pronunciation, backups.",
         )
     try:
         for key, value in changes.items():
             set_setting(session, key, value)
+            if key == "backup_auto_folder":
+                backup_auto.validate_folder(value)
     except SettingError as exc:
         session.rollback()
         raise api_error(422, "invalid_setting", str(exc), key=key) from None
+    except backup_auto.FolderError as exc:
+        session.rollback()
+        raise api_error(
+            422,
+            "invalid_setting",
+            f"The backup folder cannot be used ({exc.reason}).",
+            key=key,
+            reason=exc.reason,
+        ) from None
     session.commit()
     return _describe_all(session)

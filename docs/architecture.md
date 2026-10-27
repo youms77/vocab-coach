@@ -56,6 +56,7 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/db/` | data layer (see below) | M1.a |
 | `app/ai/` | AI gateway, prompts, schemas, providers (see "AI gateway" below) | M2.a, M2.b1 (Groq, Ollama), M2.b2 (Gemini) |
 | `app/speech/audio_store.py` | local recordings: accepted media types, `YYYY/MM/<32 hex>.<ext>` names (a random UUID4 by default, an injected factory for the demo, D-187), atomic write, paths resolved inside the folder only, demo folder (D-169) | M6.a1, M6.a2b |
+| `app/services/backup_format.py`, `backup.py`, `backup_verify.py`, `backup_restore.py`, `backup_auto.py`, `app/api/backup.py`, `app/cli_backup.py` | module J, full backup (M10.a, D-302 to D-308): the `vocab-coach-backup-1` zip (format and value encoding, pure; creation in one read transaction; verification before any write; restore into a temporary database then a D-188 swap; automatic copy with rotation); `POST /api/backup`, `GET /api/backup/status`, `POST /api/backup/auto/run`; `backup create \| verify \| restore \| auto` | M10.a |
 | `alembic.ini` | Alembic configuration (URL comes from the app settings) | M1.a |
 | `tests/` | pytest suite; database tests use a temporary SQLite file built by the migrations | M0, M1.a |
 

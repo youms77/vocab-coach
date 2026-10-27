@@ -4095,3 +4095,53 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 ## D-301 — Media queries and sizes in the feature files (RV.b)
 
 - The queries of `queue.css` (560 px), `curriculum.css` (40 rem, twice) and `dashboard.css` (30 rem) are now 600 px; the top-bar rules that the 560 px block still carried from the old navigation were dead and are removed. Font sizes and radii written in px / rem in the feature files use the tokens (`--fs-*`, `--radius-*`); the sizes left are widths and spacings of layouts, and one `13px` of the statistics charts. After RV.b the only hard-coded colour outside `tokens.css` is the `#000` of D-294 (the `rg` output is in PROGRESS).
+
+## D-302 — The `vocab-coach-backup-1` archive and the exact encoding of values (M10.a)
+
+- **Layout**: `manifest.json`, `tables/<table>.jsonl` (every table of `Base.metadata` except `alembic_version`, replaced by the manifest's `alembic_revision`; `setting` included, with `_demo`), `audio/YYYY/MM/<hex32>.<ext>` (only the files that `production_attempt.audio_path` or `review_log.audio_path` refer to; a missing one is listed in `missing_audio`, not an error). The manifest also carries `format`, `created_at`, `app_version`, `study_day`, `timezone`, `demo`, `kind`, `tables` (row counts) and `files` (`{sha256, size}` for every table and recording).
+- **Encoding** (`services/backup_format.py`, pure): instants `YYYY-MM-DDTHH:MM:SS.ffffffZ`, dates `YYYY-MM-DD`, JSON columns as native JSON, enumerations by value, booleans as JSON booleans, null as `null`. Rows are read **as SQLite stores them** (plain SQL, columns in the model's order, `ORDER BY` the primary key), not through the ORM: nothing is re-interpreted on the way out.
+- **JSON null**: a JSON column can hold a SQL NULL (attribute never set) or the JSON value `null` (attribute set to `None`); the ORM writes both, and the demo has the second. The first is `null` in the archive, the second the marker `{"$json": "null"}`, so the restored file is identical, not only equal through the ORM. A real value equal to that marker is not expected in any column.
+- **Never in the archive**: `.env`, any environment variable, any key (a test puts two keys in the environment and searches every decompressed member, the member names and the compressed bytes for each key and its last 8 characters), the other mode's recordings folder (only referenced files are copied, from the folder of the current mode).
+- **No new dependency** (`zipfile`, `json`, `hashlib`); **no migration**.
+
+## D-303 — What is checked before anything is written (M10.a)
+
+- `services/backup_verify.py` reads the zip and refuses it with a stable code: `not_a_zip`, `unsafe_member_name` (absolute path, `..`, backslash, drive letter, empty part), `unexpected_member` (only the three kinds of member are allowed; audio names follow D-169), `duplicate_member`, `archive_too_large`, `manifest_missing`, `invalid_manifest`, `unknown_format`, `backup_from_newer_version` (any `alembic_revision` outside our chain), `members_mismatch` (the manifest lists exactly the members), `checksum_mismatch` (sha256 and size of every file), `corrupt_archive`.
+- **Size limit**: `MAX_UNCOMPRESSED_BYTES` = 2 GiB. A real backup is a few tens of MB and a recording is at most 10 MB (D-169); 2 GiB cannot fill a laptop disk by surprise. A zip bomb lies about its sizes, so the declared sizes are summed first and the bytes actually read are counted while hashing. The manifest has its own 16 MB cap.
+- The name check and the "only known members" check overlap on purpose: with the first removed, `../x` is still refused (as `unexpected_member`), and the test expecting `unsafe_member_name` fails, which is how the check was verified (see PROGRESS).
+- On Windows the zip reader turns a backslash into `/`; the test accepts either refusal there and tests `_unsafe` directly.
+
+## D-304 — Building the restored database in a temporary file (M10.a)
+
+- In `<db>.tmp-<pid>` next to the target: `alembic upgrade <manifest revision>` (schema only), every table inserted, `alembic upgrade head`, `sync_taxonomy()`, then `PRAGMA integrity_check`, an empty `PRAGMA foreign_key_check` and a WAL checkpoint.
+- **Reflected tables**: rows go into the tables *reflected from the temporary database*, not into the current models, so an archive made at `0001` loads into the `0001` schema and is then migrated (tested: `review_log.production_attempt_id` exists afterwards). A row whose columns differ from that schema is refused (`column_mismatch`).
+- **Original values**: Core `insert` with explicit values, so no Python `default=` (`created_at`) and no `onupdate` runs; JSON columns are re-typed `JSON(none_as_null=True)` and the marker of D-302 is bound as `JSON.NULL`. Keys are the original ones (D-018).
+- **Foreign keys stay on**; the schema has cycles (`card`, `error_event`, `review_log`, `lexical_item`...) that `sorted_tables` cannot order (its warning is silenced), so the insertion transaction starts with an explicit `BEGIN` and `PRAGMA defer_foreign_keys = ON`: the check happens at commit.
+- **Counts** are compared with the manifest right after the insertion (before `head`, because a migration or the taxonomy sync may add rows). Any failure rolls back, and the temporary file and folder are always removed.
+
+## D-305 — The swap, the target and `.bak` files (M10.a)
+
+- **Order** (D-188): the old recordings folder is set aside (renamed) **before** the database is replaced; then the old database (and its `-wal` / `-shm`) is renamed, the new one is put in place with `os.replace`, then the new folder. Every step that succeeded is undone if a later one fails. A `PermissionError` (a file held open on Windows: tested with a real held connection) becomes `file_locked` with "stop the app" and exit code 2.
+- **Target**: empty means no row outside `alembic_version` and the taxonomy (`user_data_tables`, the definition of D-033), and no file in the recordings folder. Otherwise `target_not_empty`, unless `--replace --yes`; then the old database becomes `<name>.bak-YYYYMMDD-HHMMSS` and the old recordings `audio.bak-...` (`audio-demo.bak-...` in demo mode), both kept. An empty old database is simply replaced, no `.bak`.
+- **Demo**: the archive's `demo` flag must equal the mode (`--demo`): a demo archive only goes into the demo database and the reverse is refused (`demo_mismatch`).
+- The CLI says that AI keys are not in a backup. No restore from the interface (out of scope).
+
+## D-306 — Reading, naming and the `backup.created` event (M10.a)
+
+- The tables are read in **one read transaction** (`PRAGMA query_only` plus an explicit `BEGIN`, as D-271), so the manifest's counts match the files. The schema revision is read **on the same connection**: opening a second one from the pool made `read_only` reset `query_only` on the wrong connection and left a pooled connection read-only (found by the first test that wrote the event; `migrate.head_revision()` was added for this).
+- File name `vocab-coach-backup-YYYYMMDD-HHMMSS.zip` in the local time of the `timezone` setting. A file is written to `<name>.tmp-<pid>` then `os.replace`d; the API uses a `SpooledTemporaryFile` (32 MB in memory) like the CSV export.
+- Event `backup.created {kind, tables, rows, audio_files, bytes}`: no path, no text. It is written in its own short transaction **after** the archive is complete, so the archive does not contain the event that describes it (accepted; documented in the README and the module). A database that is not at head cannot be backed up (`database_out_of_date`).
+- `setting.changed` for `backup_auto_folder` stores the folder in `event_log` like any setting does; the backup event never does.
+
+## D-307 — The automatic copy (M10.a)
+
+- Settings `backup_auto_folder` (`""` = off, 500 characters) and `backup_auto_keep` (1 to 60, default 10). The folder is checked by `services/backup_auto.py` (it touches the disk, so not in the pure registry): absolute, existing, writable, not inside a Git repository (walk up to a `.git`) unless under that repository's `data/`. The API refuses a bad folder with 422 `invalid_setting` and `reason` (`not_absolute`, `not_found`, `not_writable`, `inside_repository`); the check runs again at every copy. The demo database refuses to set the folder (`demo_read_only`, like the provider order).
+- **Triggers, no thread of our own**: `BackgroundTasks` after `POST /api/session/{id}/end`; the startup hook in the lifespan (the event loop's executor, so the start is not delayed) when the last `backup.created` with `kind=auto` is over 24 hours old; `POST /api/backup/auto/run` and `backup auto`. Never on the demo. `app.main.startup_backup` is a function of its own that the test suite switches off for every test (it would otherwise look at the real `data/`).
+- **Write**: temporary file in the target folder, then `os.replace` with 3 retries 200 ms apart on `PermissionError` (D-062). A failure is logged, kept in memory (`last_error`: a stable code such as `file_locked`, `write_failed`, `not_found`) for the status route, and never raised to the user.
+- **Rotation** deletes the oldest copies beyond `keep` among the files whose name matches the pattern exactly (case-sensitive `fullmatch`); tested with foreign files of a close name.
+
+## D-308 — API and CLI (M10.a)
+
+- `POST /api/backup` returns the zip (`application/zip`, `Content-Disposition: attachment`); `GET /api/backup/status` returns `{auto_folder_configured, last_auto_at, last_auto_error, last_manual_at, keep, demo}` and never a path; `POST /api/backup/auto/run` answers the status (409 `backup_not_configured`, 409 `demo_read_only`; a copy that fails is in `last_auto_error`). Errors follow D-063.
+- CLI `backup create [--out] [--force]`, `verify <zip>`, `restore <zip> [--replace --yes]`, `auto`; exit codes (D-053): 0, 1 (the automatic copy failed), 2 (usage, archive refused, file in use, target not empty, nothing configured).
+- A test for the Windows lock must dispose the SQLAlchemy engine first: a pooled connection really does hold the file (the same lock the app shows).

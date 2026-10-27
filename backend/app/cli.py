@@ -14,6 +14,9 @@ open <code> <n> | generate <code> <n> | unit <id> | step | terms | edit` are the
 tracks (word lists, then scenario units written by the AI).
 `stats summary`, `stats errors | memory [--from] [--to] [--granularity]` print statistics and
 `stats export [--out file.zip] [--force]` writes every event table as CSV in a zip archive.
+`backup create [--out file.zip] [--force]` writes a full backup (all tables as JSON lines and the
+recordings), `backup verify <zip>` checks one, `backup restore <zip> [--replace --yes]` restores it
+into an empty database with the app stopped, `backup auto` makes the automatic copy now.
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
 texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
@@ -345,6 +348,31 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     s_export.add_argument("--force", action="store_true", help="replace an existing file")
 
+    backup_parser = commands.add_parser(
+        "backup", help="full backup and restore: all data and recordings in a zip (module J)"
+    )
+    backup_commands = backup_parser.add_subparsers(dest="backup_command", required=True)
+    b_create = backup_commands.add_parser("create", help="write a full backup archive")
+    b_create.add_argument(
+        "--out",
+        type=Path,
+        help="target .zip (default: data/backups/vocab-coach-backup-DATE-TIME.zip)",
+    )
+    b_create.add_argument("--force", action="store_true", help="replace an existing file")
+    b_verify = backup_commands.add_parser("verify", help="check an archive, writing nothing")
+    b_verify.add_argument("archive", type=Path)
+    b_restore = backup_commands.add_parser(
+        "restore", help="restore an archive into an empty database (stop the app first)"
+    )
+    b_restore.add_argument("archive", type=Path)
+    b_restore.add_argument(
+        "--replace",
+        action="store_true",
+        help="replace a database that holds data (the old one is kept as *.bak-DATE-TIME)",
+    )
+    b_restore.add_argument("--yes", action="store_true", help="confirm --replace")
+    backup_commands.add_parser("auto", help="make the automatic copy into the chosen folder now")
+
     consolidation = commands.add_parser(
         "consolidation", help="consolidation tasks: use your solid terms in a talk (module G)"
     )
@@ -627,6 +655,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "ai":
         return _ai(args, settings)
     url = settings.resolved_database_url
+    if args.command == "backup":
+        from app import cli_backup
+
+        if args.backup_command == "create":
+            return cli_backup.run_backup_create(url, settings, args.out, force=args.force)
+        if args.backup_command == "verify":
+            return cli_backup.run_backup_verify(args.archive)
+        if args.backup_command == "restore":
+            return cli_backup.run_backup_restore(
+                settings, args.archive, replace=args.replace, yes=args.yes
+            )
+        return cli_backup.run_backup_auto(url, settings)
     if args.command == "library":
         from app import cli_library
 
