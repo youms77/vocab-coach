@@ -7,9 +7,12 @@ import { categoryTree } from '../../test/writingFixtures'
 import { apiErrorResponse, mockApi, type RecordedCall } from '../../test/mockApi'
 import { renderApp } from '../../test/renderApp'
 import {
+  aiStats,
   errorStats,
   memoryStats,
   overview,
+  practiceStats,
+  progressStats,
   rate,
   share,
   STUDY_DAY,
@@ -26,6 +29,9 @@ const base = {
   'GET /stats/overview': overview(),
   'GET /stats/errors': errorStats(),
   'GET /stats/memory': memoryStats(),
+  'GET /stats/progress': progressStats(),
+  'GET /stats/practice': practiceStats(),
+  'GET /stats/ai': aiStats(),
 }
 
 const statsCalls = (calls: RecordedCall[], name: string) =>
@@ -239,6 +245,9 @@ describe('section', () => {
       '#overview',
       '#errors',
       '#memory',
+      '#progress',
+      '#practice',
+      '#ai',
     ])
     expect(section('Overview')).toBeInTheDocument()
   })

@@ -3991,3 +3991,15 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 ## D-282 — M9.b is cut in two (M9.b1 / M9.b2) (M9.b1; the brief asked for a cut above about 15 files)
 
 - The plan counted about 25 significant files (API types, chart primitives, six sections, picker, fixtures, tests, i18n, CSS). **M9.b1** carries the foundation and three sections (overview, errors, memory, CSV link); **M9.b2** will add progress, practice and AI on the same hooks, tables and charts (the `Rate` / `Share` rules and the picker do not change).
+
+
+## D-283 — Progress, practice and AI reuse the M9.b1 primitives (M9.b2; builds on D-279 and D-281)
+
+- The three sections are built from `StatsSection`, `LineChart` and `BarList`, with no new CSS and no new dependency. The funnel is a bar list (bars relative to the biggest stage, the number as text); the rebuilt statuses and the curves are line charts with their numbers table. The API gives no conversion rate between stages and the SPEC asks for none, so the screen shows none.
+- Each section keeps its own request, retry and `keepPreviousData` (a failure of one leaves the others), and the three routes get the same validated period as the first three. The AI chart is always per day (the API says so), and the screen says it.
+- Words for statuses, deck states and providers come from existing keys (`library.status.*`, `queue.status.*`, `settings.provider.names.*`); an unknown provider or speech kind is shown as its code, never hidden.
+
+## D-284 — What the practice and AI figures claim (M9.b2; builds on D-267 and the M9.a limits)
+
+- **Study time** is the actions-based time. The sessions' own duration is drawn as a dashed line "for comparison" and **never added** to it, as the API specifies; the note under the chart says that a long reading without a click is not counted.
+- **AI**: successes are written `n of total`, not as a percentage (a count is always exact, and a rate on a handful of calls would mislead). Rate limits and used-up quotas have their own columns, apart from the other errors, as in the API. **No free-tier quota or limit is written on the screen** (CLAUDE.md: never invent a quota): the Azure line gives the month's audio minutes and assessments and sends the owner to the Azure portal for the limit.

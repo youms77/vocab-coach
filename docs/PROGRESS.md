@@ -4,7 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
-- **M9.b1** (module I, the statistics dashboard: overview, errors, memory, period picker, CSV link; frontend only) is done on `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`). Not pushed. Next: **M9.b2** (progress, practice, AI) after the owner's go-ahead. See the M9.b1 section.
+- **M9.b** (module I, the statistics dashboard, frontend only) is done on `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`): **M9.b1** (overview, errors, memory, period picker, CSV link) and **M9.b2** (progress, practice, AI). Not pushed. Next: the owner's review of M9, then the push. See the M9.b2 and M9.b1 sections.
 - **M9.a** (module I, the statistics backend: every indicator from the logs, `/api/stats/*`, the CSV export, `stats summary | errors | memory | export`; no screen, no migration) is done on `feat/m9a-stats-backend`, cut from `bb7f8fd` (tip of `feat/m8b-curriculum-screens`), in two commits (M9.a1, M9.a2). Not pushed. Next: the owner's review, then **M9.b** (the dashboard). See the M9.a section and its API reference.
 - **M8.b2** (module H, the editor of a scenario unit's content: formulas, dialogue, shadowing lines, final task; frontend only) is done on `feat/m8b-curriculum-screens` after M8.b1 (`4d522c2`). Not pushed. Next: the owner's review of M6 to M8, then the push. See the M8.b2 section.
 - **M8.b1** (module H, the screens of the general English tracks: tracks, units, scenario steps, dialogue listening, shadowing and final talk from a unit; frontend only) is done on `feat/m8b-curriculum-screens`, cut from `a68e04c`. Not pushed. Next: **M8.b2** (the unit content editor) after the owner's go-ahead. See the M8.b1 section.
@@ -30,6 +30,46 @@ Updated at the end of every milestone session. Paste this file into the next pla
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
 
+## M9.b2 — Statistics dashboard: progress, practice, AI (frontend)
+
+Same branch `claude/m9b-dashboard-f352c1`, after M9.b1 (`c4be921`). Not pushed. **No backend change** (`git diff --stat 329160c -- backend` is empty), no migration, **no new dependency**. Decisions D-283 and D-284. With this step the dashboard of the SPEC (module I) is complete.
+
+### Done
+
+- **Progress** (`GET /stats/progress`, `ProgressSection`): the five funnel statuses now as a bar list (counts, bars relative to the biggest stage), the four statuses outside the funnel in a line, the **rebuilt** terms-by-status chart per bucket, the **active vocabulary** curve, the decks table (state, terms, "consolidated or beyond" as `n of total`), the tracks table (title in the interface language, units, opened or written, completed, "not started"), and the **14-day forecast** (cards due per study day, with the total and the estimated minutes). Status and deck-state words reuse `library.status.*` and `queue.status.*`.
+- **Practice** (`GET /stats/practice`, `PracticeSection`): study time in minutes from the learner's actions with the **sessions' own duration as a dashed line, never added** (D-284), active days, the streaks of the whole history (current, longest and when it ended, active days in the last 30), words written and said (totals and a chart), minutes of recorded speech in total, by kind (bars) and per bucket.
+- **AI** (`GET /stats/ai`, `AiSection`): a table of calls per provider (succeeded `n of total`, errors, **rate limits and used-up quotas in their own columns**, tokens in / out, mean duration or "–"), the errors by code, requests per day and provider (always per day), and the Azure month (audio minutes and assessments). No quota number is written anywhere: the screen points to the Azure portal for the limit (D-284).
+- `api/stats.ts` (types of the three answers, `useStatsProgress / Practice / Ai` with `keepPreviousData`), fixtures `progressStats`, `practiceStats`, `aiStats`, `providerDay`, the `stats.progress.* / practice.* / ai.*` keys in `en.json` and `fr.json` (same keys), three links in the in-page navigation. No new CSS: the sections reuse the primitives of M9.b1.
+- **Tests**: 16 new Vitest tests (775 in all, 759 before) in `DashboardActivity.test.tsx` (funnel and outside statuses, charts with their tables, decks, tracks in the language, forecast total, a section failing alone with its retry, the period in the URL for the three routes, study time without sessions, streaks, words and speech by kind, empty speech, calls per provider with rate limits apart, errors by code, Azure month, no AI call, French) and the navigation test of M9.b1 (now six links). `npm run check` passes.
+- **Broken-code check** (applied, then reverted): adding the sessions' seconds to the study time in `PracticeSection` made `shows the study time from the actions, with the sessions only alongside` fail (1 failed, 15 passed); with the code restored, 16 of 16 pass.
+- **Checked in the built-in browser** on a demo database in a temporary folder (`VOCAB_DATA_DIR`, seeded `--anchor 2026-10-27`, no `.env`, no AI call), week grouping: funnel (37 queued, 16 learning, 39 consolidated, 15 active), 283 minutes of study over 25 active days, streak 12 days (longest 18), 731 words written and 870 said, 5.1 minutes of speech, the Azure month (3 assessments); dark tokens applied to the charts; **375 px: `scrollWidth` 375, no element wider than the window outside a scrolling `.table-wrap`**, no console error. French is covered by a test, not by eye. The temporary folder and the servers are gone.
+
+### Left / known limits
+
+- The funnel bars compare stages with each other; there is no conversion rate between stages (the API has none and the SPEC does not ask for one).
+- The AI table counts what the gateway logged: a provider that does not report tokens shows 0; the demo has almost no AI call, so the table is mostly the empty message there.
+- The funnel chart has five lines that can overlap at the same values; the numbers table under it carries the exact values.
+- Axis labels are small at 375 px (as in M9.b1); the three wide tables scroll inside their own wrapper.
+- A language switch was not clicked through in the browser (French checked by test only).
+
+### Next step
+
+The owner's review of M9 (manual scenario below), then the push of M6 to M9 and the pull request. The visual redesign comes after M9.
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset --anchor <today, YYYY-MM-DD>
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Open http://127.0.0.1:5173/stats?granularity=week and use the links under the title: Progress, Practice, AI use.
+2. Progress: the funnel counts, the rebuilt chart with "Show the numbers", the decks and tracks tables, the 14-day forecast with its total.
+3. Practice: the study time (the dashed line is the sessions, not added), the streaks, words written and said, speech by kind.
+4. AI use: the table per provider (the demo has few calls), the Azure month. Change "From" and "To": the three sections follow. Switch to French and to a phone width: no horizontal scroll.
+
 ## M9.b1 — Statistics dashboard: overview, errors, memory (frontend)
 
 Branch `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`). Not pushed. **No backend change** (`git diff --stat 329160c -- backend` is empty), no migration, **no new dependency** (D-279). Decisions D-279 to D-282. M9.b is cut in two because the plan counted about 25 files (D-282): **M9.b2** will add progress, practice and AI.
@@ -50,7 +90,7 @@ Branch `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats
 
 ### Left / known limits
 
-- **M9.b2**: progress (funnel, active curve, decks, tracks, 14-day forecast), practice (study time, streak, words, speech) and AI (calls per provider, errors, rate limits, Azure month): not started.
+- **M9.b2** (progress, practice, AI) is done: see its section.
 - The axis labels of a chart are about 8 px tall at 375 px (the SVG scales down); the "Show the numbers" table carries the exact values. The visual redesign comes after M9.
 - On the demo, `fixed_expression` reads "stable" and `discourse` "rising" with the thresholds 0.5 / 1.5 (owner's option A, D-268); the screen says the thresholds in a sentence and promises no decline.
 - Per-day grouping gives few points: a day under 100 words has no rate. The note under the chart says so; "Week" is the useful granularity for the error rate.
@@ -59,7 +99,7 @@ Branch `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats
 
 ### Next step
 
-M9.b2 after the owner's go-ahead, then the owner's review of M9 and the push.
+The owner's review of M9 and the push (M9.b2 is done).
 
 ### Owner's manual scenario (about 3 minutes, no key needed)
 

@@ -1,11 +1,17 @@
 import type {
+  AiStats,
   ErrorBucket,
   ErrorStats,
+  ItemStatusCounts,
   MemoryStats,
   Overview,
+  PracticeStats,
+  ProgressStats,
+  ProviderDay,
   Rate,
   Share,
 } from '../api/stats'
+import { deck } from './fixtures'
 
 // Fictional answers of /api/stats/* in the shapes of "API reference for M9.b" (docs/PROGRESS.md).
 
@@ -201,6 +207,194 @@ export function memoryStats(overrides: Partial<MemoryStats> = {}): MemoryStats {
       distribution: [],
       items: [],
     },
+    ...overrides,
+  }
+}
+
+const counts = (overrides: Partial<ItemStatusCounts> = {}): ItemStatusCounts => ({
+  draft: 0,
+  triage: 0,
+  queued: 0,
+  discovering: 0,
+  learning: 0,
+  consolidated: 0,
+  active: 0,
+  known: 0,
+  archived: 0,
+  ...overrides,
+})
+
+export function progressStats(overrides: Partial<ProgressStats> = {}): ProgressStats {
+  return {
+    computed_at: '2026-09-01T10:00:00Z',
+    study_day: STUDY_DAY,
+    from: '2026-08-03',
+    to: STUDY_DAY,
+    granularity: 'day',
+    demo: false,
+    funnel_order: ['queued', 'discovering', 'learning', 'consolidated', 'active'],
+    outside_funnel: ['draft', 'triage', 'known', 'archived'],
+    snapshot: counts({
+      draft: 1,
+      triage: 6,
+      queued: 40,
+      discovering: 8,
+      learning: 20,
+      consolidated: 15,
+      active: 10,
+      known: 3,
+      archived: 2,
+    }),
+    rebuilt: [
+      {
+        key: '2026-08-24',
+        first_day: '2026-08-24',
+        last_day: '2026-08-30',
+        counts: counts({ queued: 44, learning: 18, active: 8 }),
+      },
+      {
+        key: '2026-08-31',
+        first_day: '2026-08-31',
+        last_day: STUDY_DAY,
+        counts: counts({ queued: 40, learning: 20, active: 10 }),
+      },
+    ],
+    active: [
+      { key: '2026-08-24', active: 8 },
+      { key: '2026-08-31', active: 10 },
+    ],
+    decks: [
+      deck(1, 'Econometrics core', {
+        status: 'active',
+        item_count: 30,
+        items_by_status: { learning: 10, consolidated: 12, active: 5, known: 3 },
+      }),
+      deck(2, 'Meeting phrases', { status: 'paused', item_count: 0, items_by_status: {} }),
+    ],
+    tracks: [
+      {
+        code: 'ngsl',
+        title_en: 'General everyday English',
+        title_fr: 'Anglais courant',
+        kind: 'wordlist',
+        started: true,
+        unit_count: 50,
+        opened_units: 4,
+        triaged_units: 2,
+        done_units: 2,
+      },
+      {
+        code: 'speaking',
+        title_en: 'Speaking scenarios',
+        title_fr: "Scénarios d'expression orale",
+        kind: 'scenarios',
+        started: false,
+        unit_count: 12,
+        opened_units: 0,
+        triaged_units: 0,
+        done_units: 0,
+      },
+    ],
+    forecast: [
+      { day: STUDY_DAY, cards: 30, seconds: 600 },
+      { day: '2026-09-02', cards: 12, seconds: 240 },
+      { day: '2026-09-03', cards: 0, seconds: 0 },
+    ],
+    ...overrides,
+  }
+}
+
+export function practiceStats(overrides: Partial<PracticeStats> = {}): PracticeStats {
+  return {
+    computed_at: '2026-09-01T10:00:00Z',
+    study_day: STUDY_DAY,
+    from: '2026-08-03',
+    to: STUDY_DAY,
+    granularity: 'day',
+    demo: false,
+    study_time: {
+      seconds: 5400,
+      session_seconds: 6000,
+      active_days: 18,
+      buckets: [
+        { ...bucket('2026-08-24'), seconds: 3000, blocks: 10, actions: 120, session_seconds: 3300 },
+        { ...bucket('2026-08-31'), seconds: 2400, blocks: 8, actions: 90, session_seconds: 2700 },
+      ],
+    },
+    streaks: { current: 4, longest: 12, longest_end: '2026-08-15', active_days_last_30: 21 },
+    words: [
+      { ...bucket('2026-08-24'), written: 400, oral: 150 },
+      { ...bucket('2026-08-31'), written: 250, oral: 0 },
+    ],
+    words_written: 650,
+    words_oral: 150,
+    speech: [
+      { ...bucket('2026-08-24'), seconds: 600, by_kind: { shadowing: 400, speaking: 200 } },
+      { ...bucket('2026-08-31'), seconds: 0, by_kind: {} },
+    ],
+    speech_seconds: 600,
+    speech_by_kind: { shadowing: 400, speaking: 200 },
+    ...overrides,
+  }
+}
+
+export const providerDay = (overrides: Partial<ProviderDay> = {}): ProviderDay => ({
+  provider: 'gemini',
+  models: ['gemini-3.5-flash-lite'],
+  requests: 40,
+  successes: 35,
+  errors: { rate_limit: 3, timeout: 2 },
+  rate_limited: 3,
+  quota_exhausted: 1,
+  input_tokens: 12000,
+  output_tokens: 4000,
+  avg_duration_ms: 850.4,
+  ...overrides,
+})
+
+export function aiStats(overrides: Partial<AiStats> = {}): AiStats {
+  return {
+    computed_at: '2026-09-01T10:00:00Z',
+    study_day: STUDY_DAY,
+    from: '2026-08-03',
+    to: STUDY_DAY,
+    granularity: 'day',
+    demo: false,
+    days: [
+      { day: '2026-08-31', requests: 25, successes: 22, providers: [providerDay({ requests: 25 })] },
+      {
+        day: STUDY_DAY,
+        requests: 18,
+        successes: 15,
+        providers: [
+          providerDay({ requests: 15 }),
+          providerDay({
+            provider: 'groq',
+            models: ['llama'],
+            requests: 3,
+            successes: 3,
+            errors: {},
+            rate_limited: 0,
+            quota_exhausted: 0,
+            avg_duration_ms: null,
+          }),
+        ],
+      },
+    ],
+    totals: [
+      providerDay(),
+      providerDay({
+        provider: 'groq',
+        models: ['llama'],
+        requests: 3,
+        successes: 3,
+        errors: {},
+        rate_limited: 0,
+        quota_exhausted: 0,
+        avg_duration_ms: null,
+      }),
+    ],
+    azure_month: { month: '2026-09', audio_seconds: 300, assessments: 12 },
     ...overrides,
   }
 }

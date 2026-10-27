@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 import { apiGet } from './client'
+import type { Deck, ItemStatus } from './library'
 
 // backend/app/api/stats.py and app/domain/stats/ (module I, M9.a): "API reference for M9.b" in
 // docs/PROGRESS.md. Everything is read-only and computed from the logs.
@@ -210,6 +211,104 @@ export interface MemoryStats extends PeriodHeader {
   }
 }
 
+// --- Progress ---------------------------------------------------------------------------------------
+
+export type ItemStatusCounts = Record<ItemStatus, number>
+
+export interface FunnelBucket extends Bucket {
+  /** Terms per status at the end of the bucket, rebuilt from the event log. */
+  counts: ItemStatusCounts
+}
+
+export interface TrackProgress {
+  code: string
+  title_en: string
+  title_fr: string
+  kind: string
+  started: boolean
+  unit_count: number
+  opened_units: number
+  triaged_units: number
+  done_units: number
+}
+
+export interface DayLoad {
+  day: string
+  cards: number
+  seconds: number
+}
+
+export interface ProgressStats extends PeriodHeader {
+  funnel_order: ItemStatus[]
+  outside_funnel: ItemStatus[]
+  snapshot: ItemStatusCounts
+  rebuilt: FunnelBucket[]
+  active: { key: string; active: number }[]
+  decks: Deck[]
+  tracks: TrackProgress[]
+  forecast: DayLoad[]
+}
+
+// --- Practice ---------------------------------------------------------------------------------------
+
+export interface StudyTimeBucket extends Bucket {
+  seconds: number
+  blocks: number
+  actions: number
+  /** The sessions' own duration, kept for comparison and never added to `seconds`. */
+  session_seconds: number
+}
+
+export interface PracticeStats extends PeriodHeader {
+  study_time: {
+    seconds: number
+    session_seconds: number
+    active_days: number
+    buckets: StudyTimeBucket[]
+  }
+  streaks: {
+    current: number
+    longest: number
+    longest_end: string | null
+    active_days_last_30: number
+  }
+  words: (Bucket & { written: number; oral: number })[]
+  words_written: number
+  words_oral: number
+  speech: (Bucket & { seconds: number; by_kind: Record<string, number> })[]
+  speech_seconds: number
+  speech_by_kind: Record<string, number>
+}
+
+// --- AI ---------------------------------------------------------------------------------------------
+
+export interface ProviderDay {
+  provider: string
+  models: string[]
+  requests: number
+  successes: number
+  /** Error code to count. */
+  errors: Record<string, number>
+  rate_limited: number
+  quota_exhausted: number
+  input_tokens: number
+  output_tokens: number
+  avg_duration_ms: number | null
+}
+
+export interface AiDay {
+  day: string
+  requests: number
+  successes: number
+  providers: ProviderDay[]
+}
+
+export interface AiStats extends PeriodHeader {
+  days: AiDay[]
+  totals: ProviderDay[]
+  azure_month: { month: string; audio_seconds: number; assessments: number }
+}
+
 // --- Hooks ------------------------------------------------------------------------------------------
 
 export const statsKey = ['stats'] as const
@@ -245,6 +344,35 @@ export function useStatsMemory(period: Period | null) {
     queryKey: [...statsKey, 'memory', period],
     queryFn: ({ signal }) =>
       apiGet<MemoryStats>(`/stats/memory?${query(period as Period)}`, { signal }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useStatsProgress(period: Period | null) {
+  return useQuery({
+    enabled: period !== null,
+    queryKey: [...statsKey, 'progress', period],
+    queryFn: ({ signal }) =>
+      apiGet<ProgressStats>(`/stats/progress?${query(period as Period)}`, { signal }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useStatsPractice(period: Period | null) {
+  return useQuery({
+    enabled: period !== null,
+    queryKey: [...statsKey, 'practice', period],
+    queryFn: ({ signal }) =>
+      apiGet<PracticeStats>(`/stats/practice?${query(period as Period)}`, { signal }),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useStatsAi(period: Period | null) {
+  return useQuery({
+    enabled: period !== null,
+    queryKey: [...statsKey, 'ai', period],
+    queryFn: ({ signal }) => apiGet<AiStats>(`/stats/ai?${query(period as Period)}`, { signal }),
     placeholderData: keepPreviousData,
   })
 }
