@@ -1,8 +1,10 @@
 # Design overhaul plan
 
-Status: **implemented in part**: RV.a (foundations: layers, tokens, Inter, icons, base components, sidebar shell,
-style guide, contrast test, charts) is done; RV.b (screen by screen) comes next. Corrections made while
-implementing (see D-285 to D-294 in `docs/DECISIONS.md`): **icons are home-made SVG, not Tabler** (no new
+Status: **implemented**: RV.a (foundations: layers, tokens, Inter, icons, base components, sidebar shell,
+style guide, contrast test, charts) and RV.b (screen by screen: home, session, section headers, import cards,
+`CorrectionMark`, notices) are done, **except the eight section illustrations**, which the owner still has to add
+in `frontend/src/assets/sections/` (the headers work without them, D-296). Corrections made while
+implementing (see D-285 to D-301 in `docs/DECISIONS.md`): **icons are home-made SVG, not Tabler** (no new
 dependency); `border-strong` is `#8582a8` / `#7472ab` (3.65:1 on surface, the first values were 1.6:1) and
 `accent` is `#a8461f` in light (5.16:1 on its tint); the sidebar group "Library" is named "Vocabulary".
 Original text: visual decisions are made now; implementation starts **after M9** (before or as

@@ -4057,6 +4057,41 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 
 - The labels were about 8 px at 375 px because the SVG, drawn in a 480-unit `viewBox`, was scaled down. `LineChart` now measures its container (`useElementWidth`, a `ResizeObserver`; 480 where the API does not exist, as in tests) and draws the SVG in a `viewBox` of that width, so nothing is scaled: axis labels are 13 px at any width (measured in the browser through the screen matrix of each `<text>`: 13.00 px at 375 and at 1280 px, legends 14 px), and the number of x labels follows the room (one per 64 px, at least two). `role="img"`, the gaps for missing data, "Show the numbers" and the `chart-1..5` colours are unchanged. No test measures a size.
 
-## D-294 — Hard-coded colours after RV.a (RV.a; to be completed in RV.b)
+## D-294 — Hard-coded colours after RV.a (RV.a; confirmed in RV.b)
 
 - Outside `tokens.css` there is one literal colour: the `#000` of the `mask-image` of the section-header illustration (a mask only reads the alpha channel, so it has no hue). The white of the banner button comes from `--on-hero` and its ink from `--sidebar`; the sidebar mark, rings and counters use tokens. The searches are in `PROGRESS.md`.
+
+## D-295 — The home page is built from what it already loads (RV.b)
+
+- `HomePage` reads `useToday`, `useDecks` and `useHealth`, which the page already used: no new API call. The hero carries the date, a greeting with the planned minutes, one sentence (reviews and new terms) and the single Start / Resume action; with an empty plan it keeps the old title ("Welcome") and introduction, and shows no button. Three `StatTile`s (reviews due, new terms, planned minutes against the budget, with a bar), then the "Continue" `ActionTile`s (Library with its deck count, Writing, Speaking, Errors, and Consolidation only when the plan holds a task), then the existing "Today's session" card (per-deck counts, targeted practice, warnings) and the server status.
+- Start / Resume moved from the card to the hero: there is **one** link of that name on the page (two would break `getByRole`). The only test touched for it is the Start assertion of `TodayCard.test.tsx`, which looked inside the card and now looks at the page.
+- New EN and FR keys (same keys, "vous", no gendered form): `home.greeting`, `home.heroText`, `home.heroReviews`, `home.heroNewItems`, `home.tiles.*`, `home.continueTitle`, `home.continue.*`. The word "Section" (`nav.section`) and the group titles of RV.a form the eyebrow of the section headers: "Section · Practice".
+
+## D-296 — Section headers: one primary button, the title keeps the focus, the illustrations are found at build time (RV.b)
+
+- Library, Writing, Speaking and Errors have a `SectionHeader` with an illustration slot; Tracks, Consolidation and Statistics have the same header without one. The underlined link rows under the old titles became buttons (`<Link className="button">`, same labels, same routes). **One primary button where the page has no primary action of its own**: Import a list (Library) and Targeted drills (Errors). Writing and Speaking keep all their header buttons secondary because the form below carries the page's primary button ("one primary per view").
+- `SectionHeader` now renders `PageTitle`, so the title still takes the focus on arrival (an accessibility behaviour of every page that must not disappear with the redesign), and takes an optional `note` (Statistics keeps its demo flag and its "Computed on" line there). `PageTitle` takes an optional `className`.
+- The eight PNG files were **not provided** when RV.b was done. `components/sectionArt.ts` finds `src/assets/sections/header-<section>-<light|dark>.png` with `import.meta.glob` (eager, `?url`); a section whose two files are not both there has a header without an illustration, and the build does not fail. Dropping the files in the folder is enough, no code change.
+
+## D-297 — Working screens: a reading column, a sunken answer zone, four coloured rating buttons (RV.b)
+
+- `.session` (the review player, discovery, waiting, summary) is a column of `--reading-max` (720 px); no image. The progress bar is drawn from tokens (`<progress>` kept, with its figures in words under it); the answer area of a typed card is a sunken block, full width; "End the session" is a ghost button.
+- Rating buttons carry `rating__button--again|hard|good|easy` (danger, warning, success and brand tints, the tone as text and border; each pair is covered by the contrast test). They are 3.5 rem high whatever they contain, so the suggestion ("Suggested" in words plus a ring) never adds a line; two by two below 600 px. The key hints stay `kbd`. Shortcuts, texts and the order of the buttons are unchanged (D-122).
+
+## D-298 — `CorrectionMark` and `CategoryCode` (RV.b)
+
+- `CorrectionMark` shows a mistake and its fix: the wrong fragment on `accent-tint` with a wavy `accent` underline, then the correction on `success-tint`; the arrow and the hidden words "Wrong" / "Right" repeat it (no colour alone, D-087). Used in the correction view, the error log list, the error page and the statistics top errors. The mark inside the corrected text uses the same tint and underline. (`accent` is for marks of error in a text, never a button, as in the brief.)
+- `CategoryCode` renders a code such as `grammar.tense.past_simple_vs_present_perfect` with a `<wbr>` after each dot, so it breaks at the dots and never in the middle of a word; its text content is unchanged.
+
+## D-299 — Import preview as cards below 600 px, without changing the markup (RV.b)
+
+- The seven-column table keeps its `<table>`, its cells, its controls and its tab order. Below 600 px the CSS lays every row out as a card (`display: block`); each cell is named by its column through a `data-label` attribute (the existing `import.rows.*` texts) shown by `::before`; the header row stays in the DOM, hidden visually. On wider screens nothing changes (the table scrolls inside its `.table-wrap`).
+
+## D-300 — Notices wherever a message is a paragraph, and the old messages look the same (RV.b)
+
+- About a hundred `<p className="form-message form-message--warn|error|ok">` (same text, same `role`) became `<Notice>` through a one-off script; the ones with extra classes, ids, refs or block content were left. Their classes (`form-message*`) now have the tinted look of a notice, so the two never look different. The old `.status` and `.badge` rows were already restyled in RV.a and stay where the markup was not touched. A row of tiles is `.tile-grid`.
+- The `<fieldset>` of the dialogue step's speed choice was inside a `<p>` (a React warning): its parent is now a `<div className="link-row">`.
+
+## D-301 — Media queries and sizes in the feature files (RV.b)
+
+- The queries of `queue.css` (560 px), `curriculum.css` (40 rem, twice) and `dashboard.css` (30 rem) are now 600 px; the top-bar rules that the 560 px block still carried from the old navigation were dead and are removed. Font sizes and radii written in px / rem in the feature files use the tokens (`--fs-*`, `--radius-*`); the sizes left are widths and spacings of layouts, and one `13px` of the statistics charts. After RV.b the only hard-coded colour outside `tokens.css` is the `#000` of D-294 (the `rg` output is in PROGRESS).
