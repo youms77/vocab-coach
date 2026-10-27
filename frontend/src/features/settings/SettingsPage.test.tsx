@@ -97,7 +97,7 @@ const settings: SettingsMap = {
   target_retention: setting(0.9, { type: 'float', minimum: 0.7, maximum: 0.97 }),
   timezone: setting('Africa/Douala'),
   day_start_hour: setting(4, { minimum: 0, maximum: 23 }),
-  consolidation_share: setting(0.8, { type: 'float', minimum: 0, maximum: 1 }),
+  consolidation_share: setting(0.8, { type: 'float', minimum: 0.5, maximum: 1 }),
   consolidation_min_stability_days: setting(7, { minimum: 1 }),
   ui_language: setting('en', { choices: ['en', 'fr'] }),
   tts_rate: setting(1, { type: 'float', minimum: 0.5, maximum: 2 }),

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     groq_text_model: str | None = None
     groq_transcription_model: str | None = None
     ollama_model: str | None = None
+    # Azure AI Speech pronunciation assessment (M6.c1, optional, F0 tier). Both are needed.
+    azure_speech_key: SecretStr | None = None
+    azure_speech_region: str | None = None
 
     @field_validator(
         "gemini_api_key",
@@ -56,6 +59,8 @@ class Settings(BaseSettings):
         "groq_text_model",
         "groq_transcription_model",
         "ollama_model",
+        "azure_speech_key",
+        "azure_speech_region",
         mode="before",
     )
     @classmethod
@@ -89,7 +94,7 @@ class Settings(BaseSettings):
 
     def secret_values(self) -> list[str]:
         """Every configured secret value, for masking error messages (see app/ai/redact.py)."""
-        keys = (self.gemini_api_key, self.groq_api_key)
+        keys = (self.gemini_api_key, self.groq_api_key, self.azure_speech_key)
         return [key.get_secret_value() for key in keys if key is not None]
 
     @property

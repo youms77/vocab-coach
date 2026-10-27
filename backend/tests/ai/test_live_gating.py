@@ -23,6 +23,8 @@ def _run_live(**env: str) -> subprocess.CompletedProcess[str]:
         VOCAB_GEMINI_API_KEY="",  # an empty value also wins over the owner's real .env
         VOCAB_GROQ_API_KEY="",
         VOCAB_OLLAMA_BASE_URL="",
+        VOCAB_AZURE_SPEECH_KEY="",
+        VOCAB_AZURE_SPEECH_REGION="",
     )
     clean.update(env)
     return subprocess.run(  # noqa: S603 (our own interpreter, fixed arguments)

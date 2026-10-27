@@ -21,6 +21,8 @@ from app.services.demo_guard import is_demo
 
 router = APIRouter(prefix="/settings", tags=["settings"], dependencies=[Depends(require_database)])
 
+DEMO_LOCKED_SETTINGS = frozenset({"ai_provider_order", "pronunciation_assessment"})
+
 SessionDep = Annotated[Session, Depends(get_session)]
 EngineDep = Annotated[Engine, Depends(get_engine)]
 
@@ -62,10 +64,13 @@ def list_settings(session: SessionDep) -> dict[str, SettingInfo]:
 def update_settings(
     changes: dict[str, Any], session: SessionDep, engine: EngineDep
 ) -> dict[str, SettingInfo]:
-    # Provider order is part of the owner's real setup: the demo database leaves it alone.
-    if "ai_provider_order" in changes and is_demo(get_settings(), engine):
+    # Provider order and pronunciation assessment are part of the owner's real setup: the demo
+    # database leaves them alone.
+    if DEMO_LOCKED_SETTINGS.intersection(changes) and is_demo(get_settings(), engine):
         raise api_error(
-            409, "demo_read_only", "The demo database is read-only for AI keys and provider order."
+            409,
+            "demo_read_only",
+            "The demo database is read-only for AI keys, provider order and pronunciation.",
         )
     try:
         for key, value in changes.items():

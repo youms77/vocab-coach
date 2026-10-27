@@ -61,3 +61,33 @@ describe('describeError: drills', () => {
     expect(describeError(t, refusal(409, 'already_answered')).text).toBe('This item was already answered.')
   })
 })
+
+describe('describeError: recordings', () => {
+  it('says the bounds a refused recording carries', () => {
+    expect(describeError(t, refusal(422, 'audio_too_short', { min_s: 0.5, max_s: 30 })).text).toBe(
+      'The recording is too short: it must last at least 0.5 s.',
+    )
+    expect(describeError(t, refusal(422, 'audio_too_long', { min_s: 0.5, max_s: 30 })).text).toBe(
+      'The recording is too long: 30 s at most.',
+    )
+    expect(describeError(t, refusal(413, 'audio_too_large', { max_bytes: 10485760 })).text).toContain(
+      'larger than 10 MB',
+    )
+  })
+
+  it('has a sentence for every other recording code', () => {
+    for (const code of [
+      'unsupported_audio',
+      'audio_empty',
+      'invalid_target',
+      'no_audio',
+      'already_transcribed',
+      'not_transcribed',
+      'nothing_to_correct',
+    ]) {
+      const text = describeError(t, refusal(422, code)).text
+      expect(text, code).not.toMatch(/^Unexpected error/)
+      expect(text, code).not.toContain('errors.')
+    }
+  })
+})

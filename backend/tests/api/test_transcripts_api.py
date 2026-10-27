@@ -145,7 +145,7 @@ def test_only_the_users_turns_are_stored(fake_env: FakeAiEnv) -> None:
             "occurred_on": None,
         }
         row = session.scalars(select(EventLog).order_by(EventLog.id.desc())).first()
-        assert row is not None and row.payload_version == 3
+        assert row is not None and row.payload_version == 6  # v6 since M7.a2 (consolidation)
 
 
 def test_recording_refusals(fake_env: FakeAiEnv) -> None:

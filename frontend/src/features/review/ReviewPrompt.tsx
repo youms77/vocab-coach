@@ -184,7 +184,7 @@ function RevealButton({
 /**
  * What the card asks, before and after the answer. Built from the step's prompt only: the
  * solution is never in the step (D-103). The listening sentence is spoken, never written here,
- * and a productive card never shows its term.
+ * and a productive card never shows its term. A spoken card shows its question alone (D-207).
  */
 export function ReviewPrompt({
   review,
@@ -268,8 +268,7 @@ export function ReviewPrompt({
           <p className="review-situation" lang="en">
             {text(prompt.question)}
           </p>
-          <p className="muted">{t('review.prompt.recordingLater')}</p>
-          <RevealButton state={state} onReveal={onReveal} label={t('review.showExample')} />
+          {/* The recorder and its keys are the player's (SpokenAnswer); no example before the answer. */}
         </>
       )
     default: {

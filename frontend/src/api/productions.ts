@@ -2,11 +2,12 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { ApiError, apiGet, apiSend } from './client'
 import type { ErrorOut } from './errors'
+import type { AssessableReason, Comparison, PronunciationScores } from './speech'
 
 // backend/app/api/productions.py, api/writing.py and the stored `correction-1` feedback
 // (app/services/corrections.py, D-128).
 
-export type ProductionKind = 'writing' | 'transcript_analysis' | 'drill' | string
+export type ProductionKind = 'writing' | 'transcript_analysis' | 'drill' | 'shadowing' | 'speaking' | 'consolidation' | string
 
 export interface ProductionTarget {
   lexical_item_id: number
@@ -42,6 +43,14 @@ export interface NaturalnessNote {
   note: string
 }
 
+/** The comment on how a spoken text is organised (`speaking-1` only; null in answer mode). */
+export interface SpeakingStructure {
+  comment_en: string
+  comment_fr: string
+  connectors_used: string[]
+  suggestions: { text_en: string; text_fr: string }[]
+}
+
 export interface CorrectionOutput {
   sentences: CorrectionSentence[]
   corrected_text: string
@@ -50,6 +59,8 @@ export interface CorrectionOutput {
   naturalness_notes: NaturalnessNote[]
   targets: unknown[]
   overall_comment: string
+  /** `speaking-1` only. */
+  structure?: SpeakingStructure | null
 }
 
 /** Position of `output.errors[error]` in `text`, in Unicode code points (D-128). */
@@ -81,8 +92,9 @@ export interface TranscriptUnit {
 
 /**
  * `format: "correction-1"` is the written correction; `"transcript-1"` has the same keys plus
- * `units`, `context_sent` and `calls` (units play the part of sentences, D-134). Any other format
- * is shown as plain text by the correction view.
+ * `units`, `context_sent` and `calls` (units play the part of sentences, D-134); `"speaking-1"`
+ * has the keys of `correction-1` plus `output.structure` (a unit may hold several sentences,
+ * D-179). Any other format is shown as plain text by the correction view.
  */
 export interface Feedback {
   format: string
@@ -112,6 +124,15 @@ export interface Production {
   targets: ProductionTarget[]
   created_at: string
   updated_at: string
+  /** Spoken productions (M6): the recording, whether it was transcribed, the comparison. */
+  audio_url: string | null
+  audio_seconds: number | null
+  transcription_status: 'pending' | 'ok' | 'silence' | null
+  comparison: Comparison | null
+  /** Optional Azure assessment (M6.c): scores, whether one can be asked for, and why not. */
+  pronunciation?: PronunciationScores | null
+  assessable?: boolean
+  assessable_reason?: AssessableReason | null
 }
 
 export interface ProposedCategory {
@@ -133,6 +154,22 @@ export interface CorrectionResult {
   attempt: Production
   errors: ErrorOut[]
   proposed_categories: ProposedCategory[]
+  /** A corrected consolidation production only (M7.a2): what happened to the terms of the task. */
+  consolidation?: ConsolidationSummary | null
+}
+
+/** Counts, and the ids of the terms made `active` and of the cards that got an Again. */
+export interface ConsolidationSummary {
+  task_id: number
+  production_attempt_id: number
+  modality: string
+  targets: number
+  used: number
+  used_correctly: number
+  misused: number
+  absent: number
+  activated_item_ids: number[]
+  reinforced_card_ids: number[]
 }
 
 export interface ProductionPage {
@@ -203,11 +240,23 @@ export function applyCorrection(queryClient: QueryClient, result: CorrectionResu
   void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'list'] })
   void queryClient.invalidateQueries({ queryKey: ['error-categories'] })
   void queryClient.invalidateQueries({ queryKey: ['errors'] })
+  // A consolidation production changed terms and cards: the task, its deck and the lists follow.
+  if (result.consolidation != null) {
+    void queryClient.invalidateQueries({ queryKey: ['consolidation'] })
+    void queryClient.invalidateQueries({ queryKey: ['items'] })
+    void queryClient.invalidateQueries({ queryKey: ['decks'] })
+  }
 }
 
-/** Corrected meanwhile (another tab, or a retry that did succeed): show what is stored. */
+/**
+ * Corrected meanwhile (another tab, or a retry that did succeed), or a spoken text whose
+ * transcription is not there after all (`not_transcribed`): show what is stored.
+ */
 export function applyCorrectionError(queryClient: QueryClient, error: unknown, id: number) {
-  if (error instanceof ApiError && error.code === 'already_corrected') {
+  if (
+    error instanceof ApiError &&
+    (error.code === 'already_corrected' || error.code === 'not_transcribed')
+  ) {
     void queryClient.invalidateQueries({ queryKey: [...productionsKey, 'detail', id] })
   }
 }

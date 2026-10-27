@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { useAiStatus } from '../../api/ai'
+import { AzureCard } from './AzureCard'
 import { ErrorText } from './ErrorText'
 import { GeneralSettings } from './GeneralSettings'
 import { ProviderCard } from './ProviderCard'
@@ -52,6 +53,7 @@ export function SettingsPage() {
         <p className="muted">{t('settings.intro')}</p>
       </section>
       <AiProviders />
+      <AzureCard />
       <UsagePanel />
       <GeneralSettings />
     </div>

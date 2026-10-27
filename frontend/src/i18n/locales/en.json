@@ -11,7 +11,11 @@
     "label": "Main",
     "today": "Today",
     "writing": "Writing",
-    "errors": "Errors"
+    "speaking": "Speaking",
+    "errors": "Errors",
+    "consolidation": "Consolidation",
+    "curriculum": "Tracks",
+    "stats": "Statistics"
   },
   "demo": {
     "badge": "Demo data",
@@ -43,7 +47,8 @@
       "names": {
         "gemini": "Google Gemini",
         "groq": "Groq",
-        "ollama": "Ollama (on this computer)"
+        "ollama": "Ollama (on this computer)",
+        "azure": "Microsoft Azure AI Speech"
       },
       "capabilities": {
         "text": "Text",
@@ -184,6 +189,29 @@
           "hint": "1.0 is the normal speed."
         }
       }
+    },
+    "azure": {
+      "title": "Pronunciation assessment (optional, Azure)",
+      "intro": "Scores each word and sound of a shadowing against the sentence you repeated. It is off by default and the rest of the app works without it.",
+      "privacy": "When you ask for an assessment, the recording is sent to Microsoft. Use a free F0 resource only, never S0. Whether the F0 tier includes pronunciation assessment is not confirmed.",
+      "demoNote": "Demo database: the key, the region and the setting cannot be changed here.",
+      "loadError": "The Azure status could not be loaded.",
+      "keyLabel": "Azure Speech key",
+      "regionLabel": "Region",
+      "regionPlaceholder": "westeurope",
+      "regionHint": "The region of your resource, for example westeurope. Saved in .env with the key; the key is not shown again.",
+      "regionCurrent": "Current region: {{region}}.",
+      "regionRequired": "Enter the region of your Azure resource.",
+      "keyRequired": "Paste your key.",
+      "keyEmptyKeepRegion": "Paste your key to save it.",
+      "enableLabel": "Allow pronunciation assessment of shadowings",
+      "enableHint": "New shadowings are then recorded as WAV (16 kHz, mono) so that Azure can read them. Older recordings cannot be assessed.",
+      "enableNeedsKey": "Save a key and a region first.",
+      "enableSaved": "Setting saved.",
+      "usageTitle": "Use this month",
+      "usage": "{{minutes}} min of audio sent in {{count}} assessments (month {{month}}). Free tier: about {{limit}} min a month, checked on {{checked}}.",
+      "usageNote": "This counts what this app sent, not what Microsoft counts.",
+      "usageError": "The monthly use could not be loaded."
     }
   },
   "errors": {
@@ -255,7 +283,39 @@
     "text_too_long_transcript": "This conversation is too long: at most 60,000 pasted characters and 6,000 characters in your own turns.",
     "drill_not_found": "This drill does not exist (any more).",
     "already_answered": "This item was already answered.",
-    "not_drillable": "This category cannot be practised."
+    "not_drillable": "This category cannot be practised.",
+    "audio_too_large": "The recording is larger than {{mb}} MB, so it cannot be sent. Record a shorter take.",
+    "unsupported_audio": "This audio format is not accepted. Use the recorder of this page.",
+    "audio_empty": "The recording is empty. Check your microphone and record again.",
+    "audio_too_short": "The recording is too short: it must last at least {{min}} s.",
+    "audio_too_long": "The recording is too long: {{max}} s at most.",
+    "invalid_target": "The sentence to repeat must have between 1 and 400 characters and contain at least one word.",
+    "no_audio": "There is no recording for this item (or its file is gone).",
+    "already_transcribed": "This recording was already transcribed.",
+    "not_transcribed": "This recording has no transcription yet: transcribe it first.",
+    "nothing_to_correct": "Nothing was heard, so there is nothing to correct.",
+    "region_required": "Enter the region of your Azure resource.",
+    "invalid_region": "This region is not valid (letters and digits only, for example westeurope).",
+    "not_assessable": "Only a shadowing with a sentence can be assessed.",
+    "assessment_disabled": "Pronunciation assessment is turned off in the settings.",
+    "already_assessed": "This recording was already assessed.",
+    "unsupported_for_assessment": "This recording cannot be assessed: Azure reads only WAV or OGG, and this one was recorded in another format. Record it again with the assessment turned on.",
+    "task_not_found": "This consolidation task does not exist (any more).",
+    "not_ready": "This deck is not ready for a consolidation task yet.",
+    "task_open": "This deck already has an open task.",
+    "task_closed": "This task is closed: it takes no new production.",
+    "wordlist_missing": "The word list file of this track is missing from this installation.",
+    "track_not_started": "Start the track first.",
+    "not_a_wordlist_track": "This track has no word units: it is made of speaking scenarios.",
+    "not_a_scenario_track": "This track is a word list: its units are not written by the AI.",
+    "not_a_scenario_unit": "This unit is a list of words, not a speaking scenario.",
+    "track_not_found": "This track does not exist.",
+    "unit_not_found": "This unit does not exist.",
+    "syllabus_unavailable": "The syllabus file could not be read. Check content/curriculum.yaml.",
+    "unit_generated": "This unit was already written. The page shows it now.",
+    "unit_changed": "This unit changed meanwhile. Reload the page and try again.",
+    "invalid_content": "The content of the unit was refused:",
+    "invalid_step": "This step is ticked by your recordings, not by a button."
   },
   "home": {
     "title": "Welcome",
@@ -558,7 +618,8 @@
     "quota": "the free quota is used up or the rate limit was hit; try again later",
     "auth": "the AI key was refused",
     "timeout": "the AI took too long to answer",
-    "all_failed": "the AI providers returned errors"
+    "all_failed": "the AI providers returned errors",
+    "incomplete": "the speech recognition returned no usable text"
   },
   "sheet": {
     "title": "Usage sheet and exercises",
@@ -665,7 +726,10 @@
       "open": "Open version {{version}}",
       "close": "Close"
     },
-    "exampleLabel": "example {{index}}"
+    "exampleLabel": "example {{index}}",
+    "shadow": "Shadow this sentence",
+    "originSentence": "Original sentence",
+    "originLabel": "original sentence"
   },
   "exercises": {
     "title": "Exercises",
@@ -751,6 +815,7 @@
     "unsupported": "This browser has no speech synthesis, so audio is not available.",
     "noEnglishVoice": "No English voice is installed in this browser, so audio is not available.",
     "nonAmerican": "Non-American voice ({{name}}): no en-US voice was found.",
+    "disabledWhileRecording": "Listening is off while you record.",
     "voice": {
       "legend": "Voice",
       "label": "Speech synthesis voice",
@@ -759,6 +824,179 @@
       "hint": "The voices come from this browser and its operating system; en-US voices are listed first.",
       "fallback": "This voice is not available in this browser: the automatic choice is used instead.",
       "test": "Test"
+    }
+  },
+  "recorder": {
+    "range": "Between {{min}} and {{max}} seconds.",
+    "rangeSpeaking": "Aim for 1 to 2 minutes.",
+    "start": "Start recording",
+    "stop": "Stop recording",
+    "cancel": "Cancel",
+    "requesting": "Waiting for the microphone permission…",
+    "recording": "Recording… {{time}}",
+    "started": "Recording started.",
+    "stopped": "Recording stopped: {{time}}.",
+    "length": "Length: {{time}}",
+    "listen": "Listen",
+    "again": "Record again",
+    "send": "Send",
+    "sending": "Sending…",
+    "longWarning": "This take is getting long: it stops by itself at {{max}} seconds.",
+    "tooShort": "This take is too short (at least {{min}} s). Record it again.",
+    "tooLarge": "This take is larger than {{mb}} MB and cannot be sent. Record a shorter one.",
+    "deniedHelp": "Allow the microphone for 127.0.0.1 in the site settings of your browser (the icon next to the address), then try again.",
+    "errors": {
+      "unsupported": "This browser cannot record sound (no MediaRecorder or no microphone access).",
+      "denied": "Access to the microphone was refused.",
+      "no_device": "No microphone was found.",
+      "busy": "The microphone is used by another program or tab.",
+      "failed": "The recording failed. Try again."
+    }
+  },
+  "speaking": {
+    "privacy": "Your recording is sent to Groq for transcription; it stays in your data folder, never in Git.",
+    "comparison": {
+      "summary_one": "{{recognized}} of {{count}} word recognised",
+      "summary_other": "{{recognized}} of {{count}} words recognised",
+      "target": "Target",
+      "heard": "Heard",
+      "nothing": "nothing",
+      "closeHidden": "close match, counted as recognised",
+      "heardAs": "heard: {{word}}",
+      "notHeard": "not heard",
+      "extra": "extra word",
+      "unrecognized": "Words not recognised",
+      "log": "Log as an intelligibility error",
+      "warning": "Speech recognition is not a pronunciation judge: a word it missed may be clear to a person (accent, noise, homophones). Treat these as hints."
+    },
+    "title": "Free speaking",
+    "intro": "Pick a subject and speak for one to two minutes. A speech recogniser writes down what it heard, then the AI corrects it, marks each error and adds it to your error log.",
+    "historyLink": "My previous speeches",
+    "shadowingLink": "Practise shadowing a sentence",
+    "step2": "2. Your voice",
+    "sending": "Sending and transcribing…",
+    "submitHint": "Your recording is saved and transcribed first, then corrected. Both take a few seconds, sometimes up to a minute.",
+    "topics": {
+      "title": "Choose a subject",
+      "intro": "Three suggestions for today, or speak on your own subject. You can also speak without one.",
+      "theme": "Topic theme",
+      "allThemes": "All themes",
+      "tags": {
+        "interview": "Interview",
+        "presenting": "Presenting",
+        "academic": "Academic",
+        "data_science": "Data science",
+        "everyday": "Everyday",
+        "campus": "Campus"
+      },
+      "loading": "Loading the subjects…",
+      "empty": "No subject for this theme.",
+      "use": "Use this subject",
+      "chosen": "Chosen",
+      "own": "Speak on my own subject",
+      "ownLabel": "Your subject ({{max}} characters at most)",
+      "current": "Subject:",
+      "clear": "Remove the subject"
+    },
+    "detail": {
+      "title": "Your speech and its correction",
+      "loading": "Loading…",
+      "topic": "Topic or question:",
+      "another": "Speak again",
+      "allSpeeches": "All my speeches",
+      "errorLog": "Open the error log",
+      "notSpeaking": "This recording is not a spoken text, so it has no page here.",
+      "recording": "Your recording",
+      "noAudio": "There is no recording for this speech (or its file is gone).",
+      "result": "Transcription and correction",
+      "heard": "What the speech recognition heard",
+      "notTranscribed": "This recording is not transcribed yet.",
+      "transcribe": "Transcribe",
+      "transcribing": "Transcribing… {{seconds}} s",
+      "tryAgain": "Try again",
+      "unavailable": "The transcription is not available: {{reason}}. Your recording is kept.",
+      "silence": "No speech was heard in this recording.",
+      "recordAgain": "Record again",
+      "correct": "Correct my speech",
+      "checking": "Correcting… {{seconds}} s",
+      "checkingHint": "The AI is correcting what was heard. Your recording is saved already; you can wait here.",
+      "notCorrected": "This speech is transcribed but not corrected yet.",
+      "notCorrectedIncomplete": "This speech is not corrected: the AI's answer could not be used.",
+      "notCorrectedReason": "This speech is not corrected: {{reason}}.",
+      "textTooLong": "This speech is too long to be corrected in one go (more than 4,000 characters once written down).",
+      "correctionLabel": "Correction",
+      "ready_one": "Correction ready: {{count}} error found.",
+      "ready_other": "Correction ready: {{count}} errors found.",
+      "readyNoErrors": "Correction ready: no errors found."
+    },
+    "history": {
+      "title": "My speeches",
+      "intro": "Your recordings of free speaking, newest first.",
+      "mixed": "This list also holds your spoken answers in reviews: for those, the topic column is the question of the card.",
+      "empty": "No speech yet. Record the first one.",
+      "count_one": "{{count}} speech",
+      "count_other": "{{count}} speeches",
+      "date": "Date",
+      "topic": "Topic or question",
+      "words": "Words heard",
+      "status": "Status",
+      "corrected": "Corrected",
+      "notCorrected": "Not corrected",
+      "silent": "No speech heard",
+      "notTranscribed": "Not transcribed"
+    },
+    "unit": {
+      "title": "Final task of the unit"
+    }
+  },
+  "shadowing": {
+    "title": "Shadowing",
+    "intro": "Listen to a sentence, repeat it aloud, then compare what you said with what a speech recogniser heard.",
+    "historyLink": "Shadowing history",
+    "step1": "1. The sentence",
+    "step2": "2. Your voice",
+    "targetLabel": "Sentence to repeat",
+    "chars": "{{chars}} / {{max}} characters",
+    "tooLong": "The sentence is too long ({{chars}} of {{max}} characters).",
+    "sentenceLabel": "the sentence",
+    "needSentence": "Type or paste a sentence first: it unlocks the recorder.",
+    "sending": "Sending and transcribing…",
+    "detail": {
+      "title": "Your shadowing",
+      "another": "Shadow another sentence",
+      "allShadowings": "All shadowings",
+      "errorLog": "Open the error log",
+      "loading": "Loading…",
+      "target": "The sentence",
+      "recording": "Your recording",
+      "noAudio": "There is no recording for this shadowing (or its file is gone).",
+      "playBoth": "Play both",
+      "stopBoth": "Stop",
+      "playingVoice": "Playing the synthetic voice…",
+      "playingRecording": "Playing your recording…",
+      "result": "Transcription and comparison",
+      "notShadowing": "This recording is not a shadowing, so it has no page here.",
+      "notTranscribed": "This recording is not transcribed yet.",
+      "transcribe": "Transcribe",
+      "transcribing": "Transcribing… {{seconds}} s",
+      "tryAgain": "Try again",
+      "unavailable": "The transcription is not available: {{reason}}. Your recording is kept.",
+      "silence": "No speech was heard in this recording.",
+      "recordAgain": "Record again",
+      "ready": "Transcription ready: {{recognized}} of {{count}} words recognised.",
+      "logExplanation": "Speech recognition heard “{{heard}}” instead of “{{target}}”. Check how you say it before keeping this entry."
+    },
+    "history": {
+      "title": "Shadowing history",
+      "intro": "Your shadowing takes, newest first.",
+      "empty": "No shadowing yet.",
+      "count_one": "{{count}} shadowing",
+      "count_other": "{{count}} shadowings",
+      "date": "Date",
+      "sentence": "Sentence",
+      "result": "Result",
+      "silent": "No speech heard",
+      "notTranscribed": "Not transcribed"
     }
   },
   "today": {
@@ -773,11 +1011,13 @@
     "unknownDeck": "Deck {{id}}",
     "minutes": "About {{minutes}} min, for a daily budget of {{budget}} min",
     "targeted": "Targeted practice: {{category}} ({{count}} recent errors)",
-    "consolidation": "A consolidation task is ready, for information only",
+    "consolidation": "A consolidation task is ready.",
     "empty": "Nothing to review or discover today. Import a word list or add terms to your library.",
     "start": "Start today's session",
     "resume": "Resume today's session",
-    "openSession": "A session is already open today."
+    "openSession": "A session is already open today.",
+    "tryTracks": "Nothing new to learn:",
+    "tryTracksLink": "try a general English track"
   },
   "plan": {
     "warningsTitle": "Warnings",
@@ -835,9 +1075,9 @@
     "practice": {
       "targeted": "Targeted practice on your most frequent errors: {{category}} ({{count}} errors in the last 14 days).",
       "consolidation": "A consolidation task (a talk using your deck's terms) is ready.",
-      "later": "The consolidation task is available in a later version of the app.",
       "continue": "Continue",
-      "now": "Practise now"
+      "now": "Practise now",
+      "openTask": "Open the task"
     },
     "summary": {
       "title": "Session summary",
@@ -904,7 +1144,11 @@
     "repetition": {
       "title": "Say it aloud",
       "instructions": "Listen at normal speed, then slowly, and repeat the sentence aloud.",
-      "recordingLater": "Recording your voice comes in a later version.",
+      "recordTitle": "Record yourself",
+      "recordingHint": "Recording yourself is optional: send a take to compare it with the sentence, or go on without.",
+      "yourTake": "Your take",
+      "unavailable": "The transcription is not available: {{reason}}. Your take is kept; you can go on.",
+      "silence": "No speech was heard in this take. You can try again or go on.",
       "done": "Done, I repeated it"
     },
     "personal": {
@@ -971,7 +1215,6 @@
       "sentenceProduction": "Write a sentence for this situation, using the term you are reviewing.",
       "selfGradedLater": "The AI checks your sentence when it is available. Otherwise only the presence of the term is checked and you rate yourself.",
       "spokenAnswer": "Answer this question aloud, using the term you are reviewing.",
-      "recordingLater": "Nothing is recorded yet: recording your voice comes in a later version. Answer aloud, then compare with an example.",
       "selfReceptive": "Say to yourself what this term means, then check.",
       "selfProductive": "Recall the English term, then check."
     },
@@ -996,7 +1239,6 @@
     "check": "Check",
     "checking": "Checking…",
     "showAnswer": "Show the answer",
-    "showExample": "Show an example answer",
     "result": {
       "label": "Correction",
       "meaning": "Meaning: {{meaning}}",
@@ -1007,7 +1249,8 @@
       "noSentence": "You did not write a sentence.",
       "term_missing": "Your sentence does not contain the term.",
       "compare": "Compare with your own answer, then rate yourself.",
-      "answerIs": "The term:"
+      "answerIs": "The term:",
+      "term_not_heard": "The term was not heard: you may have forgotten it, or the speech recognition missed it. Rate yourself."
     },
     "summary": {
       "label": "About “{{term}}”",
@@ -1045,7 +1288,10 @@
       "replaySlow": "listen slowly",
       "space": "Space",
       "enter": "Enter",
-      "shift": "Shift"
+      "shift": "Shift",
+      "record": "start recording",
+      "stop": "stop recording",
+      "send": "send"
     },
     "aiCheck": {
       "checking": "Checking your sentence…",
@@ -1058,6 +1304,20 @@
         "incomplete": "The AI check could not be used. Rate your sentence yourself.",
         "skipped": "Check skipped. Rate your sentence yourself.",
         "failed": "The AI check failed: {{error}} Rate your sentence yourself."
+      }
+    },
+    "spoken": {
+      "withoutRecording": "Answer without recording",
+      "twoSteps": "Two AI steps check your answer (transcription, then correction): this can take up to about 90 seconds. Your recording stays on this computer.",
+      "checking": "Checking your answer…",
+      "elapsed": "Checking your answer… {{seconds}} s",
+      "skip": "Skip the check and rate myself",
+      "silence": "No speech was heard in your recording. Compare with the example answer and rate yourself.",
+      "unavailable": "Your recording could not be transcribed: {{reason}}. Compare with the example answer and rate yourself.",
+      "correctionFailed": "The correction is not available: {{reason}}. What was heard is shown above; rate yourself.",
+      "notice": {
+        "skipped": "Check skipped. Rate your answer yourself.",
+        "failed": "The check failed: {{error}} Rate your answer yourself."
       }
     },
     "errorLogged": {
@@ -1154,7 +1414,14 @@
     "turn": "Your turn {{n}}",
     "contextSent": "Analysed with the other speaker's context: the end of the turn before each of yours was read.",
     "contextNotSent": "Analysed without the other speaker's context.",
-    "noErrorsTurns": "No errors found in your turns."
+    "noErrorsTurns": "No errors found in your turns.",
+    "structureTitle": "Structure",
+    "connectors": "Connectors you used",
+    "noConnectors": "No connector was found in this speech.",
+    "structureSuggestions": "Suggestions",
+    "part": "Part {{n}}",
+    "heardTitle": "What the speech recognition heard",
+    "heardNote": "The correction is about what was heard: a mistake the recogniser smoothed over is not reported, and a misheard word may be."
   },
   "writing": {
     "title": "Writing",
@@ -1430,6 +1697,7 @@
     "manual": {
       "title": "Add an error",
       "intro": "Note a mistake you noticed yourself. It joins your log like the others.",
+      "prefilled": "Filled in from your shadowing: read it, change what is wrong, then add it. Nothing is saved until you do.",
       "original": "The sentence where you made it (optional)",
       "wrong": "The incorrect form",
       "correction": "The correction",
@@ -1595,6 +1863,671 @@
       "pronunciation": "Pronunciation cannot be practised in writing.",
       "proposed": "This category is only proposed: accept it in the categories page first.",
       "rejected": "This category was rejected."
+    }
+  },
+  "pronunciation": {
+    "title": "Pronunciation",
+    "button": "Assess my pronunciation",
+    "running": "Assessing… {{seconds}} s",
+    "tryAgain": "Try again",
+    "privacy": "This sends the recording to Microsoft Azure. It uses part of the free monthly allowance.",
+    "estimate": "An automatic estimate, not a teacher's judgment. Scores from 0 to 100; a low score on a word is a hint to listen again, not a verdict.",
+    "unavailable": "The assessment could not be done: {{reason}}. Nothing was stored; you can try again.",
+    "incomplete": "Azure answered in an unexpected way. Nothing was stored; you can try again.",
+    "silence": "Azure heard no speech in this recording, so there is nothing to score.",
+    "reasons": {
+      "not_shadowing": "Only shadowings can be assessed.",
+      "no_target": "This shadowing has no sentence to compare with.",
+      "no_audio": "The recording is missing.",
+      "disabled": "Turned off in the settings.",
+      "not_configured": "Azure is not configured in the settings.",
+      "already_assessed": "Already assessed.",
+      "unsupported_format": "This recording is not in a format Azure reads (it was recorded before the assessment was turned on).",
+      "too_long": "The recording is longer than 30 seconds."
+    },
+    "settingsLink": "Open the settings",
+    "overall": "Overall scores",
+    "accuracy": "Accuracy",
+    "fluency": "Fluency",
+    "completeness": "Completeness",
+    "pronunciation": "Pronunciation",
+    "scoreValue": "{{value}} / 100",
+    "noScore": "no score",
+    "words": "Word by word",
+    "wordsHint": "Each word shows its score and, when there is one, the kind of problem. Lower scores are marked in words, not only by colour.",
+    "wordLine": "{{score}}, {{type}}",
+    "errorTypes": {
+      "None": "fine",
+      "Mispronunciation": "mispronounced",
+      "Omission": "omitted",
+      "Insertion": "added",
+      "other": "to check"
+    },
+    "weakest": "Weakest sounds",
+    "weakestEmpty": "No sound stands out.",
+    "weakestLine": "{{phoneme}} in “{{word}}”: {{score}}",
+    "assessedAt": "Assessed on {{date}} with {{provider}}.",
+    "demoNote": "Demo scores are fictional."
+  },
+  "consolidation": {
+    "title": "Consolidation",
+    "intro": "When most of a deck is solid, use its terms in a real talk, speech or interview answer. The terms you use correctly become active.",
+    "loading": "Loading…",
+    "languages": {
+      "en": "English",
+      "fr": "French"
+    },
+    "types": {
+      "talk": "Talk",
+      "speech": "Speech",
+      "interview_answer": "Interview answer"
+    },
+    "status": {
+      "proposed": "Proposed",
+      "accepted": "Accepted",
+      "completed": "Completed",
+      "dismissed": "Dismissed"
+    },
+    "source": {
+      "ai": "Made by the AI",
+      "template": "Made from a template"
+    },
+    "decks": {
+      "ready": "Decks ready for a task",
+      "waiting": "Decks not ready yet",
+      "noneReady": "No deck is ready yet. Keep reviewing: a deck becomes ready when enough of its productive cards are stable.",
+      "readyLine": "{{ratio}} of its productive cards are stable (at least {{days}} days; {{threshold}} needed). {{count}} terms can be used.",
+      "openTask": "Open the task"
+    },
+    "reasons": {
+      "excluded_kind": "This kind of deck is not used for consolidation.",
+      "deck_done": "This deck is marked done.",
+      "task_open": "A task is already open for this deck.",
+      "no_productive_cards": "It has no productive card yet.",
+      "below_ratio": "{{ratio}} of its productive cards are stable (at least {{days}} days); {{threshold}} needed.",
+      "not_enough_candidates_one": "Only {{count}} term is usable so far: at least 8 are needed.",
+      "not_enough_candidates_other": "Only {{count}} terms are usable so far: at least 8 are needed."
+    },
+    "create": {
+      "type": "Type of task",
+      "count": "Number of terms",
+      "countHint": "Between {{min}} and {{max}}.",
+      "submit": "Create a task",
+      "making": "Making the task… {{seconds}} s",
+      "wait": "The AI is writing the topic and the structure (a few seconds). If it cannot, a template is used."
+    },
+    "tasks": {
+      "title": "Your tasks",
+      "filter": "Show",
+      "all": "All statuses",
+      "empty": "No task yet.",
+      "count_one": "{{count}} task",
+      "count_other": "{{count}} tasks",
+      "date": "Date",
+      "task": "Task",
+      "deck": "Deck",
+      "statusColumn": "Status"
+    },
+    "task": {
+      "title": "Consolidation task",
+      "all": "All tasks",
+      "minutes": "about {{count}} min",
+      "templateNote": "This task was made from a template, not by the AI, so the topic is generic.",
+      "brief": "The task",
+      "showOther": "Also show in {{language}}",
+      "hideOther": "Hide {{language}}",
+      "audience": "Audience:",
+      "structure": "Suggested structure",
+      "terms": "Terms to use",
+      "actions": {
+        "accepted": "Accept",
+        "completed": "Mark as completed",
+        "dismissed": "Dismiss",
+        "completedYes": "Yes, mark as completed",
+        "dismissedYes": "Yes, dismiss"
+      },
+      "confirmLabel": "Confirm",
+      "confirm": {
+        "completed": "Mark this task as completed? It will take no new production.",
+        "dismissed": "Dismiss this task? It will take no new production, and the deck can get another task."
+      },
+      "cancel": "Cancel",
+      "final": {
+        "completed": "This task is completed.",
+        "dismissed": "This task was dismissed."
+      },
+      "templateReason": "The AI could not make it: {{reason}}"
+    },
+    "produce": {
+      "title": "Your production",
+      "intro": "Write or record your talk using the terms above, without looking anything up. The terms are checked after you send it.",
+      "mode": "How to answer",
+      "written": "Write it",
+      "spoken": "Record it"
+    },
+    "write": {
+      "label": "Your text",
+      "submit": "Send for correction",
+      "saving": "Sending…",
+      "hint": "Your text is saved first, then corrected on the next page. Up to 40 sentences."
+    },
+    "speak": {
+      "sending": "Sending…",
+      "hint": "Record between 20 seconds and 4 minutes. The task text is not sent to the speech recogniser."
+    },
+    "attempts": {
+      "title": "Attempts",
+      "none": "No attempt yet.",
+      "written": "written",
+      "oral": "spoken",
+      "corrected": "corrected",
+      "notCorrected": "not corrected"
+    },
+    "export": {
+      "title": "Export",
+      "intro": "A Markdown file with the topic, the structure and the terms, to practise afterwards with ChatGPT voice.",
+      "en": "Download in English (.md)",
+      "fr": "Download in French (.md)"
+    },
+    "attempt": {
+      "title": "Consolidation attempt",
+      "result": "Result",
+      "yourText": "Your text",
+      "correct": "Correct my text",
+      "recordAgain": "Back to the task to record again",
+      "backToTask": "Back to the task",
+      "notCorrected": "This attempt is not corrected yet. No term has changed.",
+      "notCorrectedIncomplete": "The AI answered, but its answer was incomplete. Nothing changed; try again.",
+      "notCorrectedReason": "The AI could not correct it: {{reason}}. Nothing changed; try again later.",
+      "finishTitle": "Finished with this task?",
+      "finishHint": "Nothing completes a task by itself. Complete it when you are happy with your production, or make another attempt.",
+      "another": "Make another attempt"
+    },
+    "summary": {
+      "title": "The terms of the task",
+      "counts": "{{total}} terms: {{correct}} used correctly, {{wrong}} used wrongly, {{absent}} not used.",
+      "groups": {
+        "correct": "Used correctly ({{count}})",
+        "wrong": "Used wrongly ({{count}})",
+        "absent": "Not used ({{count}})",
+        "unknown": "Not checked ({{count}})"
+      },
+      "hints": {
+        "correct": "These terms become active.",
+        "wrong": "The mistake is in your error log and the review card of each term was reinforced.",
+        "absent": "Nothing changes for these terms. Use them in the next attempt.",
+        "unknown": "The AI did not judge these terms."
+      },
+      "nowActive": "now active",
+      "effect": "{{active}} term(s) became active and {{reinforced}} review card(s) were reinforced."
+    }
+  },
+  "curriculum": {
+    "title": "General English tracks",
+    "intro": "Learn common English beyond your own lists: the most frequent words, academic words and speaking scenarios. Everything here ends up in your library and your reviews.",
+    "loading": "Loading…",
+    "kind": {
+      "wordlist": "Word list",
+      "scenarios": "Speaking scenarios"
+    },
+    "units_one": "{{count}} unit",
+    "units_other": "{{count}} units",
+    "writtenCount_one": "{{count}} unit written",
+    "writtenCount_other": "{{count}} units written",
+    "openedCount": "{{opened}} opened, {{triaged}} sorted",
+    "wordlistMissing": "The word list file is missing from this installation, so this track cannot be started.",
+    "start": "Start",
+    "startNamed": "Start the track “{{title}}”",
+    "continue": "Continue",
+    "continueNamed": "Continue the track “{{title}}”",
+    "deckLink": "Open the deck of this track",
+    "licence": "NGSL / NAWL 1.2, Browne, Culligan & Phillips, CC BY-SA 4.0",
+    "trackTitle": "Track",
+    "unitTitle": "Unit",
+    "allTracks": "All tracks",
+    "backToTrack": "Back to the track",
+    "backToUnit": "Back to the unit",
+    "notStartedTitle": "This track is not started",
+    "notStarted": "Start it to create its deck and open its units.",
+    "startThis": "Start this track",
+    "unitsHeading_one": "{{count}} unit",
+    "unitsHeading_other": "{{count}} units",
+    "unitNumber": "Unit {{number}}",
+    "open": "Open",
+    "openNamed": "Open unit {{number}}",
+    "notWritten": "Not written yet",
+    "words_one": "{{count}} word",
+    "words_other": "{{count}} words",
+    "state": {
+      "not_opened": "Not opened",
+      "opened": "Opened, words to sort",
+      "triaged": "Words sorted"
+    },
+    "progress": {
+      "not_started": "Not started",
+      "in_progress": "In progress",
+      "done": "Done"
+    },
+    "generate": {
+      "button": "Write this unit with the AI",
+      "writing": "Writing the unit… {{seconds}} s",
+      "status": "Writing the unit with the AI. This takes a few seconds.",
+      "tryAgain": "Try again",
+      "incomplete": "The AI did not return a usable unit.",
+      "unavailable": "The AI is unavailable: {{reason}}.",
+      "nothingWritten": "Nothing was written.",
+      "configure": "Configure the AI"
+    },
+    "word": {
+      "triageTitle": "Sort these words",
+      "triage_one": "Triage these words ({{count}} left)",
+      "triage_other": "Triage these words ({{count}} left)",
+      "allSorted": "Every word of this unit is sorted.",
+      "terms_one": "{{count}} word",
+      "terms_other": "{{count}} words"
+    },
+    "unit": {
+      "level": "Level {{level}}",
+      "stepsOf": "{{done}} of {{total}} steps",
+      "nextStep": "Next step: {{step}}",
+      "completed": "Unit completed",
+      "completedAnnouncement": "Unit completed.",
+      "nextUnit": "Next unit: {{title}}"
+    },
+    "edit": {
+      "open": "Edit the unit",
+      "title": "Edit the unit",
+      "intro": "Change what you want, then save. Nothing is written before you save, and only the parts you changed are sent.",
+      "badge": "Edited by you",
+      "saved": "The unit was saved.",
+      "save": "Save the unit",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "nothingChanged": "Nothing has changed yet.",
+      "shadowWarning": "Careful: if you change a line to shadow (its text, or which lines are ticked), the takes recorded for the old line stop counting. A completed unit can go back to “in progress”.",
+      "libraryNote": "A formula already in your library keeps its link only while its text stays the same.",
+      "rowUp": "Move {{name}} up",
+      "rowDown": "Move {{name}} down",
+      "rowRemove": "Remove {{name}}",
+      "formulas": {
+        "legend": "Formulas",
+        "count": "{{count}} formulas ({{min}} to {{max}} needed)",
+        "name": "formula {{number}}",
+        "text": "Formula",
+        "type": "Type",
+        "functionEn": "What it does (English)",
+        "functionFr": "What it does (French)",
+        "register": "Register",
+        "add": "Add a formula"
+      },
+      "dialogue": {
+        "legend": "Dialogue",
+        "settingEn": "Setting (English)",
+        "settingFr": "Setting (French)",
+        "speakerName": "Name of speaker {{number}}",
+        "count": "{{count}} lines ({{min}} to {{max}} needed)",
+        "name": "line {{number}}",
+        "speaker": "Speaker of line {{number}}",
+        "text": "Text of line {{number}}",
+        "add": "Add a line"
+      },
+      "shadowing": {
+        "legend": "Lines to shadow",
+        "hint": "Tick the lines you want to repeat aloud.",
+        "count": "{{count}} lines ticked ({{min}} to {{max}} needed)",
+        "tick": "Shadow line {{number}}",
+        "words": "{{count}} words"
+      },
+      "finalTask": {
+        "legend": "Final task",
+        "promptEn": "Prompt (English)",
+        "promptFr": "Prompt (French)",
+        "minutes": "Length",
+        "minutesOption_one": "{{count}} minute",
+        "minutesOption_other": "{{count}} minutes",
+        "formulas": "Formulas to use",
+        "count": "{{count}} formulas ticked (at least {{min}} needed)",
+        "tick": "Use formula {{number}}"
+      },
+      "problems": {
+        "empty": "Must not be empty.",
+        "count": "{{min}} to {{max}} are needed.",
+        "shadowingWords": "This line has {{words}} words; {{min}} to {{max}} are needed to shadow it.",
+        "speakersDiffer": "The two names must differ.",
+        "refsMin": "Tick at least {{min}} formulas.",
+        "tooLong": "At most {{max}} characters."
+      },
+      "summary_one": "The unit was not saved: {{count}} problem to fix.",
+      "summary_other": "The unit was not saved: {{count}} problems to fix.",
+      "unlocated": "Other problems found by the server:",
+      "stale": {
+        "hint": "The unit changed since you opened the editor (in another tab, for example). Your edits are still here: nothing was lost and nothing was saved.",
+        "load": "Load the latest version",
+        "loading": "Reading the latest version…",
+        "confirm": "Replace your edits with the latest version of the unit?",
+        "yes": "Replace my edits",
+        "keep": "Keep editing"
+      }
+    },
+    "steps": {
+      "formulas": "Step {{number}}: Formulas",
+      "dialogue": "Step {{number}}: Dialogue",
+      "shadowing": "Step {{number}}: Shadowing",
+      "final_task": "Step {{number}}: Final task"
+    },
+    "stepNames": {
+      "formulas": "formulas",
+      "dialogue": "dialogue",
+      "shadowing": "shadowing",
+      "final_task": "final task"
+    },
+    "stepState": {
+      "done": "Done",
+      "todo": "To do",
+      "next": "Next step"
+    },
+    "formulas": {
+      "french": "In French",
+      "frenchNamed": "In French: “{{text}}”",
+      "inLibrary": "In your library",
+      "addOne": "Add to my library",
+      "addOneNamed": "Add to my library: “{{text}}”",
+      "selected_one": "{{count}} formula selected.",
+      "selected_other": "{{count}} formulas selected.",
+      "add": "Add these formulas to my library",
+      "added": "Added: {{imported}} new, {{attached}} already in your library, {{skipped}} skipped.",
+      "toTriage": "Sort these terms now",
+      "markRead": "I have read the formulas"
+    },
+    "dialogue": {
+      "showEnglish": "Show in English",
+      "hideEnglish": "Hide the English",
+      "speakers": "Speakers: {{first}} and {{second}}",
+      "play": "Listen to the whole dialogue",
+      "stop": "Stop",
+      "speed": "Speed",
+      "normal": "Normal",
+      "slow": "Slow",
+      "playing": "Listening to the dialogue.",
+      "showText": "Show the text",
+      "hideText": "Hide the text",
+      "listenFirst": "Listen first, then check the text.",
+      "listenLine": "Listen to line {{number}}",
+      "markListened": "I listened to the dialogue"
+    },
+    "shadowing": {
+      "intro": "Listen to a line, then repeat it aloud. A recording counts once it is transcribed: the speech recognition is not a pronunciation judge.",
+      "done": "Done",
+      "todo": "Not done yet",
+      "takes_one": "{{count}} take",
+      "takes_other": "{{count}} takes",
+      "shadow": "Shadow this line",
+      "shadowNamed": "Shadow this line, number {{number}}"
+    },
+    "finalTask": {
+      "showFrench": "Show in French",
+      "hideFrench": "Hide the French",
+      "minutes_one": "About {{count}} minute",
+      "minutes_other": "About {{count}} minutes",
+      "formulas": "Formulas to use",
+      "record": "Record my talk",
+      "attempts": "Your talks ({{count}})",
+      "attempt": "Talk {{number}}",
+      "corrected": "Corrected",
+      "notCorrected": "Not corrected yet"
+    }
+  },
+  "stats": {
+    "title": "Statistics",
+    "intro": "Everything here is computed from your logs: reviews, errors, productions and AI calls. Nothing is a counter kept on the side.",
+    "demo": "These are the figures of the fictional demo database.",
+    "computedAt": "Computed on {{date}}.",
+    "sections": "Sections of the page",
+    "loading": "Loading the statistics…",
+    "retry": "Try again",
+    "insufficient": {
+      "words_one": "Not enough data ({{count}} word so far)",
+      "words_other": "Not enough data ({{count}} words so far)",
+      "reviews_one": "Not enough data ({{count}} review so far)",
+      "reviews_other": "Not enough data ({{count}} reviews so far)"
+    },
+    "rate": "{{value}} per 100 words",
+    "ofCount": "{{successes}} of {{n}}",
+    "chart": {
+      "noPoints": "No point to draw: every value of this period is missing or has too little data.",
+      "showData": "Show the numbers",
+      "period": "Period",
+      "noValue": "Not enough data",
+      "weekOf": "Week of {{date}}"
+    },
+    "period": {
+      "label": "Period of the statistics",
+      "from": "From",
+      "to": "To",
+      "granularity": "Group by",
+      "day": "Day",
+      "week": "Week",
+      "summary": "From {{from}} to {{to}}, both days included. The headline figures and the trends below do not depend on this period.",
+      "problem": {
+        "invalid": "Enter two valid dates.",
+        "order": "The start date must not be after the end date.",
+        "tooLong": "A period cannot be longer than {{max}} days."
+      }
+    },
+    "export": {
+      "download": "Download the CSV export",
+      "hint": "A zip with one CSV file per table, for your own analysis (for example in pandas)."
+    },
+    "overview": {
+      "title": "Overview",
+      "errorRate": "Errors, last 28 days",
+      "errorRateBefore": "The 28 days before: {{rate}}",
+      "retention": "Retention, last 28 days",
+      "target": "target {{target}}",
+      "activeTerms": "Active terms",
+      "ofTerms": "of {{n}} terms",
+      "streak": "Current streak",
+      "activeDays30_one": "{{count}} active day in the last 30",
+      "activeDays30_other": "{{count}} active days in the last 30",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "studyTime": "Study time, last 7 days",
+      "studyDays_one": "over {{count}} day",
+      "studyDays_other": "over {{count}} days",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "dueTomorrow": "Reviews due tomorrow",
+      "ofCards": "of {{n}} cards"
+    },
+    "errors": {
+      "title": "Errors",
+      "intro": "Errors per 100 words you produced, so that a day of heavy writing does not look like a regression.",
+      "allErrors": "All errors",
+      "periodCounts": "({{errors}} errors in {{words}} words)",
+      "chartTitle": "Errors per 100 words over the period",
+      "chartNote": "A period of fewer than 100 words has no point: with so few words a rate would mislead. Weekly grouping gives more points.",
+      "byCategory": "By category",
+      "category": "Category",
+      "errors": "Errors",
+      "rateColumn": "Per 100 words",
+      "unnormalized": "Not in these rates: {{total}} errors with no word count to divide by (drills {{drill}}, typed confusions in reviews {{review}}, manual entries {{manual}}, other {{other}}).",
+      "topTitle": "Your five most recurring errors",
+      "topEmpty": "No recurring error in this period.",
+      "times_one": "{{count}} time",
+      "times_other": "{{count}} times",
+      "lastSeen": "last on {{date}}",
+      "hasCard": "already has a card",
+      "trendsTitle": "Trends",
+      "trendsWindows": "The last 28 days ({{bStart}} to {{bEnd}}) against the 28 before ({{aStart}} to {{aEnd}}), whatever the period above.",
+      "fixedShare": "Share of errors in categories that keep declining:",
+      "status": {
+        "declining": "Declining",
+        "rising": "Rising",
+        "stable": "Stable",
+        "insufficient": "Not enough data"
+      },
+      "trendDetail": "{{from}} → {{to}} errors, ratio {{ratio}}",
+      "thresholds": "A category declines when its rate falls to {{declining}} of the earlier one or less, and rises from {{rising}}; in between it is stable."
+    },
+    "memory": {
+      "title": "Memory",
+      "intro": "How well the cards hold: retention against your target, calibration of the scheduler, lapses and stability.",
+      "retentionTitle": "Retention",
+      "retentionChart": "Observed retention and target over the period",
+      "targetMean": "mean target {{target}}",
+      "targetLine": "Target",
+      "retentionNote": "Share of reviews of cards already in review that were not forgotten. A point needs at least 10 reviews.",
+      "direction": {
+        "all": "All cards",
+        "receptive": "Recognition",
+        "productive": "Production"
+      },
+      "calibrationTitle": "Calibration",
+      "calibrationIntro": "For each band of predicted recall, what really happened. The closer the two lines, the better the scheduler knows you.",
+      "calibrationChart": "Predicted and observed recall by band",
+      "predicted": "Predicted",
+      "observed": "Observed",
+      "exerciseTitle": "Success by exercise type",
+      "exerciseEmpty": "No review in this period.",
+      "agreement": "Ratings you changed after the automatic one:",
+      "agreementDetail": "{{raised}} raised, {{lowered}} lowered",
+      "lapsesTitle": "Lapses",
+      "lapses_one": "{{count}} lapse",
+      "lapses_other": "{{count}} lapses",
+      "lapsesChart": "Lapses over the period",
+      "lapsesSeries": "Lapses",
+      "topLapsed": "Terms with the most lapses",
+      "termGone": "A term that no longer exists",
+      "stabilityTitle": "Stability now",
+      "stabilityIntro": "How long, in days, each card of a term being learned holds before it needs a review. Cards never reviewed are counted apart.",
+      "stabilityCounts": "{{cards}} cards, {{unreviewed}} never reviewed",
+      "medianDays": "median {{value}} days",
+      "consolidationTitle": "Time before a term is consolidated",
+      "consolidationEmpty": "No term was consolidated in this period.",
+      "consolidationTerms_one": "{{count}} term consolidated",
+      "consolidationTerms_other": "{{count}} terms consolidated",
+      "measure": "Measure",
+      "q1": "First quartile",
+      "median": "Median",
+      "q3": "Third quartile",
+      "measureName": {
+        "days": "Study days since the discovery",
+        "reviews": "Reviews"
+      },
+      "range": "{{low}} to {{high}} days",
+      "rangeOpen": "{{low}} days or more"
+    },
+    "progress": {
+      "title": "Progress",
+      "intro": "Where your terms stand, how the library moved over the period, your decks and tracks, and the reviews coming.",
+      "funnelTitle": "Terms by status, now",
+      "funnelIntro": "The learning funnel, from the terms waiting in the queue to the ones you use actively.",
+      "outside": "Outside the funnel:",
+      "evolutionTitle": "Terms by status over the period",
+      "evolutionNote": "Rebuilt from the event log at the end of each day or week, not read from a counter.",
+      "evolutionChart": "Number of terms by status at the end of each period",
+      "activeTitle": "Active vocabulary",
+      "activeChart": "Active terms over the period",
+      "activeSeries": "Active terms",
+      "decksTitle": "Decks",
+      "decksEmpty": "No deck yet.",
+      "deck": "Deck",
+      "deckStatus": "State",
+      "deckTerms": "Terms",
+      "deckDone": "Consolidated or beyond",
+      "tracksTitle": "General English tracks",
+      "tracksEmpty": "No track.",
+      "track": "Track",
+      "trackUnits": "Units",
+      "trackOpened": "Opened or written",
+      "trackDone": "Completed",
+      "notStarted": "not started",
+      "forecastTitle": "Reviews in the next 14 days",
+      "forecastIntro": "Cards due on each study day, starting today. Overdue cards count today.",
+      "forecastTotal_one": "{{count}} card, about {{minutes}} minutes",
+      "forecastTotal_other": "{{count}} cards, about {{minutes}} minutes",
+      "forecastChart": "Cards due on each of the next 14 study days",
+      "forecastCards": "Cards due"
+    },
+    "practice": {
+      "title": "Practice",
+      "intro": "How much you worked, how regularly, and how much you wrote and said.",
+      "studyTitle": "Study time",
+      "studyTotal": "{{minutes}} minutes",
+      "activeDays_one": "over {{count}} active day",
+      "activeDays_other": "over {{count}} active days",
+      "studyNote": "Counted from your actions only: a long reading without a click is not counted. The dashed line is the duration of the sessions, for comparison.",
+      "studyChart": "Study time in minutes over the period",
+      "studySeries": "Study time",
+      "sessionSeries": "Sessions",
+      "streakTitle": "Streaks",
+      "currentStreak_one": "Current streak: {{count}} day",
+      "currentStreak_other": "Current streak: {{count}} days",
+      "longestStreak_one": "Longest streak: {{count}} day",
+      "longestStreak_other": "Longest streak: {{count}} days",
+      "endedOn": "ended on {{date}}",
+      "activeLast30_one": "{{count}} active day in the last 30",
+      "activeLast30_other": "{{count}} active days in the last 30",
+      "wordsTitle": "Words produced",
+      "wordsWritten_one": "{{count}} word written",
+      "wordsWritten_other": "{{count}} words written",
+      "wordsOral_one": "{{count}} word said",
+      "wordsOral_other": "{{count}} words said",
+      "wordsNote": "Your own words only: a pasted conversation counts your sentences, not the other speaker's.",
+      "wordsChart": "Words written and said over the period",
+      "writtenSeries": "Written",
+      "oralSeries": "Said",
+      "speechTitle": "Recorded speech",
+      "speechTotal": "{{minutes}} minutes of speech",
+      "speechEmpty": "No recording in this period.",
+      "minutes": "{{value}} min",
+      "speechChart": "Minutes of recorded speech over the period",
+      "speechSeries": "Recorded speech",
+      "kind": {
+        "writing": "Writing",
+        "speaking": "Speaking",
+        "consolidation": "Consolidation",
+        "transcript_analysis": "Transcript analysis",
+        "drill": "Drills",
+        "shadowing": "Shadowing"
+      }
+    },
+    "ai": {
+      "title": "AI use",
+      "intro": "What the free tiers were asked, per provider. Only counts and durations: no key, no prompt and no answer is kept here.",
+      "callsTitle": "Calls by provider",
+      "empty": "No AI call in this period.",
+      "requests_one": "{{count}} request",
+      "requests_other": "{{count}} requests",
+      "provider": "Provider",
+      "successes": "Succeeded",
+      "errors": "Errors",
+      "rateLimited": "Rate limited",
+      "quotaExhausted": "Quota used up",
+      "tokens": "Tokens in / out",
+      "duration": "Mean duration",
+      "milliseconds": "{{value}} ms",
+      "tokensNote": "Rate limits and used-up quotas are counted apart from the other errors. A provider that does not report its tokens shows 0.",
+      "errorsTitle": "Errors by code",
+      "times_one": "{{count}} time",
+      "times_other": "{{count}} times",
+      "perDayTitle": "Requests per day",
+      "perDayNote": "Always per day, whatever the grouping above.",
+      "chart": "AI requests per day and provider",
+      "allProviders": "All providers",
+      "azureTitle": "Azure pronunciation, this month",
+      "azureUse_one": "{{month}} (UTC): {{minutes}} minutes of audio, {{count}} assessment.",
+      "azureUse_other": "{{month}} (UTC): {{minutes}} minutes of audio, {{count}} assessments.",
+      "azureNote": "The free tier of Azure has its own monthly limit: check it in the Azure portal."
+    },
+    "exercise": {
+      "recognition_in_sentence": "Recognition in a sentence",
+      "listening_comprehension": "Listening",
+      "typed_recall": "Typed recall",
+      "gap_fill": "Gap-fill",
+      "sentence_production": "Sentence production",
+      "spoken_answer": "Spoken answer",
+      "self_assessment": "Self-assessment"
     }
   }
 }

@@ -14,6 +14,8 @@ function handlers(): Mocks {
     rate: vi.fn(),
     acceptProposed: vi.fn(),
     replay: vi.fn(),
+    record: vi.fn(),
+    send: vi.fn(),
   }
 }
 
@@ -54,6 +56,35 @@ describe('useReviewShortcuts', () => {
     key({ key: ' ', code: 'Space' })
     key({ key: 'Enter', code: 'Enter' })
     expect(h.reveal).toHaveBeenCalledTimes(2)
+  })
+
+  it('Space records and Enter sends a spoken answer; each only with its own handler', () => {
+    const h = handlers()
+    const { unmount } = renderHook(() => useReviewShortcuts({ record: h.record }))
+    key({ key: ' ', code: 'Space' })
+    key({ key: 'Enter', code: 'Enter' })
+    expect(h.record).toHaveBeenCalledTimes(1)
+    unmount()
+    renderHook(() => useReviewShortcuts({ send: h.send }))
+    key({ key: ' ', code: 'Space' })
+    key({ key: 'Enter', code: 'Enter' })
+    expect(h.send).toHaveBeenCalledTimes(1)
+    expect(h.reveal).not.toHaveBeenCalled()
+  })
+
+  it('does not record or send with Shift, a modifier, auto-repeat or a focused button', () => {
+    const h = handlers()
+    renderHook(() => useReviewShortcuts({ record: h.record, send: h.send }))
+    const { getByRole } = render(<button type="button">Send</button>)
+    key({ key: ' ', code: 'Space', shiftKey: true })
+    key({ key: 'Enter', code: 'Enter', shiftKey: true })
+    key({ key: ' ', code: 'Space', ctrlKey: true })
+    key({ key: 'Enter', code: 'Enter', metaKey: true })
+    key({ key: ' ', code: 'Space', repeat: true })
+    key({ key: 'Enter', code: 'Enter' }, getByRole('button'))
+    key({ key: ' ', code: 'Space' }, getByRole('button'))
+    expect(h.record).not.toHaveBeenCalled()
+    expect(h.send).not.toHaveBeenCalled()
   })
 
   it('replays with R and slowly with Shift+R, in every phase that has audio', () => {

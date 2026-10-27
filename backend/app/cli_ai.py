@@ -16,6 +16,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
@@ -28,7 +29,7 @@ from app.config import Settings
 from app.db import migrate
 from app.db.engine import create_db_engine, sqlite_file
 from app.db.settings_store import get_setting
-from app.domain.settings_defaults import KNOWN_AI_PROVIDERS, default_for
+from app.domain.settings_defaults import KNOWN_AI_PROVIDERS, KNOWN_SPEECH_PROVIDERS, default_for
 from app.services.ai_connection_test import (
     ConnectionTestReport,
     TestInProgress,
@@ -109,27 +110,52 @@ def run_ai_status(
     widths = [max(len(row[i]) for row in rows) for i in range(4)]
     for row in rows:
         out("  " + "  ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=True)))
-    if not any(p.is_configured() for p in providers.values()):
+    _speech_status(url, providers, out)
+    if not any(providers[name].is_configured() for name in KNOWN_AI_PROVIDERS):
         out("")
         out("Nothing is configured: the app runs without AI (degraded mode). See the README,")
         out("section Configuration, to add a free Gemini or Groq key, or a local Ollama server.")
     return EXIT_OK
 
 
+def _speech_status(url: str, providers: Mapping[str, Provider], out: Out) -> None:
+    """Azure pronunciation assessment: outside the order, switched by its own setting."""
+    for name in KNOWN_SPEECH_PROVIDERS:
+        provider = providers.get(name)
+        if provider is None:
+            continue
+        setting, _ = _read_setting(url, "pronunciation_assessment", "setting")
+        region = getattr(provider, "region", None)
+        state = "configured" if provider.is_configured() else "not configured"
+        details = f"region {region}, " if region else ""
+        out("")
+        out(
+            f"Pronunciation assessment ({name}, outside the order): {state}, {details}"
+            f"setting pronunciation_assessment = {setting}"
+        )
+        out(f"  model: {provider.model_for(Capability.PRONUNCIATION_ASSESSMENT)}")
+
+
 def _read_order(url: str) -> tuple[list[str], str | None]:
     """The `ai_provider_order` setting, read-only; the default (with a note) without a database."""
-    default = list(default_for("ai_provider_order"))
+    value, note = _read_setting(url, "ai_provider_order", "order")
+    return list(value), note
+
+
+def _read_setting(url: str, key: str, what: str) -> tuple[Any, str | None]:
+    """A setting, read-only; its default (with a note) without a usable database."""
+    default = default_for(key)
     db_file = sqlite_file(url)
     if db_file is not None and not db_file.exists():
-        return default, "(No database yet: showing the default order.)"
+        return default, f"(No database yet: showing the default {what}.)"
     engine = create_db_engine(url)
     try:
         if not migrate.schema_status(engine).at_head:
-            return default, "(The database is not up to date: showing the default order.)"
+            return default, f"(The database is not up to date: showing the default {what}.)"
         with Session(engine) as session:
             session.execute(text("PRAGMA query_only = ON"))
             try:
-                return list(get_setting(session, "ai_provider_order")), None
+                return get_setting(session, key), None
             finally:
                 session.rollback()
     finally:
@@ -164,7 +190,12 @@ def run_ai_test(
         out("")
         failed = 0
         for name in targets:
-            out(f"  {name}: calling {providers[name].model_for(Capability.TEXT)} ...")
+            capability = (
+                Capability.PRONUNCIATION_ASSESSMENT
+                if name in KNOWN_SPEECH_PROVIDERS
+                else Capability.TEXT
+            )
+            out(f"  {name}: calling {providers[name].model_for(capability)} ...")
             failed += not _test_text(gateway, engine, settings, name, out)
         if clip is not None:
             out(f"  groq: transcribing {clip.filename} ...")
@@ -181,9 +212,10 @@ def run_ai_test(
 
 def _targets(providers: Mapping[str, Provider], wanted: str | None) -> list[str]:
     if wanted is not None:
-        if wanted not in KNOWN_AI_PROVIDERS:
+        known = (*KNOWN_AI_PROVIDERS, *KNOWN_SPEECH_PROVIDERS)
+        if wanted not in known:
             raise AiCommandError(
-                f"Unknown provider {wanted!r}. Known providers: {', '.join(KNOWN_AI_PROVIDERS)}."
+                f"Unknown provider {wanted!r}. Known providers: {', '.join(known)}."
             )
         if not providers[wanted].is_configured():
             raise AiCommandError(f"{wanted} is not configured (see ai status and the README).")

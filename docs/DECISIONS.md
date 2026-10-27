@@ -444,7 +444,9 @@ Decisions that change `docs/SPEC.md` require the owner's approval and must say s
   CLI tests 7 days (each seed also runs the migrations). The backend suite went from ~8 s to ~27 s on the
   owner's machine. CI also runs the full seed through the CLI on Linux and Windows.
 
-## D-035 — Provisional direct writes, `deck.item_added`, sessions in services (M1.c)
+## D-035 — Provisional direct writes, `deck.item_added`, sessions in services (M1.c; direct writes closed in M6.a2b)
+
+**Closed (M6.a2b, D-191)**: `app/demo/direct_writes.py` is deleted; the demo writes nothing directly any more.
 
 - **Direct writes** (`app/demo/direct_writes.py`), until the owning services exist: deck and term creation
   and triage decisions (M3), productions and errors (M5), `study_session` rows (M4). Each writes its event
@@ -1415,6 +1417,10 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   prompt with nothing to show (no sheet, no sentence) carries the warning `no_cue`.
 - `sentence_production` and `spoken_answer` are self-graded too until AI correction (M5) and recording (M6):
   a typed sentence is only checked for the term (`term_missing`).
+- *Updated in M6.a2a*: `sentence_production` is checked by the AI since M5.a1 (D-129) and `spoken_answer` since
+  M6.a2a (D-183): neither is self-graded any more when the check is available. Without it (no key, no network, a
+  failed transcription or correction, or the user skipping the check) both stay self-graded exactly as above.
+  The "nothing is recorded yet" note of D-123 is for the M6.b screens.
 
 ## D-102 — Grading rules (M4.a1)
 
@@ -1631,6 +1637,9 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 
 ## D-117 — Discovery flow (M4.b)
 
+> M6.b1 (D-199): the spoken repetition now has an optional recording (the "recording comes later" mention is gone). M6.b2.2 (D-206):
+> the recorder is now split into `RecorderView` and `Recorder`; the discovery keeps using `Recorder`.
+
 - `features/discovery/DiscoveryFlow.tsx` keyed by the term id, so a `next` that answers the same term does not
   reset it. Steps 1 and 2 share one screen (the sentence stays visible while guessing); then the sheet, the
   immediate exercises (typed recall, then gap-fill, each skipped silently when absent), the spoken repetition,
@@ -1715,6 +1724,10 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
   the rating and option buttons show their number.
 
 ## D-123 — What is heard and shown before the answer (M4.c1)
+
+> M6.b2.2 (D-206 to D-209): the "nothing is recorded yet" note of `spoken_answer` is replaced by the recorder; the question is shown alone,
+> the example answer is never in the page before the answer, and Space and Enter no longer reveal it. The rule that the speech synthesis
+> is cut before the recorder opens (D-193) holds.
 
 - Listening comprehension: the sentence is never written in the DOM before the answer (no text, no hidden
   element, no attribute; the "Listen" buttons are labelled "the sentence"). The player speaks it as soon as a
@@ -2533,3 +2546,1460 @@ status, `error.status` a name, `details[]` typed messages; Interactions: `error.
 - The deck "Error cards" is an ordinary deck for the queue (it takes a queue position like the others); the screens show it
   with `kind: error_drill`, which the frontend does not special-case yet.
 - `ErrorOut.card` is additive; the frontend types are untouched in this milestone.
+
+## D-168 — M6 is cut in five (M6.a1, 2026-10-18)
+
+- **M6.a1** (backend): local recordings, Groq Whisper transcription through the gateway, word-by-word comparison
+  with a target sentence, playback, events, CLI. **M6.a2** (backend): corrected free speaking, spoken answers in
+  reviews (`spoken_answer`), the demo through the services (removes `app/demo/direct_writes.py`). **M6.b1** and
+  **M6.b2**: the frontend (`MediaRecorder` recorder, screens). **M6.c**: Azure AI Speech, optional.
+- Out of M6.a1 on purpose: local transcription (faster-whisper, to propose later), any error created from the
+  comparison (D-174), backup and export of the audio (M10).
+
+## D-169 — Recordings are files under `data/audio/` (M6.a1)
+
+- **Folder**: `<resolved_data_dir>/audio/`, and `<resolved_data_dir>/audio-demo/` when `settings.demo` is on, so no
+  demo file mixes with the owner's recordings; `demo seed` empties `audio-demo/` once the new database is in place
+  (a refused or failed seed leaves it). *Since M6.a2b (D-188), `demo seed` replaces `audio-demo/` with the clips it
+  wrote, together with the database.* The demo folder follows `settings.demo` (`VOCAB_DEMO`, `--demo`), not the
+  demo marker of the database: `VOCAB_DATABASE_URL` and the demo mode exclude each other (D-033).
+- **Names** are the server's: `YYYY/MM/<uuid4 hex>.<ext>`, never the client's. `production_attempt.audio_path` holds
+  that path relative to the folder. Reading checks the stored path against this exact pattern and that the resolved
+  path stays inside the folder (no traversal, no absolute path, no backslash).
+- **Formats** (media type, parameters such as `;codecs=opus` ignored -> extension): `audio/webm` webm, `audio/ogg`
+  ogg, `audio/mp4` and `audio/x-m4a` m4a, `audio/wav` and `audio/x-wav` wav, `audio/mpeg` mp3. Groq reads every one
+  (`groq.AUDIO_EXTENSIONS`, tested). The served type follows from the extension: no column was added.
+- **Limits** (`domain/speech_rules.py`): 10 MB (`MAX_AUDIO_BYTES`, well below Groq's 25 MB), an empty file refused,
+  and duration bounds per production kind (shadowing 0.5 to 30 s; M6.a2 adds free speaking, about 180 s). The
+  client sends `duration_s` (a `MediaRecorder` webm often has no duration in its metadata): it is checked before
+  anything is written and is the only measure in degraded mode.
+- **Writing**: a temporary file in the same folder, flushed and fsynced, then `os.replace`; done **before** the
+  database transaction, and deleted if that transaction fails (tested by a failing event write and by an unknown
+  term). `clear()` uses `shutil.rmtree(ignore_errors=True)`: on Windows a file another program holds open stays.
+- **Playback** `GET /api/productions/{id}/audio` is Starlette's `FileResponse`. Checked on 2026-10-18: Starlette
+  **1.8.0** is installed; `FileResponse` answers HTTP `Range` requests since 0.39.0 ("Add support for HTTP Range to
+  FileResponse", #2697) with fixes up to 1.8.0 (weak `If-Range`, several ranges, client disconnect), confirmed in the
+  installed code (`accept-ranges: bytes`, 206, 416) and by a test (`Range: bytes=4-11` -> 206). Nothing to write.
+  `audio_url` is given whenever `audio_path` is set; a file deleted by hand gives 404 `no_audio` on playback.
+
+## D-170 — The upload is the raw body, and the guard lets `audio/*` through on `/api/speech/` (M6.a1)
+
+- `POST /api/speech/shadowing`: the body **is** the recording (`Content-Type` = its media type), everything else is a
+  query parameter (`target_text`, `duration_s`, `item_id`, `origin` = `shadowing` | `discovery`, `study_session_id`).
+  No multipart, so no `python-multipart` dependency, and `/docs` still offers a file picker (`openapi_extra`
+  describes a binary body for each accepted type).
+- An **async dependency** reads `request.stream()`: 415 `unsupported_audio` for a media type that is not accepted, 413
+  `audio_too_large` from `Content-Length` before reading, or as soon as the streamed (chunked) body passes 10 MB.
+  The routes are plain `def` with no database session in their dependencies (D-038).
+- **The guard** (D-061, rule 3) refused every body that is not `application/json` (415). It now also accepts an
+  `audio/*` body, on paths under `/api/speech/` only. No `audio/*` type is "CORS-safelisted" (only
+  `application/x-www-form-urlencoded`, `multipart/form-data` and `text/plain` are), so a request from another site is
+  still "non simple": the browser sends a preflight, which CORS refuses (tested). Host, Origin and
+  `Sec-Fetch-Site` rules are unchanged, and apply to these routes too.
+- The target sentence is a query parameter, so it appears in uvicorn's access log (console only, never a file). It
+  is the learner's practice sentence, not a secret: accepted.
+- Codes: 413 `audio_too_large` (+ `max_bytes`), 415 `unsupported_audio`, 422 `audio_empty`, `audio_too_short` /
+  `audio_too_long` (+ `min_s`, `max_s`), `invalid_target` (empty, no word, over 400 characters: checked by the
+  service, so the query parameter has no length constraint), `invalid_request` (missing parameter, NaN or infinite
+  `duration_s`), 404 `item_not_found`, `session_not_found`, 409 `session_closed`.
+
+## D-171 — `verbose_json`: the provider's duration and silence detection (M6.a1)
+
+- **Checked on 2026-10-18** in Groq's API reference (the OpenAPI specification embedded in console.groq.com/docs):
+  `response_format` accepts `json`, `text` and `verbose_json`; `CreateTranscriptionResponseVerboseJson` **requires
+  `language`, `duration` ("the duration of the input audio", typed as a string) and `text`**; each
+  `TranscriptionSegment` requires `id`, `seek`, `start`, `end`, `text`, `tokens`, with `no_speech_prob` and
+  `avg_logprob` optional. Its description of `no_speech_prob` says "higher than 1.0 and avg_logprob below -1": 1.0
+  is impossible for a probability, a typo copied from OpenAI's.
+- **Whisper's own rule** (openai/whisper, `transcribe.py`): defaults `no_speech_threshold=0.6`,
+  `logprob_threshold=-1.0`; a segment is skipped as silence when `no_speech_prob > 0.6` and `avg_logprob` is not
+  above -1.0. That is the threshold used.
+- **Groq free limits** (rate-limits page, "Free Plan Limits" tab; speech-to-text page) are unchanged from D-046:
+  `whisper-large-v3` and `-turbo` 20 requests per minute, 2 000 per day, 7 200 audio seconds per hour, 28 800 per
+  day, 25 MB per file. Only the date of the check in `groq.py` changed.
+- **Gateway**: `Gateway.transcribe(audio, language=, pin_provider=)` keeps its signature. `ProviderResponse` gains an
+  optional `transcription` (duration and segments as numbers); internally `parse` receives the whole response
+  instead of its text. `TranscriptionOutput` gains `duration_s` and `segments` (optional). The fake provider can play
+  them (`Success.transcription`).
+- **Groq adapter**: asks for `verbose_json`, read tolerantly because it was never called live before: `duration` as a
+  string or a number (negative, NaN, infinite or unreadable -> None), segments that are not objects ignored, numbers
+  that are not numbers -> None, only `text` required (the plain `json` answer still reads). The live test
+  `tests/live/test_live_speech.py` checks a real answer carries a duration.
+- **Duration**: the API keeps the client's `duration_s` mandatory (bounds checked before any write). After a
+  successful transcription, Groq's `duration`, when present, replaces `production_attempt.audio_seconds` and goes in
+  `production.transcribed.audio_seconds`; `production.recorded` keeps the recorder's value. Rule for M9: the last
+  measure wins. No new setting.
+- **Silence**: `silence` when the transcription has no word, or when **every** segment is silence by Whisper's rule
+  (a segment without the two numbers is not). The invented text ("Thank you.") is not stored (`text = ""`), and
+  nothing is compared.
+
+## D-172 — The target sentence is never a prompt for Whisper (M6.a1)
+
+- Whisper accepts a `prompt` that biases the recognition towards its words. Sending the target sentence would pull
+  the transcription towards what the learner was expected to say and hide exactly the intelligibility problems the
+  comparison looks for. So `Gateway.transcribe` has no prompt parameter, the Groq request has no `prompt` field
+  (tested), and the clip goes under its generated name (`<uuid4>.<ext>`, or `recording.<ext>` when the CLI
+  transcribes before storing), never the client's file name or the target. The service test checks the recorded
+  `TranscriptionRequest` holds the audio, the language and the timeout only.
+
+## D-173 — The word-by-word comparator (`domain/speech_compare.py`, version `speech-compare-1`) (M6.a1)
+
+- **Words**: `clean_typography` (made public in `normalize.py`: NFKC, typographic apostrophes, quotes and dashes),
+  en and em dashes as separators, then tokens `\d+(?:[.,]\d+)+%?` (grouped or decimal numbers), words of letters or
+  digits with inner apostrophes or hyphens, a final apostrophe and an optional `%`, or a lone `%`. The comparison
+  key is case-folded, a final apostrophe dropped ("students'" = "students"). Punctuation is ignored, as in D-102.
+- **Canonical forms** (a word may have several; two runs are equivalent when their sets meet): `%` = percent,
+  `50%` = 50 percent; a hyphenated word = its parts **and** the joined form ("e-mail" = "email"); "1,000" = 1000;
+  cannot / can't = can not, won't = will not, shan't = shall not, X n't = X not; 're are, 'm am, 've have, 'll will,
+  'd would or had; let's = let us; 's after he, she, it, that, this, there, here and the wh-words = is or has (it's
+  also = its); another word's 's = is, has, or the plural sound ("John's" = "Johns"). Then on the whole run: "per
+  cent" = percent, numbers in words from zero to a hundred = digits ("twenty-one" = 21, "a hundred" = 100).
+- **Alignment**: dynamic programming with backtracking over target and heard words. Costs: match 0, merge k:l
+  (k, l <= 3, tried in the order 1:2, 2:1, 1:3, 3:1, 2:2, 2:3, 3:2, 3:3; "it's" = "it is") 0, close 1, substitution
+  2, missing 2, extra 2. One generator of options serves both the filling and the backtracking, in a fixed
+  priority (match 1:1, merges, close, substitution, missing, extra), so the result is minimal and deterministic.
+  `difflib` was not used: it does not give a minimal alignment. Every step carries `[target_start, target_end)` and
+  `[heard_start, heard_end)`: each word of both sides appears exactly once, in order (property tested on 500 random
+  pairs). Cost: O(target x heard); 0.17 s for 400 and 2 000 characters.
+- **Close** (the owner's choice, 2026-10-18): both words alphabetic, and either a British / American variant two
+  edits apart by a spelling key (`-ogue` / `-og`, `-mme` / `-m`, grey / gray), or one Damerau edit (D-102) on a
+  target word of **five letters or more**, **except** on the first letter or for a final -s or -d added or removed
+  ("effects" / "effect" stays a substitution: it is a real difference for the listener). Known limits: these /
+  those and quite / quiet are one edit apart and count as close; homophones (their / there), numbers above a hundred
+  in words and ordinals are different.
+- **Output**: the steps, `unrecognized` (target words substituted or missing, with their position and what was
+  heard), counts and `word_accuracy` = (match + close) / target words. `pronunciation_result` stores the target, the
+  transcript and `unrecognized_words`, `scores = null` (reserved for M6.c) and the provider; **the alignment is
+  computed again on every read** (pure and fast), so a better comparator improves the old attempts. The version
+  goes into `pronunciation.checked`.
+- Limits: a target of at most 400 characters; `speech compare` accepts at most 2 000 characters heard.
+
+## D-174 — No error is created from the comparison (M6.a1)
+
+- A word the recogniser did not find is a *possible* intelligibility issue, never an error: speech recognition is not
+  a pronunciation judge (an accent it knows less well, a noisy room, a homophone), and automatic errors would skew
+  the normalised rates of module I. Nothing in M6.a1 writes `error_event`. The user can record a flagged word as a
+  `pronunciation.intelligibility` error through the existing manual entry (a screen comes in M6.b). The CLI says so
+  (`NOT_A_JUDGE`); the screens will (M6.b).
+
+## D-175 — Events and the transcription state (M6.a1)
+
+- `production.recorded` **version 4**: the new origin `shadowing`, and `discovery` on a spoken production (step 4 of a
+  discovery); `audio_seconds` = the recorder's measure. `ProductionOrigin`'s docstring now covers written and spoken
+  productions. A shadowing has `word_count = 0`: a repeated sentence holds none of the learner's own words, and
+  `word_count` is the denominator of the error rates.
+- New `production.transcribed` {`production_attempt_id`, `kind`, `provider`, `model`, `ai_call_id`, `status` `ok` |
+  `silence`, `heard_word_count`, `audio_seconds`} and `pronunciation.checked` {`production_attempt_id`,
+  `target_word_count`, `recognized_count`, `unrecognized_count`, `word_accuracy` (4 decimals),
+  `comparator_version`, `provider`}. No text in the payloads (as for the transcripts of M5.a2). `model` and
+  `ai_call_id` were added to the milestone's list, as in `production.corrected`. For module I: minutes of speech,
+  intelligibility over time.
+- **"Already transcribed"** = a `production.transcribed` event exists for the production (the event log as memory, as
+  in D-164), checked before the call and again in the write transaction (409 `already_transcribed`; a concurrent
+  transcription loses, tested). `production_attempt.ai_call_id` is **not** used: it designates the correction call,
+  which M6.a2 will add for free speaking.
+- `ProductionOut` gains (additions only) `audio_url`, `audio_seconds`, `transcription_status` (`pending` | `ok` |
+  `silence`, null without a recording; without it the M6.b1 screen could not tell "to transcribe again" from
+  "silence") and `comparison` (a transcribed shadowing). `GET /api/productions?kind=shadowing` lists them.
+- Origin `discovery`: `item_id` stays optional (no new error). `item_id`, when given, becomes a `production_target`
+  with `used = null`.
+- An AI failure writes nothing: the answer is 201 (or 200 for a retry) with `transcription.status = unavailable` and
+  `reason` (an `UnavailableReason`, or `incomplete` when the provider answered without a usable text).
+
+## D-176 — `speech` commands (M6.a1)
+
+- `speech shadow --file <clip> --target "<sentence>" [--item <id>] [--duration <s>]`, `speech transcribe <id>`,
+  `speech compare "<target>" "<heard>"` (no AI, no database). The media type comes from the extension (`.webm`,
+  `.ogg`, `.m4a`, `.mp4`, `.wav`, `.mp3`). With `--demo` the recordings go to `data/audio-demo/`.
+- **Without `--duration`** the CLI calls the gateway first (no session open), takes Groq's `duration`, then stores the
+  production and that transcription without a second call (`record_shadowing(transcription=...)`). Without a
+  provider, or without a duration in the answer, it refuses (exit 2) and stores nothing: the manual scenario
+  without a key passes `--duration`. The service raises `duration_required` (422) in that case; the API never meets
+  it, since `duration_s` is mandatory there.
+- Exit codes (D-053): 0 done (silence included), 1 the transcription is unavailable (the recording is kept; the
+  message gives `speech transcribe <id>`), 2 usage (no database, unreadable or refused clip, invalid sentence,
+  unknown term or production, already transcribed). Everything is refused before any AI call when possible. Output
+  goes through `_console_safe()` and is plain ASCII apart from the learner's own words.
+
+## D-177 — Small conventions met in M6.a1
+
+- `.env.example` and the README say that recordings sent to Groq's free tier leave the machine, and that they stay
+  in `data/`, never in Git. The CI list of refused files gains `flac`, `opus`, `aac` and `mp4` (`wav`, `webm`, `mp3`,
+  `m4a`, `ogg` were already there). No audio file is in the repository: the tests build their WAV clips in memory
+  with `wave`, or use a few fake bytes when the provider is fake.
+- No migration (the schema already had `audio_path`, `audio_seconds`, `pronunciation_result`), no new dependency, no
+  new setting, no frontend change.
+
+## D-178 — M6.a2 is cut in two; facts checked (M6.a2a, 2026-10-19)
+
+- **M6.a2a** (this milestone, backend): corrected free speaking, spoken answers in reviews checked by
+  transcription and the AI, the CLI. **M6.a2b** (next, same branch): the demo through the services (injectable audio
+  names, atomic `audio-demo/`, short WAV clips, fictional `speaking_correction` outputs and transcriptions in
+  `fictional_ai.py`, dataset v4), which removes `direct_writes.py` and closes D-035. The services of M6.a2a already
+  take an injected `AudioStore` and a given transcription (`transcription=`) for that.
+- Branch `feat/m6a2-speaking-correction`, cut from `feat/m6a1-recordings-transcription` (M6.a1 is not merged into
+  `main` yet: PR #21). No migration, no new dependency, no new setting, no frontend change.
+- **Checked on 2026-10-19** on the official models page (ai.google.dev/gemini-api/docs/models): `gemini-3.5-flash-lite`
+  is listed under Gemini 3, "Stable". Groq's limits were not read again: nothing surprising happened.
+
+## D-179 — Recording kinds, their bounds and the units of a spoken text (M6.a2a)
+
+- `domain/speech_rules.py`: `RecordingKind` = `shadowing` / `speaking` / `spoken_answer`; `DURATION_BOUNDS` is keyed
+  by it, and since `shadowing` and `speaking` have the values of `ProductionKind`,
+  `DURATION_BOUNDS[ProductionKind.SHADOWING]` still reads the M6.a1 bounds (its tests are unchanged). Bounds:
+  shadowing 0.5 to 30 s; free speaking 5 to 180 s (the screen asks for 1 to 2 minutes: 180 s is a technical ceiling
+  so a take that runs over is not lost; SPEC module F says "up to 3 accepted", **approved by the owner** with the
+  plan); spoken answer 1 to 90 s.
+- `MAX_SPEAKING_CHARS = 4000`, as a written text: about three minutes of a learner's speech is 2 500 characters.
+- `speech_units(text)`: the sentences of `split_sentences(max_sentences=None)`; beyond 40 they are grouped into 40
+  units of consecutive whole sentences, balanced (the first `n % 40` units hold one sentence more). A unit is the
+  original text from the start of its first sentence to the end of its last, so `spans` stay exact. Tested on 200
+  random texts (every sentence in exactly one unit, in order, positions exact, sizes balanced).
+- `grading.production_rating` also reads `speaking-1`: Good when the term was heard and judged correct with no error
+  tied to it; Again when it is misused or an error concerns it; **none when it was not heard** (the learner may have
+  left it out, or the recogniser may have missed it: speech recognition is not a pronunciation judge, D-174), with
+  `production_warnings` giving `term_not_heard`. A written sentence without the term is still Again (D-129). Easy and
+  Hard are never proposed.
+- Topics: `domain/topics.py` holds the file format and the daily pick, shared by `writing_topics.py` (same names and
+  behaviour, its tests unchanged) and `speaking_topics.py` (`SpeakingTag` adds `presenting`).
+
+## D-180 — The `speaking_correction` task (M6.a2a)
+
+- **Task** `speaking_correction` v1. Inputs as `production_correction` (D-128): `mode` (`answer` | `monologue`) and
+  `taxonomy` are `plain`; the units (sent as numbered `sentences`), the task (cut to 500 characters) and at most 15
+  targets are `data`. The taxonomy is `transcripts.allowed_taxonomy`: active codes **without `spelling` and
+  `pronunciation.*`** (the recogniser wrote the spelling; pronunciation cannot be judged from a transcription).
+- **Prompt rules**: real errors only (D-132); the recogniser's punctuation, capitals, spelling and homophones,
+  hesitations, repetitions, false starts and self-corrections (only the final version counts), contractions and
+  normal spoken style are ignored; register is an error only when it is clearly wrong for the task (an interview, a
+  presentation), otherwise a note; `discourse.*` only for a connector that says the wrong thing or a clear break in
+  logic, everything else about organisation goes in `structure`; the most specific subcategory ("at university"; a
+  duration with "since" is one by/for/since error, D-134). Tuned once against the real model (D-185).
+- **Schema**: `SpeakingCorrectionOutput` **inherits** `ProductionCorrectionOutput`, so every validator of D-128 runs
+  (indices, `wrong` in its unit, codes, proposals, targets, notes, 30 errors). Changes: a unit's `corrected` may hold
+  4 500 characters (a spoken unit without punctuation can be long); `structure` (nullable) = `comment_en`,
+  `comment_fr` (1 to 3 sentences, at most 600 characters each), `connectors_used` (at most 10, each found in the
+  transcription with `find_fragment`), `suggestions` (at most 3 `{text_en, text_fr}`); `structure` is required in
+  `monologue` mode. Validation context: `speaking_context(units, codes, refs, mode, text)`. `production_correction`,
+  its schema and its tests are untouched.
+- **Budgets** (`tasks.py`): input 20 000 characters (text 4 000, 40 units as JSON about 800, task 500, 15 targets of
+  about 250, about 33 taxonomy lines of at most about 230: about 16 600); output `1 200 + 250 x units`, ceiling
+  10 000 (the base is 400 tokens above D-128, for `structure`); timeout 60 s. As in D-128, 10 000 tokens are more
+  than Groq's 8 000 per minute in a fallback: accepted.
+
+## D-181 — One store for written and spoken corrections; `production.corrected` v2 (M6.a2a)
+
+- `corrections.store_correction`'s body is now a private `_store`, set by the feedback format and the date of the
+  errors; `store_correction` calls it unchanged (the whole suite is the proof). `store_speaking_correction` (D-165:
+  the caller's transaction, no commit) writes `format: "speaking-1"` with **exactly the keys of `correction-1`**
+  (`prompt_version`, `provider`, `model`, `output`, `spans`, `error_event_ids`, `targets`), so the M6.b screens reuse
+  the highlighted view; `output` keeps `structure`.
+- Spoken errors: `original_text` = the unit, `occurred_at` = **the time of the recording** (`attempt.created_at`),
+  since a correction can come days later; `spans` are code points into the transcription.
+- `production.corrected` **version 2** adds `kind` (optional, so version 1 reads), written by written corrections,
+  transcripts and spoken corrections: M9 can count corrected speech apart.
+- `recorded_origin`, `targets_for`, `prompt_line` and `task_inputs` of `corrections.py` are shared with the spoken
+  correction.
+
+## D-182 — Free speaking (M6.a2a)
+
+- **Recording core** (`speech.record`, a `Recording` = kind, bounds, prompt, targets, origin, study session): used
+  by the shadowing (`record_shadowing` keeps its signature), free speaking and the spoken answer. Order: the upload
+  and its duration, then a short read that checks the terms, the session and the caller's own checks (`check`),
+  **before the file is written**; the same checks again in the creating transaction; the file is deleted if that
+  transaction fails (D-169). The shadowing gains the early read too: same results, but a refused term no longer
+  writes and deletes a file (approved with the plan).
+- `services/speaking.py`: `record_speaking` creates `kind = speaking`, `modality = oral`, `prompt_text` = the topic,
+  targets with `used = null`, `production.recorded` **version 5** (new origin `speaking`). The topic is never a
+  Whisper prompt (D-172; tested). After the transcription, a spoken production's `word_count` = the words heard
+  (`speech_compare.words`), the denominator of the error rates; a shadowing keeps 0 (D-175).
+- `prepare_speaking` refuses before any AI call, in this order: 422 `not_correctable` (not a speaking production; a
+  shadowing is compared, never corrected), 409 `already_corrected`, 409 `not_transcribed` (no
+  `production.transcribed`: transcribe it first), 422 `nothing_to_correct` (silence), 422 `text_too_long` (over 4 000
+  characters). `correct_speaking`: short read, the AI with no session open, one short write that checks again (D-038;
+  tested with a second writer taking `BEGIN IMMEDIATE` during both calls). A failure writes nothing and can be retried.
+- **Mode and source come from the origin** of `production.recorded`: `review` gives `answer` and the source `review`,
+  anything else `monologue` and `speaking`. A retry of a spoken answer through `/correct` keeps them.
+- API: `POST /api/speech/speaking` (raw body, the shadowing's dependency, D-170; query `duration_s`, `prompt_text?`,
+  `target_item_ids?` repeated, `study_session_id?`; lengths checked by the service, 422 `invalid_production`) answers
+  201 `SpeechOut` with `comparison: null`; nothing is corrected until `POST /api/productions/{id}/correct`, which now
+  sends a speaking production to `speaking_correction`.
+- **Topics**: `content/speaking_topics.yaml` (26 fictional topics, EN and FR, tags `interview`, `presenting`,
+  `academic`, `data_science`, `everyday`, `campus`; 7 interview questions and 7 presentation topics, results among
+  them). `GET /api/speaking/topics?count=3&tag=` (in `api/speech.py`, the module F router): deterministic per study
+  day, skipping the **spoken** prompts of the last 7 days (`recent_prompts(modality=oral)`); the writing topics keep
+  skipping every prompt, as before.
+
+## D-183 — Spoken answers in reviews (M6.a2a; extends D-129)
+
+- `POST /api/speech/review-answer` (under `/api/speech/`, the only paths that take `audio/*`, D-170; never under
+  `/api/reviews/`). Query: `card_id`, `session_id`, `exercise_template_id`, `duration_s` (1 to 90), `response_time_ms`
+  (>= 0, validated, not stored: the final call times the card).
+- `spoken_review.check_spoken_answer`: every refusal **before any write and any AI call**, in this order:
+  `card_context(..., "spoken_answer", template)` (404 `card_not_found`, 422 `exercise_mismatch` for the type, the
+  template or the card's direction), `review_flow.require_due` (extracted from `record`, 409 `not_due`), a reviewable
+  term (409 `review_not_allowed`), `require_open` (404 `session_not_found`, 409 `session_closed`), then the recording
+  (422 `audio_empty`, `audio_too_short`, `audio_too_long`; 413 and 415 even earlier, while reading the body). Tested
+  by counting the rows, the files and the provider calls.
+- Then **three short transactions**, none open during the two AI calls: the recording (prompt = the question,
+  target = the term, origin `review`, its checks run again), the transcription, the correction in `answer` mode.
+  Neither the question nor the example answer reaches Whisper (tested).
+- Answer 200: `{production_attempt_id, transcription: {status, text, reason}, status, reason, feedback|null, errors,
+  proposed_rating: 1|3|null, warnings, solution: {example_answer}, sheet_summary}`. A failed transcription:
+  `status: unavailable` with its reason, the recording kept; silence: `unavailable` / `silence`; a transcription over
+  4 000 characters: `unavailable` / `text_too_long` (kept, not corrected); a failed correction: the transcription is
+  returned, no rating; `term_not_heard`: a warning and no rating. The solution and the sheet summary come in every
+  case, since the recording is the attempt (D-103; the anti-leak walk of `test_session_api` now calls this route on
+  every `spoken_answer` step and finds `example_answer` in `solution` only).
+- `POST /api/reviews` with `production_attempt_id` (`_checked_production`): the exercise types checked by the AI and
+  the kind of their production (`CHECKED_TYPES`: `sentence_production` -> `writing`, `spoken_answer` -> `speaking`);
+  409 `production_mismatch` for a production of another kind (so a sentence production now refuses a spoken one, and
+  the reverse, approved with the plan), a spoken production whose origin is not `review` (a free speech), another
+  term, another session, or one already used; other exercise types keep 422 `exercise_mismatch`. `auto_rating` is
+  computed again from the stored feedback (the client cannot send it); `review_log.audio_path` gets the production's
+  recording (the column exists since M1 for this). Errors keep the source `review` and `production_attempt_id`,
+  never `review_log_id` (D-127).
+- Two AI calls in one request: the M6.b client must allow about a minute and a half.
+
+## D-184 — `speech speak` and `speech correct` (M6.a2a; extends D-176)
+
+- `speech speak --file <clip> [--prompt TEXT] [--duration S] [--no-correct]`: without `--duration`, Groq measures
+  the clip first and that transcription is stored without a second call (D-176); then the bounds 5 to 180 s are
+  checked. `speech correct <id>` corrects a stored spoken production (refused before any gateway is built when it is
+  not correctable). `--demo` writes into `data/audio-demo/`.
+- Output: the transcription, the errors (`#id date source code`, `wrong -> correction`, the unit, the rule), the
+  notes, the corrected and natural versions, the structure (comment, connectors used, suggestions) and the sentence
+  saying that **the correction is about what speech recognition heard**. The written renderer is shared
+  (`cli_write.render_correction`).
+- Exit codes (D-053): 0 done (silence and `--no-correct` included), 1 the transcription or the correction is
+  unavailable (the production is kept; the message gives `speech transcribe <id>` and `speech correct <id>`), 2
+  usage (unreadable or refused clip, bounds, topic over 500 characters, unknown production, not transcribed yet,
+  already corrected, no duration without a provider).
+
+## D-185 — Tuning `speaking_correction` against the real model (M6.a2a)
+
+- Live runs with the owner's keys on 2026-10-20 (`gemini-3.5-flash-lite`; Groq `whisper-large-v3`). The example
+  (`content/examples/m6_speaking.txt`: hesitations, a self-correction "I present— I presented", "I live in campus",
+  "I study here since two years", "I never presented in English before") must give exactly
+  `grammar.preposition.fixed_expression`, `grammar.preposition.by_for_since` and
+  `grammar.tense.past_simple_vs_present_perfect`; the clean one (`m6_speaking_clean.txt`) no error.
+- **First prompt**: the example was right in 0 of 3 runs: the past simple was missed twice (taken for "normal spoken
+  style"), and once reported under the parent `grammar.tense`. The clean text gave 0 errors.
+- **Fix** (in the prompt, not in the tests, D-132; v1 was never released, so it was edited in place as D-132 did):
+  "spoken style never excuses a grammar mistake", with the past simple of an experience up to now as the example
+  (other sentences than the test's: "I never worked with R before", "I already sent the file"; the past simple stays
+  right with a finished time), and "a tense error never takes the parent tense code alone". The taxonomy was not
+  touched (still version 3).
+- **Result**: the example gave exactly the three codes in **9 of 9 runs** (3 probes, 3 passes of
+  `test_live_speaking.py`, the audio pass, 2 runs of the CLI on the transcribed clip); the clean text **0 errors in 7
+  of 7** (4 probes, with no naturalness note either, and 3 passes). No wrong form was a hesitation or a false start.
+  The two M5.a1 live tests still pass (`production_correction` untouched). A lite model is not deterministic: a run
+  may still miss or over-report; the user sees, edits and deletes any error.
+- **First real `verbose_json` answer** (D-171): a synthetic clip of the example (Windows System.Speech, voice
+  "Microsoft Zira Desktop", 33 s, made in a temporary folder and never committed) came back with `duration`
+  33.079437312 s; Whisper kept "Um", "uh" and the self-correction (as "I present I presented", the dash dropped), and
+  did not smooth over the three mistakes on this clear synthetic voice. A human voice may differ: the audio test only
+  requires `ok`.
+
+## D-186 — Small conventions and departures met in M6.a2a
+
+- Departures from the prompt and the plan, beyond those approved with the plan (180 s and the SPEC sentence,
+  `/correct` in `answer` mode for a review origin, silence as `unavailable` / `silence`, `review_log.audio_path`, the
+  symmetric refusal of `sentence_production`, the early checks for the shadowing, 4 500 characters per unit,
+  `production.corrected` v2 for every kind, the demo fingerprint):
+  - `review-answer` returns `solution` and `sheet_summary` in every case once the recording exists, as
+    `check-production` does (D-129);
+  - a spoken answer whose transcription is over 4 000 characters gives `unavailable` / `text_too_long` (not planned);
+  - the review checks of a spoken answer run three times (once to order the refusals and read the question and the
+    solution, once before the file is written, once in the creating transaction), through `speech.Check`;
+  - `review_flow` keeps a private `_recorded_origin`: importing `corrections.recorded_origin` would be an import cycle
+    through `study_sessions`;
+  - a spoken production's `word_count` counts words as the comparator does (`speech_compare.words`), a written one
+    as `len(text.split())`; they agree on ordinary speech.
+- The example files are fictional ("Alex"); `content/speaking_topics.yaml` quotes the values that hold `: `.
+- In `--demo`, the hint printed after a failure omits `--demo` (as in M6.a1).
+- The demo fingerprint changes (payload versions 2 and 5, `kind`); determinism is still tested. The demo's spoken
+  productions are still direct writes until M6.a2b.
+
+## D-187 — M6.a2b: the demo through the speech services; injectable file names (2026-10-21)
+
+- **M6.a2b** (second part of M6.a2, D-178), same branch `feat/m6a2-speaking-correction`: the demo's spoken
+  productions, shadowings and spoken answers go through the speech services; `direct_writes.py` is deleted and D-035
+  closed. No migration, no new dependency (`wave`, `struct`, `math` are in the standard library), no new setting, no
+  frontend change.
+- **Names**: `AudioStore(root, names=...)` takes a factory of file names, `random_name` (`uuid4().hex`) by default; a
+  name must be 32 lowercase hexadecimal characters (the pattern `resolve` accepts), else `save` raises `ValueError`
+  before anything is written. The demo derives its names from its seed (`f"{rng.getrandbits(128):032x}"`, a generator
+  taken after the others), so `audio_path`, which the fingerprint reads (D-034 leaves out only the clock columns), is
+  the same for the same seed.
+
+## D-188 — `audio-demo/` is replaced together with the demo database (M6.a2b; supersedes part of D-169)
+
+- The trap of D-169: `demo seed` emptied `audio-demo/` after the database was replaced, which would delete the clips it
+  had just written. Now the simulation writes them into `<data_dir>/audio-demo.tmp-<pid>/`, then (`seed._swap`):
+  1. the previous `audio-demo/` is renamed `audio-demo.old-<pid>`;
+  2. the database is moved over the target (`os.replace`, D-033);
+  3. the temporary folder is renamed `audio-demo/`, and `.old-<pid>` is deleted (`rmtree(ignore_errors=True)`).
+- **Order** (approved with the plan, against the prompt's "after the database"): the old folder is set aside
+  **before** the database is replaced. A recording held open on Windows refuses the rename of its folder (checked on
+  the owner's machine: `PermissionError`, WinError 5), and then nothing has changed yet: "a recording is in use, close
+  the program playing it, or stop the app" (exit 2). A database held open by the app refuses step 2, and the old
+  folder is put back. In the prompt's order a locked folder would have left the new database with the old clips.
+- If step 3 fails (the folder locked between two renames: rare), the old folder is put back and the message says the
+  new database is in place and to run `demo seed --reset` again.
+- Any failure while building removes the temporary file and folder and leaves the previous database and recordings
+  intact (tested as D-033: a failing simulation that wrote a clip; on Windows, a recording and the database held open).
+  `audio_path` is relative to the folder, so it stays valid after the rename.
+- `seed_demo(audio_dir=...)` replaces `audio_store=` (default: `audio-demo/` next to the database; the CLI passes
+  `AudioStore.demo(settings).root`, the same folder). `AudioStore.clear()` has no caller left and is removed. The
+  summary prints "Recordings: N files in <folder>".
+
+## D-189 — The speech flows in the caller's transaction (M6.a2b; as D-165)
+
+- The demo builds its history in **one** transaction (D-033). `record_shadowing`, `record_speaking`,
+  `check_spoken_answer` and `correct_speaking` open and commit their own sessions, and roll back to close their reads:
+  inside the demo that rollback would undo the whole simulation. So, as D-165 did for module E, each flow has a variant
+  that writes in the caller's transaction, without committing and without any AI call:
+  - `speech.store_recording(session, store, recording, *, data, content_type, duration_s, transcription, check, at)`:
+    the same validation and checks as `record` before the file is written, then the production, then the given
+    transcription (`store_transcription`); a failed transcription leaves it `pending`; if a write raises, the file is
+    deleted;
+  - `speaking.store_speaking(...)`: free speaking through `store_recording`; `prepare_speaking` and
+    `corrections.store_speaking_correction` then correct it;
+  - `spoken_review.store_spoken_answer(..., transcription, correct, provenance, at)`: the checks of
+    `check_spoken_answer` (`answer_context`), the recording, then the output of an **injected corrector** (the demo's
+    fictional AI) stored in `answer` mode with the source `review`; it returns the same `SpokenCheck`.
+- Shared with the AI paths (behaviour unchanged, the whole suite is the proof): `speech.shadowing_recording`,
+  `speaking.speaking_recording`, `spoken_review.answer_context`, and the result builders of `spoken_review`.
+
+## D-190 — Fictional transcriptions, spoken corrections and clips (M6.a2b; extends D-166)
+
+- `fictional_ai.transcription(text, duration_s)` is a `TranscriptionOutput` validated by the real schema: the text,
+  the duration and one segment per sentence, timed by its share of the words, with confident scores; an empty text is a
+  silent take (one segment with Whisper's silence scores, D-171). Provenance: provider `demo`, model
+  `demo-transcription-v1`. A transcription stores no prompt version (`production.transcribed` has `provider` and
+  `model`): the version goes in the model, where it can be seen (approved with the plan).
+- `fictional_ai.misheard(sentence, rng, count)`: `count` words (0 to 2) lost, a plural heard as a singular
+  ("effects" -> "effect", "studies" -> "study") or the word missed. Both are words the comparator does not recognise (a final -s is never "close",
+  D-173); tested on every sentence of the dataset: exactly `count` unrecognised words.
+- `fictional_ai.speaking_output(prepared, made, structure=, connectors=, term_used=)` is a `SpeakingCorrectionOutput`
+  validated with `speaking_context` (units, codes without spelling and pronunciation, targets, mode, text). A free
+  speech gets a structure comment from the dataset and the connectors actually said (whole words); a spoken answer
+  (`answer` mode) has no structure and every target `used` / `used_correctly` = `term_used`. Provenance
+  `("demo", None, "demo-speaking-v1")`.
+- `app/demo/clips.py`: one-second mono 16-bit WAV clips at 8 kHz made with `wave` (a soft 330 Hz tone with fades, and
+  a silent one), about 16 KB each. **Limit**: the declared durations are realistic (free speech: its words at 2 a
+  second, from 5 to 178 s; a shadowing at 2.5 words a second; a spoken answer at 2 words a second, 1.5 to 90 s; the
+  silent take 6 s), but every clip plays for one second. The demo shows that recording and playback work, not what was
+  said. No audio file is in the repository.
+
+## D-191 — Dataset v4 and the spoken history of the demo (M6.a2b; closes D-035)
+
+- **Dataset v4** (`content/demo/`, fictional): the five files move to version 4; `prompts.yaml` gains `speech`
+  (`connectors`, three `structure` comments with suggestions, three `forgotten_answers`).
+- **Free speaking** (a production of kind `speaking`, as before, every 2 to 4 days among the three kinds):
+  `store_speaking` with a tone clip and the fictional transcription of its text, then `prepare_speaking` and
+  `store_speaking_correction`. Its errors have the source `speaking`, the production's id and the unit as their
+  original text, and are dated at the recording. Speech leaves out the `spelling` and `pronunciation` templates, as
+  the real task does (and as the transcripts already did).
+- **Shadowing**: every 7 to 11 days (a generator `_speech` taken after the others), on the original sentence of a
+  term already discovered (`learning`, `consolidated`, `active`), with the term as its target; the recogniser misses 0,
+  1 or 2 words (weights 1, 2, 2). Through `store_recording` and the real comparator: `pronunciation_result` holds the
+  unrecognised words. Seed 42 over 60 days: 6 shadowings, 8 unrecognised words; seeds 1 to 12: 5 or 6 each, at least 3
+  unrecognised words.
+- **Spoken answers in reviews**: when `choose_exercise` gives `spoken_answer`, the review goes through
+  `store_spoken_answer` (a success says the template's example answer; a failure says one of the `forgotten_answers`,
+  so the term is not heard: no proposed rating, `term_not_heard`), then `review_flow.record(production_attempt_id=...)`,
+  which links the production, copies its `audio_path` and computes `auto_rating` again from the stored feedback. A
+  spoken answer no longer gives a confusion error (D-034): its errors come from its correction, as in the app.
+  The forced lapse of the last session skips a card whose exercise would be a spoken answer, since the spoken check
+  refuses a card that is not due. Seed 42: 3 spoken answers, all linked (one failed). Seed 2 of 1 to 12 has none (no
+  mature productive card reaches that exercise); the tests pin seed 42.
+- **The last session** leaves a silent take (6 s, `silence`) and a free speech of four sentences transcribed but not
+  corrected yet, so the M6.b screens have both cases.
+- A pasted transcript keeps `modality = oral` without a recording: "every oral production has a file" means every
+  `speaking` and `shadowing` production (tested, approved with the plan).
+- **Fingerprint**: it changes, for these reasons: the marker's `dataset_version` 4; the new rows (shadowings and
+  their targets, `pronunciation_result`, spoken answers, the silent take and the uncorrected speech) and events
+  (`production.transcribed`, `pronunciation.checked`, `production.corrected` v2 with `kind: speaking`); spoken errors
+  written by the store (unit, French explanation, spans); spoken answers with `production_attempt_id`, `audio_path`
+  and an `auto_rating`, without confusion errors; speech without spelling errors; and the time the new activities take
+  in a session, which moves the later reviews (the learner's success depends on retrievability at that time). The new
+  generators are taken after the others, so the older ones draw the same sequence. Determinism (same seed, same
+  fingerprint) and another seed's difference are still tested.
+- **Time** (owner's machine, Windows 11, 60 days, seed 42, three runs of `seed_demo` in a fresh process each): 4.4 to
+  4.6 s, against 4.3 s for the same measure before M6.a2b (D-111 measured 5.6 s on an earlier version and another
+  load). The 7 s target is met. Through the CLI, `demo seed` prints about 5.5 s (it includes the summary queries, and
+  was measured while the test suite ran).
+
+## D-192 — Small conventions and departures met in M6.a2b
+
+- Approved with the plan: the speech flows in the caller's transaction (D-189); the old folder set aside before the
+  database is replaced (D-188); `audio_dir` instead of `audio_store` and `AudioStore.clear()` removed; the transcription
+  version in `model` (D-190); "every oral production" read as every recording (D-191); a failed spoken answer leaves the
+  term out (D-191); the last session's two cases (D-191); one-second clips with realistic declared durations (D-190).
+- Not in the plan: `demo seed` prints the number of recordings; `test_demo_data` reads the proposed rating of a
+  spoken answer from its check (it was always null before) and counts a spoken production's words as the comparator
+  does (D-186).
+
+## D-193 — The voice recorder (M6.b1, 2026-10-21)
+
+- `frontend/src/speech/` gets the recorder next to the speech synthesis (D-112): `recorder.ts` (pure rules, unit-tested),
+  `useRecorder.ts` (the hook), `activeRecording.ts` (who holds the microphone), `RecorderPanel.tsx` (the `Recorder`
+  component). The component's file is **not** `Recorder.tsx`: on Windows' case-insensitive file system `./Recorder` resolves
+  to `recorder.ts` (the import gave `undefined`).
+- `navigator.mediaDevices` and `MediaRecorder` are read at every call, never cached: without them the recorder reports
+  `unsupported` (jsdom, an old browser). Failure reasons from the error name: `NotAllowedError` / `SecurityError` →
+  `denied`, `NotFoundError` / `OverconstrainedError` → `no_device`, `NotReadableError` / `AbortError` → `busy`, anything
+  else `failed`.
+- **Type**: the first accepted by `isTypeSupported` in the order `audio/webm;codecs=opus`, `audio/webm`,
+  `audio/ogg;codecs=opus`, `audio/mp4`; none accepted → the browser's default. The blob's type is its first chunk's, else the
+  recorder's `mimeType`. The backend ignores the parameters (D-169). `start(1000)` gives chunks as it goes.
+- **Duration**: measured by the client, `performance.now()` from the recorder's start to the click on stop (a
+  `MediaRecorder` webm often has no duration), sent as `duration_s`, rounded to 2 decimals and **capped at the maximum** (a
+  timer fires a few milliseconds late, and the server would refuse 30.04 s for a shadowing). The clock is read through one
+  function (`now()`), so the tests move it by hand.
+- **Bounds** (the backend's, D-179), with the automatic stop at the maximum: shadowing 0.5 to 30 s; free speaking 5 to 180 s
+  with a visible warning from 120 s (ready for M6.b2); spoken answer 1 to 90 s. A take that is too short is not sent (message,
+  "Send" off); over 10 MB is refused before sending. The server stays the judge (`audio_too_short`, `audio_too_long`).
+- **The microphone is released** (`track.stop()` on every track) when the recorder ends, when the take is cancelled, when
+  the component unmounts, on a route change (a `useEffect` in the layout, like the speech's), when `getUserMedia` or the
+  recorder fails, and when the user cancels while the browser is still asking (a late stream is stopped as it arrives).
+  Tracks are stopped at the click on stop as well as at the recorder's `stop` event, so the indicator goes out at once.
+- **One recording at a time** in the whole app (`claimRecording`), and **the speech synthesis is cut before the microphone
+  opens** (`cancelSpeech()`), or the synthetic voice would be recorded. While the microphone is open "Listen" is disabled
+  with a reason and `speak()` refuses to speak.
+- The local clip is listened to through a `blob:` URL, revoked when replaced, on "Record again" and on unmount. Nothing is
+  written to `localStorage`, `sessionStorage`, the URL or the router state (tested).
+- The state is said in words: a red dot **and** "Recording… 0:42"; a polite status says "Recording started" and
+  "Recording stopped: 0:12" once; the timer itself is not a live region.
+
+## D-194 — Upload layer, error codes and the spoken fields (M6.b1)
+
+- `apiUpload(path, blob, query, {signal})` (`api/client.ts`): a POST whose body is the `Blob` and whose `Content-Type` is its
+  type; the other values go through `URLSearchParams` (undefined ones left out); the errors are `apiSend`'s. The guard accepts
+  `audio/*` only under `/api/speech/` (D-170): audio is sent nowhere else.
+- `api/speech.ts` holds the types read from `app/api/speech.py` (`ComparisonStep`, `Comparison`, `SpeechOut`,
+  `ReviewAnswerOut`, `SpeakingTopic`) and the hooks (`useShadowing`, `useTranscribe`, `useSpeaking`, `useSpeakingTopics`;
+  the last two are used by M6.b2). `Production` gains `audio_url`, `audio_seconds`, `transcription_status`, `comparison`.
+- Ten codes join `errorMessage.ts`: `audio_too_large`, `unsupported_audio`, `audio_empty`, `audio_too_short`,
+  `audio_too_long`, `invalid_target`, `no_audio`, `already_transcribed`, `not_transcribed`, `nothing_to_correct` (the others
+  of the milestone were known). The bounds in the answer (`min_s`, `max_s`, `max_bytes`) go into the sentence. The reason of
+  an unavailable transcription goes through `aiReasonText`, which learns `incomplete`; `silence` has its own sentence.
+
+## D-195 — "Play both" and the end of an utterance (M6.b1; builds on D-112)
+
+- `useSpeech().speak` returns whether it started and takes `onDone(completed)`: called **once** per utterance, `true` at its
+  end, `false` when it was cancelled, replaced or failed. It is called even for a superseded utterance (the browsers fire
+  `error` for it after the next `speak`), which the speaking state itself ignores through its token.
+- "Play both" says the sentence, then plays the recording on `onDone(true)`; a run number makes a late end of a cancelled run
+  do nothing; "Stop" cancels the voice and pauses the audio; without speech synthesis or an English voice the recording
+  plays alone. It drives the page's own `<audio>` element. Seen working in the in-app browser: the voice, then the clip to its
+  end, the button back to "Play both".
+
+## D-196 — The shadowing pages and the router state read once (M6.b1; builds on D-142, D-152)
+
+- `/speaking/shadowing` (new take), `/speaking/shadowing/:id`, `/speaking/shadowing/history` (20 per page, the page in the
+  URL, `GET /api/productions?kind=shadowing`). The top bar's "Speaking" link points to the first for now (M6.b2: `/speaking`).
+- The sentence and the term of "Shadow this sentence" come in the navigation state `{target, itemId}`: read once into the
+  page's state, then the state is **cleared at once** (`navigate(..., {replace: true, state: null})`, a ref guard for
+  StrictMode), because the browser keeps the router state in `history.state` across a reload. A reload shows an empty field
+  (tested with the real history). The sentence is counted in code points (400), with no `maxLength`.
+- Sending goes to `/speaking/shadowing/{id}` with the history replaced. When the transcription is unavailable the reason (a
+  code, nothing else) goes along in the state, read once and cleared, so the next page says why without an extra request.
+- The detail page starts nothing by itself: "Transcribe" / "Try again" call `POST /productions/{id}/transcribe`;
+  `409 already_transcribed` reads the production again with no message; the focus goes to the result after a transcription.
+  A production that is not a shadowing gets a message and a link to the error log (the redirects are M6.b2's).
+- The history page repeats the page and the table of the written history; no recording text reaches any storage (tested at
+  every navigation, as in D-152).
+
+## D-197 — The comparison view (M6.b1)
+
+- `ComparisonView` is built only from the backend's `steps` (`speech-compare-1`); `comparison.ts` cuts them into the marks of
+  the two rows. "Target": `match` plain, `close` with "≈" (counted as recognised, with a hidden sentence), `substituted`
+  underlined with "(heard: X)", `missing` struck through with "(not heard)"; "Heard": the transcription with `extra` marked.
+  Every mark has a visible or hidden text, never the colour alone. The summary is in words ("5 of 6 words recognised"), with
+  no grade and no percentage. The list of unrecognised words comes from `unrecognized`.
+- **The warning is always shown**, compact or not, even when everything was recognised: speech recognition is not a
+  pronunciation judge. `compact` (discovery) leaves out the log buttons; the same component serves M6.b2.
+
+## D-198 — A misheard word logged by hand (M6.b1; builds on D-174)
+
+- For each `substituted` word the detail page has "Log as an intelligibility error", which opens `/errors/new` with the
+  state `{original_text: the transcription, erroneous_text: the word heard, correction: the target word, category_code:
+  pronunciation.intelligibility, explanation}`. No button for a `missing` word (no wrong form to quote). Nothing is created
+  without the user's click on "Add to my log" (tested: no `POST /errors` before it).
+- `ManualErrorPage` reads the state once, clears it, fills **the first form only** (the one after a successful add is empty)
+  and says it was filled in. `readPrefill` ignores any other state. The category label resolves once the tree is loaded.
+
+## D-199 — The optional recording of the discovery's step 4 (M6.b1; builds on D-117, D-144)
+
+- "Say it aloud" gets an optional `Recorder`: the take is sent as a shadowing of the sentence on screen (`origin=discovery`,
+  `item_id`, `study_session_id`), with a compact comparison. A refusal of the server, an unavailable transcription, silence and
+  a refused microphone are said and **never block** the way on. The recorder is mounted again after each take (empty), so the
+  same clip is not sent twice by mistake; the sheet is neither loaded nor shown (a test counts the `/sheet` requests).
+- The existing button "Done, I repeated it" stays the one way on, with or without a take (it is both "Continue" and "Skip"),
+  so the older tests and wording hold. This replaces "recording comes later" (D-117).
+
+## D-200 — "Shadow this sentence" on the term page (M6.b1; builds on D-091, D-118)
+
+- `SheetView` takes `shadowItemId`: each example gets a link to `/speaking/shadowing` with `{target, itemId}` (a `Link` styled
+  as a small button: it navigates). The discovery's `SheetView` and the versions list pass none.
+- The original sentence of a term was only shown in the edit form. It now also appears in the revealed sheet ("Original
+  sentence", with its link), so the whole feature stays behind the reveal button (D-091). Accessible names end with the
+  sentence they act on ("Shadow this sentence (example 1)").
+
+## D-201 — Small conventions and departures met in M6.b1
+
+- `fakeRecorder.ts` (the microphone, `MediaRecorder`, `URL.createObjectURL`, `play()`/`pause()`, and the clock of
+  `performance.now()` through `kit.advance`) and the shared `recordTake` helper; `setup.ts` removes it after each test, like the
+  fake speech. `mockApi` keeps a non-JSON body (a `Blob`) as it was sent.
+- The speech tests fake only the timers they need (`setTimeout`, `setInterval`): faking every timer made `findBy*` wait forever.
+- The recorder is not wired to a "choose the microphone" setting (excluded from the milestone).
+- Departures from the prompt: the component's file is `RecorderPanel.tsx` (D-193); the reason of an unavailable first
+  transcription travels in the router state (D-196); the original sentence is displayed in the revealed sheet (D-200); the one
+  "Done, I repeated it" button covers "Continue" and "Skip" (D-199).
+
+## D-202 — `speaking-1` in the correction model and the view (M6.b2.1; builds on D-140, D-141, D-155, D-181)
+
+- `readFeedback` gets a third branch next to `correction-1` and `transcript-1`: `speaking-1` gives `kind: 'speaking'`, the same
+  fields, and `structure` (`output.structure`, null for a missing key or in answer mode). The other two formats read exactly as
+  before (their tests are untouched). The model's `kind` is now `'text' | 'transcript' | 'speaking'`.
+- The units are numbered as they are (a unit may hold several sentences, D-179) and shown under "Part n" ("Passage n" in French).
+- `CorrectionView`: for a speech the text section is "What the speech recognition heard", followed by the note that the correction is
+  about what was heard (a mistake the recogniser smoothed over is not reported, a misheard word may be). A speech without error says
+  "No errors found." (never "Your sentence is correct"). The **Structure** section (comment, "Connectors you used" with a sentence
+  when there are none, suggestions) comes after the versions; the French of the comment and of each suggestion is on demand, with the
+  button of the explanations. It is absent when `structure` is null (answer mode) and in the compact view.
+
+## D-203 — The free speaking pages (M6.b2.1; builds on D-142, D-193, D-196)
+
+- `/speaking`: the subjects come from `GET /api/speaking/topics` (`count=3`, a "Topic theme" filter with "Presenting"), the prompt sent is
+  the English text of the subject or what the user typed (500 characters). A subject is **optional**: the recorder is never locked by its
+  absence (the server takes no `prompt_text`). The recorder is the 5 to 180 s one (warning at 120 s). Sending goes to `/speaking/{id}` with
+  the history replaced and the state `{autoCorrect: true}` (plus the reason of an unavailable first transcription, read once as in D-196).
+- `/speaking/:id` is keyed by the production, so moving from one to another starts afresh. The state is read into the page's state at
+  the first render and **cleared at once**, with a `ref` guard for StrictMode (tested in StrictMode): a reload never starts anything.
+  Order: a transcribed, not corrected speech with `autoCorrect` runs `POST /correct` once ("Correcting… n s", a polite status once);
+  `pending` shows "Transcribe", and a click on it (the user's own action) goes on to the correction when the transcription is `ok`; a speech
+  opened without the flag only shows what is stored and offers "Correct my speech".
+- Refusals: `silence` or `422 nothing_to_correct` say "No speech was heard" with a link to record again; `409 not_transcribed` reads the
+  production again (`applyCorrectionError` now handles it with `already_corrected`) and "Transcribe" appears; `409 already_corrected`
+  reads the stored correction, silently; `422 text_too_long` has its own sentence and no retry; an AI failure (HTTP 200) says its reason
+  (`aiReasonText`) or "could not be used" and offers "Try again"; another error is shown with "Try again". The transcription stays visible.
+- Not-corrected speeches show the heard text, the note and the status in a polite region; a corrected one shows `CorrectionView`
+  (marks, errors, versions, structure). The topic label is "Topic or question" (a spoken answer of a review has the question as prompt).
+- `/speaking/history` (`GET /api/productions?kind=speaking`, 20 per page, the page in the URL): date, topic, words heard, status; it says
+  that spoken answers of reviews are in the list.
+
+## D-204 — Redirects between the written and the spoken pages; the Speaking link (M6.b2.1)
+
+- `ErrorOut` has no production kind: a `review` error leads to `/writing/{id}` as before, and **both pages decide by the production's
+  `kind`**: `/writing/:id` of a `speaking` production and `/speaking/:id` of a `writing` one use `<Navigate replace>` once the production is
+  read (the same query, so no second request). Another kind on `/speaking/:id` gets a message and a link to the error log (`/writing/:id`
+  keeps its old behaviour for the other kinds, to keep its tests as they were).
+- `productionLink`: the source `speaking` leads to `/speaking/{id}` (it was `null`); its test changed accordingly.
+- The top bar's "Speaking" points to `/speaking` (it was `/speaking/shadowing`); the section stays marked on `/speaking/shadowing`.
+
+## D-205 — Small conventions met in M6.b2.1
+
+- `TopicPicker` takes a `source` (`topicSource.ts`: the strings' namespace, the themes, the label of a theme, the hook that fetches the
+  subjects); the writing page's source is the default, `features/speaking/topics.ts` has the speaking one. The strings of both
+  namespaces have the same keys (`writing.topics.*`, `speaking.topics.*`).
+- `speechFixtures.ts` gets `speakingFeedback`, `speech` / `correctedSpeech`, `speakingCorrection`, `speakingOut` (fictional data).
+- Departure from the prompt: decisions start at D-202 (D-201 was taken); the milestone is cut in two sessions (b2.1, b2.2), approved.
+
+## D-206 — The recorder in two parts and the spoken phases of the review machine (M6.b2.2; builds on D-120, D-143, D-193)
+
+- `RecorderPanel.tsx` exports `RecorderView` (presentation: it takes the object `useRecorder` returns, `RecorderApi`) and `Recorder` (the view and
+  the hook, for the pages that only need a recorder). The review player calls `useRecorder('spoken_answer')` itself because Space and Enter must drive
+  the recorder (bounds 1 to 90 s). `useClipSender` (own file: oxlint's fast-refresh rule) holds the 10 MB check, shared by the Send button and Enter.
+- `reviewMachine` gets `capturing` (microphone open), `captured` (clip ready) and `checking_spoken` (`review-answer` running). `recording` keeps
+  its meaning (the rating is being saved, D-120). Actions: `startCapture`, `captured` (fixes `responseTimeMs`: the answer ends with the recording,
+  D-121), `discardCapture` ("Record again", a cancelled or failed microphone), `submitSpoken`, `spokenChecked`, `spokenFailed`, `spokenFallback`.
+  Every action outside its phase returns the **same state object**; `spokenChecked` outside `checking_spoken` is how a late answer, after the way
+  out, changes nothing (tested on the reducer).
+- The machine follows the hook: an effect turns `stopped` into `captured` and `idle` / `error` (Cancel, Record again, a refused microphone, a route
+  change) into `discardCapture`. The Start button goes through `startCapture` too, so the reducer is the one guard for "one microphone per take".
+- The result is still a `GradeResult` (`outcome` null, `proposed_rating` kept only when the correction is `ok`, `term_not_heard` in `warnings`,
+  `solution`, `sheet_summary`), so `ReviewResult` and `RatingButtons` are reused; the heard text and its status live in `state.spoken`.
+
+## D-207 — Keys of the spoken answer (M6.b2.2; builds on D-122)
+
+- Space starts the take (phase `answering`) and stops it (`capturing`); Enter sends it (`captured`). Space does nothing in `captured`, Enter
+  nothing in `capturing`, no key at all in `checking_spoken`. The same exclusions as D-122 (fields, Ctrl/Alt/Meta, Shift, auto-repeat, a focused
+  button or link). `useReviewShortcuts` gets `record` and `send` (Space and Enter are matched to their own handler, `reveal` stays for the other
+  types). On a spoken card Space and Enter **no longer reveal** the example: it is revealed by "Answer without recording".
+- A double Space opens the microphone once (`startCapture` is refused the second time and the recorder's own guard backs it up); a double Enter
+  sends one recording (`submitSpoken` is refused the second time: the guard is the player's `ref`, as in D-120). `KeyHints` follows the phase and
+  promises no key when the browser cannot record.
+
+## D-208 — The way out, the fallback and the refusals of a spoken answer (M6.b2.2; builds on D-142, D-143, D-183)
+
+- `reviewAnswer()` (`api/speech.ts`) is a plain function over `apiUpload`, under an `AbortController`, like `checkProduction`. The query holds
+  `card_id`, `session_id`, `exercise_template_id`, `duration_s`, `response_time_ms` (the end of the recording, the same value as `POST /reviews`).
+- While waiting: "Checking your answer… n s" (the status is said once, the counter is hidden from screen readers) and the sentence about two AI
+  steps; after 5 s "Skip the check and rate myself" aborts and takes the fallback.
+- **The fallback is the `reveal` path of M4.c, without `production_attempt_id`**: the way out, a network error or any unexpected error
+  (notice `spoken_skipped` / `spoken_failed`), a refused, absent or unsupported microphone, "Answer without recording" (always visible, the main
+  button when the microphone failed; no notice: the user chose it). A spoken card without a template shows no recorder, only that button.
+- Refusals of the recording (`audio_too_short`, `audio_too_long`, `audio_empty`, `unsupported_audio`, `audio_too_large`) go back to `captured`
+  with the message: nothing was stored (D-183), the same take can be sent again. `not_due`, `review_not_allowed`, `exercise_mismatch`,
+  `session_closed`, `session_not_found` are handled as for `grade` (`checkFailed` now also leaves `checking_spoken`; the recorder is reset).
+- Transcription unavailable or silent, or a failed correction, are **not** a fallback: the solution came with the answer (D-186), so the card is
+  rated without another request and `POST /reviews` keeps `production_attempt_id` (the server accepts a spoken answer without correction).
+  `auto_rating` is never sent. `409 production_mismatch` is the existing single resend (D-143).
+
+## D-209 — What is shown before and after a spoken answer (M6.b2.2; builds on D-103, D-123, D-202)
+
+- The prompt of a spoken card is the question alone: the example answer is **never in the page before the answer**, in none of the phases (a test
+  checks `document.body.innerHTML` in `answering`, `capturing`, `captured` and `checking_spoken`, and fails when the example is rendered earlier).
+  "Show an example" and the "nothing is recorded yet" sentence (D-123) are gone.
+- The result: the compact `CorrectionView` of what was heard (its title already says "What the speech recognition heard" and that the correction is
+  about what was heard, D-202), `term_not_heard` translated (forgotten or missed by the recogniser: rate yourself), the example "one possibility
+  among others", the sheet summary, the proposed rating 1 or 3 marked "Suggested" (Enter accepts it) or four plain buttons. Silence, an
+  unavailable transcription and a failed correction have their own sentence; the sentence "Compare with your own answer" is shown only when no
+  rating is proposed.
+- One sentence says that two AI steps may take up to about 90 seconds, under Send and during the wait, on every spoken card.
+
+## D-210 — Small conventions and departures met in M6.b2.2
+
+- Fixtures: `reviewAnswerOut` (a correction with one error, Again proposed), `untranscribedAnswer`, `heardFeedback`, `HEARD_ANSWER`, `SPOKEN_EXAMPLE`
+  in `speechFixtures.ts`.
+- Departures from the prompt: no second "What was heard" heading (the correction view's own title serves); `spokenFallback` takes a nullable notice
+  instead of a `declined` kind; "Start recording" and "Answer without recording" are both primary when the microphone failed; the break check
+  (e) is caught by the reducer test and not by the player test (the abort already drops the late answer there).
+
+## D-211 — Azure Speech: the facts read, their sources and what is not verified (M6.c1, 2026-10-24)
+
+Read on Microsoft Learn on 2026-10-24 (the "updated" dates are those printed on the pages). Nothing below was observed live: the live test
+(`tests/live/test_live_azure.py`) is the proof.
+
+| Point | Finding | Source |
+|---|---|---|
+| Endpoint | `https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`, the regional host of Microsoft's REST sample. The current page shows the resource-name host (`{resource}.cognitiveservices.azure.com/stt/...`) and says the key header "works with all endpoint formats". The regional host is kept, as the milestone asked. | `rest-speech-to-text-short` (ms.date 2025-11-21, updated 2026-06-05); `Azure-Samples/Cognitive-Speech-TTS`, `PronunciationAssessment/Python/sample.py` |
+| Query | `language=en-US` (required, else a 4xx), `format=detailed` | same |
+| Key | `Ocp-Apim-Subscription-Key` header (no token exchange) | same |
+| Assessment header | `Pronunciation-Assessment` = base64 of a UTF-8 JSON: `ReferenceText` (required), `GradingSystem` (FivePoint, HundredMark), `Granularity` (Phoneme, Word, FullText), `Dimension` (Basic, Comprehensive), `EnableMiscue`, `EnableProsodyAssessment`, `ScenarioId`. `PhonemeAlphabet` is not in the REST table but Microsoft's sample sends it; the PA page says phoneme names exist in en-US with IPA (default SAPI). | same + `how-to-pronunciation-assessment` (updated 2026-07-03) |
+| What is sent | `{"ReferenceText": target, "GradingSystem": "HundredMark", "Granularity": "Phoneme", "Dimension": "Comprehensive", "EnableMiscue": "True", "PhonemeAlphabet": "IPA"}`; no prosody. | |
+| Answer | `RecognitionStatus`: Success, NoMatch, InitialSilenceTimeout, BabbleTimeout, Error. `Offset` / `Duration` in 100 ns. In `NBest[0]` the REST page puts the scores flat (`AccuracyScore`, `FluencyScore`, `CompletenessScore`, `PronScore`, `Words[]{Word, Offset, Duration, AccuracyScore, ErrorType}`); the SDK JSON of the PA page nests them under `PronunciationAssessment` with `Phonemes[]`. **The parser accepts both.** | both pages |
+| `ErrorType` | REST page: None, Omission, Insertion, Mispronunciation; the PA page adds UnexpectedBreak, MissingBreak, Monotone (prosody). Unknown values are stored as they come and counted in none of the three counters. | both pages |
+| Duration | 60 s per request, **30 s when pronunciation assessment is on** (`pa.MAX_ASSESSMENT_SECONDS`). Shadowing is already 0.5 to 30 s (D-179). | REST page |
+| Formats | **WAV PCM 16 kHz mono** and **OGG Opus** only. webm, m4a and mp3 are not accepted. | REST page |
+| HTTP errors | 400 (language, unsupported or invalid audio), 401 (key invalid for this region/endpoint), 403 (key missing); 429 is described as throttling while autoscaling. **No body or code is documented for "the monthly F0 hours are used up": not verified.** | REST page + `speech-services-quotas-and-limits` (updated 2026-10-23) |
+| F0 limits | 5 audio hours a month of real-time STT, shared between Standard and Custom; **one concurrent request**, not adjustable. `pa.F0_MONTHLY_AUDIO_SECONDS = 18_000`, `F0_LIMIT_CHECKED_ON = "2026-10-24"`. | pricing page + quotas page |
+| Regions | Real-time STT is in the 33 listed regions. The PA page links to a "pronunciation assessment" region tab that the regions page no longer has: **PA availability per region not verified**. | `regions` (updated 2026-10-18) |
+| Card at sign-up | Not stated on the free-services page: **not verified**. | free-services page |
+
+**Is pronunciation assessment free on F0? Not confirmed.** The pricing page lists "Pronunciation Assessment (prosody)" among the enhanced add-on
+features (billed per hour) with no add-on line for F0; an unofficial Q&A answer (2025-11-04) says it is billed as plain STT. An F0 resource cannot
+bill, so the risk is an S0 resource created by mistake. The owner decided on 2026-10-24: go on, F0 only, document it as unverified. Consequences:
+SPEC section 7 no longer says "includes pronunciation assessment" (it says "not confirmed by the pricing page (2026-10-24)"); README and
+`.env.example` say "F0 only, never S0" and "the audio goes to Microsoft"; the live test is the proof.
+
+**webm is refused by Azure, and Chrome and Edge record webm.** Same codec (Opus), different container. M6.c2 must send WAV 16 kHz mono
+(`OfflineAudioContext` decode and resample is the simplest path) or an OGG Opus take as it is (a Firefox take, if it is 16 kHz mono). The backend
+refuses a webm with `unsupported_for_assessment` before any request.
+
+## D-212 — A gateway capability outside `ai_provider_order` (M6.c1)
+
+- New `Capability.PRONUNCIATION_ASSESSMENT`, a task `pronunciation_assessment` (no prompt: `prompt_version` null in `ai_call_log`, timeout 30 s), and
+  `Gateway.assess_pronunciation(audio, *, reference_text, language="en-US", pin_provider=None)`, which goes through `_run` like every other call:
+  retries, cooldown, the 90 s budget, one `ai_call_log` row per request.
+- **`ai_provider_order` does not apply to it**: `_select` takes every provider that holds the capability (`ORDERLESS_CAPABILITIES`), with health
+  respected. This is not `pin_provider`, which ignores cooldowns. `status().enabled` is true for a provider whose capabilities are all orderless.
+  The real switch is the `pronunciation_assessment` setting, checked by the service. Azure can never be put in the order (`KNOWN_SPEECH_PROVIDERS`
+  is a separate tuple) and a text call never picks it (it has no `TEXT` capability).
+- The `Provider` Protocol is unchanged; a second Protocol, `PronunciationProvider`, carries `assess_pronunciation`. Gemini, Groq and Ollama are
+  untouched; `FakeProvider` gained a scripted `assessment`. `ProviderResponse.assessment` carries the validated
+  `PronunciationAssessmentOutput` (`status` ok|silence, four 0-100 scores, `words[]` with `phonemes[]`, `duration_s`).
+- `ReferenceText` is required here. D-172 (the target is never sent to Whisper) is about transcription and does not apply: assessing against the
+  target is the point.
+
+## D-213 — The Azure adapter and the Azure column of the D-050 table (M6.c1)
+
+- `app/ai/providers/azure_speech.py`, `urllib` through `app/ai/http.py`, no SDK and no new dependency (D-049). Model name `pa-rest-v1` (ours: the
+  REST API has no model). The key goes in the header only; messages are masked (D-043); `repr` shows the region, never the key.
+- The region is checked against `^[a-z0-9]{2,40}$` before the URL is built (as D-057), else `bad_request` "VOCAB_AZURE_SPEECH_REGION is not a valid
+  region"; the language against a BCP-47-like pattern. `base_url` is injectable for the tests (the default URL is unit-tested from the region).
+- Refused **before any request** (`bad_request`): a clip that is not WAV 16 kHz mono PCM or OGG Opus mono (the content decides, the file name must
+  agree), a clip over 30 s (read from the headers), an empty reference text. The service refuses earlier with stable codes (D-215).
+- Parsing is tolerant: both score shapes, numbers that are strings are read, scores outside 0-100 become null, unreadable words and phonemes are
+  skipped. `Success` without `NBest[0]` is `invalid_output`. NoMatch, InitialSilenceTimeout and BabbleTimeout give a `silence` result (not an
+  error). `Error` is `transient`.
+
+| Situation | Category |
+|---|---|
+| 401, or 403 without "quota" in the message | `auth` |
+| 403 or 429 whose message says "quota" | `quota_exhausted` (**an unverified heuristic**: the F0 wording is not documented) |
+| other 429 | `rate_limited` (`Retry-After` when present) |
+| 5xx, 408, timeout | `transient` |
+| other 4xx, 3xx | `bad_request` |
+| unusable body | `invalid_output` |
+
+The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleared by `reload()` (D-040).
+
+## D-214 — `.env`, routes and the setting (M6.c1)
+
+- `Settings.azure_speech_key` (secret) and `azure_speech_region`; both are "empty means not configured". The key is in `secret_values()`.
+- `env_file.EDITABLE` plus `REGION_VARIABLES` make **five** editable variables. `update_credential(provider, value, region=...)` writes the key and
+  the region in **one** atomic write under the same lock; removing the key removes both; `set_in_environment` (409) applies if either variable is in
+  the process environment. The region is lower-cased and validated (`invalid_region`, 422).
+- `PUT /api/ai/providers/azure/credential` takes `{value, region?}`; 422 `region_required` when no region is stored and none is given, 422
+  `invalid_request` for a region sent to another provider. `DELETE` clears both. The event `ai.credential_changed` accepts `azure`.
+- **`GET /api/ai/status` lists Azure in a new field `speech_providers`, not in `providers`** (a departure from the plan, found while reading the
+  Settings screen: it draws a card and an order entry for every item of `providers`, and the frontend does not change in M6.c1). `ProviderState`
+  gained `region` (null for the others, never the key). `degraded` ignores Azure (it means "no text provider").
+- Setting `pronunciation_assessment` (`off` | `azure`, default `off`). The demo guard refuses its `PATCH` and the Azure credential routes (409
+  `demo_read_only`), as for `ai_provider_order`.
+- `POST /api/ai/test {provider: "azure"}` and `ai test --provider azure` send one second of silent WAV (built in memory) with the reference
+  "Hello."; a 200 answer, even `silence`, is a success. A plain `ai test` never calls Azure (it would spend free minutes).
+- `GET /api/ai/usage` already groups `ai_call_log` by provider: Azure appears with no change (a test checks it).
+
+## D-215 — Storage: the scores live with the comparison, whichever comes first (M6.c1b)
+
+- `pronunciation_result.scores` holds the `azure-pa-1` document (`format`, `provider`, `model`, `assessed_at`, `status`, `overall{accuracy,
+  fluency, completeness, pronunciation}`, `words[]`, `duration_s`). No migration.
+- `pronunciation.store_assessment(session, attempt_id, result, *, at)` works in the caller's transaction, no commit (D-165, D-189). It fills `scores`
+  on the latest row; **when there is none** (no Groq key, transcription not done yet, or a transcription that heard silence) **it creates the row**
+  with `transcript=""`, `unrecognized_words=[]` and `provider=""` (the column means the transcription's provider and nothing was transcribed). The
+  model allows it: both columns are NOT NULL but accept the empty string, and `production_attempt_id` is not unique.
+- `speech.store_transcription` now **updates** the existing row (transcript, unrecognised words, provider; it keeps `scores`) instead of always
+  inserting; every other path is unchanged. `speech.comparison_of` returns None while `transcript == ""`, otherwise a row created by the assessment
+  would show every target word as missing.
+- `pronunciation.assess` refuses, before any call and in this order: 404 `production_not_found`, 422 `not_assessable` (not a shadowing, or no target),
+  404 `no_audio`, 409 `assessment_disabled`, 409 `already_assessed`, 422 `unsupported_for_assessment` (the WAV/OGG header of the bytes read), 422
+  `audio_too_long` (over 30 s). Then: a short read (the session is closed), the call with no session open, a short write that checks 1, 2 and 5 again
+  (D-038). An AI failure is a 200 `unavailable` / `incomplete` (D-081) that writes only the gateway's `ai_call_log` row and can be repeated. No
+  `error_event` is ever created (D-174, tested).
+- **Known limit, no migration**: two concurrent writers of the same production have a microsecond window between the last check and the insert (as
+  for transcription today). A unique index would need migration `0003`; it is not proposed. The test "second writer during the call" covers a writer
+  that commits during the AI call.
+- `assessable_reason` (on `ProductionOut` and `SpeechOut`, with `assessable` and `pronunciation`): `not_shadowing`, `no_target`, `no_audio`,
+  `disabled`, `not_configured`, `already_assessed`, `unsupported_format` (by the extension only, so a list reads no file), `too_long`.
+
+## D-216 — The event and the monthly use (M6.c1b)
+
+- `pronunciation.assessed` (payload v1): `production_attempt_id`, `provider`, `model`, `ai_call_id`, `status` ok|silence, `audio_seconds`, the four
+  scores (null on silence), `word_count`, `mispronounced`, `omitted`, `inserted`. No text.
+- `GET /api/speech/pronunciation/usage` sums this calendar month's (UTC) events: `{month, audio_seconds, assessments, limit_seconds: 18000,
+  limit_checked_on, note}`. Silence counts (Azure bills the audio); failed requests do not (no event). It is what **this app** sent, not what
+  Microsoft counts (another tool on the same resource would not show). Read-only session (`query_only`, then restored).
+
+## D-217 — Demo dataset v5 (M6.c1b)
+
+- The five `content/demo/*.yaml` files move to version 5. The last 3 shadowings that have unrecognised words are scored at the end of the run,
+  through `store_assessment` (the real service), with `fictional_ai.pronunciation_result`: provider `demo`, model `demo-pa-v1`, no `ai_call_log`
+  row, `ai_call_id` null.
+- **No new random draw**: the scores come from the words (a CRC of the word), so every other generator draws the same sequence as in v4. A word the
+  recogniser missed is `Mispronunciation` (something else heard) or `Omission` (nothing heard); the others score 84 to 98. Phonemes are a fixed
+  fictional split of the letters (one IPA symbol per letter), one clearly weak phoneme in a mispronounced word. Validated by the real schema.
+- The `pronunciation_assessment` setting stays `off`; the scores are shown anyway (the demo database is read-only for it). The demo clips are
+  8 kHz WAV, which Azure would refuse: nothing can send them, the setting is locked.
+- The fingerprint changes (version 5, `scores`, `pronunciation.assessed` events), as in D-191. Seed time on 2026-10-24: 14 to 16 s here, against 4.4 to
+  4.6 s at M6.a2b with the same command; 0 or 3 assessments make no measurable difference, and the profile is dominated by SQLite writes of the
+  reviews (code not touched by this milestone). The cause on this machine is not established.
+
+## D-218 — Small conventions and departures met in M6.c1
+
+- `as_number` moved from `groq.py` to `providers/common.py` (shared by the two parsers).
+- `pa.audio_kind` requires the file name to agree with the content (a `.webm` name over WAV bytes is refused).
+- Tests: Azure fixtures in `tests/ai/fixtures/azure/` are built from the documentation (the README of the folder says the error bodies are guesses);
+  `tests/audio_support.py` makes tiny WAV/OGG clips in memory (no audio file is committed).
+- `tests/live/test_live_azure.py` (`VOCAB_RUN_LIVE=1`, a key and a region, `VOCAB_LIVE_AZURE_AUDIO`): one request, a quota error is a skip.
+- The frontend does not change; the `speech_providers` field is additive.
+
+## D-219 — Recording for the assessment: WAV at the moment of recording (M6.c2, 2026-10-24; builds on D-211, D-215)
+
+- The backend assesses the **stored file** (`POST /api/productions/{id}/pronunciation` has no body), and Azure refuses webm (D-211). So the
+  conversion happens **before the upload of a new shadowing**, in `ShadowingPage`, not at assessment time.
+- `frontend/src/speech/wav.ts`: `convertToWav(blob)` decodes with `AudioContext.decodeAudioData`, resamples and mixes down to 1 channel at
+  16 kHz with an `OfflineAudioContext`, and encodes WAV PCM 16-bit with the pure `encodeWav`. It returns `null` when the browser cannot (no Web
+  Audio, undecodable data); the page then sends the original and the detail page explains `unsupported_format`.
+- It runs **only** when the `pronunciation_assessment` setting is `azure` **and** Azure is configured (`useAssessmentReady`). Otherwise the
+  recorder, the stored format and the upload are exactly what they were (D-193 is untouched). A 30 s take is about 960 KB, under the 10 MB limit.
+- **A Firefox ogg/opus take is converted too**, not sent as it is: one path, testable, no dependence on the sample rate Firefox records at.
+- Checked in the built-in browser (Chromium): a real `MediaRecorder` webm/opus take of a 440 Hz tone gave `RIFF`, 16000 Hz, 1 channel, 16 bits,
+  1.08 s decoded (the take lasted about 1.5 s), non-silent samples.
+  Not checked: a real microphone, Firefox, and the file being accepted by Azure.
+- Recordings made before the setting was on stay webm and cannot be assessed; the button is greyed with the reason. The discovery step 4 and
+  free speaking are not converted (out of scope).
+
+## D-220 — The Azure card and the way the setting is turned on (M6.c2)
+
+- `AzureCard` is its own card in Settings (between the providers and the usage), drawn from `speech_providers` (D-214), so Azure is never in
+  the provider order. It shows: the warning that the recording goes to Microsoft, F0 only (never S0) and that F0 inclusion is not confirmed;
+  key + region saved together (`PUT .../azure/credential` with `{value, region}`, the key field emptied after saving); the standard connection
+  test (`POST /api/ai/test {provider: "azure"}`); a checkbox for the `pronunciation_assessment` setting (`off`/`azure`), disabled until a key is
+  saved; the month's use from `GET /api/speech/pronunciation/usage` with its note ("what this app sent, not what Microsoft counts").
+- Locked on the demo database (as the other cards). Absent when the backend sends no `speech_providers`.
+- The new error codes (`region_required`, `invalid_region`, `not_assessable`, `assessment_disabled`, `already_assessed`,
+  `unsupported_for_assessment`) are in `errorMessage.ts` and in both locales.
+
+## D-221 — The scores view and the button (M6.c2; builds on D-215, D-174)
+
+- `AssessmentSection` on the shadowing page, after the transcription card. **Nothing is sent by itself**: one button, with the sentence "sends the
+  recording to Microsoft Azure". The button is greyed from `assessable` and the reason from `assessable_reason` is written under it (with a link
+  to the settings for `disabled` / `not_configured`). `not_shadowing` and `no_audio` show no section. A backend without the fields shows nothing.
+- `unavailable` / `incomplete` are said with the reason (`aiReasonText`), nothing is stored, the button becomes "Try again". A 409
+  `already_assessed` just refreshes the production.
+- `PronunciationView`: the sentence "An automatic estimate, not a teacher's judgment" first; four overall scores; every word with its score and
+  its error type **in words** (colour is never the only signal; a wavy underline marks words with an error type or a score under 60); the
+  weakest sounds (computed in the browser from the stored phonemes: below 80, worst five); date and provider; "Demo scores are fictional" for
+  `provider: "demo"`. An unknown `error_type` reads "to check". `silence` says that nothing was heard.
+- Active recall holds: the section exists only on a recorded take that was already compared, and the target sentence was shown before.
+- No errors are created from the scores (D-174).
+
+## D-222 — Small conventions and departures met in M6.c2
+
+- Backend unchanged, no migration, no new dependency. `ProviderName` stays the text providers; `SpeechProviderName` (`'azure'`) is separate.
+- Departure from the plan: `useAssessmentReady` reads two requests (settings and AI status); a take sent in the first instants of a page load
+  could be sent without conversion; then it just cannot be assessed (the button says why).
+- Tests: 25 new Vitest tests, 644 in all (wav 6, Azure card 6, scores and button 10, recording 3); the "assessment off" test
+  fails when the conversion is made unconditional (checked by breaking the code).
+
+
+## D-223 — M7.a1 starts from M6.c2; no migration; the schema holds the task (module G)
+
+- `main` (`7904aa3`) has no M6, so `feat/m7-consolidation` is cut from `7ffbec6` (tip of `feat/m6c2-pronunciation-screens`). Nothing after
+  migration `0002`; `alembic check` stays empty.
+- The existing tables are enough. Task types map to the enum at the service/API boundary: `talk` <-> `presentation`, `speech`,
+  `interview_answer`; statuses `completed` <-> `done` (`completed_at` is set). `consolidation_task.topic` holds the English title (readable in
+  SQL); everything else is in `suggested_structure` (`format: "consolidation-task-1"`: task type, source `ai`|`template`, reason, provider, model,
+  prompt version, AI call id, title / prompt / audience in both languages, target minutes, sections with their `item_ids`, study session id).
+- The order of the terms is the insertion order of the `consolidation_task_item` rows (id ascending = selection order, most fragile first).
+- Pure rules in `app/domain/consolidation.py`: `MIN_TERMS = 8`, `MAX_TERMS = 15` (the target limit of the two correction tasks, D-128, D-180),
+  `DEFAULT_TERMS = 12`.
+
+## D-224 — The ratio setting is `consolidation_share`, bounds narrowed to 0.5..1.0
+
+- The registry already had `consolidation_share` (default 0.80), shown in the "consolidation" group of the settings page and unused until now.
+  It is reused instead of adding `consolidation_ready_ratio`. Bounds go from 0..1 to 0.5..1.0 (the milestone's bounds). The frontend reads the
+  bounds from the API, so no frontend change; the domain also clamps a stored out-of-range value when reading (`clamp_ratio`).
+- Readiness: denominator = productive cards of the deck terms that are neither `archived` nor `known`; numerator = those with a stability of at
+  least `consolidation_min_stability_days`. The comparison is `stable / total >= threshold` on exact fractions (79.9 % is below 80 %).
+  Candidates are the terms at `consolidated` status (not `active`), lowest stability first, then lowest id.
+
+## D-225 — One more reason, `deck_done`, and the order of the reasons
+
+- The milestone excludes `done` decks without naming a reason; the reason is `deck_done`. Order of evaluation: `excluded_kind` (an `error_drill`
+  deck), `deck_done`, `task_open`, `no_productive_cards`, `below_ratio`, `not_enough_candidates`. A `paused` deck stays eligible: the pause
+  only stops new terms (D-026). `ratio` is 0 when there is no productive card.
+- 409 `task_closed` is reserved for M7.a2 (an attempt on a `completed` or `dismissed` task).
+
+## D-226 — The `consolidation_task` AI task and the template fallback
+
+- Prompt `consolidation_task.v1.txt` (`deck` and `terms` are `data`, `task_type` and `term_count` `plain`); the output schema validates by
+  context (D-079): known references, every reference exactly once, 3 to 6 sections, `target_minutes` 1 to 6, non-empty texts, bounded lengths
+  (named constants), the requested `task_type`. Messages never quote the AI text. The model gets the terms as `t1..tN` references with the
+  English simple definition only (no French translation: immersion); the prompt forbids sample sentences containing a term.
+- Budgets (`app/ai/tasks.py`): input 8 000 characters (deck about 1 200 + 15 terms x about 300 + keys), output 3 000 tokens (titles, prompts
+  and audience in two languages about 500, 6 sections x about 250, JSON frame), timeout 45 s.
+- Fallback: `content/consolidation_templates.yaml` (one template per type, 4 or 5 sections, `{deck}` / `{domain}` interpolation, terms spread in turn in
+  selection order). Used for any `unavailable` reason and for `incomplete`; the task is created anyway with `source: "template"` and the
+  `reason` is the AI reason (`no_provider_configured`, `quota`, `auth`, ..., or `incomplete`). The template result goes through the same schema.
+
+## D-227 — Creation never holds a transaction during the AI call (D-038)
+
+- `create_task`: a short read session (readiness, selection, sheets) is rolled back; the AI is called with no session; then one short write
+  transaction re-checks readiness (409 `task_open` with `task_id` if another task appeared, 409 `not_ready` with `reason` otherwise, and
+  `not_ready` / `candidates_changed` if a selected term left the candidates) and calls `store_task`. `store_task` works in the caller's
+  transaction so the demo can use it. Tested with a second writer taking `BEGIN IMMEDIATE` during the call.
+- Statuses: `proposed -> accepted | dismissed`, `accepted -> completed | dismissed`; anything else is 409 `invalid_transition`. A closed task frees the deck.
+- Events (open set, no migration): `consolidation.task_created` `{task_id, deck_id, task_type, source, term_count}` and
+  `consolidation.task_status_changed` `{task_id, from_status, to_status}` (field names as `deck.status_changed`); no free text.
+  `consolidation.attempt_checked` and `production.recorded` v6 come with M7.a2.
+- The planner (D-029, block 4) already reads proposed or accepted tasks: unchanged, tested through `/api/session/today` and `practice_info`.
+
+## D-228 — API, export and CLI of M7.a1
+
+- Routes under `/api/consolidation` (decks, tasks create / list / get, status, export), format D-063. `POST /tasks` is a plain `def` with no session
+  dependency; `term_count` is validated 8..15 (422 `invalid_request`). The task carries both languages everywhere; `targets` come without the sheet;
+  `used_correctly_count` counts `production_target.used_correctly` of the task attempts (0 until M7.a2).
+- Export: `content/consolidation_export.yaml` (tutor role, task, structure, terms with simple definitions, what the tutor does: listen, three
+  follow-up questions, say which terms were used well / badly / forgotten); the tutor always speaks English, `lang=fr` translates the framing.
+  `text/markdown; charset=utf-8`, `Content-Disposition: attachment; filename="consolidation-task-<id>-<lang>.md"`. No personal data.
+- CLI `consolidation status | new <deck_id> [--type] [--count 8..15] | show <id> | export <id> [--lang] [--out FILE]`; exit 0 done, 2 usage or refusal.
+  Like `write correct`, `new` accepts `--demo` (an AI failure is not an exit code: a template takes over).
+
+## D-229 — Applying the result of a consolidation production (M7.a2; builds on D-025, D-127)
+
+- Per target term, from `production_target.used` (deterministic, `contains_term`), `used_correctly` (the AI) and the errors of the production tied to the term
+  by `target_ref` (`classify_target`, pure): **correct** = used, judged correct, no tied error; **misused** = used and judged wrong, or with a tied error;
+  **absent** = not in the text (not heard, for a talk); **unknown** = no verdict.
+- Correct: `learning` or `consolidated` becomes `active` (`mark_active`); `active` stays; `archived` and `known` are ignored. Misused: a FSRS Again on the productive
+  card through `record_review` (`exercise_type = "consolidation_misuse"`, `auto_rating = final_rating = 1`, **no** `production_attempt_id`: the unique index of D-127 allows
+  one review per production, the link is the event); `archived` and `known` are ignored, an `active` term stays `active`, a `consolidated` one may fall back to `learning`
+  by the usual rule. Absent and unknown: nothing. The error itself already exists (created by the correction, source `consolidation`).
+- It runs **in the transaction that stores the correction** (`after_store` of `correct_production` / `correct_speaking`, called after `store_*correction` and before the commit),
+  so a correction that fails or is not stored changes no status and a retry applies the result once. `/correct` already refuses a second correction (409 `already_corrected`, in
+  `prepare` and again in the write transaction); `apply_result` also looks for an existing `consolidation.attempt_checked` for the production and does nothing if there is one.
+  Both layers were removed in turn to check that the tests notice (see the report).
+- A term used correctly but with an unrelated error tied to it counts as misused: the prompt of the correction tasks tells the AI to set `target_ref` when a mistake concerns a target term,
+  and the milestone's rule is "no error tied to the term". The live pass where the AI tied a tense error to "run a regression" showed the cost; the example text avoids that ambiguity.
+- Event `consolidation.attempt_checked` `{task_id, production_attempt_id, modality, targets, used, used_correctly, misused, absent, activated_item_ids, reinforced_card_ids}`: counts and ids only.
+
+## D-230 — Productions of a task: kind, origin, bounds (M7.a2; builds on D-170, D-182)
+
+- A written text is a `production_attempt` `kind=consolidation`, `modality=written`, `prompt_text` = the English prompt of the task, targets = the terms of the task in selection order
+  (so the AI `ref` of a term is its position), `consolidation_task_id` set; same limits as free writing (4 000 characters, 40 sentences). A talk is the same kind with `modality=oral`
+  (`RecordingKind.CONSOLIDATION`, 20 to 240 s: a 2 to 4 minute talk for 8 to 15 terms, 240 s are about 3 800 characters, under `MAX_SPEAKING_CHARS`); `speech.py` counts the words of a
+  `consolidation` production like those of free speaking (the learner's own words). Checks before the file is written and again in the creating transaction; the task prompt is never sent to the recogniser (D-172).
+- `production.recorded` is version 6 (origin `consolidation`); `ProductionOrigin.CONSOLIDATION` decides the error source (`source_of`, `mode_and_source`): `consolidation`, so a retry through `/correct` keeps it.
+- The first attempt makes a `proposed` task `accepted` in the creating transaction (`note_attempt`); an attempt on a `completed` or `dismissed` task is 409 `task_closed` (`task_status` in the details).
+- `corrections.prepare` and `speaking.prepare_speaking` take the accepted kinds as a keyword (defaults unchanged); `prepare_speaking` also requires the oral modality. A written consolidation text is corrected
+  in `paragraph` mode even with one sentence.
+
+## D-231 — API additions of M7.a2
+
+- `POST /consolidation/tasks/{id}/attempts/written`, `POST /speech/consolidation` (under `/api/speech/` for the guard of D-170), `CorrectionOut.consolidation` (additive, null otherwise),
+  `task.targets[].used_correctly_count` (the `production_target.used_correctly` rows of the task attempts). Nothing completes a task by itself: the owner does (`POST .../status`).
+  The feedback formats `correction-1` and `speaking-1` are unchanged, so M7.b reuses the correction views.
+
+## D-232 — Demo v6 (M7.a2; builds on D-163, D-191)
+
+- `dataset_version` 6 in the five files (only the number changes). The simulation makes the task **through the services**: from day -10 (scaled) until the deck is ready, never after day -5, it takes the
+  15 most fragile terms with `select_terms`, stores a task from the deck template (`fictional_ai.consolidation_task`, validated by the real schema, provenance `demo`), records a text built from the
+  dataset sentences (a fallback sentence for the terms the dataset gives none for), one term used wrongly (`it make` -> `it makes`, `grammar.agreement`, tied to the term) and one forgotten, corrects it
+  (`store_correction`, source `consolidation`), applies the result with `apply_result`, and completes the task.
+- Terms with `fate: active` are spared from the "misused" and "forgotten" draw, so the task activates them when it selects them; the direct switch at day -5 stays only for the ones it did not reach
+  (measured on seeds 1 to 12 in PROGRESS). A new generator `_consolidation` is derived **last** from the root generator (D-191): the numbers of the others do not move.
+- The fingerprint changes for these reasons only: the version number, the consolidation rows (task, 15 items, production, correction, error, review, events), the statuses and `item.status_changed` events of the
+  terms the task activated (about 13 instead of 5 `active` terms in the causal deck), and the cards of the term reinforced. Existing demo tests changed in two places: the causal deck has 12 to 15 active terms,
+  and the replay of the exercise choice skips the `consolidation_misuse` reviews (it checks their ratings instead). New: `tests/test_demo_consolidation.py`.
+- The seed takes 5 to 6.5 s here.
+
+## D-233 — Example text and live test (M7.a2; builds on D-054, D-132)
+
+- `content/examples/m7_consolidation.txt`: one paragraph on eight terms of the demo's causal deck (the ten selected at the anchor with seed 42 and `--count 10`): six used well, `noisy estimate` used as a verb
+  (wrong), `underpowered` forgotten (two more selected terms are not used either). `tests/live/test_live_consolidation.py` makes a real task (schema-valid, every term in one section) and corrects the example.
+- Passes with `gemini-3.5-flash-lite` (Stable on 2026-10-26): the task was written by the AI every time. First text (an agreement slip): the AI called the term correct (rightly: the slip is not about the
+  term) - the text was changed, not the test. Second text: failures on "run a regression" (a tense error tied to the term) and once on `noisy estimate` judged correct. Final text (infinitive, a clearly wrong
+  use): 6 passes out of 7. The prompts of `production_correction` and `speaking_correction` are shared with M5 and M6, so they were not changed for this (a v2 would be its own change).
+
+## D-234 — CLI `consolidation write | speak` (M7.a2)
+
+- `write <task_id> --file <txt>` and `speak <task_id> --file <clip> [--duration S]` (in `app/cli_consolidation_attempts.py`) print the correction as `write correct` does, then what happened to the terms
+  (now active / reinforced / not used / unchanged). Exit codes as D-053: 0, 1 AI unavailable (production kept, no term changed, the message gives `POST /api/productions/<id>/correct`), 2 usage (unknown or closed task,
+  refused file, duration outside 20-240 s). `--demo` is accepted.
+
+## D-235 — Routes and structure of the consolidation screens (M7.b; builds on D-229, D-231)
+
+- Three routes under `features/consolidation/`: `/consolidation` (ready decks with the creation form, decks not ready with the reason in words, the tasks with a status filter and paging in the URL),
+  `/consolidation/tasks/:id` (brief, structure, terms, status actions, written and spoken production, attempts, export) and `/consolidation/attempts/:id` (correction and summary of the terms).
+- A consolidation production opened as `/writing/:id` or `/speaking/:id` redirects to its attempt page (as writing and speaking already redirect to each other), and a consolidation error of the error log
+  links to it (`logRules.productionLink`). Any other kind opened on the attempt page redirects to `/writing/:id`.
+- The task id is **not** on a production (`ProductionOut` has no `consolidation_task_id`; no backend change was asked for). The attempt page gets it from the query string (`?task=ID`, kept when the page
+  clears its router state). Without it the page still works; only "Back to the task" and "Mark as completed" are missing (the link falls back to the task list). Adding the field to `ProductionOut` would remove this.
+
+## D-236 — Task statuses and the user's decision (M7.b; builds on D-229)
+
+- The buttons follow the backend transitions: proposed -> Accept or Dismiss, accepted -> Mark as completed or Dismiss, closed -> none. Dismiss and Complete ask an inline confirmation (`role="alertdialog"`,
+  no `window.confirm`); Accept does not (it is harmless, and the first attempt does it anyway).
+- Nothing completes a task by itself. After a corrected attempt on an `accepted` task, the attempt page offers "Yes, mark as completed" next to "Make another attempt"; the user decides.
+- A closed task shows neither the writing form nor the recorder (the backend would refuse with `task_closed`).
+
+## D-237 — Active recall on a task and what is shown after the attempt (M7.b; builds on the SPEC principles)
+
+- The task page lists the terms to use (that is the exercise, not an answer); no meaning, sheet or example is shown before the attempt. After the correction, the summary groups the terms: used correctly
+  (with the "now active" mark and the counts only right after the correction, from `CorrectionOut.consolidation`), used wrongly, not used, not checked. After a reload the groups come from the stored
+  `production.targets`; the marks are lost, because the API gives `activated_item_ids` and `reinforced_card_ids` only in the answer of the correction call.
+- The text of the task (prompt, audience, structure) is shown in the interface language, with a button to show the other one under it (`lang` attributes set).
+- A task made from a template says so on its page, with the reason (`aiReasonText`), passed through the router state from the creation page (the reason is not stored on the task): it is not shown when the
+  task is opened from the list.
+
+## D-238 — Recording use `consolidation` (M7.b; builds on D-193, D-179)
+
+- `RecordingUse` gets `consolidation`: min 20 s, max 240 s (the backend's bounds for `POST /speech/consolidation`), a warning from 200 s. The existing `Recorder` is reused as is; the take is sent with
+  `apiUpload('/speech/consolidation', blob, {task_id, duration_s})`. Transcription and correction use the same retry buttons as free speaking (`useTranscribe`, `useCorrectProduction`).
+- The correction starts by itself on arrival from the task page (router state `autoCorrect`, cleared at once: D-142) and never after a reload.
+
+## D-239 — Export, creation and links (M7.b)
+
+- The Markdown export is downloaded by `apiDownload` (fetch, blob, temporary `<a download>`, file name from `Content-Disposition`): one button per language, no new endpoint.
+- The number of terms is limited to 8 up to `min(15, candidates)` in the form; the backend stays the judge (`not_ready` and `task_open` conflicts are shown, the latter with a link to the open task). The
+  creation button is disabled while the AI works and shows the elapsed seconds (as the other AI buttons).
+- A writing draft is kept in the browser per task (`vocab-coach.consolidation-draft.<id>`, convenience only, cleared on send).
+- The Today card and the session's `practice_info` step now link to the open task ("Open the task"); the sentence "available in a later version" is gone. The top bar has a `Consolidation` entry.
+- `consolidation_share` was already in the Settings group "Consolidation". Its bounds (0.5 to 1.0, D-224) come from the API, so the form follows them; only a test fixture still said 0 to 1.
+
+## D-240 — NGSL and NAWL are redistributed unchanged, under CC BY-SA 4.0 (M8.a1)
+
+- Checked on 2026-10-26 on the official site (https://www.newgeneralservicelist.com/new-general-service-list and `/new-academic-word-list`): both lists are "licensed under a Creative Commons
+  Attribution-ShareAlike 4.0 International License", authors Browne, C., Culligan, B., and Phillips, J.; "permissions beyond the scope of this license may be available at www.charlie-browne.com".
+  Redistribution is therefore allowed with attribution and the same licence (SPEC module H asked for this check).
+- The files are downloaded again from the official URLs and committed **byte for byte** (`NGSL_12_stats.csv`: ASCII; `NAWL_12_lemmatized_for_teaching.csv`: ISO-8859-1, CRLF) in `content/wordlists/`.
+  `.gitattributes` marks them `-text` so that `* text=auto` never rewrites their line endings. `content/wordlists/NOTICE` holds the licence, the authors, the source URLs, the download date and the
+  citation; the README (licence section) and SPEC section 8 mention them. Every adjustment is made by the loader: `TRUE` / `FALSE` (spreadsheet artefacts for `true` / `false`) are lowercased, the
+  NAWL is decoded as ISO-8859-1, `I` is kept as written. The CI hygiene guard rejects `data/`, `.env`, databases and audio only, so the `.csv` files pass.
+- Anything derived from the lists and redistributed carries the same licence; the rest of the repository stays MIT.
+
+## D-241 — A track is linked to its deck through `source`, no migration (M8.a1)
+
+- `curriculum_track` has no `deck_id` and none is added. Starting a word-list track creates a `source` (title "New General Service List 1.2" / "New Academic Word List 1.2", author
+  "Browne, Culligan, Phillips", domain `general` / `academic`, `reference = "curriculum:<track_code>"`) and a deck `kind = curriculum`, `queued`, at the end of the queue.
+  The deck is found again by `kind = curriculum` + `source.reference`, so a second start returns the same deck (idempotent). If the deck was deleted, a new start makes a new deck and source
+  (the previous source stays, harmless).
+- `curriculum_track` rows are upserted by `code` when a track is started (title and description in English, `syllabus_version` = the YAML `version`). A scenario track gets its row on start and no deck
+  (its units arrive in M8.a2). Known limit: units opened under a deck that was later deleted keep `deck_id = NULL`; reopening them returns them as they are.
+
+## D-242 — Units are computed from the files and created on opening (M8.a1)
+
+- Unit `n` of a word-list track holds ranks `(n-1)*unit_size+1 .. n*unit_size`, computed from the file at each call (NGSL 2809 words: 113 units, the last with 9; NAWL 959 words: 39 units).
+  The syllabus only gives `unit_size` (10 to 50). The file is cached by path, modification time and size, so a replaced file is read again.
+- Nothing is written for a unit until the user opens it. Opening creates the `curriculum_unit` row (`code` `ngsl_001` / `nawl_001`, title "Words 1–25" with an en dash, `position = n`,
+  `deck_id`, `progress = in_progress`, `content_status = generated`: the unit content, a word slice, exists and needs no AI) with
+  `content = {format: "wordlist-unit-1", source, source_version: "1.2", first_rank, last_rank, item_ids}`. `item_ids` holds the terms put in the deck (new or attached), in rank order.
+  Reopening creates nothing. No usage sheet is generated on opening (the learner chooses which words to learn after triage).
+
+## D-243 — The unit's terms go through the import core, with their own event (M8.a1; builds on D-013, D-015, D-017)
+
+- `importing.commit` takes `origin` (default `ItemOrigin.IMPORT`) and `record_completed` (default true). The curriculum calls it with `origin = ItemOrigin.CURRICULUM`, `intake = triage` and
+  `record_completed = False`: an exact duplicate is attached to the deck (a `known` or `archived` status is kept), a possible duplicate creates a new term, the type is guessed as in the import.
+- Two events, both `extra="forbid"`: `curriculum.track_started` (`track_code`, `deck_id`, `created`) and `curriculum.unit_opened` (`track_code`, `unit_code`, `unit_id`, `deck_id`, `imported`,
+  `attached`, `skipped`). `import.completed` is not written, so M9 statistics count user imports only; the new terms still have their `item.created` events (origin `curriculum`).
+
+## D-244 — NAWL units follow the official alphabetical order (M8.a1; owner's decision)
+
+- The NAWL has no official frequency rank (only the file order, alphabetical, one row per headword followed by its inflected forms). The rank of a NAWL word is its row number; units are
+  consecutive slices of 25 headwords. Frequency order was not invented. The inflected forms are read but not imported (the headword is the term).
+
+## D-245 — Unit state is computed, never stored; availability and errors (M8.a1)
+
+- A unit is `not_opened` (no row), `opened` (at least one of its `item_ids` is still in `triage`) or `triaged` (none is). The state is computed at each call; `curriculum_unit.progress` is not used for
+  it (it will carry the M8.a2 steps). Terms deleted later count as triaged.
+- A track is `available: false, reason: "wordlist_missing"` when its file is absent or unreadable; starting it gives 409 `wordlist_missing`. Opening a unit of a track that is not started gives
+  409 `track_not_started` (with `track`); a scenario track has no word units to open (422 `not_a_wordlist_track`); unknown track / unit give 404; an unreadable syllabus gives 503 `syllabus_unavailable`.
+- API tests must override `get_session` as well as `get_engine`: with `get_engine` only, routes that commit write into the real database (found and fixed in this milestone, see PROGRESS).
+
+## D-246 — Scenario units: zero migration, the row exists only once its content does; the model check (M8.a2)
+
+- No migration: `curriculum_unit` already has `content` (JSON), `content_status`, `provider`, `model`, `prompt_version`, `deck_id` and the closed `progress` enum; `production_attempt.curriculum_unit_id`
+  already exists. `alembic check` reports no operation.
+- Generation follows D-038: a short read (the track is started, the unit exists in the syllabus, no content yet), the AI call with no session open, then a short write that checks again (409
+  `unit_generated` if another generation wrote in the meantime). The `curriculum_unit` row is created by that write, never before: an AI failure is a result (HTTP 200, `status` `incomplete` or
+  `unavailable`, `reason`, `detail`) that writes nothing, and the same command can be run again. A unit with a row and `content_status = pending` is treated as not generated.
+- A generated scenario unit is `opened` while none of its formulas is in the library (D-245 computes `opened` / `triaged` from the terms; a scenario unit with no terms yet is simply `opened`).
+  Scenario units are listed from the YAML as before (`not_opened` until generated).
+- Prior check, 2026-10-26: https://ai.google.dev/gemini-api/docs/models lists `gemini-3.5-flash-lite` as "Stable" (page "Last updated 2026-10-22 UTC"; the page gives no release or deprecation
+  date for it). The live test (`tests/live/test_live_curriculum_unit.py`, 1 to 2 requests) wrote the "Job interview" unit with the owner's Gemini key on the first attempt.
+
+## D-247 — Stored format of a scenario unit, `curriculum-unit-1` (M8.a2)
+
+- `curriculum_unit.content` (replaced as a whole dict on every write, D-020): `format: "curriculum-unit-1"`, `prompt_version` (`curriculum_unit.v1`), `provider`, `model`, `ai_call_id`, `edited`,
+  `revision` (1 at generation, +1 per edit), `level` (from the syllabus), `formulas [{text, item_type, function_en, function_fr, register}]`, `dialogue {setting_en, setting_fr, speakers[2], lines
+  [{speaker, text}]}`, `shadowing [line index]`, `final_task {prompt_en, prompt_fr, minutes 1|2, formula_refs [formula index]}`, `progress {steps {<step>: {done, at}}}`, `item_ids [...]` and
+  `formula_item_ids {"<formula index>": item id}` (the last two are empty until the learner adds formulas to the library, D-251). `provider`, `model` and `prompt_version` are copied to the
+  columns. `content_status`: `generated` after the AI, `edited` after the first edit (never back).
+- Stored positions are **0-based** (line and formula indices). The AI numbers the dialogue lines from 1 and the formulas `f1`, `f2`...: `CurriculumUnitOutput.stored_*` convert them once.
+  `register` is the JSON key of a formula; the Python attribute is `style` because `BaseModel.register` exists.
+- The shapes and every rule live in `app/domain/curriculum_unit.py` (pure), shared by the AI schema, the edit and the demo dataset.
+
+## D-248 — Progress by four steps; two are marked, two are derived (M8.a2; the owner's brief was cut off here, approved in the plan)
+
+- Steps, in this order but not enforced: `formulas` (read) and `dialogue` (listened to) are **marked** by the learner (`POST /units/{id}/steps/{step}`; the browser's speech synthesis cannot be
+  observed); `shadowing` is complete when every line of `shadowing` has at least one transcribed, non-silent shadowing take linked to the unit whose target sentence equals the line (no accuracy
+  threshold: speech recognition is not a pronunciation judge, SPEC module F); `final_task` is complete when a free-speaking production linked to the unit has been corrected by
+  `speaking_correction` (no new correction task). The two derived steps are computed from `production_attempt.curriculum_unit_id`, so a take never needs a second write and cannot drift.
+- `progress` keeps its closed values: `not_started` (no step), `in_progress` (at least one), `done` (all four). `refresh_progress` stores the derived steps in `content.progress.steps`, writes
+  the events and moves the enum; it runs after a mark, an edit, a stored transcription and a stored speaking correction that is linked to a unit (late imports in `speech.store_transcription` and
+  `corrections.store_speaking_correction`, as the consolidation does). A step lost by an edit (a new line without take, a new prompt) is recomputed; `done` can go back to `in_progress`.
+- Events (counts only, no text): `curriculum.unit_generated`, `curriculum.unit_edited` (`parts`, `revision`), `curriculum.unit_step_completed` (`step`, once per step until lost),
+  `curriculum.unit_completed`, `curriculum.unit_terms_added`. Statistics (M9) can count units from them.
+
+## D-249 — The `curriculum_unit` task, its validators and its budgets (M8.a2; builds on D-079, D-128, D-226)
+
+- `curriculum_unit.v1`: inputs `title`, `level`, `goals`, `situations` (all `data`: syllabus text). Output: 8 to 15 formulas, a dialogue of two fictional speakers with 8 to 16 lines, 5 to 8 lines to
+  shadow, a final task of 1 or 2 minutes that uses at least 3 formulas. The shape limits are named constants of `app/domain/curriculum_unit.py`.
+- One model validator runs `problems()` (D-079: one repair, then `incomplete`): formulas unique after `normalize_term`; at least half of them found in the dialogue (`contains_term`); shadowing
+  numbers real and unique; shadowing lines of 4 to 25 words; references known and unique; no empty text; the lines' speakers are the two names, which differ. Every message names a
+  location, never the generated text; all problems are reported at once so one repair can fix them. There is no request-dependent context (every rule reads the output only).
+- Budgets (`app/ai/tasks.py`): input at most 6 000 characters (title, level 500 each, 4 goals and 6 situations of at most 500: the `Text` limit of the syllabus), 6 500 allowed; output about 2 700
+  tokens at most (15 formulas of about 110, 16 lines of about 36, settings, task and frame), ceiling 4 000 because French costs more tokens; timeout 60 s.
+
+## D-250 — Editing a unit: whole parts under a revision (M8.a2)
+
+- `PUT /curriculum/units/{id}/content` with `expected_revision` and any of `formulas`, `dialogue`, `shadowing`, `final_task` (0-based positions) replaces those parts. The same rules as the AI
+  run (`problems()` plus the counts of the shapes), so an edited unit is as valid as a generated one. 409 `unit_changed` (with the current `revision`) when the revision is stale; 422
+  `invalid_content` (with `problems`, locations only) when a rule breaks; an edit with no part is refused. Nothing is written when it fails.
+- Replacing `formulas` without `final_task` keeps the references that survive, found again by normalised text; fewer than 3 left is refused. The library terms already added follow their
+  formulas the same way (`formula_item_ids`). Editing never calls the AI.
+- No regeneration over an existing unit in M8.a2: a second `generate` is 409 `unit_generated`, an edited unit is never overwritten. A `replace` option can come later if the owner wants it.
+
+## D-251 — Formulas enter the library only when the learner asks (M8.a2)
+
+- Generating a unit does not touch the library. `POST /units/{id}/terms` (`indices`, all by default) puts the chosen formulas in intake triage through `importing.commit` (origin `curriculum`,
+  `record_completed = False`, the formula's type, `confirmed` because a formula may look like a sentence), in the track's `curriculum` deck, made on first use like D-241 (source
+  `curriculum:speaking_scenarios`, deck "Speaking scenarios", end of the queue). It stores `formula_item_ids`, `item_ids` and `deck_id`, and records `curriculum.unit_terms_added`.
+- A formula already added is skipped, so calling it again writes nothing; an exact duplicate already in the library is attached (D-243). The terms of the final task (`target_item_ids`) are
+  the added formulas among its references: they become the targets of the final speaking take.
+
+## D-252 — Takes of a unit reuse M6 without a new kind or origin (M8.a2)
+
+- `speech.Recording` gains `curriculum_unit_id`; `speech.record_shadowing`, `speaking.record_speaking` and `speaking.store_speaking` take it, the routes `POST /speech/shadowing` and
+  `POST /speech/speaking` take `unit_id`, the CLI `speech shadow|speak --unit <id>`. The unit is checked before the file is written and again in the creating transaction (404
+  `unit_not_found`, 422 `not_a_scenario_unit`). A take is an ordinary `shadowing` or `speaking` production (origin `shadowing` / `speaking`, errors with the source `speaking`): reviews, the
+  error log and the comparison work unchanged.
+- With `unit_id`, free speaking defaults its topic to the English prompt of the final task and its targets to the unit's library terms; a caller's own topic or targets win.
+
+## D-253 — Demo dataset v7: a sixth file and three units (M8.a2)
+
+- `content/demo/units.yaml` (`dataset_version: 7`, all six files bumped together) holds three fictional units written as the AI would return them (validated by `CurriculumUnitOutput` when the
+  file is read) and what the learner did: `job_interview_1` done (marked, 6 lines shadowed, a 62-second talk corrected), `presenting_data_1` in progress (marked, 2 of 6 lines shadowed),
+  `meetings_1` written only. Days are scaled like the others; the track is started the first time a unit is written; no term, deck or library event is added for them.
+- The simulation writes them through `curriculum_units.store_generated`, `mark_step`, `speech.store_recording` and `speaking.store_speaking` + `corrections.store_speaking_correction`. A new
+  random generator is drawn **after** the existing ones, so the other sequences keep their numbers. Provenance `("demo", None, "demo-unit-v1")`.
+- `test_shadowings_compare_the_sentence_of_a_term` now ignores the takes of units (their target is a dialogue line, not the sentence of a term).
+
+## D-254 — The unit page takes its French title and its next unit from the track (M8.b1; owner-approved plan)
+
+- `UnitOut` has no `title_fr` and no neighbour. The scenario unit page calls `GET /curriculum/tracks/{code}?limit=2&offset=number-1` (a slice that starts at the unit: rows `number` and `number + 1`) and
+  reads `title_fr` and the next unit's row (`unit_id`, `title`) from it. No backend change (`git diff --stat a68e04c -- backend` is empty). Until the slice arrives, the page shows `unit.title`.
+- The next-unit link goes to `/curriculum/units/{id}` when that unit is written, else to the track page. `unitRules.neighbours` is the pure part.
+
+## D-255 — A unit travels to the shadowing and speaking pages in the router state, read once and cleared; `?unit=` is the way back (M8.b1; builds on D-142, D-196, D-203)
+
+- "Shadow this line" links to `/speaking/shadowing` with the state `{target: line, unitId}`; "Record my talk" to `/speaking` with `{unitId}`. Both pages read it once into their own state and clear it
+  at once (`navigate(pathname + search, { replace: true, state: null })`), so a reload finds an empty state: a reloaded `/speaking` is free speaking and a reloaded shadowing has an empty field, and
+  nothing is sent (D-196). The shadowed line is the unit's own text, not a transcription; the tests look at `history.state` at every navigation and at the storages.
+- With a unit the shadowing sentence is read-only (the server only accepts a line of the unit), and `POST /speech/shadowing` gets `unit_id`; free speaking sends `unit_id` and no `prompt_text`
+  (the server takes the unit's prompt, D-252). The next page is `/speaking/shadowing/:id?unit=ID` or `/speaking/:id?unit=ID`.
+- `ShadowingDetailPage` and `SpeakingDetailPage` cleared their state with `navigate(location.pathname, ...)`, which would drop `?unit=`: they now keep `pathname + search`. `?unit=` is only a link
+  target (a validated positive integer), never read as data.
+- A take, a transcription retry and a correction invalidate the curriculum queries (the unit page is read again on return: `take_count`, steps, `corrected`).
+
+## D-256 — The dialogue is played line after line with a run token, two voices chosen by a pure rule, and the text starts collapsed (M8.b1; builds on D-195)
+
+- `useDialoguePlayer` says one line at a time through `useSpeech().speak(text, { voiceName, slow, onDone })` and goes on when `onDone(true)`; each run has a token, so the late end of a cancelled run
+  does nothing ("Stop", a new run, leaving the page). One line alone ("Listen" of an expanded text) uses the speaker's voice too and ends any run.
+- `dialogueVoices(voices, preferred)` in `speech/voices.ts` (pure, unit-tested): two different en-US voices when the browser has two (the learner's chosen voice stays the first speaker's), else the same
+  voice for both, else the first English voice, else none. Which speaker is which comes from `dialogue.speakers` (an unknown name reads as the first).
+- "Listen first": the lines are not in the page until "Show the text" (`aria-expanded`, `aria-controls`). The shadowing step lists its own lines (they are dialogue lines): they are needed to repeat
+  them and step 3 comes after the listening in the advised order, which is not enforced.
+- No voice, no synthesis or an open microphone disable the buttons and say why, with the existing `speech.*` sentences.
+
+## D-257 — "Write this unit with the AI": one request, answers in words, nothing hidden (M8.b1; builds on D-079, D-095, D-148)
+
+- The button stays focusable while it works (`aria-disabled`, not `disabled`) and a `ref` guard drops a second click, so a double click sends one request (broken-code check: without the guard the test fails).
+  The counter "Writing the unit… n s" uses `useElapsedSeconds`; a polite status says once that the AI is writing.
+- `incomplete` and `unavailable` are HTTP 200 answers: the page says why (`aiReasonText`), says nothing was written, offers "Try again", and on `unavailable` a "Configure the AI" link to `/settings`.
+  `409 unit_generated` (written in another tab) refreshes the track and says nothing. Any other refusal goes through `ErrorText`. On `ok` the page goes to the unit.
+- Nothing starts by itself: opening or reloading a page only reads (no generation, no step mark, no upload).
+
+## D-258 — Every curriculum write refreshes tracks, units, library, triage and Today (M8.b1)
+
+- `useStartTrack`, `useOpenUnit`, `useGenerateUnit` (on `ok` or `409 unit_generated`), `useMarkStep` and `useAddUnitTerms` invalidate the `curriculum`, `items`, `decks`, `triage` and `session/today` keys;
+  the unit returned by an answer is also put straight into the unit's query. Pagination of a track is the URL's `?page=` (1-based, 25 units per request).
+
+## D-259 — Small screen decisions of M8.b1
+
+- Word units: no content status and no usage sheet or definition (D-075: triage without a sheet); the words are links to the library with their status in words; "Triage these words" shows the number
+  still in triage and goes to `/triage?deck=<deck_id>`.
+- Scenario track card: "units written" is `opened_units` (no "done" count: it would need the backend); the deck link of a track appears from the summary's `deck_id`, the unit page's link from `unit.deck_id`
+  (formulas added, D-251). A track whose word list is missing says so and its Start button is disabled.
+- Formulas and the final task are shown in English with the French on demand; the dialogue setting is in the interface language with the English on demand in French. Formulas already in the library
+  link to their term and are not checkable; the others are checked by default and "Add these formulas to my library" sends the exact `{indices}`.
+- "Unit completed" is always shown for a `done` unit; the polite announcement fires once, when the page sees `progress` become `done` (not on a plain visit).
+- The corrected state of the final task is the unit's (`final_task.corrected`), not per take (the API has no per-take flag). A transcribed take counts for shadowing: the page says that speech recognition
+  is not a pronunciation judge.
+- `invalid_content` shows the backend's `problems[]` (English, they name a location, never the text) under the translated sentence. The licence line of the two word lists is under the track cards, with the link to
+  https://www.newgeneralservicelist.com. The Today card suggests a track when the plan's limit is `nothing_to_learn`.
+
+## D-260 — The unit editor works on a draft of rows with flags; 0-based positions are computed only when the edit is built (M8.b2; builds on D-092, D-247, D-250)
+
+- `unitForm.ts` keeps the content as strings and rows: every formula has `inTask` (the final task asks for it) and every dialogue line has `shadow` (a line to shadow) and a speaker that is 0 or 1, not a name. Moving, adding or removing a row therefore keeps
+  the ticks and the speakers right, and a renamed speaker keeps its lines. `toParts` turns the draft into the four parts of the API (trimmed text, `register` as the formula key, positions counted from 0 from the flags).
+- The draft is compared with the version it started from (`toParts(fromScenario(base))`): the edit holds only the parts that differ, with `expected_revision` of that version; with nothing changed, Save is disabled and says "Nothing has changed yet".
+  The version the draft started from is the editor's own state, so a refetch of the unit (a window focus, another tab) never changes what the next save is compared with.
+
+## D-261 — Changing the formulas sends the final task too (M8.b2; departure from "only the modified parts", builds on D-250)
+
+- When `formulas` is sent alone, the server finds the final task's references again by the normalised text of the old formulas (D-250): a formula that was reworded would drop out of the task, and fewer than three left is refused. The draft knows the references by row, so
+  `toEdit` always adds `final_task` (computed from the ticks) when `formulas` changed. `shadowing` is sent only when its list of indices differs (a removed or moved line shifts it; the server does not remap it), `dialogue` only when a text, a name or the order changed.
+- A formula already in the library keeps its link only while its normalised text is unchanged (D-250): the editor says so under the formulas.
+
+## D-262 — Client limits mirror `curriculum_unit.py`, a test keeps them equal; the server stays the judge (M8.b2)
+
+- `UNIT_LIMITS` (`unitRules.ts`) holds the numbers of the domain module (8 to 15 formulas, 8 to 16 lines, 5 to 8 lines to shadow of 4 to 25 words, at least 3 references, 1 or 2 minutes, text lengths). `unitForm.test.ts` reads the Python file (`?raw` import) and fails if one differs.
+  For that, `vite.config.ts` lets the dev server read the parent folder **only when `VITEST` is set** (`server.fs.allow`); the running app is unchanged.
+- The client checks counts, empty texts, the two names (not empty, different), the word count of each line to shadow and the three references, and shows each problem at its field (`aria-invalid`, `aria-describedby`). It does not check what needs `contains_term` ("at least half of the formulas used in the dialogue") or the
+  duplicate formulas (a client copy of `normalize_term` could refuse what the server accepts): the server answers those.
+
+## D-263 — Where a refusal is shown (M8.b2; builds on D-092, D-258)
+
+- **422 `invalid_content`**: each `problem` ("`formulas[2].text: must not be empty`") goes to its field: `locateProblem` reads the location, maps `shadowing[p]` and `final_task.formula_refs[p]` (positions in the lists sent) to the p-th ticked row, and `formulas[i]` to the formula's text. A problem whose location is no field
+  (`dialogue: only 3 of 8 formulas…`) goes to a list in the summary. The server's English text keeps `lang="en"`; the summary counts the problems and, after a failed save, the focus goes to the first field in error, else to the summary. A move, an add or a remove clears the server's problems (their positions no longer hold).
+  Any other refusal (`invalid_request`, a network error) uses `ErrorText` and `FieldErrors`.
+- **409 `unit_changed`**: nothing is lost, nothing was saved; the hook reads the unit again, "Load the latest version" is disabled ("Reading the latest version…") until the live revision differs from the draft's, then asks an inline confirmation (`alertdialog`, "Replace my edits" / "Keep editing"). Only that button replaces the draft and its base revision.
+  Broken-code check: replacing the draft at once on a 409 makes the conflict test fail ("Expected the element to have value: My own prompt.").
+
+## D-264 — The editor replaces the four steps while it is open; badge, warning and focus (M8.b2)
+
+- "Edit the unit" is in the header of a scenario unit; the editor takes the place of the four step cards (no audio or take button next to rows being edited), its heading takes the focus, and closing it (save or cancel) gives the focus back to the button. After a save the page says "The unit was saved." and shows the "Edited by you" badge, which stays
+  while `scenario.edited` is true. The hook (`useEditUnitContent`) puts the returned unit in the cache and refreshes curriculum, items, decks, triage and Today (D-258).
+- The warning about shadowing (a changed line to shadow makes the old line's takes stop counting; a completed unit can go back to "in progress", D-248) is always visible in the shadowing part, before the save, not only after.
+- Shadowing and the final task's formulas are checkboxes in their own parts, listed from the lines and the formulas of the draft (so a new line can be ticked at once). "Write this unit with the AI" exists only on a track's page for a unit with no content (D-257); a test checks it is not on a written unit's page.
+
+## D-265 — Statistics in pure Python and SQL; pandas stays the analysis tool of the export (M9.a1)
+
+- **Decision**: module I is computed by `app/domain/stats/` (pure: small dataclasses in, a `DayOf` function "instant -> study day" passed in, no session, no clock, no `fsrs`), fed by
+  `app/services/stats.py`, which reads the logs in a `PRAGMA query_only` session and resets it afterwards (`read_only`, as `ai_usage`, D-064). No pandas or numpy dependency is added.
+- **Why**: the indicators are counts, ratios and quartiles over a few thousand rows; pandas would add about 60 MB to the install of a local app for no gain, and the hand-built tests read better on plain
+  dataclasses. SPEC section 5 names pandas for "statistics": it stays the owner's tool on the CSV export, which is what "analysis in pandas" in module I asks for.
+- No cache and no counter table (SPEC module I): every answer is recomputed from `event_log`, `review_log`, `error_event`, `production_attempt`, `ai_call_log` and `study_session`. Reading a statistic writes no row and no event
+  (tested by counting every table before and after).
+
+## D-266 — Periods, buckets, thresholds and quartiles (M9.a1)
+
+- `from` and `to` are study days, both included; default: the last 30 study days up to today (`DEFAULT_PERIOD_DAYS`). `from` after `to`, or more than `MAX_PERIOD_DAYS = 366` days, is `InvalidPeriod`
+  (API: 422 `invalid_request` with `errors[{loc: ["query", "from"], message}]`; CLI: exit 2). `granularity` = `day` or `week` (ISO weeks from Monday, on the study day); every bucket is returned, empty ones included,
+  keyed by the day or by the Monday, with `first_day` / `last_day` clipped to the period.
+- **No misleading figure**: a rate per 100 words is `Rate {value, errors, words, insufficient}` and is `null` under `MIN_WORDS_FOR_RATE = 100` words in its bucket; a proportion is `Share {value, successes, n, insufficient}`,
+  `null` under `MIN_REVIEWS_FOR_RATE = 10`. Values are rounded to 6 decimals, counts stay exact.
+- Quartiles: `statistics.quantiles(method="inclusive")`, i.e. linear interpolation, the default of `pandas.Series.quantile` and `numpy.quantile`, so the owner finds the same values on the export. One value: all quartiles equal it.
+
+## D-267 — The normalised error rate and the date of a production (M9.a1; builds on D-127, D-134, D-175, D-181, D-183)
+
+- **Numerator**: the existing `error_event` rows (a deleted error was a false positive and has no row) whose production has a kind in `NORMALIZABLE_KINDS` = writing, speaking, transcript_analysis, consolidation, and whose
+  source is not `drill`. Review sentences and spoken answers are productions (D-127, D-183), so their errors are in. **Denominator**: `production_attempt.word_count` of the same kinds, with or without an error (the
+  event's `word_count` is 0 for speech before its transcription, D-182, so the column is read, not the event). Shadowing and drills count 0 words and are not read.
+- **Date rule** (numerator and denominator in the same bucket): a production counts on `study_day(created_at)` (the services set `created_at` to the business instant); a **transcript** counts on the `occurred_on`
+  of its `production.recorded` (v3+) when there is one, else on `study_day(created_at)`. An error counts on `study_day(occurred_at)`; for a transcript that is the start of the conversation's study day (D-134), for speech the
+  moment of the recording (D-181): the same day as its words. A malformed `occurred_on` is ignored.
+- **Categories**: the category of a code at level k is its first k segments (`code_at_level`); a code with fewer segments is its own category (`spelling` stays `spelling` at level 2). Every level is then a partition, and the
+  sum of level 1 equals the total (tested on the demo). A proposed category counts under its own code; a rejected one has no error left (its errors were reassigned).
+- **Outside the rates**, counted apart in absolute numbers, per bucket and by level-2 category: `drill` (source drill), `review` (a lexical confusion of a typed answer, `review_log_id` set), `manual` (manual, no production), `other`.
+
+## D-268 — Lasting trends at every level; the demo witness (M9.a1; departure approved in the plan, option A)
+
+- Windows: B = the last `DECLINE_WINDOW_DAYS = 28` study days up to today, A = the 28 before; independent of `from` / `to`. Words of each window as in D-267.
+- **Every taxonomy node** with an error in A or B gets a status, at levels 1, 2 and 3 (the milestone said level 2, but its three witnesses are at levels 3, 3 and 1, D-037). Order of the rules (exact fractions, so a rate at exactly
+  `DECLINE_RATIO` x A declines): `insufficient` if a window has fewer than `MIN_WORDS_PER_WINDOW = 300` words; `declining` if A has at least `MIN_ERRORS = 3` errors and rate(B) <= `DECLINE_RATIO = 0.5` x rate(A); `rising` if B has
+  at least 3 errors and rate(B) >= `RISE_RATIO = 1.5` x rate(A); `insufficient` if both windows have fewer than 3 errors; else `stable`. Each entry gives both windows' `Rate` and `ratio` = rate(B) / rate(A) (null when rate(A) is 0).
+- **Share of fixed errors** = errors of window A whose level-2 category (`code_at_level(code, 2)`, `FIXED_SHARE_LEVEL`) is `declining`, over all errors of window A; `insufficient` when a window lacks words.
+- **Demo (seed 42, 60 days, anchor 2026-09-01)**, words 1 710 (A) and 1 601 (B): `grammar.preposition.fixed_expression` 42 -> 24 errors, ratio 0.610 -> **stable**; `grammar.tense.past_simple_vs_present_perfect` 27 -> 30, 1.187 -> stable;
+  `discourse` 4 -> 6, 1.602 -> rising. The demo model lowers `fixed_expression` linearly from 3.0 to 1.0 errors per 100 words over 60 days, which gives about 0.6 between two 28-day windows, never 0.5. **Owner's decision (option A)**:
+  the thresholds stay; the demo test asserts the values obtained; a dataset v8 with `[3.0, 0.5]` is proposed for later.
+
+## D-269 — The top 5 recurring errors (M9.a1; builds on D-164)
+
+- `group_recurring` and `pair_key` of the suggestions (D-164), on the errors of the period, drill errors left out (D-137); errors outside the rates (typed confusions, manual) are in, since a habit is a habit. Dismissed
+  suggestions stay in this top (it is a statistic, not a suggestion). Per group: wrong form, correction, the most frequent category, count, first and last time, up to `RECURRING_EXAMPLES = 2` distinct `original_text` of the
+  latest occurrences, `has_card` (one of its errors already gave a card: `error_cards.carded_keys`, made public for this).
+
+## D-270 — Memory: definitions (M9.a1; builds on D-022, D-024, D-229)
+
+- **Recall review** = `state_before = review` (no new card, no learning or relearning step) and not `consolidation_misuse` (a reinforcement of module G, D-229, not an answer). Success = `final_rating >= 2`. Retention per bucket and
+  per direction (receptive / productive / all).
+- **Target**: the value in force at each review, replayed from the `setting.changed` events of `target_retention` (a non-numeric value is ignored), the registry default (0.90) before any change; the bucket shows the mean over its
+  recall reviews (null without one).
+- **Calibration** is done: `review_log.retrievability` is the recall the engine predicted when the review was made (stored with the snapshot through `SrsEngine.retrievability`), so nothing is replayed and `fsrs` is not imported.
+  Ten bins of 10 points (1.0 goes to the last), recall reviews with a stored prediction: mean prediction and observed `Share`.
+- **Success by exercise type**: every review of the period (learning steps included), reinforcements excepted, most frequent first. **Rating agreement**: reviews with an `auto_rating`, reinforcements excepted: share changed by
+  the user, raised and lowered.
+- **Lapses** (D-024): Again on a card in Review, reinforcements **included** (they increment `card.lapses` too), per bucket with the number of Review-state reviews, and the 10 terms with the most (term `null` if it no longer exists).
+- **Stability now**: cards of terms `learning`, `consolidated`, `active`, per direction, ranges `STABILITY_EDGES_DAYS = (0, 1, 3, 7, 21, 90)` days (last open), never-reviewed cards counted apart, median.
+- **Time before consolidation**: terms whose **first** `item.status_changed` to `consolidated` falls in the period; discovery = the first `discovery.completed`, else `lexical_item.discovered_at`; without a discovery the term is
+  left out. Study days between the two, and reviews of its cards up to the consolidation instant (included). Quartiles of both and ranges `CONSOLIDATION_EDGES_DAYS = (0, 7, 14, 21, 28, 42, 60)`. A term merged or deleted since
+  still counts when both events exist (its id comes from the events).
+
+## D-271 — The CSV export (M9.a1)
+
+- `GET /api/export/csv`: a zip `vocab-coach-export-YYYYMMDD.zip` (study day of today), one CSV per table of `EXPORT_TABLES` (event_log, review_log, error_event, production_attempt, production_target, pronunciation_result,
+  study_session, ai_call_log, then lexical_item, card, deck, deck_item, error_category, consolidation_task, consolidation_task_item, curriculum_track, curriculum_unit), plus `manifest.json` (`format: vocab-coach-csv-1`,
+  `exported_at`, `study_day`, `timezone`, `day_start_hour`, `alembic_revision`, `demo`, rows per table) and `data_dictionary.md` (one English line per column from `export_dictionary.py`, the pandas example). Built in a
+  `SpooledTemporaryFile` (memory up to 32 MB) then streamed. `GET /api/export/csv/{table}`: one CSV, 404 `unknown_table` (with the list) otherwise.
+- **Format**: UTF-8 without BOM, comma, `csv` module (RFC 4180 quoting, line breaks inside a field kept, CRLF between rows); header = column names in model order; instants `YYYY-MM-DDTHH:MM:SS.ffffffZ` (UTC, always
+  microseconds, so one `parse_dates` format); dates `YYYY-MM-DD`; JSON columns as compact JSON (`separators=(",", ":")`, non-ASCII kept); booleans `true` / `false`; null = empty field; enums by value; floats with `str`. A last
+  `study_day` column for the main timestamp (`MAIN_TIMESTAMP`: `occurred_at`, `reviewed_at`, `created_at`, `started_at`, `added_at`); tables without one have none.
+- **One snapshot**: the export starts an explicit read transaction (`BEGIN` on the `query_only` connection) before the first table, so the manifest's counts match the files even if the app writes meanwhile.
+- **Never exported**: audio (M10), the `setting` table, `alembic_version`, any environment variable. A test puts two test keys in the environment and searches the archive for them and for their last 8 characters.
+- **CLI** `stats export [--out file.zip] [--force]`: default `<data_dir>/exports/vocab-coach-export-YYYYMMDD.zip` (`data/` is ignored by Git, which covers `data/exports/`); written to `<name>.tmp-<pid>` in the same folder
+  then `os.replace`; an existing file is refused (exit 2) unless `--force`; no temporary file is left on failure.
+
+## D-272 — Routes and commands of M9.a1 (builds on D-053, D-063)
+
+- `GET /api/stats/errors` and `GET /api/stats/memory` (query `from`, `to`, `granularity`): every answer starts with `computed_at`, `study_day`, `from`, `to`, `granularity`, `demo` (the demo marker, D-033); the
+  sections are the domain dataclasses serialised as they are (documented in OpenAPI). The current time comes from `NowDep` (tests fix it).
+- CLI `python -m app [--demo] stats errors | memory [--from] [--to] [--granularity]` prints text; `stats export` as D-271. Read-only session; exit 0, or 2 for invalid dates, a period refused, no database or
+  one not at head (D-053). `--from 2026-13-01` is refused by argparse (exit 2).
+
+## D-273 — The status funnel, now and rebuilt from the event log (M9.a2; builds on D-025, D-076, D-077)
+
+- **Snapshot**: `lexical_item.status` counted, the 9 statuses always present, in funnel order `queued, discovering, learning, consolidated, active`, then `triage, known, archived, draft` (`FUNNEL`, `OUTSIDE_FUNNEL`).
+- **Rebuild** (`domain/stats/progress.py`): the events are replayed in `(occurred_at, id)` order: `item.created` puts the term in `draft` (every term is created in `draft` by `library.create_item`), `item.status_changed`
+  puts it in `to_status`, `item.deleted` and `item.merged` (its `merged_item_id`, the source that disappears) remove it. A status change of a term without a creation event still counts. The counts are taken at the end of the last
+  day of every bucket; events before the period are applied first. The curve of active terms is the `active` count of the rebuild.
+- Tests: hand-built (a merge, a deletion, a draft) and the demo, where the last bucket equals the snapshot and the counts of `lexical_item` (117 terms, 15 active).
+
+## D-274 — Decks, tracks and the forecast are reused, not recomputed (M9.a2; builds on D-028, D-029)
+
+- **Decks**: `api/library._decks_out` becomes the public `decks_out` (same body); `/stats/progress` calls it on `library.list_decks`, so a deck reads exactly as in `GET /api/decks` (counts by status, status, deadline, pace and
+  warnings of today's plan). It runs **in the same `query_only` session** as the statistics, not through `get_session`: a route test that overrides `get_engine` only must never reach the real database (the M8.a1 incident).
+- **Tracks**: `curriculum.list_tracks` (opened and triaged units) plus the count of units whose `progress` is `done`.
+- **Forecast**: `forecast_load` on the planner's own card snapshots (`planning.build_plan_inputs`), 14 study days from today, overdue cards counted today, seconds from the observed durations (D-028).
+
+## D-275 — Study time, regularity, words and speech (M9.a2)
+
+- **Actions** (instants): `review_log.reviewed_at`, `production_attempt.created_at`, the events `drill.item_answered`, `discovery.completed`, `item.triaged`, `curriculum.unit_step_completed`, and `item.status_changed` to `discovering`
+  (a discovery started). Sorted per study day; a gap of at least `ACTIVITY_GAP_MINUTES = 10` opens a new block (9 min 59 s does not); a block lasts from its first to its last action plus `ACTIVITY_TAIL_SECONDS = 60`.
+  A block never spans two study days. The time of ended `study_session` rows is given alongside per bucket (`session_seconds`), never added.
+- **Regularity**: a study day is active with at least one action. Current streak = consecutive active days ending today, or ending yesterday while today has no action yet; longest streak over the whole history, with its last day;
+  active days in the last 30 (B.10: a simple streak, no badge).
+- **Words produced**: the kinds and the date rule of the error rates (D-267), per bucket, `written` and `oral` by the production's modality.
+- **Recorded speech**: `audio_seconds` of every production with a recording (`audio_path` and `audio_seconds` set): shadowing, free speaking, spoken answers, spoken consolidation; per bucket and per kind; day of `created_at`.
+
+## D-276 — AI usage per provider (M9.a2; builds on D-041, D-216)
+
+- `ai_usage.ai_usage_for_day` for every study day of the period (two indexed queries a day: 356 ms for 366 days on the demo), merged per provider: requests, successes, errors by code, `rate_limited` and `quota_exhausted` apart
+  (the codes of `ai/types.py`), input and output tokens, models used, mean duration weighted by the requests of each model (the per-model mean of `ai_usage` covers the rows that have a duration). `totals` per provider over the period.
+  The granularity is echoed but the AI is always per day.
+- `azure_month`: `pronunciation.monthly_usage` (calendar month in UTC, what this app sent, D-216). No key, no prompt, no answer (a test searches the answer for "key" and "prompt").
+
+## D-277 — The overview and `stats summary` (M9.a2)
+
+- `GET /api/stats/overview` (no parameter): `error_rate_last_28` (the trend window B) and `error_rate_previous_28` (window A) as `Rate`; `retention_last_28` (`Share` of the recall reviews, D-270) with the mean target of those
+  reviews and the target in force now; `active_terms` (`n` = all terms); `current_streak` (`n` = active days in the last 30); `study_minutes_last_7` and `study_days_last_7` (activity blocks of the last 7 study days);
+  `reviews_due_tomorrow` (`forecast_load` day 1; `n` = cards that can be reviewed). It carries `computed_at`, `study_day` and `demo` but no period.
+- CLI `stats summary` prints the same figures, one per line.
+
+## D-278 — Performance on the demo, no index (M9.a2)
+
+- Measured on the owner's machine (Windows 11), demo seed 42, 60 days, anchor 2026-09-01, in-process `TestClient`, `now` = the anchor, 5 warm calls after a first one (median): overview 29 ms (205 ms for the first call of the
+  process), errors 14 to 15 ms, memory 18 to 27 ms, progress 44 to 45 ms, practice 17 to 22 ms, ai 39 ms (30 days) and 356 ms (366 days), export 210 ms. Every route is under the 500 ms target and the export under 5 s, so no
+  index is proposed (no migration 0003).
+
+
+## D-279 — The dashboard draws its charts itself, with no library (M9.b1; SPEC section 5 says "Recharts or equivalent")
+
+- **Decision**: `components/charts/LineChart.tsx` and `BarList.tsx`, plain SVG and HTML, no new dependency. Checked: `npm view recharts version` = 3.10.1 (peer dependencies react 16 to 19), so it was an option.
+- **Why**: the needs are a multi-line chart over time, bars and a funnel; `ResponsiveContainer` measures 0 px in jsdom, so the tests would never see a chart; an accessible alternative has to be written anyway; a `viewBox` scales to 375 px without measuring; the colours come from the CSS tokens
+  (dark mode with the rest of the page). Every chart carries a "Show the numbers" table (the text alternative, and what the tests read); a bar list is text first, the bar only repeats it.
+- A gap (`null`) breaks the line: a bucket with too little data is not drawn as a zero. Recharts stays available if the owner wants hover and zoom later (the data shapes do not change).
+
+## D-280 — The period is in the URL; the default comes from the overview (M9.b1; builds on D-266)
+
+- `/stats?from=&to=&granularity=`: the URL is the state (a link or a reload gives the same screen). Without `from` and `to`, the period is the last 30 study days up to the `study_day` of `/stats/overview` (the browser's clock is never used for the study day, D-266). The default is not written to the URL.
+- `periodProblem` repeats what the backend refuses (a malformed or impossible date, `from` after `to`, more than 366 days counted with both days included): the picker says it at once and no request leaves for it. A 422 `invalid_request` that still comes is shown by `ErrorText` with a retry. A previous period's data stays on screen, dimmed by `aria-busy`, while a new one loads (`keepPreviousData`); the labels of a chart use the `granularity` the answer carries, not the picker's.
+
+## D-281 — One place decides how a statistic is worded (M9.b1; builds on D-266)
+
+- `features/dashboard/format.ts`: a `Rate` or a `Share` that is `insufficient` (or whose `value` is null) is written "Not enough data" with its count (words or reviews so far), never as a number, in the cards, the tables, the bars and the charts (a gap and "Not enough data" in the table). Percentages and rates use `Intl` with the interface language.
+- The trends' windows are said on screen as fixed (the last 28 days against the 28 before, whatever the picker) with the two thresholds (D-268), so the screen does not promise more than the rule gives.
+- **Top 5**: the whole `original_text` can be several sentences (M9.a limit), so the screen cuts an example to 140 characters and keeps the whole text in the `title`. Trends: declining and rising are open, stable and insufficient are folded (the demo has 11 stable ones).
+
+## D-282 — M9.b is cut in two (M9.b1 / M9.b2) (M9.b1; the brief asked for a cut above about 15 files)
+
+- The plan counted about 25 significant files (API types, chart primitives, six sections, picker, fixtures, tests, i18n, CSS). **M9.b1** carries the foundation and three sections (overview, errors, memory, CSV link); **M9.b2** will add progress, practice and AI on the same hooks, tables and charts (the `Rate` / `Share` rules and the picker do not change).
+
+
+## D-283 — Progress, practice and AI reuse the M9.b1 primitives (M9.b2; builds on D-279 and D-281)
+
+- The three sections are built from `StatsSection`, `LineChart` and `BarList`, with no new CSS and no new dependency. The funnel is a bar list (bars relative to the biggest stage, the number as text); the rebuilt statuses and the curves are line charts with their numbers table. The API gives no conversion rate between stages and the SPEC asks for none, so the screen shows none.
+- Each section keeps its own request, retry and `keepPreviousData` (a failure of one leaves the others), and the three routes get the same validated period as the first three. The AI chart is always per day (the API says so), and the screen says it.
+- Words for statuses, deck states and providers come from existing keys (`library.status.*`, `queue.status.*`, `settings.provider.names.*`); an unknown provider or speech kind is shown as its code, never hidden.
+
+## D-284 — What the practice and AI figures claim (M9.b2; builds on D-267 and the M9.a limits)
+
+- **Study time** is the actions-based time. The sessions' own duration is drawn as a dashed line "for comparison" and **never added** to it, as the API specifies; the note under the chart says that a long reading without a click is not counted.
+- **AI**: successes are written `n of total`, not as a percentage (a count is always exact, and a rate on a handful of calls would mislead). Rate limits and used-up quotas have their own columns, apart from the other errors, as in the API. **No free-tier quota or limit is written on the screen** (CLAUDE.md: never invent a quota): the Azure line gives the month's audio minutes and assessments and sends the owner to the Azure portal for the limit.

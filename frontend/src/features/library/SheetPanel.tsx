@@ -15,7 +15,7 @@ import type { ItemDetail, ItemStatus } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
 import { ExercisesPanel } from './ExercisesPanel'
 import { SheetEditor } from './SheetEditor'
-import { SheetView } from './SheetView'
+import { ShadowLink, SheetView } from './SheetView'
 
 // Before discovery (module B), the sheet is the answer the user is asked to guess.
 const UNDISCOVERED: readonly ItemStatus[] = ['draft', 'triage', 'queued']
@@ -248,7 +248,17 @@ function SheetBody({ item }: { item: ItemDetail }) {
         </p>
       )}
       {incomplete && <p className="form-message form-message--warn">{t('sheet.needsCompletion')}</p>}
-      <SheetView sheet={current.content} />
+      {item.origin_sentence !== null && item.origin_sentence.trim() !== '' && (
+        <p className="sheet-origin">
+          <strong>{t('sheet.originSentence')}</strong> <span lang="en">“{item.origin_sentence}”</span>{' '}
+          <ShadowLink
+            sentence={item.origin_sentence.trim()}
+            itemId={item.id}
+            what={t('sheet.originLabel')}
+          />
+        </p>
+      )}
+      <SheetView sheet={current.content} shadowItemId={item.id} />
       <div className="confirm">
         <button type="button" className="button button--primary" onClick={() => edit(current)}>
           {incomplete ? t('sheet.complete') : t('sheet.edit')}

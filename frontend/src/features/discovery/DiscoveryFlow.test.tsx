@@ -6,9 +6,11 @@ import type { CompleteResult, DiscoveryExercise, DiscoveryStart } from '../../ap
 import type { GradeResult } from '../../api/reviews'
 import type { SessionSummary, Step } from '../../api/session'
 import { plan, progress, sheetVersion, studySession } from '../../test/fixtures'
+import { installFakeRecorder, recordTake } from '../../test/fakeRecorder'
 import { installFakeSpeech } from '../../test/fakeSpeech'
 import { apiErrorResponse, mockApi, type RecordedCall } from '../../test/mockApi'
 import { renderApp } from '../../test/renderApp'
+import { comparison, speechOut } from '../../test/speechFixtures'
 import {
   categoryTree,
   correctedProduction,
@@ -210,7 +212,7 @@ describe('Discovery of a new term', () => {
 
     // 4b. Spoken repetition of the sentence.
     expect(await screen.findByRole('heading', { name: 'Say it aloud' })).toBeInTheDocument()
-    expect(screen.getByText(/Recording your voice comes in a later version/)).toBeInTheDocument()
+    expect(screen.getByText(/Recording yourself is optional/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Listen slowly to “the sentence”' }))
     expect(fake.spoken.at(-1)?.text).toBe(SENTENCE)
     await user.click(screen.getByRole('button', { name: 'Done, I repeated it' }))
@@ -571,5 +573,139 @@ describe('highlightTerm', () => {
       match: true,
     })
     expect(highlightTerm('Nothing here.', 'outlier')).toEqual([{ text: 'Nothing here.', match: false }])
+  })
+})
+
+describe('Discovery: the optional recording of step 4b', () => {
+  async function toRepetition(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: "I don't know" }))
+    await user.click(await screen.findByRole('button', { name: 'Go to the exercises' }))
+    await screen.findByRole('heading', { name: 'Say it aloud' })
+  }
+  const noExercise = { 'GET /discovery/20/exercises': [] }
+  const shadowCalls = (calls: RecordedCall[]) =>
+    calls.filter((c) => c.method === 'POST' && c.path.startsWith('/speech/shadowing'))
+
+  it('sends the take as a discovery shadowing, with the term and the session, and compares it', async () => {
+    const kit = installFakeRecorder()
+    installFakeSpeech()
+    const calls = mockApi(
+      routes({
+        ...noExercise,
+        'POST /speech/shadowing': () => Response.json(speechOut({ production_id: 61 }), { status: 201 }),
+      }),
+    )
+    const user = userEvent.setup()
+    renderApp('/session')
+    await toRepetition(user)
+    const sheetBefore = sheetCalls(calls).length
+
+    expect(screen.queryByText(/comes in a later version/)).not.toBeInTheDocument()
+    await recordTake(user, kit)
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+
+    expect(await screen.findByText('4 of 6 words recognised')).toBeInTheDocument()
+    const sent = shadowCalls(calls)
+    expect(sent).toHaveLength(1)
+    expect(Object.fromEntries(new URL(sent[0]!.path, 'http://x').searchParams)).toEqual({
+      target_text: SENTENCE,
+      duration_s: '2',
+      item_id: '20',
+      origin: 'discovery',
+      study_session_id: '7',
+    })
+    // Compact: the warning stays, there is no "log" button.
+    expect(screen.getByText(/not a pronunciation judge/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Log as an intelligibility error/ })).toBeNull()
+    // The sheet was neither reloaded nor shown (D-144), and the mic is free.
+    expect(sheetCalls(calls)).toHaveLength(sheetBefore)
+    expect(kit.streams.every((s) => s.tracks.every((t) => t.stopped))).toBe(true)
+    expect(comparison().steps.length).toBeGreaterThan(0)
+
+    // "Continue" is there, and the discovery goes on to the personal sentence.
+    await user.click(screen.getByRole('button', { name: 'Done, I repeated it' }))
+    expect(await screen.findByLabelText(/Write a sentence of your own/)).toBeInTheDocument()
+  })
+
+  it('is optional: continuing without a recording sends nothing to the speech routes', async () => {
+    installFakeRecorder()
+    const calls = mockApi(routes(noExercise))
+    const user = userEvent.setup()
+    renderApp('/session')
+    await toRepetition(user)
+
+    await user.click(screen.getByRole('button', { name: 'Done, I repeated it' }))
+    await user.click(await screen.findByRole('button', { name: 'Skip and finish' }))
+    await screen.findByRole('heading', { name: '5. Into spaced repetition' })
+    expect(calls.some((c) => c.path.startsWith('/speech/'))).toBe(false)
+  })
+
+  it('says a refusal and goes on: "Continue" is never blocked', async () => {
+    const kit = installFakeRecorder()
+    mockApi(
+      routes({
+        ...noExercise,
+        'POST /speech/shadowing': () => apiErrorResponse(422, 'audio_empty'),
+      }),
+    )
+    const user = userEvent.setup()
+    renderApp('/session')
+    await toRepetition(user)
+
+    await recordTake(user, kit)
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    expect(await screen.findByText(/The recording is empty/)).toBeInTheDocument()
+    const next = screen.getByRole('button', { name: 'Done, I repeated it' })
+    expect(next).toBeEnabled()
+    await user.click(next)
+    expect(await screen.findByLabelText(/Write a sentence of your own/)).toBeInTheDocument()
+  })
+
+  it('says an unavailable transcription and silence without blocking', async () => {
+    const kit = installFakeRecorder()
+    let answer = speechOut({
+      comparison: null,
+      transcription: { status: 'unavailable', text: null, reason: 'no_provider_configured' },
+    })
+    mockApi(
+      routes({
+        ...noExercise,
+        'POST /speech/shadowing': () => Response.json(answer, { status: 201 }),
+      }),
+    )
+    const user = userEvent.setup()
+    renderApp('/session')
+    await toRepetition(user)
+
+    await recordTake(user, kit)
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    expect(
+      await screen.findByText(
+        'The transcription is not available: no AI provider is set up. Your take is kept; you can go on.',
+      ),
+    ).toBeInTheDocument()
+
+    answer = speechOut({
+      comparison: null,
+      transcription: { status: 'silence', text: null, reason: null },
+    })
+    await recordTake(user, kit)
+    await user.click(screen.getByRole('button', { name: 'Send' }))
+    expect(await screen.findByText(/No speech was heard in this take/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Done, I repeated it' })).toBeEnabled()
+  })
+
+  it('says a refused microphone and still lets the user continue', async () => {
+    const kit = installFakeRecorder()
+    kit.refuseNext('NotAllowedError')
+    mockApi(routes(noExercise))
+    const user = userEvent.setup()
+    renderApp('/session')
+    await toRepetition(user)
+
+    await user.click(screen.getByRole('button', { name: 'Start recording' }))
+    expect(await screen.findByText('Access to the microphone was refused.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Done, I repeated it' }))
+    expect(await screen.findByLabelText(/Write a sentence of your own/)).toBeInTheDocument()
   })
 })

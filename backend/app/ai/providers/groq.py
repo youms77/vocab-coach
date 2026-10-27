@@ -9,6 +9,14 @@ Facts checked in the official documentation on 2026-10-16 (sources in D-046 / D-
 The documentation does not say how a 429 body tells a per-minute limit from a per-day one: the
 adapter reads the wording of the message ("per day", "(RPD)", "(TPD)", "(ASD)"). A wrong guess is
 harmless: the gateway falls back on a long `retry_after` and sets the provider aside anyway.
+
+Checked again on 2026-10-18 (D-171): the Whisper free limits above are unchanged (rate-limits page,
+"Free Plan Limits"; 25 MB on the speech-to-text page). Transcriptions ask for `verbose_json`: the
+API reference (`CreateTranscriptionResponseVerboseJson`) requires `language`, `duration` (typed as
+a string, "the duration of the input audio") and `text`; each of `segments[]` requires `id`, `seek`,
+`start`, `end`, `text` and `tokens`, `no_speech_prob` and `avg_logprob` being optional. It was never
+called live before M6.a1, so the reading is tolerant: `duration` as a string or a number, malformed
+segments ignored, only `text` required.
 """
 
 import re
@@ -16,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from app.ai.http import encode_multipart, post
-from app.ai.providers.common import parse_retry_after, retry_after_from_message
+from app.ai.providers.common import as_number, parse_retry_after, retry_after_from_message
 from app.ai.providers.openai_compat import OpenAICompatibleProvider
 from app.ai.providers.schema import SchemaConversionError, schema_instruction, to_groq_schema
 from app.ai.types import (
@@ -25,6 +33,8 @@ from app.ai.types import (
     ProviderError,
     ProviderRequest,
     ProviderResponse,
+    SpeechSegment,
+    TranscriptionDetails,
     TranscriptionRequest,
 )
 
@@ -138,7 +148,7 @@ class GroqProvider(OpenAICompatibleProvider):
             {
                 "model": self._transcription_model,
                 "language": request.language,
-                "response_format": "json",
+                "response_format": "verbose_json",
                 "temperature": "0",
             },
             file_field="file",
@@ -159,7 +169,11 @@ class GroqProvider(OpenAICompatibleProvider):
         if not isinstance(text, str):
             raise ProviderError(ErrorKind.INVALID_OUTPUT, "the transcription answer has no text")
         # An empty text is a valid answer (silence); the caller decides what to tell the user.
-        return ProviderResponse(text=text.strip(), model=self._transcription_model)
+        return ProviderResponse(
+            text=text.strip(),
+            model=self._transcription_model,
+            transcription=_details(data),
+        )
 
     @staticmethod
     def check_audio(data: bytes, filename: str) -> None:
@@ -223,6 +237,25 @@ class GroqProvider(OpenAICompatibleProvider):
         daily = bool(_DAILY_LIMIT.search(raw))
         kind = ErrorKind.QUOTA_EXHAUSTED if daily else ErrorKind.RATE_LIMITED
         return ProviderError(kind, detail, retry_after=retry_after, status_code=429)
+
+
+def _details(data: dict[str, Any]) -> TranscriptionDetails:
+    duration = as_number(data.get("duration"))
+    raw_segments = data.get("segments")
+    segments = tuple(
+        SpeechSegment(
+            start=as_number(raw.get("start")),
+            end=as_number(raw.get("end")),
+            no_speech_prob=as_number(raw.get("no_speech_prob")),
+            avg_logprob=as_number(raw.get("avg_logprob")),
+        )
+        for raw in (raw_segments if isinstance(raw_segments, list) else [])
+        if isinstance(raw, dict)
+    )
+    return TranscriptionDetails(
+        duration_s=duration if duration is not None and duration >= 0 else None,
+        segments=segments,
+    )
 
 
 def _error_code(response: Any) -> str | None:

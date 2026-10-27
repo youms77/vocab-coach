@@ -1,0 +1,192 @@
+# General English tracks (module H). English is the repository language; `fr` labels feed the
+# French interface. Bump `version` when units change (stored units keep the version they came from).
+# Learner profile used for every scenario: a B1 French speaker studying statistics / data science,
+# preparing interviews and talks, American accent as the target.
+version: 1
+
+tracks:
+  - code: general_everyday
+    kind: wordlist
+    source: ngsl
+    unit_size: 25
+    title: {en: General everyday English, fr: Anglais courant}
+    description:
+      en: The most frequent words of English, in frequency order, 25 words per unit (NGSL 1.2).
+      fr: Les mots les plus fréquents de l'anglais, par ordre de fréquence, 25 mots par unité (NGSL 1.2).
+
+  - code: academic
+    kind: wordlist
+    source: nawl
+    unit_size: 25
+    title: {en: Academic English, fr: Anglais académique}
+    description:
+      en: General academic vocabulary, in the official alphabetical order, 25 words per unit (NAWL 1.2).
+      fr: Vocabulaire académique général, dans l'ordre alphabétique officiel, 25 mots par unité (NAWL 1.2).
+
+  - code: speaking_scenarios
+    kind: scenarios
+    title: {en: Speaking scenarios, fr: Scénarios oraux}
+    description:
+      en: Thematic speaking units for a statistics or data-science student, American accent as the target.
+      fr: Unités orales thématiques pour un étudiant en statistiques ou data science, accent américain visé.
+    units:
+      - code: job_interview_1
+        title: {en: "Job interview: presenting yourself", fr: "Entretien d'embauche : se présenter"}
+        level: B1-B2
+        goals:
+          - Introduce your background and studies in under a minute.
+          - Describe your strengths with concrete examples.
+          - Explain why you want the position.
+        situations:
+          - A first interview with a recruiter for a data analyst internship.
+          - The classic "tell me about yourself" question.
+      - code: job_interview_2
+        title: {en: "Job interview: questions and weaknesses", fr: "Entretien d'embauche : questions et points faibles"}
+        level: B1-B2
+        goals:
+          - Answer behavioural questions with a short story (situation, action, result).
+          - Talk about a weakness or a failure honestly and positively.
+          - Ask the interviewer two relevant questions at the end.
+        situations:
+          - A second interview with a hiring manager.
+          - Negotiating a start date and working conditions politely.
+      - code: presenting_data_1
+        title: {en: "Presenting data: describing charts", fr: "Présenter des données : décrire des graphiques"}
+        level: B1-B2
+        goals:
+          - Introduce a chart, its axes and its message.
+          - Describe trends and compare figures with the right verbs and prepositions.
+          - Hedge a statement when the evidence is weak.
+        situations:
+          - Walking a classmate through a bar chart and a time series.
+          - A two-minute update on survey results.
+      - code: presenting_data_2
+        title: {en: "Presenting data: results and conclusions", fr: "Présenter des données : résultats et conclusions"}
+        level: B1-B2
+        goals:
+          - State a research question, a method and a main result.
+          - Explain uncertainty, limits and next steps.
+          - Answer a question from the audience about your analysis.
+        situations:
+          - A short project defence in front of a class.
+          - Explaining a regression result to a non-specialist.
+      - code: meetings_1
+        title: {en: "Meetings: taking part", fr: "Réunions : participer"}
+        level: B1-B2
+        goals:
+          - Open, steer and close a short meeting.
+          - Give a status update on your own tasks.
+          - Interrupt and ask for clarification politely.
+        situations:
+          - A weekly team meeting.
+          - A group-project meeting between students.
+      - code: meetings_2
+        title: {en: "Meetings: discussing and deciding", fr: "Réunions : discuter et décider"}
+        level: B1-B2
+        goals:
+          - Suggest options and weigh them.
+          - Summarise a decision and assign actions.
+          - Disagree with a proposal without sounding rude.
+        situations:
+          - Choosing a method or a tool for a project.
+          - Planning deadlines with teammates.
+      - code: small_talk_1
+        title: {en: "Small talk: meeting people", fr: "Conversation informelle : rencontrer des gens"}
+        level: B1-B2
+        goals:
+          - Start and keep a conversation going with a stranger.
+          - Ask open questions and react with interest.
+          - End a conversation gracefully.
+        situations:
+          - A welcome event for international students.
+          - A coffee break at a conference.
+      - code: small_talk_2
+        title: {en: "Networking: talking about yourself and your field", fr: "Réseautage : parler de soi et de son domaine"}
+        level: B1-B2
+        goals:
+          - Explain what you study and why in simple words.
+          - Exchange contact details and follow up.
+          - Talk about interests, weekends and plans.
+        situations:
+          - A career fair.
+          - A meetup of data-science students.
+      - code: debate_1
+        title: {en: "Debate: agreeing and disagreeing", fr: "Débat : être d'accord ou non"}
+        level: B1-B2
+        goals:
+          - Express agreement, partial agreement and disagreement.
+          - Give a reason and an example for an opinion.
+          - Concede a point and then respond.
+        situations:
+          - A class discussion about a current topic.
+          - A friendly argument about a study method.
+      - code: debate_2
+        title: {en: "Debate: arguing and persuading", fr: "Débat : argumenter et convaincre"}
+        level: B1-B2
+        goals:
+          - Structure an argument with a claim, evidence and a conclusion.
+          - Challenge an argument by questioning its evidence.
+          - Rephrase what someone said before answering.
+        situations:
+          - A formal debate on the use of data and privacy.
+          - A discussion on whether statistics can mislead.
+      - code: project_1
+        title: {en: "Describing a project: goals and plan", fr: "Décrire un projet : objectifs et plan"}
+        level: B1-B2
+        goals:
+          - Explain what a project is for and who it is for.
+          - Describe the steps and the timeline.
+          - Mention the tools, the data and the roles.
+        situations:
+          - Pitching a thesis or data project to a supervisor.
+          - Describing an internship project to a friend.
+      - code: project_2
+        title: {en: "Describing a project: progress and problems", fr: "Décrire un projet : avancement et problèmes"}
+        level: B1-B2
+        goals:
+          - Report progress and what remains to be done.
+          - Explain a problem, its cause and how you solved it.
+          - Ask for help or for more time.
+        situations:
+          - A progress meeting with a supervisor.
+          - Explaining a delay because of messy data.
+      - code: everyday_1
+        title: {en: "Everyday situations: campus and transport", fr: "Situations quotidiennes : campus et transports"}
+        level: B1-B2
+        goals:
+          - Ask for directions and information about services.
+          - Buy a ticket and deal with a delay.
+          - Talk to an administrator about a form or a schedule.
+        situations:
+          - The registrar's office and the library desk.
+          - A train or bus journey.
+      - code: everyday_2
+        title: {en: "Everyday situations: shopping and health", fr: "Situations quotidiennes : achats et santé"}
+        level: B1-B2
+        goals:
+          - Ask about prices, sizes and returns.
+          - Describe a symptom and understand simple advice at a pharmacy or a clinic.
+          - Complain politely and ask for a solution.
+        situations:
+          - A shop, a supermarket, a restaurant.
+          - A doctor's appointment.
+      - code: calls_1
+        title: {en: "Phone and video calls: starting and managing", fr: "Appels et visio : démarrer et gérer"}
+        level: B1-B2
+        goals:
+          - Introduce yourself and state the reason for the call.
+          - Fix technical problems politely (sound, screen sharing).
+          - Ask someone to repeat or to speak more slowly.
+        situations:
+          - A first video call with a company.
+          - Calling a service to solve a problem.
+      - code: calls_2
+        title: {en: "Phone and video calls: messages and follow-up", fr: "Appels et visio : messages et suivi"}
+        level: B1-B2
+        goals:
+          - Leave a clear voicemail message.
+          - Confirm details, dates and next steps.
+          - Reschedule or cancel an appointment.
+        situations:
+          - Rescheduling an interview.
+          - Confirming a meeting by phone.

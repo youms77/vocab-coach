@@ -180,8 +180,8 @@ A progressive method, once per term:
 - **Fine-grained pronunciation assessment** (per-word and per-phoneme scores): optional module, **disabled by
   default**, plugged into a specialised service (see section 7).
 - **Spoken answers** in reviews (mature productive cards) and **free speaking**: a topic, 1 to 2 minutes of
-  recording, transcription, AI correction (grammar, vocabulary, structure, connectors), errors logged in
-  module E, playback.
+  recording (up to 3 accepted) *(approved by owner, M6.a2a)*, transcription, AI correction (grammar,
+  vocabulary, structure, connectors), errors logged in module E, playback.
 - Real-time voice conversation with a tutor stays outside the app: the user keeps using ChatGPT voice mode and
   then pastes the transcript into module E.
 
@@ -351,7 +351,7 @@ interchangeable providers configured in `.env`:
 | Text, fallback | Groq (open models, including Llama), OpenAI-compatible API, free tier without a credit card | Automatic switch if the main provider returns a quota error |
 | Speech-to-text | Groq, Whisper model (free tier) | Local option: faster-whisper on CPU, for short clips |
 | Text-to-speech | Browser speech synthesis (Web Speech API), Windows en-US voices | Free and offline |
-| Pronunciation assessment (optional) | Azure AI Speech, free F0 tier (about 5 h of audio per month, includes pronunciation assessment) | Disabled by default; requires an Azure account |
+| Pronunciation assessment (optional) | Azure AI Speech, free F0 tier only, never S0 (about 5 h of audio per month; inclusion of pronunciation assessment in F0 not confirmed by the pricing page, 2026-10-24) | Disabled by default; requires an Azure account; the recording is sent to Microsoft; WAV 16 kHz mono or OGG Opus only, 30 s at most |
 | Local (optional) | Ollama (OpenAI-compatible API) | To work offline if the machine allows |
 
 The OpenAI-compatible endpoint makes it possible to add other providers (OpenRouter, Meta's Llama API if it
@@ -385,7 +385,8 @@ the backend listens only on `127.0.0.1`.
   English, French translation via i18n.
 - English README: overview, screenshots, Windows installation (with notes for macOS/Linux), step-by-step setup of
   the free keys, daily use, backup, architecture, licence.
-- Licence: MIT (unless an included word list imposes otherwise).
+- Licence: MIT (unless an included word list imposes otherwise). The NGSL and NAWL lists in
+  `content/wordlists/` are CC BY-SA 4.0 (Browne, Culligan, Phillips), included unchanged with a `NOTICE`.
 - Public repository: `.gitignore` covers `data/`, `.env`, exports and audio. A fictional demo dataset (a few
   invented decks and errors) makes it possible to try the app without personal data.
 - Conventional Commits; one branch per milestone, merged into `main` when tests pass.

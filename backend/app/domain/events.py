@@ -52,6 +52,9 @@ class EventType(StrEnum):
     CARD_REVIEWED = "card.reviewed"
     PRODUCTION_RECORDED = "production.recorded"
     PRODUCTION_CORRECTED = "production.corrected"
+    PRODUCTION_TRANSCRIBED = "production.transcribed"
+    PRONUNCIATION_CHECKED = "pronunciation.checked"
+    PRONUNCIATION_ASSESSED = "pronunciation.assessed"
     ERROR_RECORDED = "error.recorded"
     ERROR_UPDATED = "error.updated"
     ERROR_DELETED = "error.deleted"
@@ -63,6 +66,16 @@ class EventType(StrEnum):
     DRILL_GENERATED = "drill.generated"
     DRILL_ITEM_ANSWERED = "drill.item_answered"
     DRILL_COMPLETED = "drill.completed"
+    CONSOLIDATION_TASK_CREATED = "consolidation.task_created"
+    CONSOLIDATION_TASK_STATUS_CHANGED = "consolidation.task_status_changed"
+    CONSOLIDATION_ATTEMPT_CHECKED = "consolidation.attempt_checked"
+    CURRICULUM_TRACK_STARTED = "curriculum.track_started"
+    CURRICULUM_UNIT_OPENED = "curriculum.unit_opened"
+    CURRICULUM_UNIT_GENERATED = "curriculum.unit_generated"
+    CURRICULUM_UNIT_EDITED = "curriculum.unit_edited"
+    CURRICULUM_UNIT_STEP_COMPLETED = "curriculum.unit_step_completed"
+    CURRICULUM_UNIT_COMPLETED = "curriculum.unit_completed"
+    CURRICULUM_UNIT_TERMS_ADDED = "curriculum.unit_terms_added"
     SESSION_STARTED = "session.started"
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
@@ -359,21 +372,30 @@ class CardReviewed(Event):
 
 
 class ProductionOrigin(StrEnum):
-    """Where a written production comes from; it decides the source of its errors (M5)."""
+    """Where a production, written or spoken, comes from; for a written one it decides the source
+    of its errors (M5)."""
 
     WRITING = "writing"  # free writing (module E)
-    DISCOVERY = "discovery"  # the personal sentence of a discovery (module B)
+    # The personal sentence of a discovery (module B), or its spoken step 4: a shadowing.
+    DISCOVERY = "discovery"
     REVIEW = "review"  # a `sentence_production` review checked by the AI (module C)
     TRANSCRIPT = "transcript"  # the user's turns of a pasted conversation transcript (M5.a2)
+    SHADOWING = "shadowing"  # a sentence repeated after the speech synthesis (module F, M6.a1)
+    SPEAKING = "speaking"  # free speaking on a topic (module F, M6.a2)
+    CONSOLIDATION = "consolidation"  # the production of a consolidation task (module G, M7.a2)
 
 
 class ProductionRecorded(Event):
     """Version 2 (M5) adds `origin`, optional so version 1 payloads still read. Version 3 (M5.a2)
     adds the `transcript` origin and, for a transcript, its turn and word counts and the date of
-    the conversation (never any text)."""
+    the conversation (never any text). Version 4 (M6.a1) adds the `shadowing` origin, and the
+    `discovery` origin on a spoken production; `audio_seconds` is the duration the recorder
+    measured. Version 5 (M6.a2) adds the `speaking` origin (free speaking); a spoken answer in a
+    review is a `speaking` production with the `review` origin. Version 6 (M7.a2) adds the
+    `consolidation` origin (written, or spoken with the `consolidation` kind)."""
 
     event_type = EventType.PRODUCTION_RECORDED
-    payload_version = 3
+    payload_version = 6
     entity_type = "production_attempt"
     entity_id_field = "production_attempt_id"
 
@@ -390,13 +412,17 @@ class ProductionRecorded(Event):
 
 
 class ProductionCorrected(Event):
-    """A production corrected by the AI (written once: a second correction is refused)."""
+    """A production corrected by the AI (written once: a second correction is refused). Version 2
+    (M6.a2) adds the production's `kind` (writing, transcript_analysis, speaking), optional so
+    version 1 payloads still read."""
 
     event_type = EventType.PRODUCTION_CORRECTED
+    payload_version = 2
     entity_type = "production_attempt"
     entity_id_field = "production_attempt_id"
 
     production_attempt_id: Id
+    kind: ProductionKind | None = None
     word_count: Annotated[int, Field(ge=0)]
     sentence_count: Annotated[int, Field(ge=0)]
     error_count: Annotated[int, Field(ge=0)]
@@ -407,6 +433,67 @@ class ProductionCorrected(Event):
     model: Annotated[str, Field(max_length=200)]
     prompt_version: Annotated[str, Field(max_length=100)]
     ai_call_id: Id | None = None
+
+
+class ProductionTranscribed(Event):
+    """A recording transcribed by speech recognition (written once: a second one is refused).
+    `silence`: no word was heard, or Whisper's segments say silence (nothing is compared then).
+    `audio_seconds` is the provider's measure when it gives one, else the recorder's."""
+
+    event_type = EventType.PRODUCTION_TRANSCRIBED
+    entity_type = "production_attempt"
+    entity_id_field = "production_attempt_id"
+
+    production_attempt_id: Id
+    kind: ProductionKind
+    provider: Annotated[str, Field(max_length=50)]
+    model: Annotated[str, Field(max_length=200)]
+    ai_call_id: Id | None = None
+    status: Literal["ok", "silence"]
+    heard_word_count: Annotated[int, Field(ge=0)]
+    audio_seconds: Annotated[float, Field(ge=0)] | None = None
+
+
+class PronunciationChecked(Event):
+    """A transcription compared word by word with its target sentence (no text in the payload).
+    Speech recognition is not a pronunciation judge: no error is recorded from it."""
+
+    event_type = EventType.PRONUNCIATION_CHECKED
+    entity_type = "production_attempt"
+    entity_id_field = "production_attempt_id"
+
+    production_attempt_id: Id
+    target_word_count: Annotated[int, Field(ge=0)]
+    recognized_count: Annotated[int, Field(ge=0)]
+    unrecognized_count: Annotated[int, Field(ge=0)]
+    word_accuracy: Annotated[float, Field(ge=0, le=1)]
+    comparator_version: Annotated[str, Field(min_length=1, max_length=50)]
+    provider: Annotated[str, Field(max_length=50)]
+
+
+class PronunciationAssessed(Event):
+    """A shadowing take scored by a pronunciation service (Azure, M6.c1). No text in the payload.
+    The scores (0-100) are null on `silence`. `audio_seconds` is what the monthly free quota is
+    counted on (D-216)."""
+
+    event_type = EventType.PRONUNCIATION_ASSESSED
+    entity_type = "production_attempt"
+    entity_id_field = "production_attempt_id"
+
+    production_attempt_id: Id
+    provider: Annotated[str, Field(max_length=50)]
+    model: Annotated[str, Field(max_length=200)]
+    ai_call_id: Id | None = None
+    status: Literal["ok", "silence"]
+    audio_seconds: Annotated[float, Field(ge=0)] | None = None
+    accuracy: Annotated[float, Field(ge=0, le=100)] | None = None
+    fluency: Annotated[float, Field(ge=0, le=100)] | None = None
+    completeness: Annotated[float, Field(ge=0, le=100)] | None = None
+    pronunciation: Annotated[float, Field(ge=0, le=100)] | None = None
+    word_count: Annotated[int, Field(ge=0)] = 0
+    mispronounced: Annotated[int, Field(ge=0)] = 0
+    omitted: Annotated[int, Field(ge=0)] = 0
+    inserted: Annotated[int, Field(ge=0)] = 0
 
 
 class DrillGenerated(Event):
@@ -562,6 +649,53 @@ class ErrorCategoryResolved(Event):
     reassigned_errors: Annotated[int, Field(ge=0)]
 
 
+class ConsolidationTaskCreated(Event):
+    """A consolidation task stored (module G, M7.a1); `source` says whether the AI or a template
+    wrote it. No free text."""
+
+    event_type = EventType.CONSOLIDATION_TASK_CREATED
+    entity_type = "consolidation_task"
+    entity_id_field = "task_id"
+
+    task_id: Id
+    deck_id: Id
+    task_type: Literal["talk", "speech", "interview_answer"]
+    source: Literal["ai", "template"]
+    term_count: Annotated[int, Field(ge=1)]
+
+
+class ConsolidationTaskStatusChanged(Event):
+    event_type = EventType.CONSOLIDATION_TASK_STATUS_CHANGED
+    entity_type = "consolidation_task"
+    entity_id_field = "task_id"
+
+    task_id: Id
+    from_status: Literal["proposed", "accepted", "completed", "dismissed"]
+    to_status: Literal["proposed", "accepted", "completed", "dismissed"]
+
+
+class ConsolidationAttemptChecked(Event):
+    """The result of a consolidation production applied to the terms of its task (M7.a2): counts
+    and ids only, no text. `targets` = terms of the task; `used` = found in the text;
+    `used_correctly` = used with no error; `misused` = used wrongly (their card got an Again);
+    `absent` = not used (or not heard)."""
+
+    event_type = EventType.CONSOLIDATION_ATTEMPT_CHECKED
+    entity_type = "consolidation_task"
+    entity_id_field = "task_id"
+
+    task_id: Id
+    production_attempt_id: Id
+    modality: Modality
+    targets: Annotated[int, Field(ge=0)]
+    used: Annotated[int, Field(ge=0)]
+    used_correctly: Annotated[int, Field(ge=0)]
+    misused: Annotated[int, Field(ge=0)]
+    absent: Annotated[int, Field(ge=0)]
+    activated_item_ids: list[Id]
+    reinforced_card_ids: list[Id]
+
+
 # --- Sessions and settings ---------------------------------------------------------------------
 
 
@@ -601,13 +735,120 @@ class SettingChanged(Event):
 
 
 class AiCredentialChanged(Event):
-    """An API key or the Ollama address was saved or removed in `.env` (never the value itself)."""
+    """An API key, the Ollama address or the Azure key and region were saved or removed in `.env`
+    (never the value itself)."""
 
     event_type = EventType.AI_CREDENTIAL_CHANGED
     entity_type = "ai_provider"
 
-    provider: Literal["gemini", "groq", "ollama"]
+    provider: Literal["gemini", "groq", "ollama", "azure"]
     action: Literal["set", "removed"]
+
+
+class CurriculumTrackStarted(Event):
+    """A word-list track was started (module H, M8.a1): its deck exists (`created` says whether this
+    call made it). Not an import: statistics must not count it as one."""
+
+    event_type = EventType.CURRICULUM_TRACK_STARTED
+    entity_type = "deck"
+    entity_id_field = "deck_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    deck_id: Id
+    created: bool
+
+
+class CurriculumUnitOpened(Event):
+    """A word-list unit was opened: its terms entered intake triage in the track's deck. Counts
+    only; the terms themselves have their own `item.created` events (origin `curriculum`)."""
+
+    event_type = EventType.CURRICULUM_UNIT_OPENED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    deck_id: Id
+    imported: Annotated[int, Field(ge=0)]
+    attached: Annotated[int, Field(ge=0)]
+    skipped: Annotated[int, Field(ge=0)]
+
+
+class CurriculumUnitGenerated(Event):
+    """The content of a scenario unit was written by the AI (module H, M8.a2) and the unit row
+    created. Counts and provenance only, never the content."""
+
+    event_type = EventType.CURRICULUM_UNIT_GENERATED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    provider: Annotated[str, Field(max_length=50)] | None = None
+    model: Annotated[str, Field(max_length=100)] | None = None
+    prompt_version: Annotated[str, Field(max_length=50)] | None = None
+    ai_call_id: Id | None = None
+    formula_count: Annotated[int, Field(ge=0)]
+
+
+class CurriculumUnitEdited(Event):
+    """The owner edited parts of a unit's content; `parts` names them (`formulas`, `dialogue`,
+    `shadowing`, `final_task`), `revision` is the new one."""
+
+    event_type = EventType.CURRICULUM_UNIT_EDITED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    revision: Annotated[int, Field(ge=1)]
+    parts: list[Literal["formulas", "dialogue", "shadowing", "final_task"]]
+
+
+class CurriculumUnitStepCompleted(Event):
+    """A step of a scenario unit became complete (written once per step, and again if it was lost
+    by an edit and completed anew)."""
+
+    event_type = EventType.CURRICULUM_UNIT_STEP_COMPLETED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    step: Literal["formulas", "dialogue", "shadowing", "final_task"]
+
+
+class CurriculumUnitCompleted(Event):
+    """All the steps of a scenario unit are complete: its progress is `done`."""
+
+    event_type = EventType.CURRICULUM_UNIT_COMPLETED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+
+
+class CurriculumUnitTermsAdded(Event):
+    """Formulas of a unit entered intake triage (counts only; the terms have their own
+    `item.created` events, origin `curriculum`)."""
+
+    event_type = EventType.CURRICULUM_UNIT_TERMS_ADDED
+    entity_type = "curriculum_unit"
+    entity_id_field = "unit_id"
+
+    track_code: Annotated[str, Field(max_length=100)]
+    unit_code: Annotated[str, Field(max_length=100)]
+    unit_id: Id
+    deck_id: Id
+    imported: Annotated[int, Field(ge=0)]
+    attached: Annotated[int, Field(ge=0)]
+    skipped: Annotated[int, Field(ge=0)]
 
 
 EVENT_MODELS: dict[EventType, type[Event]] = {

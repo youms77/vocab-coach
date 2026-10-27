@@ -158,12 +158,38 @@ environment variable first).
    You should see a line like `groq: ok (openai/gpt-oss-20b, 650 ms, tokens in/out 96/14)`.
 
 The free plan has limits. Approximate values from [Groq's rate-limits page](https://console.groq.com/docs/rate-limits)
-(read on 2026-10-16; they change, and your own limits are shown in your Groq console):
+(read on 2026-10-16, checked again on 2026-10-18; they change, and your own limits are shown in your Groq console):
 
 | Model used by default | Requests | Tokens / audio | Notes |
 |---|---|---|---|
 | `openai/gpt-oss-20b` (text) | 30 per minute, 1,000 per day | 8,000 tokens per minute, 200,000 per day | the app falls back or waits when a limit is hit |
 | `whisper-large-v3` (speech-to-text) | 20 per minute, 2,000 per day | 7,200 audio seconds per hour, 28,800 per day | clips up to 25 MB |
+
+**Privacy**: with a Groq key, your speaking recordings are sent to Groq to be transcribed, so they leave your
+computer. They are kept in `data/audio/` (never committed). Without a key they stay local, untranscribed.
+
+### Azure AI Speech: optional pronunciation scores (free tier only)
+
+Off by default; the app is unchanged without it. Azure scores a recording against its target sentence, word
+by word and phoneme by phoneme. Everything can be done from **Settings > Pronunciation assessment**: key and
+region, connection test, the on/off setting and the use of the month. The scores appear on a shadowing's page,
+after you click "Assess my pronunciation". Only shadowings recorded **after** you turn the setting on can be
+assessed (they are stored as WAV).
+
+1. In the Azure portal create a *Speech* resource on the **F0 (free) tier, never S0** (S0 is billed). Copy a
+   key and the region of the resource (for example `westeurope`).
+2. In `.env`, add `VOCAB_AZURE_SPEECH_KEY=` and `VOCAB_AZURE_SPEECH_REGION=` (no quotes, no spaces), or save
+   them from the settings API (`PUT /api/ai/providers/azure/credential` with `value` and `region`).
+3. Check it: `uv run python -m app ai test --provider azure` sends one second of silence (a "no speech" answer
+   counts as success).
+
+Limits and caveats (read on Microsoft Learn on 2026-10-24; they change): F0 gives 5 audio hours a month and one
+request at a time, a clip may last 30 s at most, and Azure reads only WAV (PCM, 16 kHz, mono) or OGG Opus, not
+the browser's default webm. **Whether pronunciation assessment itself is included in F0 is not confirmed by the
+pricing page**: the first real request is the proof, and an F0 resource cannot be billed.
+
+**Privacy**: when this is configured and the `pronunciation_assessment` setting is `azure`, the recording of a
+take is sent to Microsoft and leaves your computer. Azure is not part of the AI provider order.
 
 ### Ollama: optional, local and offline
 
@@ -189,7 +215,7 @@ Run these from the `backend` folder:
 |---|---|
 | `uv run python -m app ai status` | providers, configured or not, models and order. Never prints a key. |
 | `uv run python -m app ai test` | one real request per configured provider: status, model, time, tokens. Exit code 0 = all fine, 1 = a test failed, 2 = nothing configured or a usage error. |
-| `uv run python -m app ai test --provider gemini` | tests only one provider (`gemini`, `groq` or `ollama`). |
+| `uv run python -m app ai test --provider gemini` | tests only one provider (`gemini`, `groq`, `ollama` or `azure`). `azure` is never part of a plain `ai test`: it spends free minutes. |
 | `uv run python -m app ai test --provider groq --audio my_clip.wav` | also transcribes a short clip (Groq Whisper) and prints the text. |
 | `uv run python -m app ai usage --days 7` | requests and tokens per study day, provider and model (read-only). |
 
@@ -211,12 +237,95 @@ uv run python -m app library import ..\content\examples\import-with-header.md   
 uv run python -m app library import ..\content\examples\import-with-header.md --commit   # import the clear lines
 ```
 
+General English tracks (NGSL, NAWL, speaking scenarios; run from `backend`):
+
+```powershell
+uv run python -m app curriculum tracks                       # the three tracks and where you are
+uv run python -m app curriculum start general_everyday       # creates its deck (again: the same deck)
+uv run python -m app curriculum show general_everyday        # units, 25 per page (--page N)
+uv run python -m app curriculum open general_everyday 1      # unit 1: its 25 words wait for triage
+uv run python -m app curriculum start speaking_scenarios         # the scenario track (no deck)
+uv run python -m app curriculum generate speaking_scenarios 1    # the AI writes the Job interview unit (needs a key)
+uv run python -m app curriculum unit 1                           # formulas, dialogue, shadowing, final task, steps
+uv run python -m app curriculum step 1 formulas                  # mark formulas / dialogue as done
+uv run python -m app curriculum terms 1 --indices 0 1 2          # put formulas in the triage queue
+uv run python -m app speech shadow --file clip.wav --target "<line>" --unit 1   # a take of the unit
+```
+
 One line = one term, optionally followed by `|` and the sentence you met it in; an optional YAML header
 (`deck`, `domain`, `source`, `context`, `deadline`) describes the deck. See the two files in `content/examples/`.
 Ambiguous lines (a translation after `=`, a whole sentence, a sub-item...) are reported and left out; terms
 already in your library are added to the new deck instead of being duplicated. Options: `--deck-id N` (add to an
 existing deck), `--no-triage` (queue the terms directly instead of the "I know it / not sure / to learn" triage),
 and `--demo` before `library` to try it on the demo database.
+
+Speaking (milestone M6; the recording screens come later). Record a sentence with any recorder (Windows Sound
+Recorder saves `.m4a`), then:
+
+```powershell
+uv run python -m app speech shadow --file C:\path\to\clip.m4a --target "We account for regional fixed effects."
+uv run python -m app speech transcribe 12        # transcribe again a recording kept without a key
+uv run python -m app speech compare "We account for fixed effects." "we account for fix effect"   # no AI
+```
+
+`speech shadow` keeps the recording in `data/audio/`, transcribes it with Groq Whisper and lists the words that
+were not recognised. Speech recognition is not a pronunciation judge: a flagged word is a possible intelligibility
+issue, nothing more, and no error is recorded automatically. Without a key, add `--duration <seconds>`.
+
+Free speaking: talk for one to two minutes on a topic (up to three are accepted), then let the AI correct what
+was heard. Your errors go into the error log with the source `speaking`, with a comment on the structure of what
+you said (organisation, connectors) and a more natural version:
+
+```powershell
+uv run python -m app speech speak --file C:\path\to\talk.m4a --prompt "Describe where you study and for how long."
+uv run python -m app speech correct 12           # correct again (after a failure, or `--no-correct`)
+uv run python -m app errors list                 # the errors found
+```
+
+The recording goes to **Groq** (speech-to-text), then the transcribed text goes to **Gemini** (the correction),
+both on their free tiers, so your voice and your words leave your computer; the recording itself stays in
+`data/audio/`. The correction is about what the recogniser heard: it may smooth over a mistake or mishear a word,
+and any error can be edited or deleted. Without a key the recording is kept: `speech transcribe <id>` then
+`speech correct <id>` once the key is there. In reviews, a mature productive card can be answered aloud in the
+same way (the screens come with M6.b).
+
+## Statistics and CSV export
+
+Every statistic is computed from the event logs, never from counters, and reading one writes nothing.
+Rates come with their counts: a rate with too little data behind it (fewer than 100 words, fewer than 10 reviews)
+is shown as "n/a" instead of a misleading number. Time is counted in study days (a review at 2 a.m. belongs to the
+previous day, see the `timezone` and `day_start_hour` settings).
+
+```powershell
+cd backend
+uv run python -m app stats summary                     # the headline figures
+uv run python -m app stats errors --granularity week   # errors per 100 words, top 5, lasting trends
+uv run python -m app stats memory                      # retention vs target, success by exercise, lapses
+uv run python -m app stats export                      # every event table as CSV in a zip archive
+```
+
+`stats errors` and `stats memory` take `--from YYYY-MM-DD --to YYYY-MM-DD` (default: the last 30 study days).
+The same figures are served by the API (`/api/stats/...`, see http://127.0.0.1:8000/docs).
+
+`stats export` writes `data/exports/vocab-coach-export-YYYYMMDD.zip` (or `--out file.zip`; `--force` replaces an
+existing file); the API gives the same archive at `/api/export/csv`. It holds one CSV per table (UTF-8, comma,
+instants in UTC with `Z`, a `study_day` column, JSON columns as JSON text, `true` / `false`, empty = null), a
+`manifest.json` and a `data_dictionary.md` that describes every column. No audio, no settings, no key. In pandas:
+
+```python
+import json
+import zipfile
+
+import pandas as pd
+
+archive = zipfile.ZipFile("vocab-coach-export-20261026.zip")
+reviews = pd.read_csv(archive.open("review_log.csv"), parse_dates=["reviewed_at"])
+reviews["success"] = reviews["final_rating"] >= 2
+print(reviews[reviews["state_before"] == "review"].groupby("study_day")["success"].mean())
+
+events = pd.read_csv(archive.open("event_log.csv"), parse_dates=["occurred_at"])
+events["payload"] = events["payload"].map(json.loads)
+```
 
 ## Backup
 
@@ -243,7 +352,7 @@ Until then, back up `data/` yourself if it matters to you.
 ```
 backend/    FastAPI app (Python 3.13, uv): api/, domain/, db/, ai/, speech/
 frontend/   React + TypeScript + Vite: features/, components/, i18n/, api/
-content/    error taxonomy, fictional demo dataset (demo/), later the track syllabus
+content/    error taxonomy, fictional demo dataset (demo/), track syllabus (curriculum.yaml), word lists (wordlists/, CC BY-SA 4.0)
 docs/       SPEC.md (specification), PROGRESS.md, DECISIONS.md, architecture.md
 scripts/    environment check, browser opener (wait-and-open.mjs)
 ```
@@ -253,4 +362,13 @@ See [`docs/architecture.md`](docs/architecture.md) for details. Contributors usi
 
 ## Licence
 
-[MIT](LICENSE).
+[MIT](LICENSE), except the two word lists in `content/wordlists/`.
+
+### Word lists
+
+The general English tracks use the **New General Service List 1.2** (NGSL) and the **New Academic Word
+List 1.2** (NAWL) by Browne, C., Culligan, B., and Phillips, J., from
+<https://www.newgeneralservicelist.com>, licensed under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The two files are included unchanged;
+see `content/wordlists/NOTICE`. Citation: Browne, C., Culligan, B. (2013). *The New General Service List*
+and *The New Academic Word List*. Retrieved from https://www.newgeneralservicelist.com.

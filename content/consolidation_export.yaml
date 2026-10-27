@@ -1,0 +1,29 @@
+# Text of the consolidation export (`GET /api/consolidation/tasks/{id}/export`, CLI
+# `consolidation export`): a Markdown page to paste into a voice conversation with a tutor (for
+# example ChatGPT in voice mode). The tutor always speaks English; `fr` only translates the
+# instructions around the task. No personal data. Bump `version` whenever this file changes.
+
+version: 1
+
+role:
+  en: "You are a friendly English tutor. I am a French speaker at level B1 who wants to reach B2. I will practise a short task out loud and I want to use specific vocabulary in it. Speak English with me, simply and clearly."
+  fr: "Tu es un tuteur d'anglais bienveillant. Je suis francophone, niveau B1, et je veux atteindre le B2. Je vais m'entraîner à l'oral sur une courte tâche en utilisant du vocabulaire précis. Parle-moi en anglais, simplement et clairement."
+headings:
+  role: {en: "Your role", fr: "Ton rôle"}
+  topic: {en: "The task", fr: "La tâche"}
+  structure: {en: "Suggested structure", fr: "Structure suggérée"}
+  terms: {en: "Terms I want to use", fr: "Termes que je veux employer"}
+  instructions: {en: "What to do", fr: "Ce que tu dois faire"}
+labels:
+  audience: {en: "Audience", fr: "Public"}
+  length: {en: "Target length", fr: "Durée visée"}
+  minutes: {en: "minutes", fr: "minutes"}
+instructions:
+  en:
+    - "Listen to my whole talk without interrupting me."
+    - "Then ask me 3 follow-up questions, one at a time, and let me answer each one."
+    - "Finally, tell me which of the terms above I used well, which I used wrongly, and which I forgot. For each wrong one, give me the correct form in a short example."
+  fr:
+    - "Écoute tout mon exposé sans m'interrompre."
+    - "Pose-moi ensuite 3 questions de relance, une à la fois, et laisse-moi répondre à chacune."
+    - "Pour finir, dis-moi quels termes ci-dessus j'ai bien employés, lesquels j'ai mal employés et lesquels j'ai oubliés. Pour chaque terme mal employé, donne-moi la forme correcte dans un court exemple."

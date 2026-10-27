@@ -2,7 +2,7 @@
 
 import httpx2
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
@@ -37,6 +37,11 @@ def _app(*, guarded: bool = True) -> FastAPI:
     @app.post("/empty")
     def empty() -> dict[str, str]:
         return {"ok": "yes"}
+
+    @app.post("/api/speech/upload")
+    @app.post("/api/other/upload")
+    async def upload(request: Request) -> dict[str, int]:
+        return {"bytes": len(await request.body())}
 
     if guarded:
         app.add_middleware(ApiGuard, port=PORT, allowed_origins=[VITE, "http://localhost:5173"])
@@ -163,6 +168,94 @@ def test_json_with_charset_is_accepted(client: TestClient) -> None:
 def test_write_without_body_needs_no_content_type(client: TestClient) -> None:
     assert client.post("/empty").status_code == 200
     assert client.delete("/echo").status_code == 200
+
+
+# --- Raw recordings (D-170) ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("content_type", ["audio/webm", "audio/wav", "Audio/Webm;codecs=opus"])
+def test_an_audio_body_is_accepted_under_the_speech_paths(
+    client: TestClient, content_type: str
+) -> None:
+    response = client.post(
+        "/api/speech/upload", content=b"RIFF1234", headers={"Content-Type": content_type}
+    )
+    assert response.json() == {"bytes": 8}
+
+
+def test_an_audio_body_is_refused_anywhere_else(client: TestClient) -> None:
+    for path in ("/api/other/upload", "/echo"):
+        response = client.post(path, content=b"RIFF", headers={"Content-Type": "audio/wav"})
+        assert (response.status_code, _code(response)) == (415, "unsupported_media_type")
+
+
+@pytest.mark.parametrize("content_type", ["text/plain", "video/webm", "application/octet-stream"])
+def test_other_bodies_stay_refused_under_the_speech_paths(
+    client: TestClient, content_type: str
+) -> None:
+    response = client.post(
+        "/api/speech/upload", content=b"RIFF", headers={"Content-Type": content_type}
+    )
+    assert (response.status_code, _code(response)) == (415, "unsupported_media_type")
+
+
+def test_an_audio_body_from_another_site_is_refused(client: TestClient) -> None:
+    audio = {"Content-Type": "audio/webm"}
+    foreign = client.post(
+        "/api/speech/upload", content=b"RIFF", headers=audio | {"Origin": "https://evil.example"}
+    )
+    assert (foreign.status_code, _code(foreign)) == (403, "forbidden_origin")
+    cross = client.post(
+        "/api/speech/upload", content=b"RIFF", headers=audio | {"Sec-Fetch-Site": "cross-site"}
+    )
+    assert (cross.status_code, _code(cross)) == (403, "cross_site_request")
+
+
+def test_an_audio_upload_from_another_site_fails_its_preflight(api_client: TestClient) -> None:
+    """No `audio/*` type is CORS-safelisted: a page elsewhere must ask first, and is refused."""
+    response = api_client.options(
+        "/api/speech/shadowing",
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.parametrize("path", ["/api/speech/speaking", "/api/speech/review-answer"])
+def test_the_new_upload_routes_keep_every_rule(api_client: TestClient, path: str) -> None:
+    """M6.a2a: free speaking and the spoken answer take audio under `/api/speech/` only, and the
+    Host, Origin and fetch-metadata rules apply to them as to the shadowing."""
+    audio = {"Content-Type": "audio/wav"}
+    rules = [
+        ({"Origin": "https://evil.example"}, 403, "forbidden_origin"),
+        ({"Sec-Fetch-Site": "cross-site"}, 403, "cross_site_request"),
+        ({"Host": "evil.example"}, 403, "forbidden_host"),
+    ]
+    for headers, status, error in rules:
+        response = api_client.post(path, content=b"RIFF", headers=audio | headers)
+        assert (response.status_code, _code(response)) == (status, error), headers
+    preflight = api_client.options(
+        path,
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert preflight.status_code == 400
+    assert "access-control-allow-origin" not in preflight.headers
+
+
+@pytest.mark.parametrize("path", ["/api/reviews", "/api/reviews/check-production"])
+def test_a_spoken_answer_is_never_uploaded_to_the_review_routes(
+    api_client: TestClient, path: str
+) -> None:
+    response = api_client.post(path, content=b"RIFF", headers={"Content-Type": "audio/wav"})
+    assert (response.status_code, _code(response)) == (415, "unsupported_media_type")
 
 
 @pytest.mark.parametrize("content_type", ["text/plain", "application/x-www-form-urlencoded"])

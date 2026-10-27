@@ -146,7 +146,7 @@ def cards_of(session: Session, errors: Sequence[ErrorEvent]) -> dict[int, Lexica
     }
 
 
-def _carded_keys(session: Session) -> set[str]:
+def carded_keys(session: Session) -> set[str]:
     """The pairs that already gave a card."""
     return {
         rules.pair_key(wrong, right)
@@ -317,7 +317,7 @@ def current_suggestions(
     session: Session, *, min_count: int = rules.MIN_RECURRENCE, include_dismissed: bool = False
 ) -> list[Suggestion]:
     found = rules.group_recurring(_rows(session), min_count)
-    hidden = _carded_keys(session)
+    hidden = carded_keys(session)
     if not include_dismissed:
         hidden |= dismissed_keys(session)
     return rules.without_keys(found, hidden)

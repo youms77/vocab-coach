@@ -463,7 +463,13 @@ def cli_env(monkeypatch: pytest.MonkeyPatch, db_url: str) -> str:
     """The CLI on the temporary database, with no AI configured and the owner's .env ignored
     (an environment variable, even an empty one, wins over `.env`)."""
     monkeypatch.setenv("VOCAB_DATABASE_URL", db_url)
-    for name in ("VOCAB_GEMINI_API_KEY", "VOCAB_GROQ_API_KEY", "VOCAB_OLLAMA_BASE_URL"):
+    for name in (
+        "VOCAB_GEMINI_API_KEY",
+        "VOCAB_GROQ_API_KEY",
+        "VOCAB_OLLAMA_BASE_URL",
+        "VOCAB_AZURE_SPEECH_KEY",
+        "VOCAB_AZURE_SPEECH_REGION",
+    ):
         monkeypatch.setenv(name, "")
     for name in (
         "VOCAB_GEMINI_MODEL",

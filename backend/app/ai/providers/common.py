@@ -89,3 +89,19 @@ def strip_json_fence(text: str) -> str:
 def as_int(value: Any) -> int | None:
     """A token count from a JSON value (None when missing or not a plain integer)."""
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+
+def as_number(value: Any) -> float | None:
+    """A finite number sent as a JSON number or a string ("3.52"), else None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        number = float(value)
+    elif isinstance(value, str):
+        try:
+            number = float(value.strip())
+        except ValueError:
+            return None
+    else:
+        return None
+    return number if math.isfinite(number) else None

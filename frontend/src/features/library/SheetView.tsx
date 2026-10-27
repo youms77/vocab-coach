@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 
 import type { UsageSheet } from '../../api/enrichment'
 import { SpeakButton } from '../../speech/SpeakButton'
@@ -14,10 +15,46 @@ function Entry({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
- * A usage sheet, read-only, in the SPEC order. Empty fields are left out. `audio` adds "Listen"
- * buttons to the examples (discovery, M4.b); the library's sheet panel shows none.
+ * "Shadow this sentence": opens the shadowing page with the sentence and the term in the
+ * navigation state (the page reads them once). `what` names the sentence for screen readers.
  */
-export function SheetView({ sheet, audio = false }: { sheet: UsageSheet; audio?: boolean }) {
+export function ShadowLink({
+  sentence,
+  itemId,
+  what,
+}: {
+  sentence: string
+  itemId: number
+  what: string
+}) {
+  const { t } = useTranslation()
+  return (
+    <Link
+      to="/speaking/shadowing"
+      state={{ target: sentence, itemId }}
+      className="button button--small"
+    >
+      {t('sheet.shadow')}
+      {' '}
+      <span className="visually-hidden">({what})</span>
+    </Link>
+  )
+}
+
+/**
+ * A usage sheet, read-only, in the SPEC order. Empty fields are left out. `audio` adds "Listen"
+ * buttons to the examples (discovery, M4.b); the library's sheet panel shows none. `shadowItemId`
+ * adds "Shadow this sentence" to the examples (the term's page, M6.b1); discovery gives none.
+ */
+export function SheetView({
+  sheet,
+  audio = false,
+  shadowItemId,
+}: {
+  sheet: UsageSheet
+  audio?: boolean
+  shadowItemId?: number
+}) {
   const { t } = useTranslation()
   const p = sheet.pronunciation
   const hasPronunciation = p !== null && (p.ipa_us ?? p.stressed_syllable ?? p.note) !== null
@@ -85,6 +122,16 @@ export function SheetView({ sheet, audio = false }: { sheet: UsageSheet; audio?:
                     <SpeakButton
                       text={e.sentence}
                       label={t('sheet.exampleLabel', { index: i + 1 })}
+                    />
+                  </>
+                )}
+                {shadowItemId !== undefined && (
+                  <>
+                    {' '}
+                    <ShadowLink
+                      sentence={e.sentence}
+                      itemId={shadowItemId}
+                      what={t('sheet.exampleLabel', { index: i + 1 })}
                     />
                   </>
                 )}

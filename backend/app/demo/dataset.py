@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.ai.schemas.curriculum_unit import CurriculumUnitOutput
 from app.config import REPO_ROOT
 from app.domain.enums import DeckStatus, ItemType, ProductionKind
 from app.domain.exercises import (
@@ -150,6 +151,28 @@ class DemoDrill(_Strict):
         }
 
 
+class StructureSuggestion(_Strict):
+    text_en: str
+    text_fr: str
+
+
+class StructureComment(_Strict):
+    """A fictional comment on how a free speech is organised (`speaking_correction.structure`)."""
+
+    comment_en: str
+    comment_fr: str
+    suggestions: Annotated[list[StructureSuggestion], Field(max_length=3)] = []
+
+
+class DemoSpeech(_Strict):
+    """What the fictional recogniser and corrector of spoken productions need (M6.a2b)."""
+
+    connectors: Annotated[list[str], Field(min_length=1)]
+    structure: Annotated[list[StructureComment], Field(min_length=1)]
+    # What the learner says in a spoken answer when the term does not come.
+    forgotten_answers: Annotated[list[str], Field(min_length=1)]
+
+
 class DemoExercises(_Strict):
     """The exercise templates of a full demo sheet (one of each type; listening reuses the
     recognition sentence, typed recall is derived from the sheet)."""
@@ -172,6 +195,29 @@ class DemoSheet(_Strict):
         return self.exercises is not None
 
 
+class DemoUnit(_Strict):
+    """A scenario unit of the demo (M8.a2): what the AI returned for it and what the learner did
+    with it. Days are relative to the anchor, like the other demo days."""
+
+    number: Annotated[int, Field(ge=1)]
+    written_day: int
+    mark_day: int | None = None
+    shadow_day: int | None = None
+    shadow_lines: Annotated[int, Field(ge=1)] | None = None  # all the lines when absent
+    talk_day: int | None = None
+    talk: str | None = None
+    talk_seconds: float | None = None
+    output: CurriculumUnitOutput
+
+    @model_validator(mode="after")
+    def check_talk(self) -> "DemoUnit":
+        if (self.talk_day is None) != (self.talk is None) or (self.talk is None) != (
+            self.talk_seconds is None
+        ):
+            raise ValueError("units.yaml: `talk_day`, `talk` and `talk_seconds` go together")
+        return self
+
+
 class DemoDataset(_Strict):
     dataset_version: int
     decks: list[DemoDeck]
@@ -181,8 +227,10 @@ class DemoDataset(_Strict):
     prompts: list[ProductionPrompt]
     fillers: list[str]
     tutor_lines: Annotated[list[str], Field(min_length=1)]
+    speech: DemoSpeech
     sheets: list[DemoSheet] = []
     drills: list[DemoDrill] = []
+    units: list[DemoUnit] = []
 
     @model_validator(mode="after")
     def check_consistency(self) -> "DemoDataset":
@@ -218,6 +266,9 @@ class DemoDataset(_Strict):
         days = [deck.created_day for deck in self.decks]
         if days != sorted(days):
             raise ValueError("decks must be listed in creation order")
+        numbers = [unit.number for unit in self.units]
+        if len(numbers) != len(set(numbers)):
+            raise ValueError("units.yaml: a unit is listed twice")
         return self
 
     def error_codes(self) -> list[str]:
@@ -247,18 +298,20 @@ def _read(path: Path) -> dict:
 
 
 def load_dataset(directory: Path = DEMO_CONTENT_DIR) -> DemoDataset:
-    """Read the five demo files; they must share the same `dataset_version`."""
+    """Read the six demo files; they must share the same `dataset_version`."""
     decks = _read(directory / "dataset.yaml")
     errors = _read(directory / "errors.yaml")
     prompts = _read(directory / "prompts.yaml")
     sheets = _read(directory / "sheets.yaml")
     drills = _read(directory / "drills.yaml")
+    units = _read(directory / "units.yaml")
     versions = {
         decks["dataset_version"],
         errors["dataset_version"],
         prompts["dataset_version"],
         sheets["dataset_version"],
         drills["dataset_version"],
+        units["dataset_version"],
     }
     if len(versions) != 1:
         raise ValueError(f"content/demo files disagree on dataset_version: {sorted(versions)}")
@@ -271,8 +324,10 @@ def load_dataset(directory: Path = DEMO_CONTENT_DIR) -> DemoDataset:
         prompts=prompts["prompts"],
         fillers=prompts["fillers"],
         tutor_lines=prompts["tutor_lines"],
+        speech=prompts["speech"],
         sheets=sheets["sheets"],
         drills=drills["drills"],
+        units=units["units"],
     )
 
 

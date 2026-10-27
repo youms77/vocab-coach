@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '../../api/client'
 import {
@@ -105,6 +105,15 @@ export function WritingDetailPage() {
     navigate(location.pathname, { replace: true, state: null })
     if (!production.corrected) correct.mutate(id)
   }, [production, autoCorrect, navigate, location.pathname, correct, id])
+
+  // A talk of a consolidation task has its own page.
+  if (production !== undefined && production.kind === 'consolidation') {
+    return <Navigate to={`/consolidation/attempts/${production.id}`} replace />
+  }
+  // A spoken text (a review error may come from a spoken answer) has its own page.
+  if (production !== undefined && production.kind === 'speaking') {
+    return <Navigate to={`/speaking/${production.id}`} replace />
+  }
 
   if (!valid || (query.isError && query.error instanceof ApiError && query.error.status === 404)) {
     return (

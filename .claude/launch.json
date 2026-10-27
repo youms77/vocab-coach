@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend-demo",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["--directory", "backend", "run", "python", "-m", "app", "--demo"],
+      "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "design-scratch",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--no-project", "python", "-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "C:/Users/Yobijo/AppData/Local/Temp/claude/C--Users-Yobijo-Desktop-vocab-coach/d131564c-35b9-460a-986c-e234e2a9dcd1/scratchpad"],
+      "port": 8765
+    }
+  ]
+}

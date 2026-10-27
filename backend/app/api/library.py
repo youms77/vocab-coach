@@ -171,7 +171,7 @@ def _deck_warnings(plan: SessionPlan, deck_id: int) -> list[PlanWarning]:
     ]
 
 
-def _decks_out(session: Session, decks: list[Deck], now: datetime) -> list[DeckOut]:
+def decks_out(session: Session, decks: list[Deck], now: datetime) -> list[DeckOut]:
     """Decks with their counts, and the pace and warnings of today's plan (read-only)."""
     plan = plan_today(session, now)
     paces = {pace.deck_id: pace for pace in plan.deadline_paces}
@@ -394,7 +394,7 @@ def merge_item(item_id: int, body: MergeRequest, session: SessionDep) -> duplica
 
 @router.get("/decks", tags=["decks"])
 def list_decks(session: SessionDep, now: NowDep) -> list[DeckOut]:
-    return _decks_out(session, library.list_decks(session), now)
+    return decks_out(session, library.list_decks(session), now)
 
 
 class DeckCreate(BaseModel):
@@ -421,12 +421,12 @@ def create_deck(body: DeckCreate, session: SessionDep, now: NowDep) -> DeckOut:
         at=now,
     )
     session.commit()
-    return _decks_out(session, [deck], now)[0]
+    return decks_out(session, [deck], now)[0]
 
 
 @router.get("/decks/{deck_id}", tags=["decks"])
 def get_deck(deck_id: int, session: SessionDep, now: NowDep) -> DeckOut:
-    return _decks_out(session, [library.get_deck(session, deck_id)], now)[0]
+    return decks_out(session, [library.get_deck(session, deck_id)], now)[0]
 
 
 class DeckPatch(BaseModel):
@@ -448,7 +448,7 @@ def update_deck(deck_id: int, body: DeckPatch, session: SessionDep, now: NowDep)
             raise library.InvalidTerm(f"`{required}` cannot be empty.")
     library.update_deck(session, deck, changes, now)
     session.commit()
-    return _decks_out(session, [deck], now)[0]
+    return decks_out(session, [deck], now)[0]
 
 
 class DeckStatusRequest(BaseModel):
@@ -465,7 +465,7 @@ def change_deck_status(
     deck = library.get_deck(session, deck_id)
     deck_service.change_deck_status(session, deck, body.to, now)
     session.commit()
-    return _decks_out(session, [deck], now)[0]
+    return decks_out(session, [deck], now)[0]
 
 
 class QueueRequest(BaseModel):
@@ -486,7 +486,7 @@ def reorder_queue(body: QueueRequest, session: SessionDep, now: NowDep) -> list[
     except ValueError as exc:
         raise InvalidQueue(str(exc)) from exc
     session.commit()
-    return _decks_out(session, library.list_decks(session), now)
+    return decks_out(session, library.list_decks(session), now)
 
 
 class DeckDeleted(BaseModel):

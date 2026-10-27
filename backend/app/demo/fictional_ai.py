@@ -1,29 +1,60 @@
-"""Fictional AI outputs for the demo (D-163).
+"""Fictional AI outputs for the demo (D-163, D-190).
 
-The demo never calls an AI. Its corrections, transcript analyses and drills are built here from the
-fictional dataset as the outputs the AI tasks would have returned, **validated by the real output
-schemas** with the real validation contexts, then stored by the same services as a real result
-(`corrections.store_correction`, `transcripts.store_analysis`, `drills.store_drill`). A template
-that does not fit its sentence is a bug of the dataset and raises.
+The demo never calls an AI. Its corrections, transcript analyses, drills, transcriptions and spoken
+corrections are built here from the fictional dataset as the outputs the AI tasks would have
+returned, **validated by the real output schemas** with the real validation contexts, then stored by
+the same services as a real result (`corrections.store_correction`, `transcripts.store_analysis`,
+`drills.store_drill`, `speech.store_recording`, `corrections.store_speaking_correction`). A
+template that does not fit its sentence is a bug of the dataset and raises.
 """
 
+import random
+import re
+import zlib
+from collections.abc import Sequence
 from typing import Any
 
+from app.ai.schemas import TranscriptionOutput
+from app.ai.schemas.consolidation_task import ConsolidationTaskOutput, consolidation_context
 from app.ai.schemas.production_correction import (
     ProductionCorrectionOutput,
     correction_context,
 )
+from app.ai.schemas.pronunciation import (
+    PhonemeScore,
+    PronunciationAssessmentOutput,
+    WordScore,
+)
+from app.ai.schemas.speaking_correction import SpeakingCorrectionOutput, speaking_context
 from app.ai.schemas.targeted_drill import TargetedDrillOutput, drill_context
 from app.ai.schemas.transcript_analysis import TranscriptAnalysisOutput, transcript_context
-from app.demo.dataset import DemoDrill, ErrorTemplate
-from app.domain.sentences import find_fragment
+from app.ai.types import AiResult, AiStatus
+from app.demo.dataset import DemoDrill, ErrorTemplate, StructureComment
+from app.domain import consolidation as consolidation_rules
+from app.domain import exercises as ex
+from app.domain.sentences import find_fragment, split_sentences
+from app.domain.speech_compare import Unrecognized, words
 from app.domain.transcript_import import Unit
-from app.services import corrections, transcripts
+from app.services import corrections, speaking, transcripts
 
 CORRECTION_PROVENANCE = ("demo", None, "demo-correction-v1")
 TRANSCRIPT_PROVENANCE = ("demo", None, "demo-transcript-v1")
 DRILL_PROVENANCE = ("demo", None, "demo-drill-v1")
+SPEAKING_PROVENANCE = ("demo", None, "demo-speaking-v1")
+CONSOLIDATION_PROVENANCE = ("demo", None, "demo-consolidation-v1")
+CURRICULUM_UNIT_PROVENANCE = ("demo", None, "demo-unit-v1")
+# A transcription records its provider and model, not a prompt version (`production.transcribed`):
+# the version goes in the model, the only place it is seen (D-190).
+TRANSCRIPTION_PROVIDER = "demo"
+TRANSCRIPTION_MODEL = "demo-transcription-v1"
+# A pronunciation assessment of the demo (M6.c1b, D-217): provider and model of the stored scores.
+PRONUNCIATION_PROVIDER = "demo"
+PRONUNCIATION_MODEL = "demo-pa-v1"
 OVERALL_COMMENT = "Fictional correction written for the demo."
+# Whisper-like segment scores: confident speech, and a take with nothing said (D-171).
+_SPEECH_SCORES = (0.02, -0.25)
+_SILENCE_SCORES = (0.92, -1.3)
+_WORD = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 
 
 def _key(text: str) -> str:
@@ -95,6 +126,92 @@ def correction_output(
     )
 
 
+# --- Consolidation (M7.a2) -----------------------------------------------------------------
+
+
+def consolidation_task(
+    template: consolidation_rules.TaskTemplate,
+    *,
+    task_type: consolidation_rules.TaskType,
+    deck_name: str,
+    domain: str | None,
+    refs: list[str],
+) -> ConsolidationTaskOutput:
+    """The task the AI would have written: the deck template, validated by the real schema."""
+    data = consolidation_rules.template_task(
+        template, task_type=task_type, deck_name=deck_name, domain=domain, refs=refs
+    )
+    return ConsolidationTaskOutput.model_validate(
+        data, context=consolidation_context(refs, task_type.value)
+    )
+
+
+def consolidation_correction(
+    prepared: corrections.Prepared,
+    *,
+    misused_ref: int | None,
+    wrong: str,
+    correction: str,
+    category_code: str,
+) -> ProductionCorrectionOutput:
+    """The correction of a consolidation text: one error tied to the term `misused_ref` (the
+    fragment `wrong` of its sentence), a check for every target the text uses. Raises ValueError
+    when `wrong` is in no sentence."""
+    sentences: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    for sentence in prepared.sentences:
+        found = find_fragment(sentence.text, wrong) if misused_ref is not None else None
+        if found is None:
+            sentences.append(
+                {"index": sentence.index, "corrected": sentence.text, "status": "correct"}
+            )
+            continue
+        corrected = sentence.text[: found[0]] + correction + sentence.text[found[1] :]
+        sentences.append({"index": sentence.index, "corrected": corrected, "status": "corrected"})
+        errors.append(
+            {
+                "sentence_index": sentence.index,
+                "wrong": wrong,
+                "correction": correction,
+                "alternatives": [],
+                "category_code": category_code,
+                "explanation_en": f"Say '{correction}' here.",
+                "explanation_fr": f"Dites « {correction} » ici.",
+                "target_ref": misused_ref,
+            }
+        )
+    if misused_ref is not None and not errors:
+        raise ValueError(f"the wrong form {wrong!r} is in no sentence")
+    checks = [
+        {
+            "ref": target.ref,
+            "used": True,
+            "used_correctly": target.ref != misused_ref,
+            "comment": "",
+        }
+        for target in prepared.targets
+        if ex.contains_term(target.term, prepared.text)
+    ]
+    corrected_text = " ".join(s["corrected"] for s in sentences)
+    data = {
+        "sentences": sentences,
+        "corrected_text": corrected_text,
+        "natural_text": corrected_text,
+        "errors": errors,
+        "naturalness_notes": [],
+        "targets": checks,
+        "overall_comment": OVERALL_COMMENT,
+    }
+    return ProductionCorrectionOutput.model_validate(
+        data,
+        context=correction_context(
+            {s.index: s.text for s in prepared.sentences},
+            set(prepared.taxonomy),
+            {t.ref for t in prepared.targets},
+        ),
+    )
+
+
 # --- Transcript --------------------------------------------------------------------------------
 
 
@@ -145,4 +262,238 @@ def drill_output(drill: DemoDrill, codes: set[str]) -> TargetedDrillOutput:
     """The drill of one category. `codes` are the category and its active descendants."""
     return TargetedDrillOutput.model_validate(
         drill.output(), context=drill_context(len(drill.items), codes)
+    )
+
+
+# --- Transcription -----------------------------------------------------------------------------
+
+
+def transcription(text: str, duration_s: float) -> AiResult[TranscriptionOutput]:
+    """What the recogniser would have returned for a take of `duration_s` seconds: `text` (empty for
+    a silent take) with one segment per sentence, timed by its share of the words."""
+    sentences = [s.text for s in split_sentences(text, max_sentences=None)] if text else []
+    segments: list[dict[str, float]] = []
+    if not sentences:
+        no_speech, logprob = _SILENCE_SCORES
+        segments.append(
+            {"start": 0.0, "end": duration_s, "no_speech_prob": no_speech, "avg_logprob": logprob}
+        )
+    else:
+        total = sum(len(s.split()) for s in sentences)
+        start = 0.0
+        for sentence in sentences:
+            end = round(start + duration_s * len(sentence.split()) / total, 2)
+            no_speech, logprob = _SPEECH_SCORES
+            segments.append(
+                {"start": start, "end": end, "no_speech_prob": no_speech, "avg_logprob": logprob}
+            )
+            start = end
+    output = TranscriptionOutput.model_validate(
+        {"text": text, "duration_s": duration_s, "segments": segments}
+    )
+    return AiResult(
+        status=AiStatus.OK,
+        data=output,
+        provider=TRANSCRIPTION_PROVIDER,
+        model=TRANSCRIPTION_MODEL,
+    )
+
+
+# One fictional IPA symbol per letter: the demo phonemes are a fixed split of the word, not a
+# phonetic transcription (D-217).
+_IPA = {
+    **{letter: letter for letter in "bdfhklmnpstvwz"},
+    "a": "\u00e6", "c": "k", "e": "\u025b", "g": "\u0261", "i": "\u026a", "j": "d\u0292",
+    "o": "\u0252", "q": "k", "r": "\u0279", "u": "\u028c", "x": "ks", "y": "j",
+}  # fmt: skip
+_MAX_PHONEMES = 8
+
+
+def _crc(text: str) -> int:
+    """A stable number from a text (no random draw: the demo's other generators stay unchanged)."""
+    return zlib.crc32(text.encode("utf-8"))
+
+
+def _phonemes(word: str, accuracy: float, weak: bool) -> list[PhonemeScore]:
+    symbols: list[str] = []
+    for letter in word.lower():
+        symbol = _IPA.get(letter)
+        if symbol is not None and (not symbols or symbols[-1] != symbol):
+            symbols.append(symbol)
+    symbols = symbols[:_MAX_PHONEMES]
+    weakest = _crc(word) % len(symbols) if symbols else 0
+    scores = []
+    for index, symbol in enumerate(symbols):
+        wobble = (_crc(f"{word}{index}") % 9) - 4
+        value = accuracy + wobble if not (weak and index == weakest) else accuracy * 0.4
+        scores.append(PhonemeScore(phoneme=symbol, accuracy=round(min(max(value, 0), 100), 1)))
+    return scores
+
+
+def pronunciation_output(
+    target: str, unrecognized: Sequence[Unrecognized], duration_s: float
+) -> PronunciationAssessmentOutput:
+    """What Azure would have returned for a take of `target`: the words the recogniser missed are
+    scored low (`Mispronunciation` when something else was heard, `Omission` when nothing was),
+    the others high. Deterministic from the words alone, validated by the real schema (D-217)."""
+    tokens = words(target)
+    missed = {u.position: u for u in unrecognized}
+    step_ms = int(duration_s * 1000 / max(len(tokens), 1))
+    scored = []
+    for position, token in enumerate(tokens):
+        miss = missed.get(position)
+        if miss is None:
+            accuracy, error = float(84 + _crc(token) % 15), "None"
+        elif miss.heard is None:
+            accuracy, error = 0.0, "Omission"
+        else:
+            accuracy, error = float(32 + _crc(token) % 24), "Mispronunciation"
+        scored.append(
+            WordScore(
+                word=token,
+                accuracy=accuracy,
+                error_type=error,
+                offset_ms=position * step_ms,
+                duration_ms=step_ms,
+                phonemes=[]
+                if error == "Omission"
+                else _phonemes(token, accuracy, miss is not None),
+            )
+        )
+    heard = [w for w in scored if w.error_type != "Omission"]
+    accuracy = round(sum(w.accuracy or 0 for w in scored) / max(len(scored), 1), 1)
+    completeness = round(100 * len(heard) / max(len(scored), 1), 1)
+    fluency = float(68 + _crc(target) % 27)
+    return PronunciationAssessmentOutput(
+        status="ok",
+        accuracy=accuracy,
+        fluency=fluency,
+        completeness=completeness,
+        pronunciation=round(0.6 * accuracy + 0.2 * fluency + 0.2 * completeness, 1),
+        words=scored,
+        duration_s=duration_s,
+    )
+
+
+def pronunciation_result(
+    target: str, unrecognized: Sequence[Unrecognized], duration_s: float
+) -> AiResult[PronunciationAssessmentOutput]:
+    return AiResult(
+        status=AiStatus.OK,
+        data=pronunciation_output(target, unrecognized, duration_s),
+        provider=PRONUNCIATION_PROVIDER,
+        model=PRONUNCIATION_MODEL,
+    )
+
+
+def misheard(sentence: str, rng: random.Random, count: int) -> str:
+    """`sentence` as a recogniser might have heard it, with `count` words (0 to 2) lost: a plural
+    heard as a singular ("effects" -> "effect", "studies" -> "study") or the word missed
+    altogether. Both are words the comparator does not recognise (a final -s is never "close",
+    D-173)."""
+    tokens = sentence.split()
+    words = [_WORD.search(token) for token in tokens]
+    candidates = [i for i, word in enumerate(words) if word and len(word.group(0)) >= 3]
+    chosen = sorted(rng.sample(candidates, min(count, len(candidates))), reverse=True)
+    for index in chosen:
+        token = tokens[index]
+        word = _WORD.findall(token)[0]
+        singular = _singular(word)
+        if singular is not None:
+            tokens[index] = token.replace(word, singular, 1)
+        else:
+            del tokens[index]
+    return " ".join(tokens)
+
+
+def _singular(word: str) -> str | None:
+    """The singular a recogniser may hear for a plain plural, else None."""
+    lower = word.lower()
+    if len(word) < 4 or "'" in word or lower.endswith(("ss", "us", "is")):
+        return None
+    if lower.endswith("ies"):
+        return word[:-3] + "y"
+    if lower.endswith("s"):
+        return word[:-1]
+    return None
+
+
+# --- Spoken production -------------------------------------------------------------------------
+
+
+def _connectors_said(text: str, connectors: Sequence[str]) -> list[str]:
+    """The connectors said as whole words, in the order of the list, with the case of the text."""
+    said = []
+    for connector in connectors:
+        found = re.search(rf"\b{re.escape(connector)}\b", text, flags=re.IGNORECASE)
+        if found is not None:
+            said.append(found.group(0))
+    return said[:10]
+
+
+def speaking_output(
+    prepared: speaking.PreparedSpeech,
+    made: list[ErrorTemplate],
+    *,
+    structure: StructureComment | None = None,
+    connectors: Sequence[str] = (),
+    term_used: bool = True,
+) -> SpeakingCorrectionOutput:
+    """The correction of a transcription whose units are the templates' originals and fillers (a
+    free speech, with `structure`), or of a spoken answer (`answer` mode: every target `used`
+    as `term_used` says, no structure). Raises ValueError when a template matches no unit."""
+    found = prepared.correction
+    pending = list(made)
+    units: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    natural: list[str] = []
+    for unit in found.sentences:
+        match = next((t for t in pending if _key(t.original) == _key(unit.text)), None)
+        if match is None:
+            units.append({"index": unit.index, "corrected": unit.text, "status": "correct"})
+            natural.append(unit.text)
+            continue
+        pending.remove(match)
+        units.append(
+            {"index": unit.index, "corrected": _apply(unit.text, [match]), "status": "corrected"}
+        )
+        errors.append(_error_data(match, "sentence_index", unit.index))
+        natural.append(match.alternatives[0])
+    if pending:
+        raise ValueError(f"demo templates match no unit: {[t.original for t in pending]}")
+    feedback = None
+    if structure is not None:
+        feedback = {
+            "comment_en": structure.comment_en,
+            "comment_fr": structure.comment_fr,
+            "connectors_used": _connectors_said(found.text, connectors),
+            "suggestions": [s.model_dump() for s in structure.suggestions],
+        }
+    data = {
+        "sentences": units,
+        "corrected_text": " ".join(u["corrected"] for u in units),
+        "natural_text": " ".join(natural),
+        "errors": errors,
+        "naturalness_notes": [],
+        "targets": [
+            {
+                "ref": target.ref,
+                "used": term_used,
+                "used_correctly": term_used,
+                "comment": "" if term_used else "The term was not heard.",
+            }
+            for target in found.targets
+        ],
+        "structure": feedback,
+        "overall_comment": OVERALL_COMMENT,
+    }
+    return SpeakingCorrectionOutput.model_validate(
+        data,
+        context=speaking_context(
+            {u.index: u.text for u in found.sentences},
+            set(found.taxonomy),
+            {t.ref for t in found.targets},
+            prepared.mode,
+            found.text,
+        ),
     )

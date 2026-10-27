@@ -20,6 +20,8 @@ from app.ai.types import (
     Capability,
     ErrorKind,
     ProviderError,
+    SpeechSegment,
+    TranscriptionDetails,
     TranscriptionRequest,
 )
 from tests.ai.conftest import provider_request
@@ -330,7 +332,8 @@ def test_transcription_request_is_a_multipart_upload(make_server: ServerFactory)
     body = received.body
     assert b'name="model"\r\n\r\nwhisper-large-v3\r\n' in body
     assert b'name="language"\r\n\r\nen\r\n' in body
-    assert b'name="response_format"\r\n\r\njson\r\n' in body
+    assert b'name="response_format"\r\n\r\nverbose_json\r\n' in body
+    assert b'name="prompt"' not in body  # never a target sentence (D-172)
     assert b'name="file"; filename="mon_essai__1_.wav"' in body  # a safe file name
     assert b"Content-Type: audio/wav\r\n\r\nRIFF\x00\x01binary-audio-bytes\r\n" in body
     boundary = content_type.split("boundary=")[1].encode()
@@ -339,6 +342,82 @@ def test_transcription_request_is_a_multipart_upload(make_server: ServerFactory)
     assert response.text == "Hello, this is a short test of my English."  # stripped
     assert response.model == "whisper-large-v3"
     assert response.input_tokens is None and response.output_tokens is None
+
+
+def test_verbose_json_gives_the_duration_and_the_segments(make_server: ServerFactory) -> None:
+    server = make_server(fixture_reply("groq", "transcription_verbose_ok"))
+    response = _provider(server).transcribe(_transcription(_clip()))
+
+    assert response.text == "We account for regional fixed effects in all specifications."
+    assert response.transcription == TranscriptionDetails(
+        duration_s=3.52,
+        segments=(SpeechSegment(start=0.0, end=3.52, no_speech_prob=0.0123, avg_logprob=-0.2134),),
+    )
+
+
+def test_a_hallucination_over_silence_keeps_its_probabilities(make_server: ServerFactory) -> None:
+    server = make_server(fixture_reply("groq", "transcription_verbose_hallucination"))
+    response = _provider(server).transcribe(_transcription(_clip()))
+
+    assert response.text == "Thank you."
+    assert response.transcription is not None
+    [segment] = response.transcription.segments
+    assert (segment.no_speech_prob, segment.avg_logprob) == (0.9214, -1.3127)
+
+
+def test_the_plain_json_format_is_still_read(make_server: ServerFactory) -> None:
+    server = make_server(fixture_reply("groq", "transcription_ok"))
+    response = _provider(server).transcribe(_transcription(_clip()))
+    assert response.transcription == TranscriptionDetails(duration_s=None, segments=())
+
+
+@pytest.mark.parametrize(
+    ("duration", "expected"),
+    [
+        ("3.52", 3.52),
+        (" 12 ", 12.0),
+        (4.25, 4.25),
+        (7, 7.0),
+        ("0", 0.0),
+        ("-1.5", None),
+        ("NaN", None),
+        ("inf", None),
+        ("three", None),
+        (True, None),
+        (None, None),
+        ([1.0], None),
+    ],
+)
+def test_the_duration_is_read_as_a_string_or_a_number(
+    make_server: ServerFactory, duration: object, expected: float | None
+) -> None:
+    server = make_server(Reply(body={"text": "hello", "duration": duration}))
+    response = _provider(server).transcribe(_transcription(_clip()))
+    assert response.transcription is not None
+    assert response.transcription.duration_s == expected
+
+
+def test_malformed_segments_are_ignored(make_server: ServerFactory) -> None:
+    segments = [
+        "not a segment",
+        {"start": "0.5", "end": 2, "no_speech_prob": "high", "avg_logprob": -0.4},
+        42,
+        {},
+    ]
+    server = make_server(Reply(body={"text": "hello", "duration": "2", "segments": segments}))
+    response = _provider(server).transcribe(_transcription(_clip()))
+
+    assert response.transcription is not None
+    assert response.transcription.segments == (
+        SpeechSegment(start=0.5, end=2.0, no_speech_prob=None, avg_logprob=-0.4),
+        SpeechSegment(),
+    )
+
+
+def test_segments_that_are_not_a_list_are_ignored(make_server: ServerFactory) -> None:
+    server = make_server(Reply(body={"text": "hello", "segments": {"id": 0}}))
+    response = _provider(server).transcribe(_transcription(_clip()))
+    assert response.transcription is not None and response.transcription.segments == ()
 
 
 def test_silence_is_an_empty_but_valid_transcription(make_server: ServerFactory) -> None:
