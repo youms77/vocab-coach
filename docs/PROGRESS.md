@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **RV.a** (visual redesign, foundations; frontend only) is done on `feat/rv-visual-redesign`, cut from `main` (`9ebb82c`, M1 to M9): layers, tokens, Inter, icons, base components, the sidebar shell, the style guide, the contrast test, readable charts. Not pushed. **Stopped as the brief requires: RV.b (screen by screen) waits for the owner's go-ahead.** See the RV.a section. M10.a comes after RV.
 - **M9.b** (module I, the statistics dashboard, frontend only) is done on `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`): **M9.b1** (overview, errors, memory, period picker, CSV link) and **M9.b2** (progress, practice, AI). Not pushed. Next: the owner's review of M9, then the push. See the M9.b2 and M9.b1 sections.
 - **M9.a** (module I, the statistics backend: every indicator from the logs, `/api/stats/*`, the CSV export, `stats summary | errors | memory | export`; no screen, no migration) is done on `feat/m9a-stats-backend`, cut from `bb7f8fd` (tip of `feat/m8b-curriculum-screens`), in two commits (M9.a1, M9.a2). Not pushed. Next: the owner's review, then **M9.b** (the dashboard). See the M9.a section and its API reference.
 - **M8.b2** (module H, the editor of a scenario unit's content: formulas, dialogue, shadowing lines, final task; frontend only) is done on `feat/m8b-curriculum-screens` after M8.b1 (`4d522c2`). Not pushed. Next: the owner's review of M6 to M8, then the push. See the M8.b2 section.
@@ -29,6 +30,62 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## RV.a — Visual redesign: foundations (frontend only)
+
+Branch `feat/rv-visual-redesign`, cut from `main` (`9ebb82c`), then `git cherry-pick 6f8b007` (the design plan and the hero photos). Six commits after the cherry-pick (spec, CSS layers, tokens and Inter, icons and shell, charts and style guide, documentation), not pushed. **No backend change** (`git diff --stat main -- backend` is empty), **no migration, no new dependency** (`package.json` and the lockfiles are unchanged). Decisions **D-285 to D-294**. The brief (`docs/prompt_RV_visual_redesign.md`) is the reference; the owner's go-ahead is needed before RV.b.
+
+### Done
+
+- **Spec** (once, first commit): section 8 now separates the illustrated landing pages from the clean working screens, section 9 has the RV line between M9 and M10. The second hero photo (`home-hero-p2.jpg`) is deleted.
+- **CSS in layers** (D-285): `styles.css` (2,834 lines) became `styles/index.css` (`@layer tokens, base, components, layout, features`), `tokens.css`, `base.css`, `components.css`, `layout.css` and 16 files in `styles/features/`. The cut came first and changed nothing: 39 of the 42 reference screenshots are byte-identical before and after it, the 3 others differ only by the "Computed on" timestamp of the statistics page.
+- **Tokens** (D-286, D-287): every colour once, as `light-dark()`, in `tokens.css`; the brief's values (with the corrected `border-strong` and `accent`); type scale, spacing, radius, shadow, size and duration tokens. The duplicated dark block is gone; the theme selector and `theme.ts` are unchanged. Old-to-new names are in D-286.
+- **Inter** (D-288): v4.1 (16 November 2024, SIL OFL 1.1), `InterVariable.woff2` 352,240 bytes and `OFL.txt` 4,380 bytes in `frontend/src/assets/fonts/`, with a system fallback; nothing loads from the network.
+- **Icons** (D-289): 30 home-made outline icons (`Icon`, `iconPaths.ts`), no library.
+- **Base components**: buttons (primary, secondary, ghost, danger, hero, icon; small, normal, large; disabled, busy; counter), fields, cards, tables (`.num` columns, scrolling `.table-wrap`), badges, notices, `kbd`, details, status dots, and the React components `Badge`, `Notice`, `StatTile`, `ActionTile`, `SectionHeader` (picks its illustration by active theme through `useActiveTheme`), `HomeHero`, `EmptyState` (three flat illustrations). The existing classes were restyled in place: no change in the ~200 buttons' markup.
+- **Shell** (D-290): sidebar (expanded 232 px, folded 72 px, state in `vocab-coach.sidebar`), top bar (fold or Menu button, Demo data badge, Language, Theme), menu panel below 960 px (Escape, focus, route change, backdrop), `aria-current`, groups Vocabulary / Practice / Progress, Settings at the bottom. New EN and FR keys: `nav.menu`, `nav.collapse`, `nav.expand`, `nav.section`, `nav.groups.*`.
+- **Charts** (D-293): `LineChart` is drawn at its container's width. **Style guide** (D-291): `/styleguide`, development only. **Contrast test** (D-292): 71 checks.
+
+### Verified
+
+- **Tests**: 857 Vitest tests in 71 files (775 in 67 before): +71 contrast, +8 sidebar and menu, +2 icons, +1 style guide. **No existing test was modified or removed.** **`npm run check` is green** at the end of RV.a (ruff, 355 files formatted, 2,879 pytest tests passed, typecheck, oxlint, 857 of 857 Vitest tests in 71 files) and `npm --prefix frontend run build` passes.
+- **Broken-code check** (applied, then reverted): dark `--ink-muted` `#a3a1c2` changed to `#4a4870` made four contrast tests fail (`dark: --ink-muted on --bg is at least 4.5:1` 2.12, `on --surface`, `on --brand-tint` 1.89, `on --surface-sunken` 2.01); restored, 71 of 71 pass.
+- **Hard-coded colours** outside `tokens.css`, `rg -n --glob '*.css' --glob '!tokens.css' -e '#[0-9a-fA-F]{3,8}\b' -e 'rgba?\(' -e 'hsla?\(' frontend/src` returns one line, `styles/components.css:616: mask-image: radial-gradient(ellipse 50% 50% at 55% 50%, #000 55%, transparent 100%)` (a mask reads only alpha, D-294); no colour in any `.tsx` (`rg "#[0-9a-fA-F]{6}\b"` over non-test TSX returns nothing).
+- **CSS size** (built, minified): before 36,104 bytes / 6,901 gzip, after **50,186 / 9,474 gzip (+39 % / +37 %)**; sources 49,373 bytes / 2,834 lines before, 3,667 lines in 24 files after (the 20 % limit of the brief is exceeded: the increase is new code, not duplication: the sidebar, top bar and menu panel, the section header, hero, tiles, notice, badge, empty state and its illustration classes, the new tokens, and the style guide's stylesheet is not in it). Fonts and photo are separate assets: Inter 352,240 bytes, home photo 355,390 bytes.
+- **Binary files added**: `InterVariable.woff2` (352,240), `home-hero-p6.jpg` (355,390, from the cherry-pick). The licence `OFL.txt` (4,380) is text. The eight section illustrations are for RV.b.
+- **Style guide absent from the build**: the witness string `STYLEGUIDE-WITNESS-7f3a91` and "Colour tokens" are not in `dist/`.
+- **In a real browser** (headless Edge driven through the DevTools protocol, demo database in a temporary `VOCAB_DATA_DIR`, seeded `--anchor 2026-10-27`, no `.env`, no AI call): fold 232 to 72 px and back; the choice survives a reload (`collapsed`); at 375 px the panel is `hidden`, Enter on Menu opens it with the focus on Home, Escape closes it and the focus is back on Menu; **`scrollWidth` equals the viewport on all 48 screenshots**: the 15 screens (plus the style guide, the folded sidebar and the open menu) at 1280 px light and dark, at 375 px in English, and at 375 px in French for the home, Today, the review card and the menu; at 640 px (200 % zoom of 1280) `scrollWidth` is 640; the top bar is on **one row** at 375 px in English and French (and at 600, 800 and 959 px in French).
+- **Chart labels**: rendered size of every axis label measured through the screen matrix of each SVG `<text>`: **13.00 px at 375 px and at 1280 px** (was about 8 px at 375 px), legends 14 px (statistics page, 11 charts, and the style guide).
+- **Screenshots, before | after**: `%TEMP%\vc-rv-shots\index.html` (`C:\Users\Yobijo\AppData\Local\Temp\vc-rv-shots\index.html`; images in `before\` and `after\`, named `<screen>-<width>-<theme>-<language>.png`). Full-page captures (height capped at 6,000 px) taken through headless Edge because the built-in browser's captures cannot be saved to files. The review-result and the discovery captures were taken after a scroll, so the sticky sidebar sits lower in the frame: a capture effect, not a layout fault.
+
+### Left / known limits
+
+- **RV.b is not done**: the home page still has its old content (no hero, no tiles), no page has a `SectionHeader` yet (the eight illustrations are not in the repository), the review and correction screens keep their old structure (rating buttons not colour-coded, no `CorrectionMark`), the sub-page links under the titles are still underlined links, `.status`, `.form-message--*`, `.problem--*` and `.badge` rows are not yet replaced by `Notice` and `Badge`, and the three known defects of the brief (category codes cut in the middle of a word, the `<fieldset>` in a `<p>` of the dialogue step, the seven-column import table below 600 px) are not fixed. At 375 px the import table still scrolls inside its own `.table-wrap` (no page overflow).
+- Pages are now up to 1120 px wide (`--content-max`) with no reading column: forms and long lines look wider than before until RV.b sets `--reading-max` on the working screens. The 560 px, 40 rem and 30 rem queries of the feature files are not yet 600 px.
+- The sidebar has no counter (D-290).
+- Chrome or Edge 123 or later is required (`light-dark()`, D-286).
+- **Flaky test under load**: `drillLinks.test.tsx > Practise now: the session step > links the targeted practice to the drills page` timed out (`findByRole`, 1 s) in two of four full runs of the whole suite on this machine; it passes alone (3 runs of 12 of 12). It also failed in two concurrent runs on `main` before any change (with `ManualErrorPage`, `ReviewPlayer.check` and `DiscoveryFlow` tests failing under the same load), so it predates RV; not changed.
+- **Not seen with my own eyes**: the dark theme of the section header (no illustration yet), the French menu panel open at 375 px beyond the screenshot, and the focus ring of every control (the ring colour is tested by the contrast test, not looked at on each page).
+
+### Next step
+
+The owner's review of RV.a (scenario below), then the RV.b plan (order of the screens, defects, estimate per screen, the illustrations: eight PNG files `header-<library|writing|speaking|errors>-<light|dark>.png` of about 800 px in `frontend/src/assets/sections/`).
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset --anchor <today, YYYY-MM-DD>
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Look at the home page and Today: the new indigo shell, the sidebar, the top bar, Inter. (The photo, the figures and the tiles of the home page are RV.b.)
+2. Open the library, then a term: titles in indigo, buttons, fields with visible borders.
+3. Open the statistics for the week: the axis labels of the charts are readable.
+4. Fold and unfold the sidebar (the button at the left of the top bar), then reload the page: the state is kept.
+5. Switch the Theme to Dark, then the Language to French, then narrow the window to a phone width (about 375 px) and open the Menu: Escape closes it.
+6. Open http://127.0.0.1:5173/styleguide: tokens in both themes, icons, every component.
 
 ## M9.b2 — Statistics dashboard: progress, practice, AI (frontend)
 

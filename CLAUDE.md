@@ -82,8 +82,12 @@ Vite proxies `/api` to the backend, so the frontend always calls relative `/api/
 - Cross-platform: the owner runs Windows. Use `pathlib`, no shell-specific tricks in app code, no
   hard-coded `/` paths; scripts exist as `.ps1` (Windows) and `.sh` (macOS/Linux). Keep `.ps1` files ASCII
   so Windows PowerShell 5.1 reads them correctly.
-- UI: sober, readable, dark mode via CSS tokens in `frontend/src/styles.css`; accessibility basics
-  (labels, focus styles, keyboard use).
+- UI: sober, readable, light and dark. Every colour, size, spacing, radius and shadow comes from the tokens in
+  `frontend/src/styles/tokens.css` (one definition per colour, `light-dark()`); **never write a colour in a
+  component or feature stylesheet**, and reuse the base classes and components (`button`, `card`, `badge`,
+  `notice`, `SectionHeader`, `StatTile`, `EmptyState`...; see `/styleguide` in development and
+  `docs/architecture.md`). Styles live in cascade layers (`styles/index.css`); no rule outside a layer.
+  Accessibility basics (labels, focus styles, keyboard use, never colour alone).
 
 ## How to run a milestone session
 

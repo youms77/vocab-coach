@@ -4003,3 +4003,60 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 
 - **Study time** is the actions-based time. The sessions' own duration is drawn as a dashed line "for comparison" and **never added** to it, as the API specifies; the note under the chart says that a long reading without a click is not counted.
 - **AI**: successes are written `n of total`, not as a percentage (a count is always exact, and a rate on a handful of calls would mislead). Rate limits and used-up quotas have their own columns, apart from the other errors, as in the API. **No free-tier quota or limit is written on the screen** (CLAUDE.md: never invent a quota): the Azure line gives the month's audio minutes and assessments and sends the owner to the Azure portal for the limit.
+
+
+## D-285 — The stylesheet is cut into cascade layers and files (RV.a)
+
+- `frontend/src/styles/index.css` declares `@layer tokens, base, components, layout, features;` and imports `tokens.css`, `base.css`, `components.css`, `layout.css` and one file per feature under `styles/features/` (all in the `features` layer). `styles.css` (2,834 lines) is gone. **No rule may sit outside a layer**: an unlayered rule beats every layer.
+- The cut was made first and alone, without changing one declaration: the 42 reference screenshots taken on `main` and after the cut are byte-identical (three differ only by the "Computed on" timestamp of the statistics page). The rules that every screen shares (`kbd`, `table`, `th`/`td`, `fieldset`, `legend`, `code`, `.table-wrap`, `.visually-hidden`, `.badge`, `.button--small`) then moved from the feature files to `components.css`.
+- A feature file uses the tokens and no colour of its own. Borders of 1 to 3 px stay literal (they are a drawing, not a design value); recurring radii and spacings use the tokens.
+- **Rejected**: CSS modules (a build change for no gain here) and a CSS-in-JS library (a dependency).
+
+## D-286 — One definition per theme: `light-dark()` and `color-scheme` (RV.a; keeps the choice of D-007)
+
+- Every colour is written once, as `--ink: light-dark(#1e1b3a, #e8e7f5);`. `:root { color-scheme: light dark }` follows the operating system; the Theme selector keeps setting `data-theme` on `<html>` and in `localStorage` (`vocab-coach.theme`), now as `:root[data-theme='light'|'dark'] { color-scheme: ... }`. `theme.ts` did not change. The old duplicated dark block (a media query and a `data-theme` copy) is gone. As a bonus the native controls (select lists, scroll bars) follow the theme.
+- **Checked on MDN** (page of 18 April 2026, read on 27 October 2026): `light-dark()` for colours is Baseline 2024: Chrome 123, Edge 123, Firefox 120, Safari 17.5. The app is local and used in a current Edge, so it requires **Chrome or Edge 123 or later**.
+- Old name to new name: `--text` to `--ink`; `--text-muted` to `--ink-muted` (and `--ink-subtle`); `--accent` to `--brand`; `--accent-contrast` to `--on-brand`; `--ok` to `--success`; `--warn` to `--warning`; `--focus` to `--focus-ring`; `--surface-2` to `--surface-sunken` (or `--surface` for fields and buttons); `--border` to `--border` (hairlines) or `--border-strong` (fields, secondary buttons); `--radius` to `--radius-md` or `--radius-lg`; `--content-width` (880 px) to `--content-max` (1120 px) and `--reading-max` (720 px). `--danger`, `--bg`, `--surface`, `--chart-1..5` keep their names with new values. **Trap**: `--accent` now means coral (error marks, never a button). The renaming was done first, with a search proving that no `var(--accent)` was left, and only then was the new `--accent` defined.
+- Breakpoints, which a media query cannot read from a variable: **600 px** (phones: one column, 40 px touch targets, compact top bar) and **960 px** (the sidebar becomes a menu panel). They are written out where used and listed in `docs/architecture.md`; the old 560 px, 40 rem and 30 rem queries of the feature files are still there until RV.b brings them to 600 px.
+
+## D-287 — Values corrected for contrast, and names kept from the Design System (RV.a)
+
+- The brief corrects two Design System values: `border-strong` is `#8582a8` (light) and `#7472ab` (dark), which gives 3.65:1 on `surface` in both themes (the first value was 1.6:1); `accent` is `#a8461f` in light, 5.16:1 on `accent-tint` (the first value did not reach 4.5:1). `chart-2` light (`#c2552d`) is the weakest series on the page background, 4.21:1.
+- The Design System also defines `on-hero` (white, text on the photo banner); it is kept as a token. Spacing names are the Design System's (`space-1, 2, 3, 4, 6, 8, 10` = 4, 8, 12, 16, 24, 32, 40 px), not seven consecutive numbers.
+- The hover of a secondary button is `color-mix(in srgb, var(--brand) 10%, var(--surface))`: the Design System's `brand-tint` equals `surface` in dark and would show nothing.
+
+## D-288 — Inter is bundled and replaces the system fonts of D-007 (RV.a)
+
+- `frontend/src/assets/fonts/InterVariable.woff2` (352,240 bytes) and `OFL.txt` (4,380 bytes, the SIL Open Font License 1.1 of the Inter project), taken from the official release **Inter v4.1, published on 16 November 2024** (`github.com/rsms/inter/releases`, `Inter-4.1.zip`, 33,707,794 bytes, kept outside the repository; only `web/InterVariable.woff2` and `LICENSE.txt` were extracted). No italic: nothing in the app uses one.
+- Declared with `@font-face` (`font-weight: 100 900`, `font-display: swap`) in `base.css`; the stack falls back to `"Segoe UI Variable", "Segoe UI", system-ui, sans-serif`. Nothing is loaded from the network, so the app stays offline. This replaces the "system fonts only" part of D-007; the rest of D-007 (the choice of theme) stands. Cost: about 356 KB in the repository, one request for the font.
+
+## D-289 — The icons are a small home-made set, not a library (RV.a)
+
+- `components/Icon.tsx` draws 30 outline icons from `components/iconPaths.ts` (24x24 grid, stroke 1.75, `currentColor`, round caps), all `aria-hidden`; a button with only an icon carries an `aria-label`. Sizes: 20 px in navigation and tiles, 18 px in buttons, 16 px in small buttons.
+- `docs/DESIGN_PLAN.md` planned Tabler Icons; no package is added instead (the brief forbids any new dependency, and about 30 shapes do not justify one).
+
+## D-290 — A collapsible sidebar, a top bar and a menu panel (RV.a; the only new feature of RV)
+
+- One `<nav aria-label="Main">` in the DOM, inside `Sidebar`; CSS makes it the left sidebar from 960 px (232 px, or a 72 px icon rail) and a panel that slides in below. No `matchMedia` (absent from jsdom): the fold button and the Menu button are both in the markup and CSS shows one. A hidden panel is `visibility: hidden`, so it is neither focusable nor read.
+- Folded: the labels stay in the markup, hidden visually, each link gets a `title`, the group titles disappear; the button has `aria-expanded` and says its action ("Collapse the menu" / "Expand the menu"). The choice is kept in `localStorage` (`vocab-coach.sidebar`, `expanded` or `collapsed`), read and written inside `try/catch`.
+- Menu panel: `aria-expanded` and `aria-controls`; opening moves the focus to the first link, Escape closes it and gives the focus back to the button, the backdrop closes it, and **it is open for one path only** (`openedOn === pathname`), so a route change closes it without an effect.
+- Groups: Home and Today (no title); **Vocabulary** (Library); **Practice** (Writing, Speaking, Tracks, Consolidation); **Progress** (Errors, Statistics); Settings alone at the bottom. The brief named the first group "Library" like its only link, which would read twice; "Vocabulary" / "Vocabulaire" is one key to change. **No counter** is shown on Library (the sketch had one for the terms to sort): it would need an API call from the shell on every page, and the brief forbids a new call. The counter exists in the component (`NavItem.count`) and in the style guide.
+- Top bar on one row at 375 px in both languages: the Menu button keeps only its icon below 600 px and the labels of the Language and Theme selectors are hidden visually (the selectors are still named by them); from 600 to 959 px the labels are hidden too and the brand shows only its mark. The brand also stays a link to `/`.
+
+## D-291 — The style guide is a development-only route (RV.a)
+
+- `/styleguide` is added to the route table only `if (import.meta.env.DEV)`, through a dynamic import; a production build replaces the flag by `false` and the page, its CSS and its texts leave the bundle. Checked after `npm --prefix frontend run build`: the witness string `STYLEGUIDE-WITNESS-7f3a91` and the title "Colour tokens" are not in `dist/`.
+- It shows both themes' tokens side by side (an element with `color-scheme: light` or `dark` resolves `light-dark()` on its own), the type scale, the icons, every component in each state, the sidebar expanded and folded and a chart. **Exception to the i18n rule**: its texts are in English, in the code (a developer's tool, not a screen of the product).
+
+## D-292 — The contrast of the tokens is a test (RV.a)
+
+- `styles/contrast.ts` is pure (WCAG 2.x relative luminance); `contrast.test.ts` reads the real `tokens.css` as text (jsdom does not compute `light-dark()`, and a `?raw` import of a CSS file is an empty string under Vitest, so it uses `node:fs` with `import.meta.dirname`) and checks, in both themes: text and brand-strong on the four surfaces (4.5:1), `ink-subtle`, `on-brand`, `sidebar-ink`, each status on its tint and `accent` on `accent-tint` (4.5:1), `border-strong` and `focus-ring` on `bg` and `surface` (3:1), `chart-1..5` on `surface` and `bg` (3:1; and 4.2:1 on `bg`). It also finds the values computed for the brief (3.65 and 5.16). 71 checks.
+- **Broken-code check**: dark `--ink-muted` changed from `#a3a1c2` to `#4a4870` made four tests fail (`dark: --ink-muted on --bg / --surface / --brand-tint / --surface-sunken is at least 4.5:1`, ratios 1.89 to 2.12), then the value was restored. (The brief says "too light"; on a dark page only a value too close to the background lowers the contrast.)
+
+## D-293 — Charts are drawn at the width of their container (RV.a; builds on D-279)
+
+- The labels were about 8 px at 375 px because the SVG, drawn in a 480-unit `viewBox`, was scaled down. `LineChart` now measures its container (`useElementWidth`, a `ResizeObserver`; 480 where the API does not exist, as in tests) and draws the SVG in a `viewBox` of that width, so nothing is scaled: axis labels are 13 px at any width (measured in the browser through the screen matrix of each `<text>`: 13.00 px at 375 and at 1280 px, legends 14 px), and the number of x labels follows the room (one per 64 px, at least two). `role="img"`, the gaps for missing data, "Show the numbers" and the `chart-1..5` colours are unchanged. No test measures a size.
+
+## D-294 — Hard-coded colours after RV.a (RV.a; to be completed in RV.b)
+
+- Outside `tokens.css` there is one literal colour: the `#000` of the `mask-image` of the section-header illustration (a mask only reads the alpha channel, so it has no hue). The white of the banner button comes from `--on-hero` and its ink from `--sidebar`; the sidebar mark, rings and counters use tokens. The searches are in `PROGRESS.md`.

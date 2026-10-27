@@ -250,7 +250,9 @@ http.py      urllib client: error status = a normal answer, network failure = Pr
 |---|---|
 | `main.tsx` | bootstraps i18n, theme, TanStack Query client, router |
 | `routes.tsx` | route table (one entry per feature) |
-| `components/` | `Layout` (top bar, skip link, "Demo data" badge, outlet), `AiBanner` (degraded mode, every page), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage`, `keyboard.ts` (shortcut guard shared by triage and reviews, M4.c) |
+| `components/` | `Layout` (skip link, sidebar, top bar, menu state, outlet), `Sidebar` (the one `<nav>`: left sidebar, icon rail, or menu panel; D-290), `TopBar` (fold / Menu button, "Demo data" badge, language and theme), `AiBanner` (degraded mode, every page), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage`, `keyboard.ts` (shortcut guard shared by triage and reviews, M4.c); base components of RV.a: `Icon` + `iconPaths.ts` (D-289), `Badge`, `Notice`, `StatTile`, `ActionTile`, `SectionHeader`, `HomeHero`, `EmptyState`; `charts/` (`LineChart`, `BarList`, `useElementWidth`, D-293) |
+
+Breakpoints (CSS constants, written out in each media query because a query cannot read a variable): **600 px** (phones: one column, 40 px targets, compact top bar) and **960 px** (below it the sidebar is a panel opened by the Menu button). Browsers: `light-dark()` needs Chrome or Edge 123 or later (D-286).
 | `features/home/` | home screen: the Today card (from `features/session/`) and backend status |
 | `features/session/` | `TodayCard` and `PlanWarnings` (today's plan and its translated warnings), `/session` (`SessionPage`: start, next steps, review player, end with confirmation, summary, saved-review announcement; `StepPanels`: `wait` timer, practice info, summary), `SessionProgress`, `StepHeading` (focus on each step), `format.ts` (M4.b, M4.c) |
 | `features/review/` | module C in the session (M4.c1): `ReviewPlayer` (calls, focus, autoplay, errors), `reviewMachine.ts` (pure card state machine, D-120), `ReviewPrompt` (prompt by type, before the answer), `ReviewResult` (correction and sheet summary), `RatingButtons`, `useReviewShortcuts` (keys by phase, D-122), `stepText.ts` (replay text, D-123) |
@@ -260,5 +262,8 @@ http.py      urllib client: error status = a normal answer, network failure = Pr
 | `features/settings/` | `/settings`: provider cards (key / address form, connection test), provider order, AI usage, study settings; `errorMessage.ts` maps the API's `detail.code` to i18n keys (M2.c2) |
 | `api/` | `client.ts` (`apiGet`, `apiSend`, `ApiError` with `code`), `health.ts`, `ai.ts`, `settings.ts`, library, import, triage, duplicates and enrichment modules, and (M4.b, M4.c) `session.ts`, `discovery.ts`, `reviews.ts` (grade, reveal, record; types mirroring the backend contracts, query and mutation hooks) |
 | `i18n/` | i18next setup, `locales/en.json`, `locales/fr.json`, typed keys |
-| `theme.ts`, `styles.css` | theme preference and CSS design tokens (light/dark) |
+| `theme.ts`, `sidebar.ts`, `useActiveTheme.ts` | theme preference (`vocab-coach.theme`), sidebar fold state (`vocab-coach.sidebar`), the theme in effect for what CSS cannot switch (RV.a) |
+| `styles/` | the CSS, in cascade layers (D-285): `index.css` (layer order and imports), `tokens.css` (every colour once, as `light-dark()`, plus type, spacing, radius, shadow and size tokens: D-286), `base.css` (Inter `@font-face`, reset, headings), `components.css` (buttons, fields, cards, tables, badges, notices, tiles, section header, hero, empty state), `layout.css` (shell, sidebar, top bar), `features/*.css` (one file per feature, no colour of its own), `contrast.ts` + `contrast.test.ts` (WCAG test of the tokens, D-292) |
+| `assets/fonts/`, `assets/hero/` | the bundled Inter variable font and its licence (D-288), the home hero photo |
+| `features/styleguide/` | `/styleguide`, mounted only in development (D-291) |
 | `test/` | Vitest setup, `renderApp()` / `renderWithProviders()` helpers, `mockApi()` (fetch replaced by a small router that records calls), `fixtures.ts`, `fakeSpeech.ts` (fake `speechSynthesis`) |

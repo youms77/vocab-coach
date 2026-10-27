@@ -1,6 +1,11 @@
 # Design overhaul plan
 
-Status: **planning**. Visual decisions are made now; implementation starts **after M9** (before or as
+Status: **implemented in part**: RV.a (foundations: layers, tokens, Inter, icons, base components, sidebar shell,
+style guide, contrast test, charts) is done; RV.b (screen by screen) comes next. Corrections made while
+implementing (see D-285 to D-294 in `docs/DECISIONS.md`): **icons are home-made SVG, not Tabler** (no new
+dependency); `border-strong` is `#8582a8` / `#7472ab` (3.65:1 on surface, the first values were 1.6:1) and
+`accent` is `#a8461f` in light (5.16:1 on its tint); the sidebar group "Library" is named "Vocabulary".
+Original text: visual decisions are made now; implementation starts **after M9** (before or as
 part of M10). Nothing in this file changes `docs/SPEC.md` until the owner approves the amendment below.
 
 ## Why
@@ -111,7 +116,7 @@ image licences must allow redistribution in a public repository (Unsplash, unDra
    **Design System v1 published** (2026-10-24): https://claude.ai/artifact/JTXNiqX9PkLFw6HsDYao3S
    (private to the owner). Tokens for both themes, Inter type scale, spacing, radii, shadows, and
    13 components with previews: Sidebar, HomeHero, SectionHeader, Button, Badge, StatTile,
-   ActionTile, Card, Field, Notice, ReviewCard, CorrectionMark, EmptyState. Icons: Tabler outline
+   ActionTile, Card, Field, Notice, ReviewCard, CorrectionMark, EmptyState. Icons: ~~Tabler outline~~ home-made outline SVG set (D-289)
    (to add at implementation, version checked then).
 3. **Design System** reference (link above). Owner comments; revisions go to the same artifact.
    **Approved** (2026-10-24).
