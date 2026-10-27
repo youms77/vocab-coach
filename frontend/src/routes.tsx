@@ -81,6 +81,18 @@ export const routes: RouteObject[] = [
       { path: 'errors/:id', element: <ErrorDetailPage /> },
       { path: 'stats', element: <DashboardPage /> },
       { path: 'settings', element: <SettingsPage /> },
+      // Development only (D-291): `import.meta.env.DEV` is replaced by `false` in a production build,
+      // which removes this entry and, with it, the page and its stylesheet from the bundle.
+      ...(import.meta.env.DEV
+        ? [
+            {
+              path: 'styleguide',
+              lazy: async () => ({
+                Component: (await import('./features/styleguide/StyleguidePage')).StyleguidePage,
+              }),
+            },
+          ]
+        : []),
       { path: '*', element: <NotFoundPage /> },
     ],
   },
