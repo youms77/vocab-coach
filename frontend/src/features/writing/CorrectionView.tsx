@@ -16,6 +16,8 @@ import {
   type TargetEntry,
 } from './correction'
 import { Notice } from '../../components/Notice'
+import { CategoryCode } from '../../components/CategoryCode'
+import { CorrectionMark } from '../../components/CorrectionMark'
 
 type Level = 2 | 3
 
@@ -62,7 +64,7 @@ function CategoryName({ code, label }: { code: string; label: string | null }) {
   return (
     <>
       {label !== null && <>{label} </>}
-      <code className="category-code">{code}</code>
+      <CategoryCode code={code} />
     </>
   )
 }
@@ -97,11 +99,11 @@ function ErrorItem({
         )}
       </p>
       <p lang="en" className="correction-change">
-        <span className="visually-hidden">{t('correction.wrong')}: </span>
-        <del className="correction-wrong">{entry.wrong}</del>
-        <span aria-hidden="true"> → </span>
-        <span className="visually-hidden">{t('correction.right')}: </span>
-        <ins className="correction-right">{entry.correction}</ins>
+        <CorrectionMark
+          wrong={entry.wrong}
+          correction={entry.correction}
+          labels={{ wrong: t('correction.wrong'), right: t('correction.right') }}
+        />
       </p>
       {entry.alternatives.length > 0 && (
         <p>

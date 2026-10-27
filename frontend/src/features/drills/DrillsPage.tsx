@@ -20,6 +20,7 @@ import { ErrorText } from '../settings/ErrorText'
 import { isDrillableCode, isDrillableNode, progressOf } from './drillRules'
 import { fromSessionOf } from './fromSession'
 import { Notice } from '../../components/Notice'
+import { CategoryCode } from '../../components/CategoryCode'
 
 /** "New drill": a category, a number of items, and the wait for the AI (a few seconds). */
 function NewDrillForm({
@@ -221,7 +222,7 @@ function DrillList({ category, page }: { category: string; page: number }) {
                       </th>
                       <td>
                         {labelOf(drill.category, i18n.language)}{' '}
-                        <code className="category-code">{drill.category.code}</code>
+                        <CategoryCode code={drill.category.code} />
                       </td>
                       <td>
                         {drill.score.answered === 0

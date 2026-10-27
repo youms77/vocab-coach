@@ -20,6 +20,7 @@ import { findFragment, highlightSegments } from './fragment'
 import { productionLink } from './logRules'
 import { TermPicker } from './TermPicker'
 import { Notice } from '../../components/Notice'
+import { CorrectionMark } from '../../components/CorrectionMark'
 
 /** The state the list passes to its rows, so the way back keeps the filters. */
 function listPath(state: unknown): string {
@@ -300,8 +301,8 @@ export function ErrorDetailPage() {
             <OriginalSentence error={error} />
             <p>
               <strong>{t('errorLog.detail.wrong')}:</strong>{' '}
-              <span className="correction-wrong" lang="en">
-                {error.erroneous_text}
+              <span lang="en">
+                <CorrectionMark wrong={error.erroneous_text} />
               </span>
             </p>
           </section>

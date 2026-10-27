@@ -13,6 +13,7 @@ import { firstUnanswered } from './drillRules'
 import { DrillSummary } from './DrillSummary'
 import { fromSessionOf } from './fromSession'
 import { Notice } from '../../components/Notice'
+import { CategoryCode } from '../../components/CategoryCode'
 
 /**
  * The rule and the items of a loaded drill. It resumes at the first item not answered. The item
@@ -130,7 +131,7 @@ export function DrillPage() {
         </PageTitle>
         {drill !== undefined && (
           <p className="muted">
-            <code className="category-code">{drill.category.code}</code> ·{' '}
+            <CategoryCode code={drill.category.code} /> ·{' '}
             {formatDateTime(drill.created_at, i18n.language)}
           </p>
         )}

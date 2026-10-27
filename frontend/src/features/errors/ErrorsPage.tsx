@@ -21,6 +21,8 @@ import { productionLink } from './logRules'
 import { Icon } from '../../components/Icon'
 import { SectionHeader } from '../../components/SectionHeader'
 import { sectionArt } from '../../components/sectionArt'
+import { CategoryCode } from '../../components/CategoryCode'
+import { CorrectionMark } from '../../components/CorrectionMark'
 
 function FilterForm({
   filters,
@@ -240,14 +242,18 @@ export function ErrorsPage() {
                         <tr key={error.id}>
                           <td>{formatShortDate(error.occurred_at, i18n.language)}</td>
                           <th scope="row" className="cell-wrap" lang="en">
-                            <Link to={`/errors/${error.id}`} state={{ search: location.search }}>
-                              {error.erroneous_text}
-                            </Link>{' '}
-                            → <span>{error.correction}</span>
+                            <CorrectionMark
+                              wrong={
+                                <Link to={`/errors/${error.id}`} state={{ search: location.search }}>
+                                  {error.erroneous_text}
+                                </Link>
+                              }
+                              correction={error.correction}
+                            />
                           </th>
                           <td>
                             {labelOf(error.category, i18n.language)}{' '}
-                            <code className="category-code">{error.category.code}</code>
+                            <CategoryCode code={error.category.code} />
                             {error.category.status === 'proposed' && (
                               <span className="muted"> ({t('errorLog.categories.status.proposed')})</span>
                             )}

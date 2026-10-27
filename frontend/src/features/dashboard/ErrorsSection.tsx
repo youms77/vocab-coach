@@ -20,6 +20,7 @@ import {
   formatShareCounts,
 } from './format'
 import { StatsSection } from './StatsSection'
+import { CorrectionMark } from '../../components/CorrectionMark'
 
 /** How many categories get their own line next to the total. */
 const CHART_CATEGORIES = 4
@@ -140,7 +141,7 @@ function Content({ data }: { data: ErrorStats }) {
             <li key={e.key}>
               <p>
                 <span lang="en">
-                  <del>{e.erroneous_text}</del> → <ins>{e.correction}</ins>
+                  <CorrectionMark wrong={e.erroneous_text} correction={e.correction} />
                 </span>
                 <span className="muted">
                   {' · '}
