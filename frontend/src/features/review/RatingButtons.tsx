@@ -41,7 +41,7 @@ export function RatingButtons({
             <button
               key={rating}
               type="button"
-              className={`button rating__button${suggested ? ' rating__button--suggested' : ''}`}
+              className={`button rating__button rating__button--${RATING_NAMES[rating]}${suggested ? ' rating__button--suggested' : ''}`}
               onClick={() => onRate(rating)}
               disabled={pending !== null}
             >

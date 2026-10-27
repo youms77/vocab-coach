@@ -207,8 +207,13 @@ input[type='radio'] {
   flex: 1 1 14rem;
 }
 
+/* The messages that are not (yet) a Notice component look like one: a tint, and the words say what it is. */
 .form-message {
   margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--brand-tint);
+  color: var(--brand-strong);
   font-size: var(--fs-body-sm);
   line-height: var(--lh-body-sm);
 }
@@ -218,10 +223,12 @@ input[type='radio'] {
 }
 
 .form-message--ok {
+  background: var(--success-tint);
   color: var(--success);
 }
 
 .form-message--error {
+  background: var(--danger-tint);
   color: var(--danger);
 }
 
@@ -231,6 +238,7 @@ input[type='radio'] {
 }
 
 .form-message--warn {
+  background: var(--warning-tint);
   color: var(--warning);
 }
 

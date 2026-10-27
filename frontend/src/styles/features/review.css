@@ -18,8 +18,8 @@
   padding: var(--space-3) var(--space-4);
   background: var(--surface-sunken);
   border-left: 3px solid var(--brand);
-  border-radius: 6px;
-  font-size: 1.15rem;
+  border-radius: var(--radius-md);
+  font-size: var(--fs-title-2);
   overflow-wrap: anywhere;
 }
 
@@ -106,10 +106,27 @@
   font-weight: 700;
 }
 
+/* The answer zone: sunken, full width, so it is plain where to type. */
+.review-form {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+
+.review-form .field {
+  margin-bottom: 0;
+}
+
 .review-form .field input,
 .review-form .field textarea {
   width: 100%;
-  max-width: 32rem;
+  max-width: none;
+}
+
+.review-form .button {
+  justify-self: start;
 }
 
 .review-result:focus {
@@ -121,16 +138,19 @@
   outline-offset: 2px;
 }
 
-.review-result > .grade-result,
-.review-result > p {
-  margin-top: 0;
+.review-result {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.review-result > * {
+  margin: 0;
 }
 
 .review-summary {
-  margin-top: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--surface-sunken);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   overflow-wrap: anywhere;
 }
 
@@ -162,24 +182,83 @@
   gap: var(--space-2);
 }
 
+/* Four fixed-height buttons: the suggestion adds a word inside, never a line. Each carries its
+   name and its key, the colour only repeats them. */
 .session .rating__button {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1);
+  align-content: center;
+  gap: 0 var(--space-1);
+  min-height: 3.5rem;
+  border-width: 2px;
   text-align: center;
+  white-space: normal;
 }
 
-.rating__button--suggested {
+.rating__button--again {
+  border-color: var(--danger);
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.rating__button--hard {
+  border-color: var(--warning);
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
+.rating__button--good {
+  border-color: var(--success);
+  background: var(--success-tint);
+  color: var(--success);
+}
+
+.rating__button--easy {
   border-color: var(--brand);
-  border-width: 2px;
+  background: var(--brand-tint);
+  color: var(--brand-strong);
+}
+
+.session .rating__button:hover:not(:disabled) {
+  box-shadow: var(--shadow-raised);
+}
+
+.rating__button--again:hover:not(:disabled) {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.rating__button--hard:hover:not(:disabled) {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
+.rating__button--good:hover:not(:disabled) {
+  background: var(--success-tint);
+  color: var(--success);
+}
+
+.rating__button--easy:hover:not(:disabled) {
+  background: var(--brand-tint);
+  color: var(--brand-strong);
+}
+
+.session .rating__button--suggested,
+.session .rating__button--suggested:hover:not(:disabled) {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px currentColor;
   font-weight: 700;
 }
 
 .rating__badge {
   margin-left: 0;
-  color: var(--ink);
+}
+
+@media (max-width: 599.98px) {
+  .rating {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .review-blocked {

@@ -64,9 +64,13 @@
   margin-top: var(--space-1);
 }
 
+/* The working screens: one reading column, nothing else competes with the card. */
 .session {
   display: grid;
   gap: var(--space-4);
+  width: 100%;
+  max-width: var(--reading-max);
+  margin-inline: auto;
 }
 
 .session .button,
@@ -87,25 +91,52 @@
   margin: 0;
 }
 
+.session-step {
+  margin: 0;
+  padding: var(--space-6);
+}
+
 .session__header .confirm {
   margin-top: 0;
 }
 
+/* The progress bar is drawn from tokens; the figures under it say the same in words. */
 .session-progress progress {
+  display: block;
   width: 100%;
   height: 8px;
-  accent-color: var(--brand);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--brand-tint-border);
+  overflow: hidden;
+  appearance: none;
+}
+
+.session-progress progress::-webkit-progress-bar {
+  background: var(--brand-tint-border);
+}
+
+.session-progress progress::-webkit-progress-value {
+  border-radius: var(--radius-pill);
+  background: var(--brand);
+}
+
+.session-progress progress::-moz-progress-bar {
+  border-radius: var(--radius-pill);
+  background: var(--brand);
 }
 
 .session-progress ul {
   list-style: none;
-  margin: var(--space-1) 0 0;
+  margin: var(--space-2) 0 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-4);
-  font-size: 0.9375rem;
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body-sm);
   color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .step-title:focus {

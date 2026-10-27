@@ -41,7 +41,7 @@ function EndControl({
   }, [confirming])
   if (!confirming) {
     return (
-      <button type="button" className="button" onClick={() => setConfirming(true)}>
+      <button type="button" className="button button--ghost" onClick={() => setConfirming(true)}>
         {t('session.end')}
       </button>
     )
