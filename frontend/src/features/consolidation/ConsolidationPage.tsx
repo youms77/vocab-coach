@@ -16,12 +16,12 @@ import {
   useCreateTask,
 } from '../../api/consolidation'
 import { ApiError } from '../../api/client'
-import { PageTitle } from '../../components/PageTitle'
 import { useElapsedSeconds } from '../../components/useElapsedSeconds'
 import { formatShortDate } from '../session/format'
 import { ErrorText } from '../settings/ErrorText'
 import { inLanguage } from './text'
 import { Notice } from '../../components/Notice'
+import { SectionHeader } from '../../components/SectionHeader'
 
 const STATUSES: TaskStatus[] = ['proposed', 'accepted', 'completed', 'dismissed']
 
@@ -311,10 +311,11 @@ export function ConsolidationPage() {
   const { t } = useTranslation()
   return (
     <div className="consolidation-page">
-      <section className="hero">
-        <PageTitle>{t('consolidation.title')}</PageTitle>
-        <p className="muted">{t('consolidation.intro')}</p>
-      </section>
+      <SectionHeader
+        eyebrow={`${t('nav.section')} · ${t('nav.groups.practice')}`}
+        title={t('consolidation.title')}
+        description={t('consolidation.intro')}
+      />
       <Decks />
       <Tasks />
     </div>

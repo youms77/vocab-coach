@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
 import { type Period, useStatsOverview } from '../../api/stats'
-import { PageTitle } from '../../components/PageTitle'
 import { AiSection } from './AiSection'
 import { ErrorsSection } from './ErrorsSection'
 import { formatFullDay } from './format'
@@ -12,6 +11,7 @@ import { defaultPeriod, parseGranularity, periodFromSearch, periodProblem } from
 import { PeriodPicker } from './PeriodPicker'
 import { PracticeSection } from './PracticeSection'
 import { ProgressSection } from './ProgressSection'
+import { SectionHeader } from '../../components/SectionHeader'
 
 /**
  * `/stats`: the statistics dashboard (module I). The period lives in the URL (`from`, `to`,
@@ -50,21 +50,26 @@ export function DashboardPage() {
 
   return (
     <div className="stats-page">
-      <section className="hero">
-        <PageTitle>{t('stats.title')}</PageTitle>
-        <p className="muted">{t('stats.intro')}</p>
-        {overview.data?.demo === true && <p className="muted">{t('stats.demo')}</p>}
-        {overview.data !== undefined && (
-          <p className="muted field-hint">
-            {t('stats.computedAt', {
-              date: new Intl.DateTimeFormat(i18n.language, {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              }).format(new Date(overview.data.computed_at)),
-            })}
-          </p>
-        )}
-      </section>
+      <SectionHeader
+        eyebrow={`${t('nav.section')} · ${t('nav.groups.progress')}`}
+        title={t('stats.title')}
+        description={t('stats.intro')}
+        note={
+          <>
+            {overview.data?.demo === true && <p className="muted">{t('stats.demo')}</p>}
+            {overview.data !== undefined && (
+              <p className="muted field-hint">
+                {t('stats.computedAt', {
+                  date: new Intl.DateTimeFormat(i18n.language, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  }).format(new Date(overview.data.computed_at)),
+                })}
+              </p>
+            )}
+          </>
+        }
+      />
       <nav className="stats-nav" aria-label={t('stats.sections')}>
         <a href="#overview">{t('stats.overview.title')}</a>
         <a href="#errors">{t('stats.errors.title')}</a>

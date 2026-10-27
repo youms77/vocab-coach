@@ -4,12 +4,14 @@ import { Link, useLocation, useNavigate } from 'react-router'
 
 import { useUnit } from '../../api/curriculum'
 import { useSpeaking } from '../../api/speech'
-import { PageTitle } from '../../components/PageTitle'
 import { Recorder } from '../../speech/RecorderPanel'
 import { readUnitId } from '../curriculum/unitRules'
 import { ErrorText } from '../settings/ErrorText'
 import { TopicPicker } from '../writing/TopicPicker'
 import { SPEAKING_TOPICS } from './topics'
+import { Icon } from '../../components/Icon'
+import { SectionHeader } from '../../components/SectionHeader'
+import { sectionArt } from '../../components/sectionArt'
 
 /** The final task of a scenario unit, shown instead of the topic picker (module H). */
 function UnitPrompt({ unitId }: { unitId: number }) {
@@ -59,14 +61,24 @@ export function SpeakingPage() {
 
   return (
     <div className="speaking-page">
-      <section className="hero">
-        <PageTitle>{t('speaking.title')}</PageTitle>
-        <p className="muted">{t('speaking.intro')}</p>
-        <p className="link-row">
-          <Link to="/speaking/history">{t('speaking.historyLink')}</Link>
-          <Link to="/speaking/shadowing">{t('speaking.shadowingLink')}</Link>
-        </p>
-      </section>
+      <SectionHeader
+        eyebrow={`${t('nav.section')} · ${t('nav.groups.practice')}`}
+        title={t('speaking.title')}
+        description={t('speaking.intro')}
+        illustration={sectionArt('speaking')}
+        actions={
+          <>
+            <Link to="/speaking/history" className="button">
+              <Icon name="history" size={18} />
+              {t('speaking.historyLink')}
+            </Link>
+            <Link to="/speaking/shadowing" className="button">
+              <Icon name="speaker" size={18} />
+              {t('speaking.shadowingLink')}
+            </Link>
+          </>
+        }
+      />
 
       {unitId !== null ? (
         <UnitPrompt unitId={unitId} />

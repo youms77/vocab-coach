@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 
 import { MAX_TEXT_CHARS, useCreateProduction } from '../../api/productions'
-import { PageTitle } from '../../components/PageTitle'
 import { ErrorText } from '../settings/ErrorText'
 import { clearDraft, countText, loadDraft, saveDraft } from './draft'
 import { TopicPicker } from './TopicPicker'
 import { Notice } from '../../components/Notice'
+import { Icon } from '../../components/Icon'
+import { SectionHeader } from '../../components/SectionHeader'
+import { sectionArt } from '../../components/sectionArt'
 
 /**
  * Free writing: pick a topic (or your own), write, send. The text is saved first, then the page
@@ -48,14 +50,23 @@ export function WritingPage() {
 
   return (
     <div className="writing-page">
-      <section className="hero">
-        <PageTitle>{t('writing.title')}</PageTitle>
-        <p className="muted">{t('writing.intro')}</p>
-        <p className="link-row">
-          <Link to="/writing/history">{t('writing.historyLink')}</Link>
-          <Link to="/transcripts">{t('writing.transcriptLink')}</Link>
-        </p>
-      </section>
+      <SectionHeader
+        eyebrow={`${t('nav.section')} · ${t('nav.groups.practice')}`}
+        title={t('writing.title')}
+        description={t('writing.intro')}
+        illustration={sectionArt('writing')}
+        actions={
+          <>
+            <Link to="/writing/history" className="button">
+              <Icon name="history" size={18} />
+              {t('writing.historyLink')}
+            </Link>
+            <Link to="/transcripts" className="button">
+              {t('writing.transcriptLink')}
+            </Link>
+          </>
+        }
+      />
 
       <TopicPicker value={prompt} onChange={setPrompt} />
 
