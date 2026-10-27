@@ -21,6 +21,7 @@ import { useElapsedSeconds } from '../../components/useElapsedSeconds'
 import { formatShortDate } from '../session/format'
 import { ErrorText } from '../settings/ErrorText'
 import { inLanguage } from './text'
+import { Notice } from '../../components/Notice'
 
 const STATUSES: TaskStatus[] = ['proposed', 'accepted', 'completed', 'dismissed']
 
@@ -118,21 +119,21 @@ function ReadyDeck({ deck }: { deck: ConsolidationDeck }) {
           {create.isPending && <p className="muted">{t('consolidation.create.wait')}</p>}
         </div>
         {conflict?.code === 'task_open' && (
-          <p className="form-message form-message--warn" role="alert">
+          <Notice tone="warning" role="alert">
             {t('errors.task_open')}{' '}
             {typeof conflict.detail.task_id === 'number' && (
               <Link to={`/consolidation/tasks/${conflict.detail.task_id}`}>
                 {t('consolidation.decks.openTask')}
               </Link>
             )}
-          </p>
+          </Notice>
         )}
         {conflict?.code === 'not_ready' && (
-          <p className="form-message form-message--warn" role="alert">
+          <Notice tone="warning" role="alert">
             {t('errors.not_ready')}{' '}
             {typeof conflict.detail.reason === 'string' &&
               t(`consolidation.reasons.${conflict.detail.reason}`, { defaultValue: '' })}
-          </p>
+          </Notice>
         )}
         {create.isError && conflict?.code !== 'task_open' && conflict?.code !== 'not_ready' && (
           <ErrorText error={create.error} />

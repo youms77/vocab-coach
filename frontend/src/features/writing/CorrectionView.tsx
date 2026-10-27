@@ -15,6 +15,7 @@ import {
   readFeedback,
   type TargetEntry,
 } from './correction'
+import { Notice } from '../../components/Notice'
 
 type Level = 2 | 3
 
@@ -320,7 +321,7 @@ function Body({
           )}
         </p>
         {model.entries.length === 0 && (
-          <p className="form-message form-message--ok" role="status">
+          <Notice tone="success" role="status">
             {model.kind === 'transcript'
               ? t('correction.noErrorsTurns')
               : model.kind === 'speaking'
@@ -328,7 +329,7 @@ function Body({
                 : model.sentenceCount === 1
                 ? t('correction.sentenceCorrect')
                 : t('correction.noErrors')}
-          </p>
+          </Notice>
         )}
       </section>
 

@@ -8,6 +8,7 @@ import { useElapsedSeconds } from '../../components/useElapsedSeconds'
 import { aiReasonText } from '../settings/aiReason'
 import { ErrorText } from '../settings/ErrorText'
 import { PronunciationView } from './PronunciationView'
+import { Notice } from '../../components/Notice'
 
 /**
  * The optional pronunciation assessment of a shadowing (M6.c2). Nothing is sent by itself: the
@@ -68,11 +69,11 @@ export function AssessmentSection({ production }: { production: Production }) {
       )}
       <div role="status" aria-live="polite">
         {failure !== null && (
-          <p className="form-message form-message--warn">
+          <Notice tone="warning">
             {failure.status === 'unavailable'
               ? t('pronunciation.unavailable', { reason: aiReasonText(t, failure.reason) })
               : t('pronunciation.incomplete')}
-          </p>
+          </Notice>
         )}
       </div>
       {assess.isError && !alreadyAssessed && <ErrorText error={assess.error} />}

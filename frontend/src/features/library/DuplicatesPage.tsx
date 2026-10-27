@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { useDuplicates, type DuplicateGroup, type GroupItem } from '../../api/duplicates'
 import { useMergeItem } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
+import { Notice } from '../../components/Notice'
 
 interface Merged {
   kept: string
@@ -110,10 +111,10 @@ export function DuplicatesPage() {
         </p>
       </section>
       {merged !== null && (
-        <p className="form-message form-message--ok" role="status">
+        <Notice tone="success" role="status">
           {t('duplicates.merged', { kept: merged.kept, removed: merged.removed })}
           {merged.inverted && <> {t('duplicates.inverted')}</>}
-        </p>
+        </Notice>
       )}
       {groups.isPending && <p className="muted">{t('library.loading')}</p>}
       {groups.isError && <ErrorText error={groups.error} />}

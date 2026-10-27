@@ -5,6 +5,7 @@ import { MAX_UPLOAD_BYTES, formatClock, unsupportedReason, type RecordingUse } f
 import { useClipSender } from './useClipSender'
 import { type Clip, useRecorder } from './useRecorder'
 import { cancelSpeech } from './useSpeech'
+import { Notice } from '../components/Notice'
 
 /** What `useRecorder` returns: the recorder's state and its commands. */
 export type RecorderApi = ReturnType<typeof useRecorder>
@@ -125,9 +126,9 @@ export function RecorderView({
       )}
       {status === 'requesting' && <p className="muted">{t('recorder.requesting')}</p>}
       {recorder.warning && (
-        <p className="form-message form-message--warn">
+        <Notice tone="warning">
           {t('recorder.longWarning', { max: limits.max })}
-        </p>
+        </Notice>
       )}
 
       <div className="button-row">
@@ -180,14 +181,14 @@ export function RecorderView({
         </>
       )}
       {recorder.tooShort && (
-        <p className="form-message form-message--warn" role="alert">
+        <Notice tone="warning" role="alert">
           {t('recorder.tooShort', { min: number(limits.min) })}
-        </p>
+        </Notice>
       )}
       {tooLarge && (
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('recorder.tooLarge', { mb: MAX_UPLOAD_BYTES / 1024 / 1024 })}
-        </p>
+        </Notice>
       )}
       {error !== null && (
         <div className="form-message form-message--error" role="alert">

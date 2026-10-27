@@ -15,6 +15,7 @@ import { CategorySelect } from './CategorySelect'
 import { problemOf } from './logRules'
 import { type ManualErrorPrefill, readPrefill } from './prefill'
 import { TermPicker } from './TermPicker'
+import { Notice } from '../../components/Notice'
 
 function ManualForm({
   onAdded,
@@ -198,7 +199,7 @@ export function ManualErrorPage() {
         <PageTitle>{t('errorLog.manual.title')}</PageTitle>
         <p className="muted">{t('errorLog.manual.intro')}</p>
         {initial !== null && (
-          <p className="form-message form-message--warn">{t('errorLog.manual.prefilled')}</p>
+          <Notice tone="warning">{t('errorLog.manual.prefilled')}</Notice>
         )}
         <p className="link-row">
           <Link to="/errors">{t('errorLog.back')}</Link>
@@ -206,9 +207,9 @@ export function ManualErrorPage() {
       </section>
       <div role="status">
         {added !== null && (
-          <p className="form-message form-message--ok">
+          <Notice tone="success">
             {t('errorLog.manual.added')} <Link to={`/errors/${added.id}`}>{t('errorLog.manual.open')}</Link>
-          </p>
+          </Notice>
         )}
       </div>
       <section className="card" aria-labelledby="manual-title">

@@ -14,6 +14,7 @@ import {
 } from '../../api/triage'
 import { isTyping } from '../../components/keyboard'
 import { ErrorText } from '../settings/ErrorText'
+import { Notice } from '../../components/Notice'
 
 function TermCard({
   entry,
@@ -141,9 +142,9 @@ export function TriagePage() {
           </select>
         </div>
         {counts !== null && (
-          <p className="form-message form-message--ok" role="status">
+          <Notice tone="success" role="status">
             {t('triage.done', { learn: counts.learn, unsure: counts.unsure, known: counts.known })}
-          </p>
+          </Notice>
         )}
         {triage.isPending && <p className="muted">{t('library.loading')}</p>}
         {triage.isError && <ErrorText error={triage.error} />}

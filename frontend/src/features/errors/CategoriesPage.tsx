@@ -15,6 +15,7 @@ import { PageTitle } from '../../components/PageTitle'
 import { isDrillableNode } from '../drills/drillRules'
 import { ErrorText } from '../settings/ErrorText'
 import { CategorySelect } from './CategorySelect'
+import { Notice } from '../../components/Notice'
 
 function errorsHref(code: string): string {
   return `/errors?${new URLSearchParams({ category: code }).toString()}`
@@ -383,7 +384,7 @@ export function CategoriesPage() {
       </section>
 
       <div role="status" aria-live="polite">
-        {message !== '' && <p className="form-message form-message--ok">{message}</p>}
+        {message !== '' && <Notice tone="success">{message}</Notice>}
       </div>
       {failure !== null && <ErrorText error={failure} />}
 

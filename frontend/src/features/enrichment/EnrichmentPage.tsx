@@ -10,6 +10,7 @@ import {
 } from '../../api/enrichment'
 import { useDecks } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
+import { Notice } from '../../components/Notice'
 
 const LIST_LIMIT = 50
 
@@ -187,23 +188,23 @@ export function EnrichmentPage() {
           </p>
         )}
         {outcome?.kind === 'done' && (
-          <p className="form-message form-message--ok" role="status">
+          <Notice tone="success" role="status">
             {t('enrichment.done')}
-          </p>
+          </Notice>
         )}
         {outcome?.kind === 'stopped' && (
-          <p className="form-message form-message--warn" role="status">
+          <Notice tone="warning" role="status">
             {t('enrichment.stopped')}
-          </p>
+          </Notice>
         )}
         {outcome?.kind === 'stalled' && (
-          <p className="form-message form-message--warn" role="status">
+          <Notice tone="warning" role="status">
             {t('enrichment.stalled')}
-          </p>
+          </Notice>
         )}
         {outcome?.kind === 'error' && <ErrorText error={outcome.error} />}
         {totals.needsCompletion > 0 && !running && (
-          <p className="form-message form-message--warn">{t('enrichment.skeletons')}</p>
+          <Notice tone="warning">{t('enrichment.skeletons')}</Notice>
         )}
         {outcome?.kind === 'unavailable' && (
           <div className="form-message form-message--warn degraded" role="alert">

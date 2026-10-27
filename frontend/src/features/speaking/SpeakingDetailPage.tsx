@@ -21,6 +21,7 @@ import { ErrorText } from '../settings/ErrorText'
 import { CorrectionView } from '../writing/CorrectionView'
 import { readAutoCorrect } from './speakingState'
 import { readUnavailableReason } from './shadowTarget'
+import { Notice } from '../../components/Notice'
 
 const codeOf = (error: unknown) => (error instanceof ApiError ? error.code : null)
 
@@ -111,9 +112,9 @@ function SpeakingDetail({ id }: { id: number }) {
   if (query.isError && query.error instanceof ApiError && query.error.status === 404) {
     return (
       <Message title={t('speaking.detail.title')}>
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.production_not_found')}
-        </p>
+        </Notice>
         <p>
           <Link to="/speaking/history">{t('speaking.detail.allSpeeches')}</Link>
         </p>
@@ -131,9 +132,9 @@ function SpeakingDetail({ id }: { id: number }) {
   if (production !== undefined && production.kind !== 'speaking') {
     return (
       <Message title={t('speaking.detail.title')}>
-        <p className="form-message form-message--warn" role="alert">
+        <Notice tone="warning" role="alert">
           {t('speaking.detail.notSpeaking')}
-        </p>
+        </Notice>
         <p className="link-row">
           <Link to="/errors">{t('speaking.detail.errorLog')}</Link>
           <Link to="/speaking/history">{t('speaking.detail.allSpeeches')}</Link>
@@ -201,7 +202,7 @@ function SpeakingDetail({ id }: { id: number }) {
                 className="recorder__player"
               />
             ) : (
-              <p className="form-message form-message--warn">{t('speaking.detail.noAudio')}</p>
+              <Notice tone="warning">{t('speaking.detail.noAudio')}</Notice>
             )}
           </section>
 
@@ -215,7 +216,7 @@ function SpeakingDetail({ id }: { id: number }) {
 
             {silent && (
               <>
-                <p className="form-message form-message--warn">{t('speaking.detail.silence')}</p>
+                <Notice tone="warning">{t('speaking.detail.silence')}</Notice>
                 <p>
                   <Link to="/speaking">{t('speaking.detail.recordAgain')}</Link>
                 </p>
@@ -267,9 +268,9 @@ function SpeakingDetail({ id }: { id: number }) {
                   {correct.isPending ? (
                     <p>{t('speaking.detail.checkingHint')}</p>
                   ) : (
-                    <p className="form-message form-message--warn">
+                    <Notice tone="warning">
                       {notCorrectedText(t, correct.data, correct.error)}
-                    </p>
+                    </Notice>
                   )}
                 </div>
                 {correctionError !== null && !correct.isPending && <ErrorText error={correctionError} />}
@@ -318,9 +319,9 @@ export function SpeakingDetailPage() {
   if (!Number.isInteger(id) || id <= 0) {
     return (
       <Message title={t('speaking.detail.title')}>
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.production_not_found')}
-        </p>
+        </Notice>
         <p>
           <Link to="/speaking/history">{t('speaking.detail.allSpeeches')}</Link>
         </p>

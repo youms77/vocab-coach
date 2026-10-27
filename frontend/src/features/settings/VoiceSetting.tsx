@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { type SettingsMap, useSettingsMutation } from '../../api/settings'
 import { useSpeech } from '../../speech/useSpeech'
 import { ErrorText } from './ErrorText'
+import { Notice } from '../../components/Notice'
 
 // A fixed sentence for the "Test" button.
 const TEST_SENTENCE = 'It is worth noting that the results depend on the sample.'
@@ -88,7 +89,7 @@ export function VoiceSetting({ settings }: { settings: SettingsMap }) {
       </div>
       <div aria-live="polite">
         {done && draft === saved && (
-          <p className="form-message form-message--ok">{t('settings.saved')}</p>
+          <Notice tone="success">{t('settings.saved')}</Notice>
         )}
       </div>
       {mutation.isError && <ErrorText error={mutation.error} />}

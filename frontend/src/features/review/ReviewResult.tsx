@@ -10,6 +10,7 @@ import { aiReasonText } from '../settings/aiReason'
 import { CorrectionView } from '../writing/CorrectionView'
 import type { CheckNotice, ProductionCheck, SpokenCheck } from './reviewMachine'
 import { text } from './stepText'
+import { Notice } from '../../components/Notice'
 
 const CHOICE_TYPES = ['recognition_in_sentence', 'listening_comprehension']
 
@@ -73,7 +74,7 @@ function NoticeText({ notice }: { notice: CheckNotice }) {
       message = t('review.spoken.notice.failed', { error: describeError(t, notice.error).text })
       break
   }
-  return <p className="form-message form-message--warn">{message}</p>
+  return <Notice tone="warning">{message}</Notice>
 }
 
 /** What the recogniser heard, then the AI's correction of it (or why there is none). */
@@ -82,13 +83,13 @@ function SpokenCheckView({ spoken, result }: { spoken: SpokenCheck; result: Resu
   const { transcription } = spoken
   const heard = text(transcription.text)
   if (transcription.status === 'silence' || spoken.reason === 'silence') {
-    return <p className="form-message form-message--warn">{t('review.spoken.silence')}</p>
+    return <Notice tone="warning">{t('review.spoken.silence')}</Notice>
   }
   if (transcription.status !== 'ok' || heard === null) {
     return (
-      <p className="form-message form-message--warn">
+      <Notice tone="warning">
         {t('review.spoken.unavailable', { reason: aiReasonText(t, transcription.reason) })}
-      </p>
+      </Notice>
     )
   }
   return (
@@ -102,12 +103,12 @@ function SpokenCheckView({ spoken, result }: { spoken: SpokenCheck; result: Resu
         errors={spoken.errors}
       />
       {spoken.status !== 'ok' && (
-        <p className="form-message form-message--warn">
+        <Notice tone="warning">
           {t('review.spoken.correctionFailed', { reason: aiReasonText(t, spoken.reason) })}
-        </p>
+        </Notice>
       )}
       {result.warnings.includes('term_not_heard') && (
-        <p className="form-message form-message--warn">{t('review.result.term_not_heard')}</p>
+        <Notice tone="warning">{t('review.result.term_not_heard')}</Notice>
       )}
     </div>
   )
@@ -188,7 +189,7 @@ export function ReviewResult({
           <p className="muted">{t('review.result.noSentence')}</p>
         )}
         {result.warnings.includes('term_missing') && (
-          <p className="form-message form-message--warn">{t('review.result.term_missing')}</p>
+          <Notice tone="warning">{t('review.result.term_missing')}</Notice>
         )}
         {spoken !== null && <SpokenCheckView spoken={spoken} result={result} />}
         {check !== null && (

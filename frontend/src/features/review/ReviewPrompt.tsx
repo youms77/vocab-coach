@@ -6,6 +6,7 @@ import { SpeakButton } from '../../speech/SpeakButton'
 import { highlightTerm } from '../discovery/highlight'
 import type { ReviewState } from './reviewMachine'
 import { promptOptions, text } from './stepText'
+import { Notice } from '../../components/Notice'
 
 function Sentence({ sentence, term }: { sentence: string; term: string | null }) {
   const parts = term !== null ? highlightTerm(sentence, term) : [{ text: sentence, match: false }]
@@ -296,7 +297,7 @@ export function ReviewPrompt({
           <Cues cueFr={text(prompt.cue_fr)} cueDefinition={text(prompt.cue_definition)} />
           {gapped !== null && <p className="review-sentence exercise-gap" lang="en">{gapped}</p>}
           {review.warnings.includes('no_cue') && (
-            <p className="form-message form-message--warn">{t('review.noCue')}</p>
+            <Notice tone="warning">{t('review.noCue')}</Notice>
           )}
           <RevealButton state={state} onReveal={onReveal} label={t('review.showAnswer')} />
         </>

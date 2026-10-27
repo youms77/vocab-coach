@@ -7,6 +7,7 @@ import { GeneralSettings } from './GeneralSettings'
 import { ProviderCard } from './ProviderCard'
 import { ProviderOrder } from './ProviderOrder'
 import { UsagePanel } from './UsagePanel'
+import { Notice } from '../../components/Notice'
 
 function AiProviders() {
   const { t } = useTranslation()
@@ -21,14 +22,14 @@ function AiProviders() {
         {status.isPending && <p className="muted">{t('settings.loading')}</p>}
         {status.isError && (
           <>
-            <p className="form-message form-message--error">{t('settings.ai.loadError')}</p>
+            <Notice tone="danger">{t('settings.ai.loadError')}</Notice>
             <ErrorText error={status.error} />
           </>
         )}
         {status.isSuccess && (
           <>
             {status.data.demo && (
-              <p className="form-message form-message--warn">{t('settings.ai.demoNote')}</p>
+              <Notice tone="warning">{t('settings.ai.demoNote')}</Notice>
             )}
             <div className="provider-list">
               {status.data.providers.map((provider) => (

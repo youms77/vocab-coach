@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { type ProviderState, useCredentialMutation } from '../../api/ai'
 import { ConnectionTest } from './ConnectionTest'
 import { ErrorText } from './ErrorText'
+import { Notice } from '../../components/Notice'
 
 // The .env variable behind each provider (D-062). Names only, never values.
 const VARIABLES: Record<ProviderState['name'], string> = {
@@ -145,11 +146,11 @@ function CredentialForm({ provider, locked }: { provider: ProviderState; locked:
         </div>
       )}
       <div aria-live="polite">
-        {emptyError && <p className="form-message form-message--error">{t('settings.provider.emptyValue')}</p>}
+        {emptyError && <Notice tone="danger">{t('settings.provider.emptyValue')}</Notice>}
         {done !== null && !mutation.isPending && !mutation.isError && (
-          <p className="form-message form-message--ok">
+          <Notice tone="success">
             {done === 'saved' ? t('settings.provider.savedKey') : t('settings.provider.removed')}
-          </p>
+          </Notice>
         )}
       </div>
       {mutation.isError && <ErrorText error={mutation.error} />}

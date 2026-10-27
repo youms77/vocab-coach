@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { PronunciationScores } from '../../api/speech'
 import { formatDateTime } from '../session/format'
 import { errorTypeKey, needsAttention, weakestPhonemes } from './pronunciation'
+import { Notice } from '../../components/Notice'
 
 function ScoreValue({ value }: { value: number | null }) {
   const { t, i18n } = useTranslation()
@@ -32,7 +33,7 @@ export function PronunciationView({
   const { t, i18n } = useTranslation()
 
   if (scores.status === 'silence') {
-    return <p className="form-message form-message--warn">{t('pronunciation.silence')}</p>
+    return <Notice tone="warning">{t('pronunciation.silence')}</Notice>
   }
   const weakest = weakestPhonemes(scores)
   const overall = [

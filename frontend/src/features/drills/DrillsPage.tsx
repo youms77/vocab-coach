@@ -19,6 +19,7 @@ import { aiReasonText } from '../settings/aiReason'
 import { ErrorText } from '../settings/ErrorText'
 import { isDrillableCode, isDrillableNode, progressOf } from './drillRules'
 import { fromSessionOf } from './fromSession'
+import { Notice } from '../../components/Notice'
 
 /** "New drill": a category, a number of items, and the wait for the AI (a few seconds). */
 function NewDrillForm({
@@ -149,7 +150,7 @@ function NewDrillForm({
           </>
         )}
         {failure !== null && !create.isPending && (
-          <p className="form-message form-message--warn">{failureText}</p>
+          <Notice tone="warning">{failureText}</Notice>
         )}
       </div>
       {create.isError && !create.isPending && <ErrorText error={create.error} />}

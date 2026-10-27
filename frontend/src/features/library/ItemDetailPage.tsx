@@ -14,6 +14,7 @@ import {
 } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
 import { SheetCard } from './SheetPanel'
+import { Notice } from '../../components/Notice'
 
 function EditForm({ item }: { item: ItemDetail }) {
   const { t } = useTranslation()
@@ -86,9 +87,9 @@ function EditForm({ item }: { item: ItemDetail }) {
         {t('library.save')}
       </button>
       {saved && (
-        <p className="form-message form-message--ok" role="status">
+        <Notice tone="success" role="status">
           {t('library.saved')}
-        </p>
+        </Notice>
       )}
       {patch.isError && <ErrorText error={patch.error} />}
     </form>

@@ -7,6 +7,7 @@ import { PageTitle } from '../../components/PageTitle'
 import { ErrorText } from '../settings/ErrorText'
 import { clearDraft, countText, loadDraft, saveDraft } from './draft'
 import { TopicPicker } from './TopicPicker'
+import { Notice } from '../../components/Notice'
 
 /**
  * Free writing: pick a topic (or your own), write, send. The text is saved first, then the page
@@ -82,9 +83,9 @@ export function WritingPage() {
             {t('writing.text.chars', { chars, max: MAX_TEXT_CHARS })}
           </p>
           {tooLong && (
-            <p className="form-message form-message--error" role="alert">
+            <Notice tone="danger" role="alert">
               {t('writing.text.tooLong', { chars, max: MAX_TEXT_CHARS })}
-            </p>
+            </Notice>
           )}
         </div>
         <p>

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { type UsageRow, useAiUsage } from '../../api/ai'
+import { Notice } from '../../components/Notice'
 
 function errorTotal(row: UsageRow) {
   return Object.values(row.errors).reduce((sum, n) => sum + n, 0)
@@ -72,7 +73,7 @@ export function UsagePanel() {
       <h2 id="usage-title">{t('settings.usage.title')}</h2>
       <p className="muted">{t('settings.usage.intro')}</p>
       {usage.isPending && <p className="muted">{t('settings.loading')}</p>}
-      {usage.isError && <p className="form-message form-message--error">{t('settings.usage.loadError')}</p>}
+      {usage.isError && <Notice tone="danger">{t('settings.usage.loadError')}</Notice>}
       {usage.isSuccess && (
         <>
           <h3>{t('settings.usage.today')}</h3>

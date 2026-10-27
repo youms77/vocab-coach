@@ -12,6 +12,7 @@ import {
 } from '../../api/settings'
 import { ErrorText } from './ErrorText'
 import { VoiceSetting } from './VoiceSetting'
+import { Notice } from '../../components/Notice'
 
 // The settings shown here, by group. `ai_provider_order` has its own card; `ui_language` is left
 // out on purpose: the language is chosen in the top bar and stored in the browser (D-066).
@@ -159,7 +160,7 @@ function GroupForm({ group, settings }: { group: Group; settings: SettingsMap })
       </button>
       <div aria-live="polite">
         {saved && changed.length === 0 && (
-          <p className="form-message form-message--ok">{t('settings.saved')}</p>
+          <Notice tone="success">{t('settings.saved')}</Notice>
         )}
       </div>
       {mutation.isError && <ErrorText error={mutation.error} />}
@@ -177,7 +178,7 @@ export function GeneralSettings() {
       {settings.isPending && <p className="muted">{t('settings.loading')}</p>}
       {settings.isError && (
         <>
-          <p className="form-message form-message--error">{t('settings.general.loadError')}</p>
+          <Notice tone="danger">{t('settings.general.loadError')}</Notice>
           <ErrorText error={settings.error} />
         </>
       )}

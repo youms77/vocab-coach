@@ -12,6 +12,7 @@ import { DrillItemPlayer } from './DrillItemPlayer'
 import { firstUnanswered } from './drillRules'
 import { DrillSummary } from './DrillSummary'
 import { fromSessionOf } from './fromSession'
+import { Notice } from '../../components/Notice'
 
 /**
  * The rule and the items of a loaded drill. It resumes at the first item not answered. The item
@@ -111,9 +112,9 @@ export function DrillPage() {
     return (
       <div className="drills-page">
         <PageTitle>{t('drills.player.title')}</PageTitle>
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.drill_not_found')}
-        </p>
+        </Notice>
         <p>
           <Link to="/drills">{t('drills.player.back')}</Link>
         </p>

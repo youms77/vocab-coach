@@ -6,6 +6,7 @@ import { PageTitle } from '../../components/PageTitle'
 import { ErrorText } from '../settings/ErrorText'
 import { ScenarioUnitView } from './ScenarioUnitView'
 import { WordUnitView } from './WordUnitView'
+import { Notice } from '../../components/Notice'
 
 /** `/curriculum/units/:id`: a word unit (its 25 terms) or a speaking scenario unit (four steps). */
 export function UnitPage() {
@@ -28,9 +29,9 @@ export function UnitPage() {
       <PageTitle>{t('curriculum.unitTitle')}</PageTitle>
       {unit.isPending && valid && <p className="muted">{t('curriculum.loading')}</p>}
       {!valid && (
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.unit_not_found')}
-        </p>
+        </Notice>
       )}
       {unit.isError && <ErrorText error={unit.error} />}
       <p>

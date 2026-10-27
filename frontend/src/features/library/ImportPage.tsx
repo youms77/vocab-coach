@@ -16,6 +16,7 @@ import { useDecks } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
 import { ImportRows, ProblemText } from './ImportRows'
 import { commitRow, initialRows, willImport, type RowState } from './importReview'
+import { Notice } from '../../components/Notice'
 
 const HEADER_FIELDS = ['deck', 'domain', 'source', 'context', 'deadline'] as const
 
@@ -200,7 +201,7 @@ function Review({
         </button>
         {commit.isError && <ErrorText error={commit.error} />}
         {failedLine !== null && (
-          <p className="form-message form-message--error">{t('import.line', { line: failedLine })}</p>
+          <Notice tone="danger">{t('import.line', { line: failedLine })}</Notice>
         )}
       </section>
     </form>
@@ -300,14 +301,14 @@ export function ImportPage() {
                 </p>
               </div>
               {tooLarge && (
-                <p className="form-message form-message--error" role="alert">
+                <Notice tone="danger" role="alert">
                   {t('import.input.tooLarge', { max })}
-                </p>
+                </Notice>
               )}
               {fileError && (
-                <p className="form-message form-message--error" role="alert">
+                <Notice tone="danger" role="alert">
                   {t('import.input.fileError')}
-                </p>
+                </Notice>
               )}
               <button
                 type="submit"
@@ -343,9 +344,9 @@ export function ImportPage() {
                   </ul>
                 )}
                 {data.rejected && (
-                  <p className="form-message form-message--error" role="alert">
+                  <Notice tone="danger" role="alert">
                     {t('import.preview.rejected')}
-                  </p>
+                  </Notice>
                 )}
                 {!data.rejected && data.rows.length === 0 && (
                   <p className="muted">{t('import.preview.noRows')}</p>

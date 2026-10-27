@@ -16,6 +16,7 @@ import { type ExerciseOutcome, ExercisesStep } from './ExercisesStep'
 import { PersonalSentenceStep, RepetitionStep } from './ProductionSteps'
 import { ReadAndGuess } from './ReadAndGuess'
 import { SheetStep } from './SheetStep'
+import { Notice } from '../../components/Notice'
 
 type Phase = 'read' | 'sheet' | 'exercises' | 'repetition' | 'personal' | 'done'
 
@@ -59,7 +60,7 @@ function SentenceCheck({ productionId, sentence }: { productionId: number; sente
       )}
       {feedback === null && <p className="muted field-hint">{t('discovery.sentenceCheck.hint')}</p>}
       <div role="status">
-        {failure !== null && <p className="form-message form-message--warn">{failure}</p>}
+        {failure !== null && <Notice tone="warning">{failure}</Notice>}
       </div>
       {correct.isError && codeOf(correct.error) !== 'already_corrected' && <ErrorText error={correct.error} />}
       {feedback !== null && (
@@ -100,7 +101,7 @@ function Done({
         <p>{t('discovery.done.firstReview', { term, date: formatDateTime(first, i18n.language) })}</p>
       )}
       {result.warnings.includes('term_missing') && (
-        <p className="form-message form-message--warn">{t('discovery.done.term_missing')}</p>
+        <Notice tone="warning">{t('discovery.done.term_missing')}</Notice>
       )}
       {result.production_attempt_id !== null && sentence !== null && (
         <SentenceCheck productionId={result.production_attempt_id} sentence={sentence} />
