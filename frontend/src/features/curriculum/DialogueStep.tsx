@@ -41,7 +41,7 @@ export function DialogueStep({ unit, scenario }: { unit: Unit; scenario: Scenari
       </p>
 
       <div className="unit-step__actions">
-        <p className="link-row">
+        <div className="link-row">
           {player.playing ? (
             <button type="button" className="button" onClick={player.stop}>
               {t('curriculum.dialogue.stop')}
@@ -67,7 +67,7 @@ export function DialogueStep({ unit, scenario }: { unit: Unit; scenario: Scenari
               {t('curriculum.dialogue.slow')}
             </label>
           </fieldset>
-        </p>
+        </div>
         <span className="visually-hidden" role="status">
           {player.playing ? t('curriculum.dialogue.playing') : ''}
         </span>

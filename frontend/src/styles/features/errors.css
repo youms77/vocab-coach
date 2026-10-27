@@ -91,7 +91,7 @@
   background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-left: 4px solid var(--warning);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .proposal p {

@@ -9,6 +9,6 @@
 }
 
 .hero__tagline {
-  font-size: 1.15rem;
+  font-size: var(--fs-title-2);
 }
 

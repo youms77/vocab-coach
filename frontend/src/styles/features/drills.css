@@ -40,7 +40,7 @@
 .drill-item__title,
 .drill-rule h2 {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: var(--fs-body);
 }
 
 .drill-sentence {
@@ -122,7 +122,7 @@
 
 .drill-score {
   margin: 0 0 var(--space-1);
-  font-size: 1.25rem;
+  font-size: var(--fs-title-2);
 }
 
 .drill-recap {

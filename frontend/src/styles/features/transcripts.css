@@ -35,7 +35,7 @@
 }
 
 .transcript-preview__title {
-  font-size: 1.05rem;
+  font-size: var(--fs-body);
   margin: 0 0 var(--space-2);
 }
 
@@ -82,7 +82,7 @@
   background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-left: 4px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .transcript-turn--user {
@@ -106,7 +106,7 @@
   background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-left: 4px solid var(--warning);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--ink);
 }
 

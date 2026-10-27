@@ -79,7 +79,7 @@
 
 .unit-dialogue li {
   padding: var(--space-1) var(--space-2);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
 }
 
@@ -107,7 +107,7 @@
   margin-top: var(--space-3);
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 599.98px) {
   .unit-row {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -166,7 +166,7 @@
   overflow-wrap: anywhere;
 }
 
-@media (min-width: 40rem) {
+@media (min-width: 600px) {
   .unit-edit-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

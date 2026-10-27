@@ -31,7 +31,7 @@
 }
 
 .speak__hint {
-  font-size: 0.8125rem;
+  font-size: var(--fs-body-sm);
 }
 
 .today-plan {
@@ -148,7 +148,7 @@
 }
 
 .wait-countdown {
-  font-size: 1.25rem;
+  font-size: var(--fs-title-2);
   font-weight: 600;
 }
 
@@ -161,12 +161,12 @@
 
 .session-summary dt {
   color: var(--ink-muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-body-sm);
 }
 
 .session-summary dd {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: var(--fs-title-2);
   font-weight: 600;
 }
 
@@ -180,13 +180,13 @@ blockquote.discovery-sentence {
   padding: var(--space-3) var(--space-4);
   background: var(--surface-sunken);
   border-left: 3px solid var(--brand);
-  border-radius: 6px;
-  font-size: 1.15rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-title-2);
   overflow-wrap: anywhere;
 }
 
 .discovery-sentence figcaption {
-  font-size: 0.875rem;
+  font-size: var(--fs-body-sm);
   margin-bottom: var(--space-2);
 }
 
@@ -221,7 +221,7 @@ mark {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  font-size: 1.15rem;
+  font-size: var(--fs-title-2);
 }
 
 .exercise-cues {
@@ -230,7 +230,7 @@ mark {
 }
 
 .exercise-gap {
-  font-size: 1.1rem;
+  font-size: var(--fs-body);
   overflow-wrap: anywhere;
 }
 
@@ -239,7 +239,7 @@ mark {
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border);
   border-left-width: 4px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
 }
 

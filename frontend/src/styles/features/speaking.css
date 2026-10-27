@@ -92,7 +92,7 @@
 
 .comparison__title {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--fs-body);
 }
 
 .comparison__list {
@@ -121,17 +121,17 @@
 
 .cmp-word--extra .cmp-word__text {
   background: var(--surface-sunken);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   padding: 0 var(--space-1);
 }
 
 .cmp-word__note {
-  font-size: 0.8125rem;
+  font-size: var(--fs-body-sm);
   color: var(--ink-muted);
 }
 
 .comparison--compact .comparison__row {
-  font-size: 0.9375rem;
+  font-size: var(--fs-body-sm);
 }
 
 /* Spoken answer of a review (M6.b2.2): the recorder, "Answer without recording" and the wait. */
@@ -165,11 +165,11 @@
   min-width: 8rem;
   padding: var(--space-2) var(--space-3);
   background: var(--surface-sunken);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
 }
 
 .pronunciation__score dt {
-  font-size: 0.8125rem;
+  font-size: var(--fs-body-sm);
   color: var(--ink-muted);
 }
 

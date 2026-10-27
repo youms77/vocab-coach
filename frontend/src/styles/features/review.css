@@ -10,7 +10,7 @@
 }
 
 .review__direction {
-  font-size: 0.9375rem;
+  font-size: var(--fs-body-sm);
 }
 
 .review-sentence {
@@ -29,7 +29,7 @@
 }
 
 .review-situation {
-  font-size: 1.1rem;
+  font-size: var(--fs-body);
   font-weight: 600;
 }
 
@@ -39,7 +39,7 @@
   align-items: center;
   gap: var(--space-1) var(--space-2);
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--fs-body);
 }
 
 .review-options-block {
@@ -270,7 +270,7 @@
 .session-announce {
   margin: 0;
   min-height: 0;
-  font-size: 0.9375rem;
+  font-size: var(--fs-body-sm);
 }
 
 .session-announce:empty {

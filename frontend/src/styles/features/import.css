@@ -8,7 +8,7 @@
 
 .import-input textarea {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-size: 0.875rem;
+  font-size: var(--fs-body-sm);
 }
 
 .import-header {
@@ -20,7 +20,7 @@
 
 .import-header dt {
   color: var(--ink-muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-body-sm);
 }
 
 .import-header dd {
@@ -117,7 +117,7 @@
 }
 
 .triage-card__term {
-  font-size: 1.125rem;
+  font-size: var(--fs-body);
 }
 
 .triage-card p {
