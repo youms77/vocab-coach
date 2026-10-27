@@ -1,0 +1,14 @@
+/* Home */
+.home {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.hero {
+  padding-bottom: var(--space-2);
+}
+
+.hero__tagline {
+  font-size: 1.15rem;
+}
+

@@ -1,0 +1,112 @@
+/* Deck queue (M4.c) */
+.queue-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.queue-page .hero p {
+  margin: var(--space-1) 0;
+}
+
+.queue-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.queue-deck {
+  display: grid;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.queue-deck p {
+  margin: 0;
+}
+
+.queue-deck__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+
+.queue-deck__head h3 {
+  margin: 0;
+}
+
+.queue-deck__rank {
+  color: var(--text-muted);
+}
+
+.queue-deck .button-row {
+  margin-top: var(--space-1);
+}
+
+/* The status is a text; the border only repeats it. */
+.queue-status--active {
+  border-color: var(--ok);
+  color: var(--text);
+}
+
+.queue-status--paused {
+  border-color: var(--warn);
+  color: var(--text);
+}
+
+.queue-done summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.queue-announce {
+  margin: 0;
+}
+
+.queue-announce:empty {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  /* Four links fit at 375 px, in French too (M4.b added "Today"). */
+  .topbar__nav {
+    width: 100%;
+    gap: var(--space-1);
+  }
+
+  .topbar__nav a {
+    padding: var(--space-1);
+  }
+
+  .topbar__controls {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .content {
+    padding: var(--space-6) var(--space-4);
+  }
+
+  .card {
+    padding: var(--space-4);
+  }
+
+  /* Rating buttons two by two on phones. */
+  .rating {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+

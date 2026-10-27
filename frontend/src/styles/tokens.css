@@ -1,0 +1,75 @@
+/* Design tokens. Light by default; dark follows the OS unless the user picks a theme. */
+:root {
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --surface-2: #efede6;
+  --text: #1d2420;
+  --text-muted: #5b6560;
+  --border: #dcd9cf;
+  --accent: #2f6f5e;
+  --accent-contrast: #ffffff;
+  --focus: #f2c14e;
+  --ok: #2e7d4f;
+  --warn: #8a6100;
+  --danger: #b3261e;
+  --chart-1: #2f6f5e;
+  --chart-2: #b35c00;
+  --chart-3: #2f5f9e;
+  --chart-4: #8a3f8f;
+  --chart-5: #5b6560;
+
+  --radius: 10px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --content-width: 880px;
+
+  --font-sans:
+    'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #121614;
+    --surface: #1a201d;
+    --surface-2: #232b27;
+    --text: #e7ebe8;
+    --text-muted: #9aa6a0;
+    --border: #2f3934;
+    --accent: #6cc3a8;
+    --accent-contrast: #0d1311;
+    --ok: #7fd49f;
+    --warn: #e3b55a;
+    --danger: #f2948d;
+    --chart-1: #6cc3a8;
+    --chart-2: #e8a15a;
+    --chart-3: #7fb0e8;
+    --chart-4: #c99bd6;
+    --chart-5: #9aa6a0;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #121614;
+  --surface: #1a201d;
+  --surface-2: #232b27;
+  --text: #e7ebe8;
+  --text-muted: #9aa6a0;
+  --border: #2f3934;
+  --accent: #6cc3a8;
+  --accent-contrast: #0d1311;
+  --ok: #7fd49f;
+  --warn: #e3b55a;
+  --danger: #f2948d;
+  --chart-1: #6cc3a8;
+  --chart-2: #e8a15a;
+  --chart-3: #7fb0e8;
+  --chart-4: #c99bd6;
+  --chart-5: #9aa6a0;
+  color-scheme: dark;
+}

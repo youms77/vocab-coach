@@ -1,0 +1,193 @@
+/* Correction view (M5.b1): marks are underlined and numbered, never only coloured. */
+.correction {
+  overflow-wrap: anywhere;
+}
+
+.correction-section {
+  margin-top: var(--space-4);
+}
+
+.correction-section h2,
+.correction-section h3 {
+  font-size: 1.05rem;
+  margin: 0 0 var(--space-2);
+}
+
+.correction-text {
+  white-space: pre-wrap;
+  margin: 0 0 var(--space-2);
+  line-height: 1.8;
+}
+
+.correction-mark {
+  background: transparent;
+  color: inherit;
+  text-decoration: underline wavy var(--danger);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  border-radius: 3px;
+  box-shadow: inset 0 -0.6em 0 color-mix(in srgb, var(--danger) 16%, transparent);
+}
+
+.correction-mark:focus-visible,
+.correction-error:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.correction-mark__numbers {
+  font-size: 0.75em;
+  font-weight: 700;
+  margin-left: 1px;
+}
+
+.correction-mark__numbers a {
+  color: var(--danger);
+  padding: 0 2px;
+}
+
+.correction-errors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.correction-group {
+  margin-top: var(--space-3);
+}
+
+.correction-group__title {
+  margin: 0 0 var(--space-2);
+}
+
+.correction-error {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-left: 4px solid var(--danger);
+  border-radius: 6px;
+}
+
+.correction-error p {
+  margin: 0 0 var(--space-2);
+}
+
+.correction-error p:last-child {
+  margin-bottom: 0;
+}
+
+.correction-error__number {
+  color: var(--danger);
+}
+
+.correction-wrong {
+  text-decoration: line-through;
+}
+
+.correction-right {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  font-weight: 600;
+}
+
+.category-code {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  /* A long code breaks at its dots and underscores, not in the middle of a word. */
+  overflow-wrap: anywhere;
+}
+
+.correction-french p {
+  margin: var(--space-2) 0 0;
+}
+
+.correction-notes {
+  padding-left: var(--space-6);
+  margin: 0;
+}
+
+.correction-copy-status {
+  margin-left: var(--space-2);
+  font-size: 0.875rem;
+}
+
+.correction-proposed {
+  margin-top: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+}
+
+.correction-proposed ul {
+  margin: var(--space-1) 0;
+  padding-left: var(--space-6);
+}
+
+.page-title:focus {
+  outline: none;
+}
+
+.page-title:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+}
+
+/* Writing (M5.b1). */
+.writing-page {
+  display: grid;
+  /* minmax(0, ...): a wide table scrolls in its .table-wrap instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.writing-page > .card,
+.writing-page > .hero {
+  margin: 0;
+}
+
+.topics {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.topic {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.topic--chosen {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+
+.topic__text {
+  margin: 0 0 var(--space-2);
+}
+
+.topic__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.topic-chosen {
+  margin: var(--space-2) 0 0;
+}
+
+.writing-form textarea {
+  width: 100%;
+  min-height: 12rem;
+  resize: vertical;
+}
+
+.field-hint--error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
