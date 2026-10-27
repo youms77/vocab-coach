@@ -506,6 +506,13 @@ td.num {
   background: var(--brand);
 }
 
+/* A row of tiles: as many columns as fit, one on a phone. */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-4);
+}
+
 /* Action tile */
 .action-tile {
   display: grid;

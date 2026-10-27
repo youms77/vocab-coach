@@ -334,7 +334,27 @@
     "statusTitle": "État du système",
     "apiChecking": "Vérification du serveur local…",
     "apiOk": "Le serveur local fonctionne (version {{version}}).",
-    "apiDown": "Impossible de joindre le serveur local. Le backend est-il lancé ?"
+    "apiDown": "Impossible de joindre le serveur local. Le backend est-il lancé ?",
+    "greeting": "C'est parti : environ {{minutes}} min aujourd'hui.",
+    "heroText": "{{reviews}} et {{newItems}} vous attendent.",
+    "heroReviews_one": "{{count}} révision",
+    "heroReviews_other": "{{count}} révisions",
+    "heroNewItems_one": "{{count}} nouveau terme",
+    "heroNewItems_other": "{{count}} nouveaux termes",
+    "tiles": {
+      "reviews": "Révisions dues",
+      "newItems": "Nouveaux termes",
+      "minutes": "Minutes prévues, pour un budget de {{budget}} min"
+    },
+    "continueTitle": "Continuer",
+    "continue": {
+      "decks_one": "{{count}} paquet",
+      "decks_other": "{{count}} paquets",
+      "writing": "Faire corriger un texte",
+      "speaking": "Répéter ou parler librement",
+      "errors": "Votre journal d'erreurs",
+      "consolidation": "Une tâche est prête"
+    }
   },
   "notFound": {
     "title": "Page introuvable",

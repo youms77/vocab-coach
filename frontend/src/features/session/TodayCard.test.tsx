@@ -69,7 +69,8 @@ describe('Today card', () => {
     expect(screen.getByText('Job interview phrases: 1')).toBeInTheDocument()
     expect(screen.getByText('About 13 min, for a daily budget of 45 min')).toBeInTheDocument()
     expect(screen.getByText(/Targeted practice: grammar.preposition \(4 recent errors\)/)).toBeInTheDocument()
-    expect(within(card()).getByRole('link', { name: "Start today's session" })).toHaveAttribute(
+    // The one action of the day moved to the home hero (RV.b).
+    expect(screen.getByRole('link', { name: "Start today's session" })).toHaveAttribute(
       'href',
       '/session',
     )

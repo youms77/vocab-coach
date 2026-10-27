@@ -334,7 +334,27 @@
     "statusTitle": "System status",
     "apiChecking": "Checking the local server…",
     "apiOk": "Local server is running (version {{version}}).",
-    "apiDown": "Cannot reach the local server. Is the backend running?"
+    "apiDown": "Cannot reach the local server. Is the backend running?",
+    "greeting": "Ready? About {{minutes}} min today.",
+    "heroText": "{{reviews}} and {{newItems}} are waiting for you.",
+    "heroReviews_one": "{{count}} review",
+    "heroReviews_other": "{{count}} reviews",
+    "heroNewItems_one": "{{count}} new term",
+    "heroNewItems_other": "{{count}} new terms",
+    "tiles": {
+      "reviews": "Reviews due",
+      "newItems": "New terms",
+      "minutes": "Minutes planned, for a budget of {{budget}} min"
+    },
+    "continueTitle": "Continue",
+    "continue": {
+      "decks_one": "{{count}} deck",
+      "decks_other": "{{count}} decks",
+      "writing": "Get a text corrected",
+      "speaking": "Shadow or speak freely",
+      "errors": "Your error log",
+      "consolidation": "A task is ready"
+    }
   },
   "notFound": {
     "title": "Page not found",

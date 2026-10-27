@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 
 import type { Deck } from '../../api/library'
 import type { DeadlinePace, PlanWarning } from '../../api/session'
+import { Notice } from '../../components/Notice'
 import { formatDay, minutesOf } from './format'
 
 function deckName(t: TFunction, decks: Deck[] | undefined, id: number) {
@@ -109,8 +110,10 @@ export function PlanWarnings({
       <h3 id={titleId}>{t('plan.warningsTitle')}</h3>
       <ul>
         {warnings.map((warning, i) => (
-          <li key={`${warning.code}-${i}`} className="form-message form-message--warn">
-            <WarningText warning={warning} decks={decks} paces={paces} />
+          <li key={`${warning.code}-${i}`}>
+            <Notice tone="warning">
+              <WarningText warning={warning} decks={decks} paces={paces} />
+            </Notice>
           </li>
         ))}
       </ul>
