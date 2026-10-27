@@ -181,3 +181,62 @@
   gap: var(--space-2);
 }
 
+
+/* Below 600px each row is a card: the cells stack, each named by its column; the markup, the
+   controls and the tab order do not change. */
+@media (max-width: 599.98px) {
+  .import-table,
+  .import-table tbody,
+  .import-table tr,
+  .import-table td {
+    display: block;
+  }
+
+  .import-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .import-table tr {
+    margin-bottom: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+
+  .import-table .import-row--ambiguous {
+    background: var(--surface-sunken);
+  }
+
+  .import-table td {
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-2) 0;
+    border-bottom: 0;
+    white-space: normal;
+  }
+
+  .import-table td::before {
+    content: attr(data-label);
+    color: var(--ink-muted);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 600;
+  }
+
+  .import-table .import-row__wrap,
+  .import-table .import-row__include {
+    min-width: 0;
+  }
+
+  .import-row__term input,
+  .import-table select {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+}
