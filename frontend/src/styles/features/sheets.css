@@ -1,14 +1,4 @@
 /* Usage sheets, exercises, enrichment, extension (M3.c3) */
-.badge {
-  display: inline-block;
-  margin-left: var(--space-1);
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 0.8125rem;
-  color: var(--ink-muted);
-}
-
 .sheet-view {
   display: grid;
   gap: var(--space-3);

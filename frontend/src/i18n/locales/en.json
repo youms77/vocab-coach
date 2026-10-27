@@ -15,7 +15,16 @@
     "errors": "Errors",
     "consolidation": "Consolidation",
     "curriculum": "Tracks",
-    "stats": "Statistics"
+    "stats": "Statistics",
+    "menu": "Menu",
+    "collapse": "Collapse the menu",
+    "expand": "Expand the menu",
+    "section": "Section",
+    "groups": {
+      "vocabulary": "Vocabulary",
+      "practice": "Practice",
+      "progress": "Progress"
+    }
   },
   "demo": {
     "badge": "Demo data",

@@ -49,12 +49,6 @@
   margin: 0;
 }
 
-code {
-  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
-  font-size: 0.875em;
-  overflow-wrap: anywhere;
-}
-
 .provider-message {
   overflow-wrap: anywhere;
   font-size: 0.875rem;
@@ -115,40 +109,5 @@ code {
 .settings-groups {
   display: grid;
   gap: var(--space-6);
-}
-
-fieldset {
-  border: 0;
-  padding: 0;
-  margin: 0;
-}
-
-legend {
-  font-weight: 700;
-  padding: 0;
-  margin-bottom: var(--space-3);
-}
-
-.table-wrap {
-  overflow-x: auto;
-}
-
-table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 0.9375rem;
-}
-
-th,
-td {
-  text-align: left;
-  padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-th {
-  color: var(--ink-muted);
-  font-weight: 600;
 }
 

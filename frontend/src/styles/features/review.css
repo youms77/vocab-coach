@@ -106,21 +106,6 @@
   font-weight: 700;
 }
 
-kbd {
-  display: inline-block;
-  min-width: 1.6em;
-  padding: 0 var(--space-1);
-  border: 1px solid var(--border);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  background: var(--surface-sunken);
-  color: var(--ink);
-  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  text-align: center;
-}
-
 .review-form .field input,
 .review-form .field textarea {
   width: 100%;
@@ -201,15 +186,6 @@ kbd {
   display: grid;
   gap: var(--space-2);
   justify-items: start;
-}
-
-.key-hints {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1) var(--space-4);
-  margin: 0;
-  color: var(--ink-muted);
-  font-size: 0.875rem;
 }
 
 .session-announce {
