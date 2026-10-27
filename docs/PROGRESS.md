@@ -112,6 +112,8 @@ cd ..; .\start.ps1 -Demo
 
 ## RV.b — Visual redesign: screen by screen (frontend only)
 
+> **Update:** the eight section illustrations were added by the owner (`frontend/src/assets/sections/`, 1680x944 px, about 1.3 MB each, 10.8 MB in all, larger than the 800 px of the brief: worth recompressing). Seen in the browser at 1280 px: Library (light and dark), Writing (light), Speaking (dark); Errors was measured (`scrollWidth`) but not looked at. Where the text below says they are missing, read it as superseded.
+
 Same branch `feat/rv-visual-redesign`, after the documentation commit of RV.a (`32aa0c0`). Not pushed, nothing merged. **No backend change** (`git diff --stat main -- backend` is empty), **no migration, no new dependency** (`package.json` and the lockfiles are unchanged). Decisions **D-295 to D-301**. The brief (`docs/prompt_RV_visual_redesign.md`) is the reference.
 
 ### Done
