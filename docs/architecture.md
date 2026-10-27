@@ -21,7 +21,27 @@ Browser ── http://127.0.0.1:5173 ──> Vite dev server (frontend/)
 Host and ports of the dev servers live in `frontend/dev-server.json`, read by `vite.config.ts` and the
 opener. Demo mode (`VOCAB_DEMO=1`, `python -m app --demo`, `start.ps1 -Demo`) only changes the database
 file (and the recordings folder, `data/audio-demo/`); see D-033, D-169, D-188.
-Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/dist`.
+The single-port "use" mode, where FastAPI also serves `frontend/dist`, is described under "Two ways to run" below.
+
+## Two ways to run (M10.b)
+
+| | Development (`start.ps1`) | Use (`start.ps1 -Use`) |
+|---|---|---|
+| Processes | uvicorn `--reload` + Vite | one uvicorn, no reload |
+| Address | app `127.0.0.1:5173`, API `127.0.0.1:8000` (Vite proxies `/api`) | `127.0.0.1:8000` only |
+| Frontend | Vite, hot reload | `frontend/dist`, served by FastAPI (`VOCAB_USE_MODE=1`, `VOCAB_FRONTEND_DIST`) |
+| Database | `db upgrade` | `db prepare`: copy of a personal database behind `head`, then upgrade (D-313) |
+
+**Middleware order** (outermost first; `create_app` in `app/main.py`): `ApiGuard` (Host, Origin, Sec-Fetch-Site,
+JSON, D-061; unchanged) -> `LocalhostRedirect` (use mode only: `localhost` / `[::1]` -> 307 to `127.0.0.1`) ->
+`SecurityHeaders` (fixed headers on every response, `no-store` on `/api`) -> CORS -> the routers. A foreign Host
+is refused (403) by the guard before the redirect can answer.
+
+**The page fallback** (`app/api/frontend.py`, use mode only; one catch-all route registered after everything):
+`/api`, `/docs`, `/redoc`, `/openapi.json` -> plain 404 as before; under `/assets/` or with an extension in the last
+segment -> a real file of `dist` (path resolved and checked to stay inside `dist`) or 404, never `index.html`;
+any other GET / HEAD path -> `index.html`; any other method on a page path -> 405. Hashed files are
+`immutable`, `index.html` is `no-cache`; the Content-Security-Policy is set on these responses only (D-311).
 
 ## Backend (`backend/`)
 

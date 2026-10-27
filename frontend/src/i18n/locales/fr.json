@@ -397,6 +397,11 @@
       "consolidation": "Une tâche est prête"
     }
   },
+  "route": {
+    "loading": "Chargement…",
+    "error": "Cette page n’a pas pu être chargée. L’application a peut-être été mise à jour depuis l’ouverture de l’onglet.",
+    "reload": "Recharger la page"
+  },
   "notFound": {
     "title": "Page introuvable",
     "back": "Retour à l'accueil"

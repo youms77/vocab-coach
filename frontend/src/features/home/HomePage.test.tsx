@@ -23,7 +23,7 @@ describe('HomePage', () => {
     mockFetch(Response.json({ status: 'ok', version: '0.1.0' }))
     renderApp('/')
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Welcome' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Welcome' })).toBeInTheDocument()
     expect(await screen.findByText('Local server is running (version 0.1.0).')).toBeInTheDocument()
     expect(document.documentElement.lang).toBe('en')
   })

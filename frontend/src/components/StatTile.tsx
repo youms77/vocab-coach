@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 
+import { widthPercent } from './widthRef'
+
 /** A big number with its label; the optional bar shows a share (0 to 1) of a budget or quota. */
 export function StatTile({
   value,
@@ -10,7 +12,8 @@ export function StatTile({
   label: string
   progress?: number
 }) {
-  const percent = progress === undefined ? null : Math.round(Math.min(1, Math.max(0, progress)) * 100)
+  const percent =
+    progress === undefined ? null : Math.round(Math.min(1, Math.max(0, progress)) * 100)
   return (
     <div className="stat-tile">
       <span className="stat-tile__value">{value}</span>
@@ -24,7 +27,7 @@ export function StatTile({
           aria-valuemax={100}
           aria-valuenow={percent}
         >
-          <div className="progress-bar__fill" style={{ width: `${percent}%` }} />
+          <div className="progress-bar__fill" ref={widthPercent(percent)} />
         </div>
       )}
     </div>

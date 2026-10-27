@@ -88,9 +88,52 @@ def db_reset(url: str, now: datetime | None = None) -> Path | None:
     return backup
 
 
-def _serve(reload: bool) -> int:
+def _prepare(settings: Settings) -> int:
+    """`db prepare` and the start of the use mode: create or upgrade the database, with a copy of
+    the file first when a personal database is behind (D-313). Exit code 2 when it must stop."""
+    from app.services.startup_upgrade import StartupError, prepare_database
+
+    try:
+        result = prepare_database(settings, db_upgrade, datetime.now())  # noqa: DTZ005 (file name)
+    except StartupError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    except PermissionError as exc:
+        print(
+            f"Cannot access the database file ({exc}). Is the app already running?", file=sys.stderr
+        )
+        return 2
+    if result.action == "ready":
+        print("Database is up to date.")
+    return 0
+
+
+def _serve(reload: bool, use: bool = False) -> int:
     import uvicorn
 
+    if use:
+        # Through the environment, as for --demo: `app.main` reads it when uvicorn imports it.
+        os.environ["VOCAB_USE_MODE"] = "1"
+        get_settings.cache_clear()
+        settings = get_settings()
+        from app.api.frontend import NOT_BUILT
+
+        index = settings.frontend_dist / "index.html"
+        if not index.is_file():
+            print(NOT_BUILT.format(path=index), file=sys.stderr)
+            return 2
+        code = _prepare(settings)
+        if code != 0:
+            return code
+        # No reload, no Server header (nothing to tell about the software behind the port).
+        uvicorn.run(
+            "app.main:app",
+            host=settings.host,
+            port=settings.port,
+            reload=False,
+            server_header=False,
+        )
+        return 0
     settings = get_settings()
     uvicorn.run("app.main:app", host=settings.host, port=settings.port, reload=reload)
     return 0
@@ -99,6 +142,11 @@ def _serve(reload: bool) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app", description=__doc__)
     parser.add_argument("--reload", action="store_true", help="restart the API on code changes")
+    parser.add_argument(
+        "--use",
+        action="store_true",
+        help="use mode: one process and one port, serves the built frontend (no --reload)",
+    )
     parser.add_argument(
         "--demo",
         action="store_true",
@@ -109,6 +157,10 @@ def _build_parser() -> argparse.ArgumentParser:
     db = commands.add_parser("db", help="manage the SQLite database")
     db_commands = db.add_subparsers(dest="db_command", required=True)
     db_commands.add_parser("upgrade", help="apply migrations and load the error taxonomy")
+    db_commands.add_parser(
+        "prepare",
+        help="create or upgrade the database; a personal one is copied to data/backups first",
+    )
     reset = db_commands.add_parser(
         "reset", help="back up the current database file, then recreate an empty one"
     )
@@ -647,7 +699,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Invalid configuration: {exc}", file=sys.stderr)
         return 1
     if args.command is None:
-        return _serve(args.reload)
+        return _serve(args.reload, args.use)
 
     if args.command == "demo":
         # Never the personal database: always the demo file, whatever VOCAB_DATABASE_URL says.
@@ -805,6 +857,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(plan.model_dump_json(indent=2) if args.json else render_plan(plan))
         return 0
     try:
+        if args.db_command == "prepare":
+            return _prepare(settings)
         if args.db_command == "upgrade":
             result = db_upgrade(url)
             print(

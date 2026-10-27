@@ -25,6 +25,17 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 4173,
   },
+  build: {
+    // Libraries in their own file: they change rarely (the browser keeps them), and the
+    // application's entry file stays under the size Vite warns about (M10.b, D-314).
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{ name: 'vendor', test: /node_modules/ }],
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

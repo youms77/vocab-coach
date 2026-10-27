@@ -30,7 +30,9 @@ from app.api import (
 )
 from app.api import settings as settings_api
 from app.api.errors import register_error_handlers
+from app.api.frontend import mount_frontend
 from app.api.guard import ApiGuard
+from app.api.headers import LocalhostRedirect, SecurityHeaders
 from app.config import Settings, get_settings
 from app.services import backup_auto
 
@@ -52,6 +54,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         yield
 
     app = FastAPI(title=settings.app_name, version=__version__, lifespan=lifespan)
+    # Middleware order, innermost first (the last one added is the outermost):
+    # CORS, security headers, the localhost redirect (use mode), then the Host guard (D-061).
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -79,7 +83,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(export.router, prefix="/api")
     app.include_router(backup.router, prefix="/api")
     register_error_handlers(app)
-    # Added last, so it is the outermost layer: even a CORS preflight goes through the Host check.
+    if settings.use_mode:
+        # Last route of all, so every API route and /docs win over the page fallback (D-310).
+        mount_frontend(app, settings.frontend_dist)
+    app.add_middleware(SecurityHeaders)
+    if settings.use_mode:
+        app.add_middleware(LocalhostRedirect, port=settings.port)
+    # Added last, so it is the outermost layer: even a CORS preflight goes through the Host check,
+    # and a foreign Host is refused (403) before the localhost redirect can answer.
     app.add_middleware(ApiGuard, port=settings.port, allowed_origins=settings.cors_origins)
     return app
 

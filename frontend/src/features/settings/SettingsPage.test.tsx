@@ -166,7 +166,7 @@ describe('Settings page: providers', () => {
     )
     renderApp('/settings')
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
     const gemini = await screen.findByRole('article', { name: 'Google Gemini' })
     expect(within(gemini).getByText('Ready')).toBeInTheDocument()
     expect(within(gemini).getByText('gemini-3.5-flash-lite')).toBeInTheDocument()

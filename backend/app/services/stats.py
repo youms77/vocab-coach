@@ -42,15 +42,22 @@ from app.services.error_cards import carded_keys
 
 @contextmanager
 def read_only(engine: Engine) -> Iterator[Session]:
-    """A session whose connection refuses every write, reset to writable afterwards."""
+    """A session whose connection refuses every write, reset to writable afterwards.
+
+    The reset runs on the very connection the session holds, *before* the rollback gives it back
+    to the pool: after a rollback the session's next statement may get another pooled connection,
+    which would leave `query_only` ON in the first (a later write on it then failed with "attempt
+    to write a readonly database", seen on `POST /api/backup`, M10.b)."""
     with Session(engine) as session:
-        session.execute(text("PRAGMA query_only = ON"))
+        connection = session.connection()
+        connection.execute(text("PRAGMA query_only = ON"))
         try:
             yield session
         finally:
-            session.rollback()
-            session.execute(text("PRAGMA query_only = OFF"))
-            session.rollback()
+            try:
+                connection.execute(text("PRAGMA query_only = OFF"))
+            finally:
+                session.rollback()
 
 
 @dataclass(frozen=True)

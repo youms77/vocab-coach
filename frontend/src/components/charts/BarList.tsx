@@ -1,3 +1,5 @@
+import { widthPercent } from '../widthRef'
+
 export interface BarItem {
   id: string
   label: string
@@ -18,7 +20,7 @@ export function BarList({ items }: { items: BarItem[] }) {
             {item.fraction !== null && (
               <span
                 className="bar-list__bar"
-                style={{ width: `${Math.round(Math.min(1, Math.max(0, item.fraction)) * 100)}%` }}
+                ref={widthPercent(Math.round(Math.min(1, Math.max(0, item.fraction)) * 100))}
               />
             )}
           </span>

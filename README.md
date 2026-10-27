@@ -229,7 +229,31 @@ provider cannot be reached (for Ollama: is it running, and is the address right?
 
 ## Daily use
 
-The pages come with milestones M3–M4 (discover new terms, review). Importing a word list already works from the
+Start the application for everyday study with one command:
+
+```powershell
+.\start.ps1 -Use          # or: start.cmd -Use   (macOS / Linux: ./start.sh --use)
+```
+
+- **One process, one address**: `http://127.0.0.1:8000/` serves the application and its API (no hot reload).
+  `-Demo` can be added to use the fictional demo data, `-NoBrowser` not to open the browser.
+- **The browser keeps its preferences per address**, and the development mode uses another one
+  (`http://127.0.0.1:5173`): the theme and language you chose there do not follow. Choose them again once
+  here. `localhost:8000` is redirected to `127.0.0.1:8000`.
+- **The first start builds the frontend** (a minute at most). Later starts build again only when a file of
+  `frontend/src` (or `index.html`, `package.json`, `vite.config.*`) is newer than the build; `-Rebuild` forces it.
+- **Before an upgrade, a backup**: when the application brought a new database version, your database file is
+  first copied to `data/backups/vocab-coach-pre-upgrade-from-<version>-<date>.sqlite3`, then upgraded. If the
+  copy fails, nothing is upgraded and the start stops. To go back, close the application and put that file in
+  place of `data/vocab-coach.sqlite3`. (The demo database is never upgraded: rebuild it with
+  `uv run python -m app demo seed --reset` from `backend`.)
+- **Port 8000 busy**: the start stops and names the program using it (usually vocab-coach itself, already
+  running). No other port is tried: another address would be another origin and lose your preferences.
+- Ctrl+C stops everything.
+
+## Command line
+
+The pages cover the daily work; the command line remains available. Importing a word list works from the
 command line (run from the `backend` folder):
 
 ```powershell

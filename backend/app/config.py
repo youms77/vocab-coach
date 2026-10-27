@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     database_url: str = ""
     # Demo mode: the default database becomes `<data_dir>/vocab-coach-demo.sqlite3`.
     demo: bool = False
+    # Use mode (`start.ps1 -Use`, `python -m app --use`, M10.b): one process, one port, the built
+    # frontend is served by the backend. `frontend_dist` is read in that mode only.
+    use_mode: bool = False
+    frontend_dist: Path = REPO_ROOT / "frontend" / "dist"
     # Origins allowed to call the API during development (Vite dev server).
     cors_origins: list[str] = ["http://127.0.0.1:5173", "http://localhost:5173"]
 

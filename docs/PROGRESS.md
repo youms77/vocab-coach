@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M10.b** (use mode: one process, one port, the built frontend served by FastAPI; security and performance reviews; no migration, no new project dependency) is done on `feat/m10b-use-mode`, cut from the tip of `feat/m10a-backup` (RV and M10.a are **not** in `main`). Not pushed. Decisions D-310 to D-318. Next: the owner's review (manual scenario in the M10.b section), then M10.c (translation and the final README).
 - **M10.a2** (the settings card; frontend only) is done on `feat/m10a-backup` after M10.a1. M10.a is complete; not pushed; the card is not seen in a browser. Next: the owner's review, then M10.b (decisions from D-310). See the M10.a2 section.
 - **M10.a1** (module J, full backup and restore: format, services, API, CLI; no migration, no screen) is done on `feat/m10a-backup`, cut from the tip of `feat/rv-visual-redesign`. Not pushed. Decisions D-302 to D-308. Next: **M10.a2** (the settings card). See the M10.a1 section.
 - **RV.b** (visual redesign, screen by screen; frontend only) is done on `feat/rv-visual-redesign` after RV.a: home, session, section headers, import cards, `CorrectionMark`, notices, CSS cleanup (D-295 to D-301). Not pushed. **The eight section illustrations are still missing** (the four headers work without them). Next: the owner's review of RV, the illustrations, then the push; M10.a branches from the tip of this branch and numbers its decisions from D-302. See the RV.b section.
@@ -33,6 +34,50 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M10.b — Use mode, security review, performance review
+
+Branch `feat/m10b-use-mode`, cut from the tip of `feat/m10a-backup`. Not pushed.
+
+### Done
+
+- **Use mode** (D-310 to D-312, D-317): `python -m app --use`, `start.ps1 -Use`, `start.cmd -Use`, `start.sh --use` (with `-Demo` / `--demo`, `-NoBrowser`, `-Rebuild` / `--rebuild`). FastAPI serves `frontend/dist` and the API on `127.0.0.1:8000`: assets, page fallback, cache headers, security headers, strict CSP, `localhost` -> `127.0.0.1` redirect, guard unchanged and outermost. The launcher builds when `dist` is missing or older than the sources, prepares the database, refuses a busy port (exit 2).
+- **Database at start** (D-313): `db prepare` copies a personal database that is behind `head` to `data/backups/vocab-coach-pre-upgrade-from-<rev>-<date>.sqlite3`, then upgrades. **Departure from the brief** (approved by the owner): a plain SQLite file, not a backup zip, because the backup service refuses a database behind `head`.
+- **Bundle** (D-314): lazy pages, `vendor` chunk, accessible loading state, error screen with a reload button. Home JavaScript 1,028,419 -> 651,426 B (-37 %); the 500 kB warning is gone.
+- **Reviews**: `docs/security-review.md` (8 points, every line with a proof) and `docs/performance-review.md`. Audits: `npm audit` x4 and `pip-audit`: 0 findings.
+- **Two bugs found while verifying and fixed**: `POST /api/backup` could fail with a read-only database (D-315); a 375 px overflow on `/consolidation` (D-316).
+- README "Daily use", `docs/architecture.md` "Two ways to run".
+
+### Verified
+
+- `npm run check`: ruff clean, 2,983 pytest passed (1 skipped: symbolic links), typecheck, oxlint, 873 Vitest tests passed (4 existing assertions made asynchronous, none removed). `alembic check`: no new operation. `npm --prefix frontend run build`: no size warning. No new dependency.
+- New tests: `api/test_frontend_serving.py` (fake `dist` in `tmp_path`: fallback, 404s, 405, cache, headers, CSP, redirect, 403 before redirect, malicious paths, missing build, 500 without trace), `test_startup_upgrade.py` (copy valid and at `0001`, injected failure, rotation, demo, CLI exit codes), `test_read_only_session.py`, `RouteFallback.test.tsx`. `api/test_guard.py` untouched and passing.
+- **Break and restore**: removing the "stays inside `dist`" check made 7 path tests fail; serving `index.html` for a missing `/assets/` file made `test_missing_files_are_404_and_never_html` fail; both restored.
+- **Runtime**, demo in a temporary `VOCAB_DATA_DIR`: `start.ps1 -Use -Demo -NoBrowser` answers on `127.0.0.1:8000`; `/library/items/1`, `/stats` and `/styleguide` give the page, `/docs` works, `/assets/nope.js` and `/api/nope` give 404, `localhost:8000/stats?...` gives 307, a foreign Host 403; a second start gives "Port 8000 is already used by python (pid ...)" and exit 2; a restart says "Frontend build is up to date" and "Database is up to date".
+- **In the built-in browser** (same server): the 15 URLs `/`, `/session`, `/queue`, `/library`, `/library/items/1`, `/import`, `/writing`, `/speaking`, `/transcripts`, `/consolidation`, `/curriculum`, `/drills`, `/errors`, `/stats`, `/settings` visited by navigation inside one page load, in English and French, light and dark, at 1024 px and at 375 px: **no CSP violation, no error event, no page without a title, `scrollWidth` = `clientWidth` everywhere** after the D-316 fix. Two cards reviewed by keyboard (a choice key, then a rating key), a recording of the demo played and sought (`Audio` on the API URL and on a `blob:` URL), a backup downloaded from the settings card (`vocab-coach-backup-...zip` through a `blob:` link), a direct load of `/library/items/1` in a clean tab with an empty console.
+
+### Seen and not seen
+
+- **Not seen**: the 1280 px width (the pane is 1024 px; 375 px and 1024 px were checked), a screenshot of each of the 15 screens (the sweep checked structure, width and errors by script; a few screens were looked at), three cards by keyboard (two were done), the real `start.ps1 -Use` without `-NoBrowser` (the browser opening in use mode was not exercised), a real F5 key press (a direct load of a deep URL and the fallback by `curl` were used), the "cache empty" page weight (computed, not measured).
+- The "15 screens of RV.b" list is not spelled out in the documents, so the 15 URLs above are my reading of it.
+- A commit by someone else (`c142bfd`, the section illustrations) arrived on this branch while I worked, and the two locale files were reverted in the working tree at some point; I restored them from `HEAD` and re-added the three `route.*` keys. The eight PNG headers weigh 1.3 to 1.4 MB each: see the performance review.
+
+### Left / next
+
+- The owner decides on lazy-loading `fr.json` and on shrinking the PNG headers.
+- M10.c: complete translation check and the final README.
+
+### Manual scenario (3 minutes)
+
+```powershell
+.\start.ps1 -Use -Demo
+```
+
+1. The browser opens on `http://127.0.0.1:8000/`. Start a session and do 3 cards by keyboard.
+2. Open a term, press F5: the term page comes back.
+3. Type `http://localhost:8000/stats`: the address becomes `127.0.0.1`.
+4. F12, Console: no error.
+5. Ctrl+C, then `.\start.ps1 -Use` on your database: it starts without building, and without upgrading if the database is at `head` (otherwise it first writes `data\backups\vocab-coach-pre-upgrade-from-...sqlite3`).
 
 ## M10.a2 — The "Backup" card of the settings page (frontend only)
 

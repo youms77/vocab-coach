@@ -397,6 +397,11 @@
       "consolidation": "A task is ready"
     }
   },
+  "route": {
+    "loading": "Loading…",
+    "error": "This page could not be loaded. The application may have been updated since you opened it.",
+    "reload": "Reload the page"
+  },
   "notFound": {
     "title": "Page not found",
     "back": "Back to home"

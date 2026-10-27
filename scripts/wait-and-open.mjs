@@ -23,8 +23,10 @@ if (process.env.VOCAB_OPEN_BROWSER !== '1') {
 const devServer = JSON.parse(
   await readFile(new URL('../frontend/dev-server.json', import.meta.url), 'utf8'),
 )
-const appUrl = `http://${devServer.host}:${devServer.port}/`
 const backendUrl = process.env.VOCAB_BACKEND_URL ?? devServer.backendUrl
+// Use mode (M10.b): the backend serves the page itself, on its own port.
+const useMode = process.env.VOCAB_USE_MODE === '1'
+const appUrl = useMode ? new URL('/', backendUrl).href : `http://${devServer.host}:${devServer.port}/`
 const healthUrl = new URL('/api/health', backendUrl).href
 
 async function answers(url, accept) {

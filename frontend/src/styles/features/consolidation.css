@@ -1,6 +1,8 @@
 /* Consolidation (M7.b) */
 .consolidation-page {
   display: grid;
+  /* A long option of the task select must not widen the page (a 375 px overflow, found in M10.b). */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 

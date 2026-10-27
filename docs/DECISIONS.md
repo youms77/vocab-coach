@@ -4151,3 +4151,56 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 - One card at the end of `/settings` (`features/settings/BackupCard.tsx`, `api/backup.ts`): a warning notice (all personal data, no key), "Download a backup" (`apiDownload` of D-239, extended with a `POST` method; the file name comes from `Content-Disposition`), the automatic-copy form (folder and number of copies, saved with the existing `PATCH /api/settings`; the number is checked in the form against the bounds the API sends, the folder only by the server), the status (last automatic copy, last download, last error in words through `settings.backup.errors.<code>`), "Make a copy now", and the "Restore" block with the commands to copy and "stop the app first". No restore button (out of scope).
 - A refused folder shows `settings.backup.reasons.<reason>` (`not_absolute`, `not_found`, `not_writable`, `inside_repository`) from `detail.reason`; any other failure goes through `ErrorText`. On the demo database the form and the copy button are disabled and a notice says why; the download stays available. `backup_not_configured` and `database_out_of_date` joined the known error codes.
 - Strings are in `en.json` and `fr.json` under `settings.backup` (same keys). The path examples use forward slashes. Styles: the base `card`, `field`, `button`, `notice` plus `.code-block` and `.backup-status` in `features/settings.css`, tokens only.
+
+
+## D-310 — The use mode: one process, one port, the built frontend served by FastAPI (M10.b)
+
+- `VOCAB_USE_MODE=1` (set by `python -m app --use`, which the launchers call) and `VOCAB_FRONTEND_DIST` (default `<repo>/frontend/dist`) are read only in that mode; development is unchanged. Without `dist/index.html` the start stops with exit code 2 and the build command (`create_app` raises `FrontendNotBuilt`; the CLI checks first).
+- `app/api/frontend.py` registers **one catch-all route after every API route and `/docs`**: `/api`, `/docs`, `/redoc`, `/openapi.json` give the same plain 404 as before (a write to an unknown `/api/...` stays 404, not 405); under `/assets/` or with an extension, a real file resolved inside `dist` or a 404, **never `index.html`**; any other GET / HEAD, `index.html`; any other method on a page path, 405. Media types are fixed in a table (Windows can map `.js` to `text/plain` through the registry).
+- `/styleguide` returns `index.html` (the router answers "not found"); the route and the witness string are not in the build (D-291, checked in `dist/`). No source maps (not configured in Vite), no compression (loopback, no dependency).
+- Port: `VOCAB_PORT` still applies; the launchers read it for the busy-port check (D-317).
+
+## D-311 — Content-Security-Policy: strict `style-src`, the two `style=` widths moved to the CSSOM (M10.b)
+
+- Policy on the frontend's responses only: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`.
+- Inventory of `style=` in the application code: **two**, both a dynamic `width: N%` (`StatTile` progress bar, `BarList`); the others are in the style guide, which is not in the build. Choice: **no `'unsafe-inline'`**. A `ref` callback (`components/widthRef.ts`) sets `element.style.width`: a property set from a script is not blocked by `style-src`, only the `style=` attribute is. The widths are still dynamic, the two components' tests are unchanged.
+- `blob:` is used for the local clip before sending (`useRecorder`) and for downloads (`apiDownload`); `data:` has no use in the source but stays as the brief set it. Verified in the browser: playback of a demo recording (`Audio` on the API URL with a seek, and on a `blob:` URL), a backup download (`blob:` anchor), a review by keyboard, the 15 screens: **0 CSP violations**. The enforcement itself was checked with a probe (`setAttribute('style', ...)` raised `style-src-attr`).
+
+## D-312 — Security headers, `no-store` on `/api`, the `localhost` redirect, middleware order (M10.b)
+
+- `SecurityHeaders` adds `X-Content-Type-Options`, `Referrer-Policy: no-referrer`, COOP and CORP `same-origin`, `Permissions-Policy: microphone=(self), camera=(), geolocation=(), payment=(), usb=()` to **every** response, in both modes (the Vite proxy passes them on harmlessly). `Cache-Control: no-store` on `/api` when the route set none; the audio route with `Range` still answers 206 and seeks (checked with `curl` and `Audio.currentTime` in the browser).
+- `LocalhostRedirect` (use mode only, GET and HEAD): `localhost:<port>` and `[::1]:<port>` get a 307 to `127.0.0.1:<port>` with the same raw path and query. A write is not redirected.
+- Order, outermost first: `ApiGuard` (D-061, unchanged, so a foreign Host is 403 before any redirect) -> `LocalhostRedirect` -> `SecurityHeaders` -> CORS -> routes. Pure ASGI, no buffering of streamed bodies.
+
+## D-313 — The database at the start of the use mode: a plain copy of the file, then the upgrade (M10.b)
+
+- **Departure from the brief, approved by the owner**: the brief asked for a `vocab-coach-backup-...-pre-upgrade.zip` made by the M10.a1 service. `write_backup` refuses a database that is not at `head` (`database_out_of_date`, D-303), which is exactly the case here. The copy is instead a consistent SQLite file made with SQLite's own online backup API, `data/backups/vocab-coach-pre-upgrade-from-<revision>-<date>.sqlite3`, written to a temporary name, checked (`integrity_check`, same revision as the original) and renamed. Recordings are not touched by a migration and not copied. To go back: close the app, put the file in place of the database.
+- The name does not match `backup_format.BACKUP_FILE_NAME`, so the automatic copy's rotation never deletes it (tested). If the copy fails, nothing is upgraded and the start stops with exit code 2.
+- `python -m app db prepare` does this (also used by the launchers, before `demo seed --if-missing`); `--use` calls it again (a no-op when up to date). No database file (or an empty one): created by `upgrade`, as in development.
+- Demo database behind `head`: never upgraded; a message with `demo seed --reset`. The start goes on when the file still has a schema revision (the file is usable); with no revision it stops with exit code 2.
+
+## D-314 — Bundle: one file per page, a `vendor` chunk, an announced wait and a way out (M10.b)
+
+- Every page of `routes.tsx` is `React.lazy` (`page(() => import(...), 'Name')`); the layout and the not-found page stay in the entry file. `PageBoundary` (a `Suspense` around the `Outlet`, inside the layout, so the page keeps its shell) shows `RouteFallback`: `role="status"`, text `route.loading` (EN / FR), `min-height: 50vh` so nothing jumps. `RouteError` is the `errorElement` of the same group: a `role="alert"` notice (`route.error`) and a "Reload the page" button (`route.reload`), for a page file that no longer exists after a rebuild. Never a blank screen.
+- The pages alone left the entry file at 513,495 B, just over Vite's 500 kB: `build.rolldownOptions.output.codeSplitting` puts `node_modules` in a `vendor` chunk (403 kB; it changes rarely, so the browser keeps it). Result in `docs/performance-review.md`: entry 226,762 B, home page 651,426 B of JavaScript against 1,028,419 (-37 %).
+- Home and the session are lazy too: the entry file is the smaller one and the home chunk is 6.6 kB.
+- **Not applied, to be decided**: lazy-loading `fr.json` (111 kB raw, 33 kB gzip) for English readers.
+- Tests: the first import of a page in Vitest can exceed the 1 s default of Testing Library when many files run at once; `asyncUtilTimeout` is 5 s in `src/test/setup.ts`. Four existing tests looked at a heading with `getBy` right after `renderApp`; they now use `findBy` (an assertion became asynchronous, none was weakened).
+
+## D-315 — `read_only` keeps the same connection until it is writable again (M10.b)
+
+- Found while downloading a backup in the browser: `POST /api/backup` failed with "attempt to write a readonly database" on `backup.created`. `read_only` ran `PRAGMA query_only = OFF` **after** `session.rollback()`; the rollback gives the connection back to the pool and the next statement can get another one, leaving `ON` on the first (a later write on it fails). It depended on the pool order, so the tests (one connection) never saw it.
+- Fix: the pragma is reset on the connection the session holds (`session.connection()`), before the rollback. `tests/test_read_only_session.py` warms a three-connection pool and checks every connection is writable afterwards; it fails on the old code and passes on the new one.
+
+## D-316 — A 375 px overflow on the Consolidation page (M10.b)
+
+- With a deck ready for a task, `/consolidation` was 698 px wide at 375 px (725 in French): `.consolidation-page` is a grid with an implicit `auto` column, widened by the long option text of the task `<select>`. `grid-template-columns: minmax(0, 1fr)` (as on the dashboard page). The RV.b check did not see it: its demo had no deck ready on that page.
+
+## D-317 — One fixed port, no fallback (M10.b)
+
+- `start.ps1 -Use` / `start.sh --use` stop with exit code 2 when the port (8000, or `VOCAB_PORT`) is taken, naming the program on Windows (`Get-NetTCPConnection`, `Get-Process`; a connection test on `/dev/tcp` elsewhere). Another port would be another origin: the browser would lose the theme and the language.
+- The browser opener (`scripts/wait-and-open.mjs`) reads `VOCAB_USE_MODE=1` and opens the backend's address, without waiting for Vite.
+
+## D-318 — Risks accepted in the security review (M10.b)
+
+- Another program running as the same user can read `data/` and `.env`; there is no HTTPS on the loopback; there is no CSRF token (the Host / Origin / Sec-Fetch-Site / JSON rules of D-061 replace it). Backups and the pre-upgrade copy are not encrypted. The single-user, local design makes the first three acceptable; nothing in the spec asks for more. Details in `docs/security-review.md`.
