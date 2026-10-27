@@ -391,7 +391,9 @@ the backend listens only on `127.0.0.1`.
   invented decks and errors) makes it possible to try the app without personal data.
 - Conventional Commits; one branch per milestone, merged into `main` when tests pass.
 - Basic accessibility and keyboard shortcuts for reviews (reveal, rate 1 to 4, replay audio).
-- Sober, readable interface, dark mode; daily speed of use matters more than decoration.
+- Section landing pages (home, library, writing, speaking, errors) have a large coloured header with an
+  illustration, and the home page a hero photo. Working screens (review, discovery, drills, forms) stay clean and
+  focused: no images, one main action, nothing that slows daily use. Dark mode.
 
 ## 9. Roadmap
 
@@ -409,6 +411,7 @@ Every milestone leaves an app that starts and whose tests pass. The criteria bel
 | **M7 — Consolidation** | Module G: trigger, topics, written and spoken modes, detection of target-term use, "active" status | Consolidated demo deck → task proposed → production → statuses updated |
 | **M8 — General English tracks** | Module H: syllabus, word-list import (licence permitting), scenario units generated and stored | One track runnable end to end; intake triage applied |
 | **M9 — Dashboard** | Full module I; CSV export | Indicators computed on demo data, checked by tests on hand-built cases (normalised rates, retention) |
+| **RV — Visual redesign** | Frontend only, in two parts: RV.a foundations (CSS layers, one token system for both themes, bundled Inter, home-made icons, base components, collapsible sidebar and top bar, development-only style guide, contrast test, readable charts at 375 px) and RV.b screen-by-screen pass (home with hero photo, illustrated section headers, clean working screens); no backend, route, API or dependency change | `npm run check` green with every existing test passing; contrast test passes in both themes; no hard-coded colour outside the tokens; no horizontal page scroll at 375 px in English and French; sidebar state remembered; `/styleguide` absent from the production build |
 | **M10 — Polish** | Complete French translation; backup and restore; README with screenshots; single-port "use" mode; security and performance review | Restore of a backup into an empty database; installation from scratch following the README |
 
 The dashboard comes late in the build order, but the events it uses are recorded from M1: when it arrives, the
