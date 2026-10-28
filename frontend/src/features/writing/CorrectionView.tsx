@@ -18,6 +18,7 @@ import {
 import { Notice } from '../../components/Notice'
 import { CategoryCode } from '../../components/CategoryCode'
 import { CorrectionMark } from '../../components/CorrectionMark'
+import { English } from '../../components/English'
 
 type Level = 2 | 3
 
@@ -120,7 +121,7 @@ function ErrorItem({
       )}
       {term !== null && (
         <p>
-          {t('correction.term')}: <Link to={`/library/items/${term.id}`}>{term.term}</Link>
+          {t('correction.term')}: <Link to={`/library/items/${term.id}`}><English>{term.term}</English></Link>
         </p>
       )}
     </li>

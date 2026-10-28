@@ -25,6 +25,7 @@ import { QuickAdd } from './QuickAdd'
 import { Icon } from '../../components/Icon'
 import { SectionHeader } from '../../components/SectionHeader'
 import { sectionArt } from '../../components/sectionArt'
+import { English } from '../../components/English'
 
 function Filters({
   filters,
@@ -248,7 +249,7 @@ export function LibraryPage() {
                   {items.data.items.map((item) => (
                     <tr key={item.id}>
                       <th scope="row">
-                        <Link to={`/library/items/${item.id}`}>{item.term}</Link>
+                        <Link to={`/library/items/${item.id}`}><English>{item.term}</English></Link>
                       </th>
                       <td>{t(`library.type.${item.item_type}`)}</td>
                       <td>{t(`library.status.${item.status}`)}</td>

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation } from 'react-router'
 
 import { useHealth } from '../api/health'
+import { useDocumentTitle } from '../pageTitle'
 import { readSidebarCollapsed, storeSidebarCollapsed } from '../sidebar'
 import { useStopRecordingOnLeave } from '../speech/activeRecording'
 import { useCancelSpeechOnLeave } from '../speech/useSpeech'
@@ -16,6 +17,7 @@ export function Layout() {
   const { t } = useTranslation()
   const health = useHealth()
   const { pathname } = useLocation()
+  useDocumentTitle(pathname)
   useCancelSpeechOnLeave()
   useStopRecordingOnLeave()
 

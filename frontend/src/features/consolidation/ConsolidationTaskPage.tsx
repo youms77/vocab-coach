@@ -20,6 +20,7 @@ import { ErrorText } from '../settings/ErrorText'
 import { countText } from '../writing/draft'
 import { inLanguage, loadTaskDraft, otherLanguage, saveTaskDraft } from './text'
 import { Notice } from '../../components/Notice'
+import { English } from '../../components/English'
 
 type NextStatus = Exclude<TaskStatus, 'proposed'>
 type Confirmed = 'completed' | 'dismissed'
@@ -332,7 +333,7 @@ function TaskView({ task }: { task: ConsolidationTask }) {
           {task.targets.map((target) => (
             <li key={target.item_id}>
               <Link to={`/library/items/${target.item_id}`} lang="en">
-                {target.term}
+                <English>{target.term}</English>
               </Link>
               <span className="badge">{t(`library.status.${target.item_status as 'active'}`, { defaultValue: target.item_status })}</span>
             </li>

@@ -11,6 +11,7 @@ import {
 import { useDecks } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
 import { Notice } from '../../components/Notice'
+import { English } from '../../components/English'
 
 const LIST_LIMIT = 50
 
@@ -228,7 +229,7 @@ export function EnrichmentPage() {
           <ul className="pending-list">
             {pending.data.items.slice(0, LIST_LIMIT).map((item) => (
               <li key={item.item_id}>
-                <Link to={`/library/items/${item.item_id}`}>{item.term}</Link>{' '}
+                <Link to={`/library/items/${item.item_id}`}><English>{item.term}</English></Link>{' '}
                 <span className="muted">({t(`library.status.${item.status}`)})</span>
               </li>
             ))}

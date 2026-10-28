@@ -23,6 +23,7 @@ import { SectionHeader } from '../../components/SectionHeader'
 import { sectionArt } from '../../components/sectionArt'
 import { CategoryCode } from '../../components/CategoryCode'
 import { CorrectionMark } from '../../components/CorrectionMark'
+import { English } from '../../components/English'
 
 function FilterForm({
   filters,
@@ -261,7 +262,7 @@ export function ErrorsPage() {
                           <td>{t(`errorLog.source.${error.source}`)}</td>
                           <td lang="en">
                             {error.term !== null ? (
-                              <Link to={`/library/items/${error.term.id}`}>{error.term.term}</Link>
+                              <Link to={`/library/items/${error.term.id}`}><English>{error.term.term}</English></Link>
                             ) : (
                               '—'
                             )}

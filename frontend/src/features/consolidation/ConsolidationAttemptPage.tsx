@@ -23,6 +23,7 @@ import { readAutoCorrect } from '../speaking/speakingState'
 import { readUnavailableReason } from '../speaking/shadowTarget'
 import { CorrectionView } from '../writing/CorrectionView'
 import { Notice } from '../../components/Notice'
+import { English } from '../../components/English'
 
 const codeOf = (error: unknown) => (error instanceof ApiError ? error.code : null)
 
@@ -76,7 +77,7 @@ export function TargetsSummary({
               {groups[group].map((target) => (
                 <li key={target.lexical_item_id}>
                   <Link to={`/library/items/${target.lexical_item_id}`} lang="en">
-                    {target.term}
+                    <English>{target.term}</English>
                   </Link>
                   {group === 'correct' && activated.has(target.lexical_item_id) && (
                     <span className="badge">{t('consolidation.summary.nowActive')}</span>

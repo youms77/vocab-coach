@@ -28,7 +28,7 @@ function Summary({ summary, itemId }: { summary: SheetSummary; itemId: number })
       {pronunciation?.stressed_syllable != null && (
         <p className="muted">{t('review.summary.stress', { syllable: pronunciation.stressed_syllable })}</p>
       )}
-      {summary.definition_simple !== null && <p>{summary.definition_simple}</p>}
+      {summary.definition_simple !== null && <p lang="en">{summary.definition_simple}</p>}
       {summary.translation_fr.length > 0 && (
         <p lang="fr">{t('review.cueFr', { cue: summary.translation_fr.join(', ') })}</p>
       )}
@@ -231,7 +231,7 @@ export function ReviewResult({
             <SpeakButton text={term} label={t('review.termLabel')} />
           </p>
         )}
-        {text(solution.definition_simple) !== null && <p>{solution.definition_simple}</p>}
+        {text(solution.definition_simple) !== null && <p lang="en">{solution.definition_simple}</p>}
         {(solution.translation_fr ?? []).length > 0 && (
           <p lang="fr">{t('review.cueFr', { cue: (solution.translation_fr ?? []).join(', ') })}</p>
         )}

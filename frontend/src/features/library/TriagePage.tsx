@@ -15,6 +15,7 @@ import {
 import { isTyping } from '../../components/keyboard'
 import { ErrorText } from '../settings/ErrorText'
 import { Notice } from '../../components/Notice'
+import { English } from '../../components/English'
 
 function TermCard({
   entry,
@@ -36,7 +37,9 @@ function TermCard({
     >
       <fieldset>
         <legend>
-          <span className="triage-card__term">{entry.term}</span>{' '}
+          <span className="triage-card__term">
+            <English>{entry.term}</English>
+          </span>{' '}
           <span className="muted">({t(`library.type.${entry.item_type}`)})</span>
         </legend>
         {entry.sentence !== null && <p className="triage-card__sentence">“{entry.sentence}”</p>}

@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import type { Unit } from '../../api/curriculum'
 import { PageTitle } from '../../components/PageTitle'
 import { termsToTriage } from './unitRules'
+import { English } from '../../components/English'
 
 /**
  * A word unit: its terms with their status in words, and the way to triage them. No usage sheet and
@@ -46,7 +47,7 @@ export function WordUnitView({ unit }: { unit: Unit }) {
           {unit.terms.map((term) => (
             <li key={term.item_id}>
               <Link to={`/library/items/${term.item_id}`} lang="en">
-                {term.term}
+                <English>{term.term}</English>
               </Link>{' '}
               <span className="muted">{t(`library.status.${term.status}`)}</span>
             </li>

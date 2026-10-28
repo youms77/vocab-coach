@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M10.c1** (complete French translation: formats, typography, backend texts, tests; one additive backend change) is done on `feat/m10c-finish`, cut from the tip of `feat/m10b-use-mode`. Not pushed. Next: **M10.c2**. See its section.
 - **M10.b** (use mode: one process, one port, the built frontend served by FastAPI; security and performance reviews; no migration, no new project dependency) is done on `feat/m10b-use-mode`, cut from the tip of `feat/m10a-backup` (RV and M10.a are **not** in `main`). Not pushed. Decisions D-310 to D-318. Next: the owner's review (manual scenario in the M10.b section), then M10.c (translation and the final README).
 - **M10.a2** (the settings card; frontend only) is done on `feat/m10a-backup` after M10.a1. M10.a is complete; not pushed; the card is not seen in a browser. Next: the owner's review, then M10.b (decisions from D-310). See the M10.a2 section.
 - **M10.a1** (module J, full backup and restore: format, services, API, CLI; no migration, no screen) is done on `feat/m10a-backup`, cut from the tip of `feat/rv-visual-redesign`. Not pushed. Decisions D-302 to D-308. Next: **M10.a2** (the settings card). See the M10.a1 section.
@@ -34,6 +35,32 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M10.c1 — Complete French translation
+
+Branch `feat/m10c-finish`, cut from the tip of `feat/m10b-use-mode` (M10.b is not in `main`). Not pushed. Decisions D-319 to D-328. One backend change, additive and tested (D-324); no migration.
+
+### Done
+
+- One formatting module (`i18n/format.ts`), study days without a time-zone shift (4 zones tested), `<html lang>` at load, tab title per route (D-325), `lang="en"` on learning content (D-326).
+- Tests that keep it clean: `hardcoded.test.ts`, `plurals.test.ts`, `untranslated.test.ts`, French typography in `locales.test.ts`, `backendCodes.test.ts`, `pageTitle.test.tsx`, `FieldErrors.test.tsx`, `format.test.ts`, `documentLang.test.ts`.
+- 687 French values corrected for typography, 16 reworded (tutoiement and "Deck" in the statistics page), 34 added, 1 removed: `docs/i18n-fr-changes-m10c1.md`. Glossary: `docs/i18n-glossary.md`.
+- Backend texts: table in D-327.
+
+### Verified
+
+- Full Vitest run before the last small fix: 914 passed, 1 failed (`hardcoded.test.ts` flagging `pageTitle.ts`, fixed since; the three affected test files pass). Ruff clean. A full `npm run check` and the full pytest run were **not** repeated after the last edits.
+- Break-and-restore: a string added to `Notice.tsx`, the study-day zone, the old `fr.json` against the typography tests.
+- Browser (demo in a temporary `VOCAB_DATA_DIR`, provider keys emptied): 37 URLs in French, no overflow at 375 px, English-leak sweep empty except "Error cards".
+
+### Not seen / left
+
+- Dark theme and 1 280 px in French; the four detail screens after a real recording; the full pytest run after the backend change (only the two touched test files ran).
+- 34 `en.json` keys look unused (reported, not deleted). "Error cards" deck name stays English (owner's decision). Learning content not tagged `lang="en"`: see D-326.
+
+### Next
+
+- M10.c2: illustrations, README, captures, clean install, version 1.0.0.
 
 ## M10.b — Use mode, security review, performance review
 

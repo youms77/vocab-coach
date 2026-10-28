@@ -15,6 +15,7 @@ import {
 import { ErrorText } from '../settings/ErrorText'
 import { SheetCard } from './SheetPanel'
 import { Notice } from '../../components/Notice'
+import { English } from '../../components/English'
 
 function EditForm({ item }: { item: ItemDetail }) {
   const { t } = useTranslation()
@@ -190,7 +191,9 @@ export function ItemDetailPage() {
       {item.isSuccess && (
         <>
           <section className="hero">
-            <h1>{item.data.term}</h1>
+            <h1>
+              <English>{item.data.term}</English>
+            </h1>
             <p className="muted">
               {t(`library.type.${item.data.item_type}`)} · {t(`library.status.${item.data.status}`)}{' '}
               · {t('library.item.sheetIs', { state: t(`library.sheet.${item.data.sheet_status}`) })}

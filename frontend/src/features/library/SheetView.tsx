@@ -5,11 +5,20 @@ import { Link } from 'react-router'
 import type { UsageSheet } from '../../api/enrichment'
 import { SpeakButton } from '../../speech/SpeakButton'
 
-function Entry({ label, children }: { label: string; children: ReactNode }) {
+/** `english`: the content is English whatever the interface language (M10.c1, D-326). */
+function Entry({
+  label,
+  children,
+  english = false,
+}: {
+  label: string
+  children: ReactNode
+  english?: boolean
+}) {
   return (
     <div className="sheet-entry">
       <dt>{label}</dt>
-      <dd>{children}</dd>
+      <dd lang={english ? 'en' : undefined}>{children}</dd>
     </div>
   )
 }
@@ -62,10 +71,10 @@ export function SheetView({
   return (
     <dl className="sheet-view">
       {sheet.meaning_in_context !== null && (
-        <Entry label={t('sheet.fields.meaning_in_context')}>{sheet.meaning_in_context}</Entry>
+        <Entry label={t('sheet.fields.meaning_in_context')} english>{sheet.meaning_in_context}</Entry>
       )}
       {sheet.definition_simple !== null && (
-        <Entry label={t('sheet.fields.definition_simple')}>{sheet.definition_simple}</Entry>
+        <Entry label={t('sheet.fields.definition_simple')} english>{sheet.definition_simple}</Entry>
       )}
       {sheet.translation_fr.length > 0 && (
         <Entry label={t('sheet.fields.translation_fr')}>
@@ -84,21 +93,21 @@ export function SheetView({
         </Entry>
       )}
       {sheet.usage_notes !== null && (
-        <Entry label={t('sheet.fields.usage_notes')}>{sheet.usage_notes}</Entry>
+        <Entry label={t('sheet.fields.usage_notes')} english>{sheet.usage_notes}</Entry>
       )}
       {sheet.other_meanings.length > 0 && (
         <Entry label={t('sheet.fields.other_meanings')}>
           <ul>
             {sheet.other_meanings.map((m, i) => (
               <li key={i}>
-                {m.definition} — <span lang="fr">{m.translation_fr}</span>
+                <span lang="en">{m.definition}</span> — <span lang="fr">{m.translation_fr}</span>
               </li>
             ))}
           </ul>
         </Entry>
       )}
       {sheet.collocations.length > 0 && (
-        <Entry label={t('sheet.fields.collocations')}>
+        <Entry label={t('sheet.fields.collocations')} english>
           <ul>
             {sheet.collocations.map((c, i) => (
               <li key={i}>
@@ -141,7 +150,7 @@ export function SheetView({
         </Entry>
       )}
       {sheet.word_family.length > 0 && (
-        <Entry label={t('sheet.fields.word_family')}>
+        <Entry label={t('sheet.fields.word_family')} english>
           {sheet.word_family.map((w) => `${w.form} (${w.part_of_speech})`).join(' · ')}
         </Entry>
       )}
@@ -164,15 +173,16 @@ export function SheetView({
             {sheet.french_speaker_pitfalls.map((pit, i) => (
               <li key={i}>
                 <span className="visually-hidden">{t('sheet.wrong')} </span>
-                <s>{pit.wrong}</s> → <span className="visually-hidden">{t('sheet.right')} </span>
-                <strong>{pit.right}</strong> — {pit.explanation}
+                <s lang="en">{pit.wrong}</s> →{' '}
+                <span className="visually-hidden">{t('sheet.right')} </span>
+                <strong lang="en">{pit.right}</strong> — <span lang="en">{pit.explanation}</span>
               </li>
             ))}
           </ul>
         </Entry>
       )}
       {sheet.confusables.length > 0 && (
-        <Entry label={t('sheet.fields.confusables')}>
+        <Entry label={t('sheet.fields.confusables')} english>
           <ul>
             {sheet.confusables.map((c, i) => (
               <li key={i}>

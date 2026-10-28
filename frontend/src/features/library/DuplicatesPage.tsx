@@ -6,6 +6,7 @@ import { useDuplicates, type DuplicateGroup, type GroupItem } from '../../api/du
 import { useMergeItem } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
 import { Notice } from '../../components/Notice'
+import { English } from '../../components/English'
 
 interface Merged {
   kept: string
@@ -79,7 +80,9 @@ function Group({ group, onMerged }: { group: DuplicateGroup; onMerged: (m: Merge
                   checked={item.id === kept.id}
                   onChange={() => setKeptId(item.id)}
                 />
-                <strong>{item.term}</strong>
+                <strong>
+                  <English>{item.term}</English>
+                </strong>
               </label>
               <span className="muted">
                 {t(`library.status.${item.status}`)}

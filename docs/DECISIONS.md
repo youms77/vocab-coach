@@ -4204,3 +4204,69 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 ## D-318 — Risks accepted in the security review (M10.b)
 
 - Another program running as the same user can read `data/` and `.env`; there is no HTTPS on the loopback; there is no CSRF token (the Host / Origin / Sec-Fetch-Site / JSON rules of D-061 replace it). Backups and the pre-upgrade copy are not encrypted. The single-user, local design makes the first three acceptable; nothing in the spec asks for more. Details in `docs/security-review.md`.
+
+## D-319 — One formatting module for numbers and dates, by the active language (M10.c1)
+
+- `frontend/src/i18n/format.ts` builds every `Intl.NumberFormat` / `Intl.DateTimeFormat`, memoised per language and options; the helpers take the language, so a language change shows at once (components re-render with `i18n.language`). `features/dashboard/format.ts` and `features/session/format.ts` keep their signatures and call it. `hardcoded.test.ts` fails on a `new Intl.*` or a `toLocale*String()` anywhere else.
+- Study days (`YYYY-MM-DD`) are read as UTC and formatted in UTC (`formatStudyDay`): `format.test.ts` forces `America/Los_Angeles`, `Pacific/Honolulu`, `Africa/Douala` and `Pacific/Kiritimati`. Instants are formatted in the browser time zone; French gets the 24-hour clock from `Intl`.
+- The browser clock still appears in three places, none of which decides a study day (D-266): the home greeting's date while the plan is loading (once loaded it is the plan's `study_day`, now formatted as a study day), `localDay()` as the fallback of the queue and transcript date pickers (documented there), and "saved for 14:05 or for 3 November" after a review, which is a due *instant* shown in local time.
+- `{{count}}` in a plural text is not formatted: 1000 shows as `1000`, not `1 000`. Counts of that size do not occur in the interface.
+
+## D-320 — `<html lang>` set when the module loads (M10.c1)
+
+- `i18n/index.ts` calls `applyDocumentLanguage(i18n.resolvedLanguage)` right after `init`, then on every `languageChanged`; the value is always `en` or `fr`. Seen in the built-in browser: with `fr` stored, a fresh load has `lang="fr"`. The unit test (`documentLang.test.ts`) passes with or without the explicit call (i18next already emits `languageChanged` during `init`), so it locks the behaviour but did not fail when the call was removed: the known issue of M5.c1 could not be reproduced here.
+
+## D-321 — Tests that keep the translation clean (M10.c1)
+
+- `hardcoded.test.ts` (TypeScript compiler API, no new dependency): JSX text with a letter, literals in `aria-label`, `aria-description`, `title`, `placeholder`, `alt`, `label`, in `announce()`/`confirm()`/`alert()`, in `document.title`, a hand-built `Intl`, a `count === 1 ? 'a' : 'b'`. Exceptions: the "v" of the version and `newgeneralservicelist.com`, each with its reason. Seen failing with a string added to `Notice.tsx`. The sources already had no hard-coded string: the three findings of the first run were these two exceptions.
+- `plurals.test.ts`: the same plural bases in both files, `_one` and `_other` everywhere, no "(s)", a real sentence for 0, 1, 2 and 1000 in both languages, French 0 singular. It found one "(s)": the consolidation summary sentence had two numbers, so it is now two plural keys (`effectActive`, `effectReinforced`).
+- `untranslated.test.ts`: a French value equal to the English one must be listed with a reason (product names, French words with the English spelling, `shadowing`); no stale entry; no tutoiement; no "deck". It caught `Decks` / `Deck` and eleven `tu`/`ton`/`tes` texts in the statistics page.
+- 34 keys of `en.json` look unused after the dynamic prefixes (`app.tagline`, `speaking.topics.*`, `writing.topics.*`, `drills.summary.*`, `steps.review`, two `settings.azure.*`, two `curriculum.edit.*`): **reported, nothing deleted**; the `topics` ones are probably built as a template string with a variable prefix.
+
+## D-322 — French typography and the glossary (M10.c1)
+
+- U+00A0 (no-break space) before `: ; ! ?`, inside `« »` and before a unit (`5 s`, `10 Mo`, `12 %`); a typographic apostrophe `’` only (470 straight ones converted); `…`; no double space. The strict French rule asks for a *narrow* no-break space (U+202F) before `; ! ?`; the brief says U+00A0, which is what is used. `locales.test.ts` checks all of it; the old `fr.json` fails 5 of those checks.
+- Vouvoiement everywhere (D-119). `docs/i18n-glossary.md` lists the choices with their reason and where they appear.
+- Consequence for the existing tests: Testing Library normalises the text it reads (no-break spaces become ordinary spaces) but not the strings it is given, while accessible names keep the no-break space. So `getByText` / `toHaveTextContent` expect an ordinary space, and `getByRole(..., { name })` / `toHaveAccessibleName` expect U+00A0 inside `« »` and before `:`.
+
+## D-323 — Backend error codes: all known, an unknown one says so in French (M10.c1)
+
+- `backendCodes.test.ts` reads `backend/app` and checks that every HTTP error code (`status, code = N, "x"`, `api_error(N, "x")`, `"code": "x"`) is in `KNOWN_CODES` and has an `errors.*` sentence in both languages. It found eight: `card_exists`, `not_cardable`, `suggestion_not_found`, `duration_required`, `unknown_table` (new sentences) and `not_ready`, `task_closed`, `task_not_found` (sentences existed, code missing from the list). `task_open` is not an HTTP code (a reason of `not_ready`, translated as `consolidation.reasons.*`).
+- A code the interface does not know: `errors.unknown_code` ("Le serveur a refusé cette demande."), with the backend's English `message` underneath, `lang="en"`. Without a code: the HTTP-status sentence as before. Seen in the browser with a faked answer.
+
+## D-324 — Stable `type` next to the English field messages (M10.c1)
+
+- Additive, no migration: the `errors` items of `invalid_request` (`api/errors.py`) and `invalid_exercise` (`services/enrichment.py`) carry `type` (Pydantic's `error["type"]`, for example `missing`, `string_too_long`) next to `loc` and `message`. `input` and `ctx` are still left out. Tested in `test_ai_api.py` and `test_enrichment_service.py`.
+- `FieldErrors` says the sentence from `fieldErrors.<type>` (24 types, both languages, without the limits since `ctx` is not sent); a type it does not know keeps the English `message`, `lang="en"`.
+
+## D-325 — The tab title (M10.c1)
+
+- No page set `document.title`; the tab always said "vocab-coach". `pageTitle.ts` maps each route to a title key (first match wins; a detail page takes its section's title) and `Layout` sets `<page> · vocab-coach` in the active language. `pageTitle.test.tsx` checks every route of `routes.tsx` has one.
+
+## D-326 — `lang="en"` on learning content (M10.c1)
+
+- New `components/English.tsx` (a `<span lang="en">`), used for the term in 12 places (library list and term page, triage, duplicates, enrichment, error list, correction view, consolidation task and attempt, word unit, memory section, extension panel). The usage sheet marks its English entries (`Entry english`), the pitfalls and the other meanings; the review card marks the simple definition. The review prompt and result already tagged their terms, sentences and options.
+- **Not covered**: a term inside a translated sentence (`Que signifie « off the top of my head » ?`, the `aria-label`s), the `Cues` definition in a review (UI prefix and English in one sentence), the term pickers and forms (an `<input>` value), the `ReadAndGuess` mark of the discovery flow, and the terms in the unit views of the curriculum. They need `<Trans>` or a per-field audit.
+
+## D-327 — The texts that come from the backend (M10.c1)
+
+| Surface | Decision | Reason |
+|---|---|---|
+| A D-063 code the interface does not know | Generic French sentence + English `message` underneath (frontend) | D-323 |
+| The 8 codes that had no sentence or no entry | Translated from the code (frontend) | D-323 |
+| `invalid_setting` `reason` | Left in English (detail, `lang="en"`) under the translated sentence | The page validates with the same bounds first (`GeneralSettings`); the backend text is only the safety net |
+| `invalid_credential`, `invalid_production`, `invalid_error` detail | Left in English under the translated sentence | A free sentence saying why a value was refused, without the value; rare |
+| Field messages of `invalid_request` / `invalid_exercise` | Stable `type` added (backend, additive, tested) and translated (frontend) | D-324 |
+| `problems` of an import | Already translated from the stable `code`; an unknown code shows the English `message` with `lang="en"` (added) | D-151 |
+| `problems` of a transcript | Already translated from `codes` | D-151 |
+| `problems` of `invalid_content` (a unit's content) | Left in English, `lang="en"`, in the field list and the summary | Free sentences from the unit validator that name a location and never the text (D-246); a stable code for each would be a backend change of its own |
+| `reason` of `not_drillable` | Translated (`drills.reasons.*`); unknown reason keeps the English `message` | Already so |
+| `message` of the connection test | Left in English, in a `<details>`, `lang="en"` | Raw, masked text of the provider, for diagnosis |
+| AI `reason` of a degraded result | Translated (`aiReasons.*`) | Already so |
+| The name of the deck made from errors ("Error cards") and its description | Left in English | Stored data created by the backend: a French display would need a stable key on the deck, which is a feature, not a translation. **Seen in French on the library, queue, triage, statistics and consolidation pages: decision for the owner.** |
+| The `domain` of a deck ("academic") | Left as typed | Free text entered by the user |
+
+## D-328 — Test timeout and the French assertions of existing tests (M10.c1)
+
+- `vite.config.ts`: `testTimeout` 15 s (it was the 5 s default). With 80+ files running in parallel on this machine, about ten tests timed out in a full run and passed alone; no assertion was weakened.
+- Existing assertions changed (only their expected text, for D-322, D-321 and D-327): about 45 French literals in 21 test files (`'` became `’`, ` :` became a no-break space in role names, `« »` likewise), and `ConsolidationAttemptPage.test.tsx` (the "(s)" sentence became two sentences). No test was removed.
