@@ -289,7 +289,7 @@
     "merge_conflict": "Les deux termes ont déjà des cartes de révision : fusion impossible.",
     "not_in_triage": "Certains de ces termes n’attendent plus le tri.",
     "invalid_transition": "Ce changement de statut n’est pas autorisé.",
-    "invalid_term": "Ce terme n’est pas accepté (vide, plus de 300 caractères ou contenant « | »).",
+    "invalid_term": "Ce terme n’est pas accepté (vide, plus de 300 caractères ou contenant «  |  »).",
     "row_rejected": "Une ligne doit être corrigée ou confirmée avant l’import. Rien n’a été importé.",
     "deck_name_required": "Donnez un nom au nouveau paquet.",
     "invalid_attach_target": "Le terme existant choisi n’est pas un doublon de cette ligne. Relancez l’aperçu.",
@@ -422,7 +422,7 @@
       "deck": "Paquet",
       "noDeck": "Aucun paquet (Ajouts rapides)",
       "submit": "Ajouter",
-      "added": "« {{term}} » ajouté.",
+      "added": "«  {{term}}  » ajouté.",
       "duplicates": "Des termes similaires existent déjà. Utilisez l’un d’eux dans ce paquet, ou ajoutez le vôtre comme nouveau terme.",
       "attach": "Utiliser celui-ci",
       "addAnyway": "Ajouter comme nouveau terme"
@@ -502,7 +502,7 @@
       "archive": "Archiver",
       "unarchive": "Remettre dans la file",
       "delete": "Supprimer",
-      "deleteConfirm": "Supprimer définitivement « {{term}} » ?",
+      "deleteConfirm": "Supprimer définitivement «  {{term}}  » ?",
       "deleteYes": "Oui, supprimer",
       "duplicates": "Termes similaires",
       "mergeInto": "Fusionner ce terme dans celui-ci",
@@ -523,7 +523,7 @@
       "count_other": "{{count}} termes",
       "rename": "Renommer",
       "delete": "Supprimer",
-      "deleteConfirm": "Supprimer le paquet « {{name}} » et ses termes ?",
+      "deleteConfirm": "Supprimer le paquet «  {{name}}  » et ses termes ?",
       "deleteYes": "Oui, supprimer"
     },
     "importLink": "Importer une liste",
@@ -547,7 +547,7 @@
       "title": "1. Votre liste",
       "file": "Fichier (.md ou .txt)",
       "text": "Texte",
-      "hint": "Un terme par ligne, éventuellement « terme | phrase où vous l’avez rencontré ». Jusqu’à {{max}} caractères. Le fichier est lu dans votre navigateur.",
+      "hint": "Un terme par ligne, éventuellement «  terme | phrase où vous l’avez rencontré  ». Jusqu’à {{max}} caractères. Le fichier est lu dans votre navigateur.",
       "tooLarge": "Ce texte dépasse {{max}} caractères. Découpez-le en plusieurs imports.",
       "fileError": "Ce fichier n’a pas pu être lu.",
       "preview": "Aperçu",
@@ -569,7 +569,7 @@
     },
     "rows": {
       "title": "3. Vérifiez chaque ligne",
-      "hint": "Les lignes ambiguës (marquées ⚠) sont exclues, sauf si vous corrigez le terme ou cochez « Importer quand même ». Vous pouvez modifier chaque terme.",
+      "hint": "Les lignes ambiguës (marquées ⚠) sont exclues, sauf si vous corrigez le terme ou cochez «  Importer quand même  ». Vous pouvez modifier chaque terme.",
       "caption": "Lignes de la liste",
       "line": "Ligne",
       "include": "Importer",
@@ -583,9 +583,9 @@
       "duplicates": "Déjà dans la bibliothèque",
       "importAnyway": "Importer quand même",
       "mustCorrect": "Corrigez le terme pour l’importer",
-      "useSuggestion": "Utiliser « {{term}} »",
+      "useSuggestion": "Utiliser «  {{term}}  »",
       "ok": "OK",
-      "attachTo": "Utiliser « {{term}} » existant ({{match}}, {{status}})",
+      "attachTo": "Utiliser «  {{term}}  » existant ({{match}}, {{status}})",
       "new": "Ajouter comme nouveau terme",
       "skip": "Ignorer cette ligne",
       "checkedAgain": "Revérifié à l’import"
@@ -630,16 +630,16 @@
       "too_large": "Le fichier est trop gros (limite : 256 Ko et 1000 lignes).",
       "not_utf8": "Le fichier n’est pas du texte UTF-8. Enregistrez-le en UTF-8.",
       "invalid_header": "L’en-tête n’est pas valide ; il a été ignoré et la liste a quand même été lue.",
-      "invalid_header_value": "La valeur de « {{key}} » dans l’en-tête doit être du texte simple ; elle a été ignorée.",
-      "unclosed_header": "L’en-tête n’a pas de « --- » de fin ; le fichier a été lu comme une simple liste.",
-      "unknown_header_key": "Clé d’en-tête inconnue « {{key}} » ; ignorée.",
+      "invalid_header_value": "La valeur de «  {{key}}  » dans l’en-tête doit être du texte simple ; elle a été ignorée.",
+      "unclosed_header": "L’en-tête n’a pas de «  ---  » de fin ; le fichier a été lu comme une simple liste.",
+      "unknown_header_key": "Clé d’en-tête inconnue «  {{key}}  » ; ignorée.",
       "invalid_deadline": "L’échéance doit être une date au format AAAA-MM-JJ ; elle a été ignorée.",
       "past_deadline": "L’échéance est déjà passée.",
       "heading_ignored": "Titre : ce n’est pas un terme, ignoré.",
       "horizontal_rule": "Ligne de séparation : ignorée.",
-      "multiple_separators": "Plus d’un « | » : seul le premier sépare le terme de sa phrase.",
+      "multiple_separators": "Plus d’un «  |  » : seul le premier sépare le terme de sa phrase.",
       "looks_like_definition": "Ressemble à un terme suivi d’une traduction ou d’une définition.",
-      "looks_like_sentence": "Ressemble à une phrase, pas à un terme. Écrivez « terme | phrase ».",
+      "looks_like_sentence": "Ressemble à une phrase, pas à un terme. Écrivez «  terme | phrase  ».",
       "nested_item": "Sous-élément en retrait : terme à part ou note sur le terme du dessus ?",
       "empty_term": "Le terme est vide.",
       "term_too_long": "Le terme dépasse 300 caractères.",
@@ -679,8 +679,8 @@
     "keep": "Terme à garder",
     "hasCards": "a des cartes de révision",
     "open": "Ouvrir",
-    "mergeInto": "Fusionner dans « {{term}} »",
-    "merged": "Fusionné : « {{removed}} » fait maintenant partie de « {{kept}} ».",
+    "mergeInto": "Fusionner dans «  {{term}}  »",
+    "merged": "Fusionné : «  {{removed}}  » fait maintenant partie de «  {{kept}}  ».",
     "inverted": "Le terme qui a des cartes de révision a été gardé.",
     "match": {
       "exact": "même terme",
@@ -741,7 +741,7 @@
     "addRow": "Ajouter : {{field}}",
     "wrong": "Faux :",
     "right": "Correct :",
-    "stress": "accent sur « {{syllable}} »",
+    "stress": "accent sur «  {{syllable}}  »",
     "fields": {
       "meaning_in_context": "Sens dans votre phrase",
       "definition_simple": "Définition simple",
@@ -883,10 +883,10 @@
   "speech": {
     "listen": "Écouter",
     "listenSlowly": "Écouter lentement",
-    "listenTo": "Écouter « {{what}} »",
-    "listenSlowlyTo": "Écouter lentement « {{what}} »",
+    "listenTo": "Écouter «  {{what}}  »",
+    "listenSlowlyTo": "Écouter lentement «  {{what}}  »",
     "speaking": "Lecture…",
-    "speakingWhat": "Lecture de « {{what}} »",
+    "speakingWhat": "Lecture de «  {{what}}  »",
     "unsupported": "Ce navigateur n’a pas de synthèse vocale : l’audio n’est pas disponible.",
     "noEnglishVoice": "Aucune voix anglaise n’est installée dans ce navigateur : l’audio n’est pas disponible.",
     "nonAmerican": "Voix non américaine ({{name}}) : aucune voix en-US n’a été trouvée.",
@@ -1059,7 +1059,7 @@
       "silence": "Aucune parole n’a été entendue dans cet enregistrement.",
       "recordAgain": "Réenregistrer",
       "ready": "Transcription prête : {{recognized}} mots reconnus sur {{count}}.",
-      "logExplanation": "La reconnaissance vocale a entendu « {{heard}} » au lieu de « {{target}} ». Vérifiez comment vous le prononcez avant de garder cette entrée."
+      "logExplanation": "La reconnaissance vocale a entendu «  {{heard}}  » au lieu de «  {{target}}  ». Vérifiez comment vous le prononcez avant de garder cette entrée."
     },
     "history": {
       "title": "Historique des shadowings",
@@ -1098,13 +1098,13 @@
     "warningsTitle": "Avertissements",
     "warnings": {
       "reviews_over_budget": "Les révisions dues demandent environ {{minutes}} min, plus que votre budget de {{budget}} min : aucun nouveau terme aujourd’hui.",
-      "deadline_unrealistic": "« {{deck}} » (échéance le {{deadline}}) : il faudrait {{required}} nouveaux termes par jour, mais votre budget n’en permet que {{achievable}}.",
+      "deadline_unrealistic": "«  {{deck}}  » (échéance le {{deadline}}) : il faudrait {{required}} nouveaux termes par jour, mais votre budget n’en permet que {{achievable}}.",
       "deadline_unrealistic_finish": "À ce rythme, le paquet serait terminé le {{date}}.",
       "deadline_unrealistic_never": "À ce rythme, le paquet ne peut pas être terminé.",
-      "deadline_passed_one": "L’échéance de « {{deck}} » ({{deadline}}) est passée et il reste {{count}} terme à découvrir.",
-      "deadline_passed_other": "L’échéance de « {{deck}} » ({{deadline}}) est passée et il reste {{count}} termes à découvrir.",
-      "deadline_triage_pending_one": "« {{deck}} » (échéance le {{deadline}}) a encore {{count}} terme à trier.",
-      "deadline_triage_pending_other": "« {{deck}} » (échéance le {{deadline}}) a encore {{count}} termes à trier.",
+      "deadline_passed_one": "L’échéance de «  {{deck}}  » ({{deadline}}) est passée et il reste {{count}} terme à découvrir.",
+      "deadline_passed_other": "L’échéance de «  {{deck}}  » ({{deadline}}) est passée et il reste {{count}} termes à découvrir.",
+      "deadline_triage_pending_one": "«  {{deck}}  » (échéance le {{deadline}}) a encore {{count}} terme à trier.",
+      "deadline_triage_pending_other": "«  {{deck}}  » (échéance le {{deadline}}) a encore {{count}} termes à trier.",
       "items_without_sheet_one": "{{count}} terme en file n’a pas encore de fiche utilisable : il n’est pas proposé aujourd’hui.",
       "items_without_sheet_other": "{{count}} termes en file n’ont pas encore de fiche utilisable : ils ne sont pas proposés aujourd’hui."
     },
@@ -1189,7 +1189,7 @@
     },
     "sheet": {
       "title": "3. La fiche d’usage",
-      "yourGuess": "Votre supposition : « {{guess}} »",
+      "yourGuess": "Votre supposition : «  {{guess}}  »",
       "noGuess": "Vous n’avez rien supposé : lisez bien la fiche.",
       "compare": "Comparez avec votre supposition : rien n’est noté ici.",
       "termLabel": "le terme",
@@ -1228,7 +1228,7 @@
     },
     "personal": {
       "title": "Votre propre phrase",
-      "label": "Écrivez une phrase à vous avec « {{term}} » (facultatif)",
+      "label": "Écrivez une phrase à vous avec «  {{term}}  » (facultatif)",
       "hint": "1 000 caractères au plus. Elle est enregistrée ; sur le dernier écran, vous pourrez demander à l’IA de la vérifier.",
       "finish": "Terminer la découverte",
       "skip": "Passer et terminer",
@@ -1236,12 +1236,12 @@
     },
     "done": {
       "title": "5. Entrée en répétition espacée",
-      "firstReview": "« {{term}} » entre en révision : première révision le {{date}}.",
+      "firstReview": "«  {{term}}  » entre en révision : première révision le {{date}}.",
       "term_missing": "Votre phrase ne contient pas le terme ; elle est enregistrée quand même.",
       "continue": "Continuer"
     },
     "error": {
-      "writeSheet": "Écrire la fiche de « {{term}} »",
+      "writeSheet": "Écrire la fiche de «  {{term}}  »",
       "blocked": "Les autres nouveaux termes du jour attendent que celui-ci puisse être découvert. Écrivez sa fiche puis continuez, ou terminez la séance.",
       "continue": "Continuer la séance",
       "retry": "Réessayer"
@@ -1282,7 +1282,7 @@
     "receptive": "Carte réceptive : de l’anglais vers le sens.",
     "productive": "Carte productive : du sens vers l’anglais.",
     "prompt": {
-      "recognition": "Que signifie « {{term}} » dans cette phrase ?",
+      "recognition": "Que signifie «  {{term}}  » dans cette phrase ?",
       "recognitionNoTerm": "Que signifie le terme surligné dans cette phrase ?",
       "listening": "Écoutez la phrase, puis choisissez le sens de son terme clé. La phrase s’affiche après votre réponse.",
       "typedRecall": "Tapez le terme anglais.",
@@ -1328,7 +1328,7 @@
       "term_not_heard": "Le terme n’a pas été entendu : vous l’avez peut-être oublié, ou la reconnaissance vocale l’a raté. Notez-vous vous-même."
     },
     "summary": {
-      "label": "À propos de « {{term}} »",
+      "label": "À propos de «  {{term}}  »",
       "stress": "Accent : {{syllable}}",
       "fullSheet": "Ouvrir la fiche d’usage complète (nouvel onglet)"
     },
@@ -1347,7 +1347,7 @@
     "saved": {
       "today": "Enregistré : la carte précédente revient aujourd’hui à {{time}}.",
       "later": "Enregistré : la carte précédente revient le {{date}}.",
-      "status": "« {{term}} » est maintenant {{status}}.",
+      "status": "«  {{term}}  » est maintenant {{status}}.",
       "statusNoTerm": "Ce terme est maintenant {{status}}."
     },
     "cardChanged": "Cette carte a déjà été notée ailleurs (un autre onglet ?) : voici l’étape suivante.",
@@ -1420,8 +1420,8 @@
     "pace_other": "{{remaining}} termes à découvrir en {{days}} jours : il faut {{count}} nouveaux termes par jour.",
     "moveUp": "Monter",
     "moveDown": "Descendre",
-    "moveUpNamed": "Monter « {{deck}} »",
-    "moveDownNamed": "Descendre « {{deck}} »",
+    "moveUpNamed": "Monter «  {{deck}}  »",
+    "moveDownNamed": "Descendre «  {{deck}}  »",
     "status": {
       "queued": "En file",
       "active": "Actif",
@@ -1436,16 +1436,16 @@
       "reopen": "Rouvrir"
     },
     "actionsNamed": {
-      "activate": "Activer « {{deck}} »",
-      "pause": "Mettre « {{deck}} » en pause",
-      "resume": "Reprendre « {{deck}} »",
-      "finish": "Marquer « {{deck}} » comme terminé",
-      "reopen": "Rouvrir « {{deck}} »"
+      "activate": "Activer «  {{deck}}  »",
+      "pause": "Mettre «  {{deck}}  » en pause",
+      "resume": "Reprendre «  {{deck}}  »",
+      "finish": "Marquer «  {{deck}}  » comme terminé",
+      "reopen": "Rouvrir «  {{deck}}  »"
     },
     "announce": {
-      "status": "« {{deck}} » est maintenant {{status}}.",
-      "movedUp": "« {{deck}} » est monté : il est maintenant numéro {{position}}.",
-      "movedDown": "« {{deck}} » est descendu : il est maintenant numéro {{position}}."
+      "status": "«  {{deck}}  » est maintenant {{status}}.",
+      "movedUp": "«  {{deck}}  » est monté : il est maintenant numéro {{position}}.",
+      "movedDown": "«  {{deck}}  » est descendu : il est maintenant numéro {{position}}."
     },
     "reloaded": "Rien n’a été modifié ; la liste a été rechargée.",
     "statusCount": "{{status}} : {{count}}"
@@ -1483,7 +1483,7 @@
     "targetNotUsed": "non employé",
     "targetDisagreement": "L’IA et la recherche dans le texte ne sont pas d’accord sur l’emploi de ce terme.",
     "proposedTitle": "L’IA a proposé une nouvelle catégorie",
-    "proposedBody": "« {{label}} » ({{code}}) attend votre décision.",
+    "proposedBody": "«  {{label}}  » ({{code}}) attend votre décision.",
     "proposedLink": "Voir les catégories proposées",
     "yourTurns": "Vos tours de parole, avec les erreurs marquées",
     "turn": "Votre tour {{n}}",
@@ -1563,7 +1563,7 @@
       "status": "État",
       "corrected": "Corrigé",
       "notCorrected": "Non corrigé",
-      "mixed": "Cette liste contient aussi les phrases personnelles de la découverte et les phrases écrites en révision : la colonne « Sujet » permet de les distinguer."
+      "mixed": "Cette liste contient aussi les phrases personnelles de la découverte et les phrases écrites en révision : la colonne «  Sujet  » permet de les distinguer."
     },
     "transcriptLink": "Analyser la transcription d’une conversation"
   },
@@ -1596,7 +1596,7 @@
         "alternating_user_second": "Je parle en second",
         "all_mine": "Tout est de moi"
       },
-      "single": "« {{label}} » n’a qu’un seul tour. Une ligne qui commence par un mot suivi de deux-points, comme « Note : », ouvre un nouveau tour. Si « {{label}} » n’est pas un locuteur, retirez les deux-points dans votre texte et relancez l’aperçu."
+      "single": "«  {{label}}  » n’a qu’un seul tour. Une ligne qui commence par un mot suivi de deux-points, comme «  Note :  », ouvre un nouveau tour. Si «  {{label}}  » n’est pas un locuteur, retirez les deux-points dans votre texte et relancez l’aperçu."
     },
     "preview": {
       "problemsTitle": "À savoir",
@@ -1754,7 +1754,7 @@
       "term": "Terme lié",
       "noTerm": "Aucun terme n’est lié.",
       "termSearch": "Chercher un terme à lier",
-      "termPick": "Lier « {{term}} »",
+      "termPick": "Lier «  {{term}}  »",
       "termNoMatch": "Aucun terme ne correspond.",
       "termSearching": "Recherche…",
       "termUnlink": "Délier le terme",
@@ -1794,15 +1794,15 @@
       "proposalsTitle": "Proposées par l’IA",
       "proposalsIntro": "L’IA suggère ces sous-catégories. Acceptez-en une pour l’utiliser, ou rejetez-la : ses erreurs passent dans la catégorie parente.",
       "noProposals": "Aucune proposition n’attend.",
-      "under": "Sous « {{parent}} »",
+      "under": "Sous «  {{parent}}  »",
       "errorsCount_one": "{{count}} erreur",
       "errorsCount_other": "{{count}} erreurs",
       "recent": "{{count}} sur les 14 derniers jours",
       "accept": "Accepter",
-      "acceptNamed": "Accepter « {{label}} »",
+      "acceptNamed": "Accepter «  {{label}}  »",
       "reject": "Rejeter",
-      "rejectNamed": "Rejeter « {{label}} »",
-      "rejectConfirm": "Rejeter « {{label}} » fait passer ses erreurs dans la catégorie parente.",
+      "rejectNamed": "Rejeter «  {{label}}  »",
+      "rejectConfirm": "Rejeter «  {{label}}  » fait passer ses erreurs dans la catégorie parente.",
       "rejectYes": "Oui, la rejeter",
       "rejectCancel": "Annuler",
       "rename": "Renommer avant d’accepter (facultatif)",
@@ -1810,10 +1810,10 @@
       "labelFr": "Libellé français",
       "descriptionEn": "Description anglaise (facultatif)",
       "descriptionFr": "Description française (facultatif)",
-      "accepted": "« {{label}} » est maintenant une catégorie active.",
-      "rejected_one": "« {{label}} » rejetée. {{count}} erreur est passée dans la catégorie parente.",
-      "rejected_other": "« {{label}} » rejetée. {{count}} erreurs sont passées dans la catégorie parente.",
-      "rejectedNone": "« {{label}} » rejetée. Aucune erreur à déplacer.",
+      "accepted": "«  {{label}}  » est maintenant une catégorie active.",
+      "rejected_one": "«  {{label}}  » rejetée. {{count}} erreur est passée dans la catégorie parente.",
+      "rejected_other": "«  {{label}}  » rejetée. {{count}} erreurs sont passées dans la catégorie parente.",
+      "rejectedNone": "«  {{label}}  » rejetée. Aucune erreur à déplacer.",
       "treeTitle": "Taxonomie",
       "errorsLink": "Voir les erreurs",
       "status": {
@@ -1831,11 +1831,11 @@
       "parent": "Catégorie parente",
       "topLevel": "Aucune (premier niveau)",
       "slug": "Nom de code",
-      "slugHint": "Lettres minuscules, chiffres et « _ », de 2 à 41 caractères, en commençant par une lettre.",
+      "slugHint": "Lettres minuscules, chiffres et «  _  », de 2 à 41 caractères, en commençant par une lettre.",
       "slugInvalid": "Le nom de code doit suivre la règle indiquée sous le champ.",
       "create": "Créer la catégorie",
       "creating": "Création…",
-      "created": "« {{label}} » créée ({{code}}).",
+      "created": "«  {{label}}  » créée ({{code}}).",
       "practise": "S’entraîner sur cette catégorie",
       "practiseNamed": "S’entraîner sur cette catégorie : {{label}}"
     },
@@ -1980,7 +1980,7 @@
     },
     "weakest": "Sons les plus faibles",
     "weakestEmpty": "Aucun son ne ressort.",
-    "weakestLine": "{{phoneme}} dans « {{word}} » : {{score}}",
+    "weakestLine": "{{phoneme}} dans «  {{word}}  » : {{score}}",
     "assessedAt": "Évalué le {{date}} avec {{provider}}.",
     "demoNote": "Les scores de la démo sont fictifs."
   },
@@ -2155,9 +2155,9 @@
     "openedCount": "{{opened}} ouvertes, {{triaged}} triées",
     "wordlistMissing": "Le fichier de la liste de mots est absent de cette installation : ce parcours ne peut pas être commencé.",
     "start": "Commencer",
-    "startNamed": "Commencer le parcours « {{title}} »",
+    "startNamed": "Commencer le parcours «  {{title}}  »",
     "continue": "Continuer",
-    "continueNamed": "Continuer le parcours « {{title}} »",
+    "continueNamed": "Continuer le parcours «  {{title}}  »",
     "deckLink": "Ouvrir le paquet de ce parcours",
     "licence": "NGSL / NAWL 1.2, Browne, Culligan & Phillips, CC BY-SA 4.0",
     "trackTitle": "Parcours",
@@ -2222,7 +2222,7 @@
       "saving": "Enregistrement…",
       "cancel": "Annuler",
       "nothingChanged": "Rien n’a encore changé.",
-      "shadowWarning": "Attention : si vous modifiez une phrase à répéter (son texte, ou les phrases cochées), les prises enregistrées pour l’ancienne phrase ne comptent plus. Une unité terminée peut repasser « en cours ».",
+      "shadowWarning": "Attention : si vous modifiez une phrase à répéter (son texte, ou les phrases cochées), les prises enregistrées pour l’ancienne phrase ne comptent plus. Une unité terminée peut repasser «  en cours  ».",
       "libraryNote": "Une formule déjà dans votre bibliothèque garde son lien tant que son texte ne change pas.",
       "rowUp": "Monter {{name}}",
       "rowDown": "Descendre {{name}}",
@@ -2306,10 +2306,10 @@
     },
     "formulas": {
       "french": "En français",
-      "frenchNamed": "En français : « {{text}} »",
+      "frenchNamed": "En français : «  {{text}}  »",
       "inLibrary": "Dans votre bibliothèque",
       "addOne": "Ajouter à ma bibliothèque",
-      "addOneNamed": "Ajouter à ma bibliothèque : « {{text}} »",
+      "addOneNamed": "Ajouter à ma bibliothèque : «  {{text}}  »",
       "selected_one": "{{count}} formule sélectionnée.",
       "selected_other": "{{count}} formules sélectionnées.",
       "add": "Ajouter ces formules à ma bibliothèque",
@@ -2357,7 +2357,7 @@
   },
   "stats": {
     "title": "Statistiques",
-    "intro": "Tout est calculé à partir de vos journaux : révisions, erreurs, productions et appels à l’IA. Aucun compteur n’est tenu à part.",
+    "intro": "Tout est calculé à partir de vos journaux : révisions, erreurs, productions et appels à l’IA. Aucun compteur n’est tenu à part.",
     "demo": "Ce sont les chiffres de la base de démonstration, fictive.",
     "computedAt": "Calculé le {{date}}.",
     "sections": "Sections de la page",
@@ -2449,7 +2449,7 @@
     },
     "memory": {
       "title": "Mémoire",
-      "intro": "La tenue des cartes : rétention face à votre objectif, calibrage du planificateur, oublis et stabilité.",
+      "intro": "La tenue des cartes : rétention face à votre objectif, calibrage du planificateur, oublis et stabilité.",
       "retentionTitle": "Rétention",
       "retentionChart": "Rétention observée et objectif sur la période",
       "targetMean": "objectif moyen {{target}}",
@@ -2467,7 +2467,7 @@
       "observed": "Observé",
       "exerciseTitle": "Réussite par type d’exercice",
       "exerciseEmpty": "Aucune révision sur cette période.",
-      "agreement": "Notes que vous avez changées après la note automatique :",
+      "agreement": "Notes que vous avez changées après la note automatique :",
       "agreementDetail": "{{raised}} relevées, {{lowered}} abaissées",
       "lapsesTitle": "Oublis",
       "lapses_one": "{{count}} oubli",
@@ -2534,7 +2534,7 @@
       "studyTotal": "{{minutes}} minutes",
       "activeDays_one": "sur {{count}} jour actif",
       "activeDays_other": "sur {{count}} jours actifs",
-      "studyNote": "Compté d’après vos actions seulement : une longue lecture sans clic n’est pas comptée. La ligne en pointillés est la durée des séances, pour comparer.",
+      "studyNote": "Compté d’après vos actions seulement : une longue lecture sans clic n’est pas comptée. La ligne en pointillés est la durée des séances, pour comparer.",
       "studyChart": "Temps d’étude en minutes sur la période",
       "studySeries": "Temps d’étude",
       "sessionSeries": "Séances",
@@ -2551,7 +2551,7 @@
       "wordsWritten_other": "{{count}} mots écrits",
       "wordsOral_one": "{{count}} mot dit",
       "wordsOral_other": "{{count}} mots dits",
-      "wordsNote": "Vos propres mots seulement : une conversation collée compte vos phrases, pas celles de l’autre personne.",
+      "wordsNote": "Vos propres mots seulement : une conversation collée compte vos phrases, pas celles de l’autre personne.",
       "wordsChart": "Mots écrits et dits sur la période",
       "writtenSeries": "Écrits",
       "oralSeries": "Dits",
