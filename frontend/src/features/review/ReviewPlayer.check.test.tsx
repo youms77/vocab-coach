@@ -295,7 +295,7 @@ describe('Review player: sentence production checked by the AI', () => {
       await screen.findByRole('heading', { name: 'Écrire une phrase' })
       await user.type(screen.getByLabelText('Votre phrase'), `${CHECKED_SENTENCE}{Enter}`)
       const result = await screen.findByRole('region', { name: 'Correction' })
-      expect(result).toHaveTextContent("La vérification par l'IA n'est pas disponible")
+      expect(result).toHaveTextContent("La vérification par l’IA n’est pas disponible")
     })
 
     it('an empty sentence is never sent to the AI (the self-graded path of M4.c)', async () => {

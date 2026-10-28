@@ -119,7 +119,7 @@ describe('Drills page: the list', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Exercices ciblés' })).toBeInTheDocument()
     expect(await screen.findByRole('cell', { name: /Expression figée/ })).toBeInTheDocument()
     expect(screen.getByText('Pas commencé')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Créer l\'exercice' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Créer l’exercice' })).toBeInTheDocument()
   })
 })
 

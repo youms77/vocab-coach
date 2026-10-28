@@ -40,7 +40,11 @@ def require_database(engine: Annotated[Engine, Depends(get_engine)]) -> None:
 async def _validation_error(_request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, RequestValidationError)  # noqa: S101 (narrowing)
     errors = [
-        {"loc": [str(part) for part in error["loc"]], "message": str(error["msg"])}
+        {
+            "loc": [str(part) for part in error["loc"]],
+            "message": str(error["msg"]),
+            "type": str(error["type"]),  # a stable code next to the English text (M10.c1, D-324)
+        }
         for error in exc.errors()  # `input` and `ctx` are left out on purpose
     ]
     detail = {"code": "invalid_request", "message": "The request is invalid.", "errors": errors}

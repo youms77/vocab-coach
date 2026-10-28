@@ -636,7 +636,7 @@ describe('Settings page: French', () => {
     await user.selectOptions(screen.getByLabelText('Language'), 'fr')
 
     expect(screen.getByRole('heading', { level: 1, name: 'Réglages' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: "Fournisseurs d'IA" })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: "Fournisseurs d’IA" })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Tester la connexion' })).toHaveLength(3)
   })
 })

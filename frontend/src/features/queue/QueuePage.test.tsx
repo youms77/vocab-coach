@@ -254,8 +254,8 @@ describe('Queue page', () => {
     await screen.findByRole('heading', { name: 'File des paquets' })
     await screen.findByText('Small talk')
     expect(cardOf('Job interview phrases')).toHaveTextContent('En pause')
-    expect(screen.getByRole('button', { name: 'Reprendre « Job interview phrases »' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Monter « Small talk »' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reprendre « Job interview phrases »' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Monter « Small talk »' })).toBeInTheDocument()
     expect(screen.getByText('Terminés (1 paquet)')).toBeInTheDocument()
     expect(cardOf('Causal inference reading')).toHaveTextContent(
       '30 termes à découvrir en 34 jours : il faut 1 nouveau terme par jour.',

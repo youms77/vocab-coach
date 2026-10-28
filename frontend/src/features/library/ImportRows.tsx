@@ -10,9 +10,11 @@ export function ProblemText({ problem, showLine }: { problem: Problem; showLine:
   const { t } = useTranslation()
   // Suggestions carry the values some messages name (`key`, `kept_line`).
   const values = { key: '?', kept_line: '?', ...problem.suggestion }
-  const text = isProblemCode(problem.code)
-    ? t(`import.problem.${problem.code}`, values)
-    : problem.message
+  const text = isProblemCode(problem.code) ? (
+    t(`import.problem.${problem.code}`, values)
+  ) : (
+    <span lang="en">{problem.message}</span>
+  )
   return (
     <span className={`problem problem--${problem.severity}`}>
       <span className="problem__severity">

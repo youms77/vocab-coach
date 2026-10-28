@@ -75,7 +75,7 @@ describe('/stats overview', () => {
     renderApp('/stats')
     expect(await screen.findByRole('heading', { name: 'Statistiques' })).toBeInTheDocument()
     expect(await screen.findByText('5,75 pour 100 mots')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: "Télécharger l'export CSV" })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Télécharger l’export CSV" })).toBeInTheDocument()
   })
 })
 

@@ -365,7 +365,13 @@
     "invalid_content": "Le contenu de l’unité a été refusé :",
     "invalid_step": "Cette étape est cochée par vos enregistrements, pas par un bouton.",
     "backup_not_configured": "Le dossier de sauvegarde n’est pas défini.",
-    "database_out_of_date": "La base de données n’est pas à jour. Lancez d’abord la mise à jour."
+    "database_out_of_date": "La base de données n’est pas à jour. Lancez d’abord la mise à jour.",
+    "card_exists": "Une carte existe déjà pour ce terme.",
+    "not_cardable": "Cette erreur ne peut pas devenir une carte.",
+    "suggestion_not_found": "Cette suggestion n’existe plus.",
+    "duration_required": "La durée de l’enregistrement est inconnue.",
+    "unknown_code": "Le serveur a refusé cette demande.",
+    "unknown_table": "Cette table n’existe pas."
   },
   "home": {
     "title": "Bienvenue",
@@ -2607,5 +2613,31 @@
       "spoken_answer": "Réponse orale",
       "self_assessment": "Auto-évaluation"
     }
+  },
+  "fieldErrors": {
+    "missing": "Ce champ est obligatoire.",
+    "string_type": "Ce champ doit être du texte.",
+    "string_too_short": "Ce texte est trop court.",
+    "string_too_long": "Ce texte est trop long.",
+    "string_pattern_mismatch": "Ce texte n’a pas la forme attendue.",
+    "too_short": "Il n’y a pas assez d’éléments.",
+    "too_long": "Il y a trop d’éléments.",
+    "int_type": "Ce champ doit être un nombre entier.",
+    "int_parsing": "Ce champ doit être un nombre entier.",
+    "float_type": "Ce champ doit être un nombre.",
+    "float_parsing": "Ce champ doit être un nombre.",
+    "bool_type": "Ce champ doit être oui ou non.",
+    "bool_parsing": "Ce champ doit être oui ou non.",
+    "greater_than": "Ce nombre est trop petit.",
+    "greater_than_equal": "Ce nombre est trop petit.",
+    "less_than": "Ce nombre est trop grand.",
+    "less_than_equal": "Ce nombre est trop grand.",
+    "literal_error": "Cette valeur ne fait pas partie de celles qui sont acceptées.",
+    "enum": "Cette valeur ne fait pas partie de celles qui sont acceptées.",
+    "list_type": "Ce champ doit être une liste.",
+    "dict_type": "Ce champ doit être un objet.",
+    "extra_forbidden": "Ce champ n’est pas attendu.",
+    "json_invalid": "La requête n’est pas du JSON valide.",
+    "value_error": "Cette valeur n’est pas acceptée."
   }
 }

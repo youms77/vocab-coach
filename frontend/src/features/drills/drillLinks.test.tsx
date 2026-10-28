@@ -104,7 +104,7 @@ describe('Practise now: the session step', () => {
       }),
     )
     renderApp('/session')
-    expect(await screen.findByRole('link', { name: "S'entraîner maintenant" })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: "S’entraîner maintenant" })).toHaveAttribute(
       'href',
       '/drills?category=grammar.preposition',
     )
@@ -187,9 +187,9 @@ describe('Practise this category: the categories page', () => {
     await i18n.changeLanguage('fr')
     mockApi(base)
     renderApp('/errors/categories')
-    const links = await screen.findAllByRole('link', { name: /^S'entraîner sur cette catégorie/ })
+    const links = await screen.findAllByRole('link', { name: /^S’entraîner sur cette catégorie/ })
     expect(links).toHaveLength(2)
-    expect(links[0]).toHaveAccessibleName('S\'entraîner sur cette catégorie : Prépositions')
+    expect(links[0]).toHaveAccessibleName('S’entraîner sur cette catégorie : Prépositions')
   })
 
   it('opens the drills page with the category chosen and nothing started', async () => {
@@ -236,6 +236,6 @@ describe('The error log and the drills', () => {
     mockApi({ ...base, 'GET /errors': errorPage([drillError], { total: 1 }) })
     renderApp('/errors')
     expect(await screen.findByRole('link', { name: 'Exercices ciblés' })).toHaveAttribute('href', '/drills')
-    expect(await screen.findByRole('link', { name: "Ouvrir l'exercice" })).toHaveAttribute('href', '/drills/7')
+    expect(await screen.findByRole('link', { name: "Ouvrir l’exercice" })).toHaveAttribute('href', '/drills/7')
   })
 })

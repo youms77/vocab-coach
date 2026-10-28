@@ -46,7 +46,7 @@ describe('Degraded-mode banner', () => {
 
     await screen.findByText(/^No AI provider/)
     await user.selectOptions(screen.getByLabelText('Language'), 'fr')
-    expect(screen.getByText(/^Aucun fournisseur d'IA n'est disponible/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: "Ouvrir les réglages de l'IA" })).toBeInTheDocument()
+    expect(screen.getByText(/^Aucun fournisseur d’IA n’est disponible/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Ouvrir les réglages de l’IA" })).toBeInTheDocument()
   })
 })

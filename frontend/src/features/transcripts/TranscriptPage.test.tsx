@@ -403,7 +403,7 @@ describe('Transcript page in French', () => {
     const user = userEvent.setup()
     renderApp('/transcripts')
     expect(
-      await screen.findByRole('heading', { level: 1, name: "Transcription d'une conversation" }),
+      await screen.findByRole('heading', { level: 1, name: "Transcription d’une conversation" }),
     ).toBeInTheDocument()
     expect(screen.getByText(/Seuls vos tours sont enregistrés/)).toBeInTheDocument()
     expect(screen.getByText(/peut servir à améliorer ses modèles/)).toBeInTheDocument()

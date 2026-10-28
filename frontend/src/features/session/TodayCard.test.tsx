@@ -112,7 +112,7 @@ describe('Today card', () => {
     )
     await user.selectOptions(screen.getByLabelText('Language'), 'fr')
     expect(
-      screen.getByRole('link', { name: "essayez un parcours d'anglais général" }),
+      screen.getByRole('link', { name: "essayez un parcours d’anglais général" }),
     ).toHaveAttribute('href', '/curriculum')
   })
 
@@ -210,9 +210,9 @@ describe('Today card', () => {
     expect(screen.getByRole('heading', { name: 'Séance du jour' })).toBeInTheDocument()
     expect(screen.getByText('1 révision due')).toBeInTheDocument()
     expect(
-      screen.getByText(/1 terme en file n'a pas encore de fiche utilisable/),
+      screen.getByText(/1 terme en file n’a pas encore de fiche utilisable/),
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Démarrer la séance du jour' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: "Aujourd'hui" })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Aujourd’hui" })).toBeInTheDocument()
   })
 })

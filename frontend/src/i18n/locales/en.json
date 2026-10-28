@@ -365,7 +365,13 @@
     "invalid_content": "The content of the unit was refused:",
     "invalid_step": "This step is ticked by your recordings, not by a button.",
     "backup_not_configured": "The backup folder is not set.",
-    "database_out_of_date": "The database is not up to date. Run the update first."
+    "database_out_of_date": "The database is not up to date. Run the update first.",
+    "card_exists": "A card already exists for this term.",
+    "not_cardable": "This error cannot become a card.",
+    "suggestion_not_found": "This suggestion no longer exists.",
+    "duration_required": "The recording has no known duration.",
+    "unknown_code": "The server refused this request.",
+    "unknown_table": "This table does not exist."
   },
   "home": {
     "title": "Welcome",
@@ -2607,5 +2613,31 @@
       "spoken_answer": "Spoken answer",
       "self_assessment": "Self-assessment"
     }
+  },
+  "fieldErrors": {
+    "missing": "This field is required.",
+    "string_type": "This field must be text.",
+    "string_too_short": "This text is too short.",
+    "string_too_long": "This text is too long.",
+    "string_pattern_mismatch": "This text does not have the expected form.",
+    "too_short": "There are too few items.",
+    "too_long": "There are too many items.",
+    "int_type": "This field must be a whole number.",
+    "int_parsing": "This field must be a whole number.",
+    "float_type": "This field must be a number.",
+    "float_parsing": "This field must be a number.",
+    "bool_type": "This field must be yes or no.",
+    "bool_parsing": "This field must be yes or no.",
+    "greater_than": "This number is too small.",
+    "greater_than_equal": "This number is too small.",
+    "less_than": "This number is too large.",
+    "less_than_equal": "This number is too large.",
+    "literal_error": "This value is not one of the accepted ones.",
+    "enum": "This value is not one of the accepted ones.",
+    "list_type": "This field must be a list.",
+    "dict_type": "This field must be an object.",
+    "extra_forbidden": "This field is not expected.",
+    "json_invalid": "The request is not valid JSON.",
+    "value_error": "This value is not accepted."
   }
 }

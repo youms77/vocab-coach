@@ -382,7 +382,7 @@ describe('Discovery of a new term', () => {
     await user.selectOptions(screen.getByLabelText('Language'), 'fr')
     expect(screen.getByRole('heading', { name: '1. Lisez la phrase' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Je ne sais pas' })).toBeInTheDocument()
-    expect(within(screen.getByRole('main')).getByText("Votre phrase d'origine")).toBeInTheDocument()
+    expect(within(screen.getByRole('main')).getByText("Votre phrase d’origine")).toBeInTheDocument()
   })
 })
 
@@ -557,8 +557,8 @@ describe('Discovery: the AI check of the personal sentence', () => {
     await user.click(await screen.findByRole('button', { name: /répété/ }))
     await user.type(await screen.findByLabelText(/phrase/i), PERSONAL)
     await user.click(screen.getByRole('button', { name: 'Terminer la découverte' }))
-    await user.click(await screen.findByRole('button', { name: "Vérifier ma phrase avec l'IA" }))
-    expect(await screen.findByText(/L'IA n'a pas pu vérifier votre phrase/)).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: "Vérifier ma phrase avec l’IA" }))
+    expect(await screen.findByText(/L’IA n’a pas pu vérifier votre phrase/)).toBeInTheDocument()
   })
 })
 

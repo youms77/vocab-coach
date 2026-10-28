@@ -602,6 +602,7 @@ def test_exercise_edit_is_validated_and_logged(
         with pytest.raises(en.InvalidExercise) as caught:
             en.update_exercise(session, template.id, {"sentence": "no gap", "answer": "x"}, NOW)
         assert caught.value.extra["errors"]
+        assert all(error["type"] for error in caught.value.extra["errors"])  # stable codes (D-324)
         with pytest.raises(en.ExerciseNotFound):
             en.update_exercise(session, 999, {}, NOW)
         out = en.update_exercise(

@@ -116,7 +116,7 @@ export function findHardcoded(file: string, source: string): string[] {
 }
 
 describe('no hard-coded user-visible string', () => {
-  it('finds none in the sources', () => {
+  it('finds none in the sources', { timeout: 60_000 }, () => {
     const problems: string[] = []
     for (const file of sourceFiles(SRC)) {
       if (file.endsWith(join('i18n', 'format.ts'))) continue // the one place that builds Intl formatters

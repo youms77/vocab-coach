@@ -40,5 +40,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     restoreMocks: true,
+    // The suite is large and some pages render a lot: 5 s is too tight when the files run in parallel.
+    testTimeout: 15_000,
   },
 })
