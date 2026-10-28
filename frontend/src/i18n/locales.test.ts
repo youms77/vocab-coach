@@ -50,6 +50,7 @@ describe('translation files', () => {
       ['a « » without a no-break space', /«(?! )|(?<! )»/],
       ['an ordinary space before a unit', /(\}\}|\d) (s|min|h|Mo|Ko|Go|%)(?!\p{L})/u],
       ['three dots (use …)', /\.\.\./],
+      ['two spaces in a row', /[  ]{2}/],
       ['a space before a comma', / ,/],
     ]
     for (const [name, rule] of rules) {
