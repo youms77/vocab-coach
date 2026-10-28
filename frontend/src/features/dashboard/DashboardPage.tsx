@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
 import { type Period, useStatsOverview } from '../../api/stats'
+import { formatInstant } from '../../i18n/format'
 import { AiSection } from './AiSection'
 import { ErrorsSection } from './ErrorsSection'
 import { formatFullDay } from './format'
@@ -60,10 +61,7 @@ export function DashboardPage() {
             {overview.data !== undefined && (
               <p className="muted field-hint">
                 {t('stats.computedAt', {
-                  date: new Intl.DateTimeFormat(i18n.language, {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  }).format(new Date(overview.data.computed_at)),
+                  date: formatInstant(i18n.language, overview.data.computed_at),
                 })}
               </p>
             )}

@@ -1,6 +1,11 @@
 import type { TFunction } from 'i18next'
 
 import type { Rate, Share } from '../../api/stats'
+import {
+  formatNumber as formatNumberIn,
+  formatPercent as formatPercentIn,
+  formatStudyDay,
+} from '../../i18n/format'
 
 /**
  * One place that turns the statistics' values into text. A value the backend flags `insufficient`
@@ -9,15 +14,12 @@ import type { Rate, Share } from '../../api/stats'
  */
 
 export function formatNumber(language: string, value: number, digits = 1): string {
-  return new Intl.NumberFormat(language, { maximumFractionDigits: digits }).format(value)
+  return formatNumberIn(language, value, digits)
 }
 
 /** A proportion in 0..1 as a percentage. */
 export function formatPercent(language: string, value: number, digits = 1): string {
-  return new Intl.NumberFormat(language, {
-    style: 'percent',
-    maximumFractionDigits: digits,
-  }).format(value)
+  return formatPercentIn(language, value, digits)
 }
 
 /** "2.4 per 100 words", or "Not enough data" with the words counted. */
@@ -43,16 +45,10 @@ export function formatShareCounts(t: TFunction, share: Share): string {
 
 /** An ISO day as a short date ("12 Oct"), read as UTC so the day never moves. */
 export function formatDay(language: string, day: string): string {
-  return new Intl.DateTimeFormat(language, {
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  }).format(new Date(`${day}T00:00:00Z`))
+  return formatStudyDay(language, day, { day: 'numeric', month: 'short' })
 }
 
 /** An ISO day with its year, for the period summary. */
 export function formatFullDay(language: string, day: string): string {
-  return new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeZone: 'UTC' }).format(
-    new Date(`${day}T00:00:00Z`),
-  )
+  return formatStudyDay(language, day, { dateStyle: 'medium' })
 }

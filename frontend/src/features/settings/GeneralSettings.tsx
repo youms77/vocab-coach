@@ -3,6 +3,7 @@ import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ApiError } from '../../api/client'
+import { formatNumber } from '../../i18n/format'
 import {
   type SettingInfo,
   type SettingsMap,
@@ -34,7 +35,7 @@ const STEPS: Partial<Record<FieldKey, number>> = {
 }
 
 function display(value: SettingValue, language: string) {
-  return typeof value === 'number' ? new Intl.NumberFormat(language).format(value) : String(value)
+  return typeof value === 'number' ? formatNumber(language, value) : String(value)
 }
 
 /** The value to send, or the translated reason it cannot be sent. */

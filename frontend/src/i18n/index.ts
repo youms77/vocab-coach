@@ -32,8 +32,13 @@ void i18n
     },
   })
 
-i18n.on('languageChanged', (lng) => {
-  document.documentElement.lang = lng
-})
+// `<html lang>` follows the interface language from the first paint, not only after a change:
+// screen readers pick the voice from it (M10.c, D-320). index.html says "en" until this runs.
+function applyDocumentLanguage(lng: string | undefined) {
+  document.documentElement.lang = lng === 'fr' ? 'fr' : 'en'
+}
+
+applyDocumentLanguage(i18n.resolvedLanguage)
+i18n.on('languageChanged', applyDocumentLanguage)
 
 export default i18n

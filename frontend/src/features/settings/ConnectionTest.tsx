@@ -7,10 +7,11 @@ import {
   useConnectionTest,
 } from '../../api/ai'
 import { useElapsedSeconds } from '../../components/useElapsedSeconds'
+import { formatNumber } from '../../i18n/format'
 import { ErrorText } from './ErrorText'
 
 function seconds(ms: number, language: string) {
-  return new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(ms / 1000)
+  return formatNumber(language, ms / 1000, 1)
 }
 
 function TestOutcome({ result }: { result: ConnectionTestResult }) {

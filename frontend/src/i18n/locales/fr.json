@@ -2134,7 +2134,10 @@
         "unknown": "L'IA n'a pas jugé ces termes."
       },
       "nowActive": "maintenant actif",
-      "effect": "{{active}} terme(s) devenu(s) actif(s) et {{reinforced}} carte(s) de révision renforcée(s)."
+      "effectActive_one": "{{count}} terme est devenu actif.",
+      "effectActive_other": "{{count}} termes sont devenus actifs.",
+      "effectReinforced_one": "{{count}} carte de révision a été renforcée.",
+      "effectReinforced_other": "{{count}} cartes de révision ont été renforcées."
     }
   },
   "curriculum": {

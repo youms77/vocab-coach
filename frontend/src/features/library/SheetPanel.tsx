@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 
 import { ApiError } from '../../api/client'
+import { formatInstant } from '../../i18n/format'
 import {
   useRegenerateSheet,
   useRunEnrichment,
@@ -22,9 +23,7 @@ import { Notice } from '../../components/Notice'
 const UNDISCOVERED: readonly ItemStatus[] = ['draft', 'triage', 'queued']
 
 function formatDate(iso: string, language: string): string {
-  return new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    new Date(iso),
-  )
+  return formatInstant(language, iso)
 }
 
 type Tone = 'ok' | 'warn'

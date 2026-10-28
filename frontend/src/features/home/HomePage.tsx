@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { useHealth } from '../../api/health'
+import { formatInstant, formatStudyDay } from '../../i18n/format'
 import { useDecks } from '../../api/library'
 import { entriesOf, useToday } from '../../api/session'
 import { ActionTile } from '../../components/ActionTile'
@@ -30,6 +31,7 @@ export function HomePage() {
   const { t, i18n } = useTranslation()
   const today = useToday()
   const decks = useDecks()
+  // Only the greeting's date falls back on the browser clock, while the plan is loading (D-266).
   const [now] = useState(() => new Date())
 
   const plan = today.data?.plan
@@ -42,11 +44,11 @@ export function HomePage() {
     plan === undefined ? undefined : entriesOf(plan, 'consolidation')[0]
   const planned = reviews + newItems > 0
 
-  const date = new Intl.DateTimeFormat(i18n.language, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  }).format(now)
+  const dateOptions = { weekday: 'long', day: 'numeric', month: 'long' } as const
+  const date =
+    plan === undefined
+      ? formatInstant(i18n.language, now, dateOptions)
+      : formatStudyDay(i18n.language, plan.study_day, dateOptions)
 
   return (
     <div className="home">

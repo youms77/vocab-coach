@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { type UsageRow, useAiUsage } from '../../api/ai'
+import { dateFormatter, numberFormatter } from '../../i18n/format'
 import { Notice } from '../../components/Notice'
 
 function errorTotal(row: UsageRow) {
@@ -9,8 +10,8 @@ function errorTotal(row: UsageRow) {
 
 function TodayTable({ rows }: { rows: UsageRow[] }) {
   const { t, i18n } = useTranslation()
-  const number = new Intl.NumberFormat(i18n.language)
-  const oneDecimal = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 })
+  const number = numberFormatter(i18n.language)
+  const oneDecimal = numberFormatter(i18n.language, { maximumFractionDigits: 1 })
 
   return (
     <div className="table-wrap">
@@ -60,8 +61,8 @@ function TodayTable({ rows }: { rows: UsageRow[] }) {
 export function UsagePanel() {
   const { t, i18n } = useTranslation()
   const usage = useAiUsage(7)
-  const number = new Intl.NumberFormat(i18n.language)
-  const dayFormat = new Intl.DateTimeFormat(i18n.language, {
+  const number = numberFormatter(i18n.language)
+  const dayFormat = dateFormatter(i18n.language, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

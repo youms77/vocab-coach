@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { ApiError } from '../../api/client'
+import { formatNumber } from '../../i18n/format'
 import {
   MAX_IMPORT_CHARS,
   useCommit,
@@ -211,7 +212,7 @@ function Review({
 export function ImportPage() {
   const { t, i18n } = useTranslation()
   // The app's language, never the browser's: 300,000 or 300 000.
-  const max = new Intl.NumberFormat(i18n.language).format(MAX_IMPORT_CHARS)
+  const max = formatNumber(i18n.language, MAX_IMPORT_CHARS)
   const ids = { text: useId(), file: useId() }
   const preview = usePreview()
   const [text, setText] = useState('')

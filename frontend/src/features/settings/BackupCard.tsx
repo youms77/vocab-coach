@@ -8,6 +8,7 @@ import {
   type BackupStatus,
 } from '../../api/backup'
 import { ApiError } from '../../api/client'
+import { formatInstant } from '../../i18n/format'
 import { type SettingsMap, useSettings, useSettingsMutation } from '../../api/settings'
 import { Notice } from '../../components/Notice'
 import { ErrorText } from './ErrorText'
@@ -22,8 +23,7 @@ const RESTORE_COMMANDS = [
 function When({ iso }: { iso: string | null }) {
   const { t, i18n } = useTranslation()
   if (iso === null) return <>{t('settings.backup.never')}</>
-  const format = new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' })
-  return <time dateTime={iso}>{format.format(new Date(iso))}</time>
+  return <time dateTime={iso}>{formatInstant(i18n.language, iso)}</time>
 }
 
 function Status({ status }: { status: BackupStatus }) {

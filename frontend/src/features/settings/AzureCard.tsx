@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { type SpeechProviderState, useAiStatus, useCredentialMutation } from '../../api/ai'
+import { numberFormatter } from '../../i18n/format'
 import { usePronunciationUsage } from '../../api/pronunciation'
 import { useSettings, useSettingsMutation } from '../../api/settings'
 import { ConnectionTest } from './ConnectionTest'
@@ -185,7 +186,7 @@ function Usage() {
   if (usage.isError) {
     return <Notice tone="danger">{t('settings.azure.usageError')}</Notice>
   }
-  const number = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 })
+  const number = numberFormatter(i18n.language, { maximumFractionDigits: 1 })
   return (
     <div>
       <h3>{t('settings.azure.usageTitle')}</h3>

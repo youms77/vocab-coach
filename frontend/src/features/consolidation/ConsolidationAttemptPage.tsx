@@ -89,10 +89,8 @@ export function TargetsSummary({
       )}
       {fresh != null && (
         <p className="muted" role="status">
-          {t('consolidation.summary.effect', {
-            active: fresh.activated_item_ids.length,
-            reinforced: fresh.reinforced_card_ids.length,
-          })}
+          {t('consolidation.summary.effectActive', { count: fresh.activated_item_ids.length })}{' '}
+          {t('consolidation.summary.effectReinforced', { count: fresh.reinforced_card_ids.length })}
         </p>
       )}
     </section>

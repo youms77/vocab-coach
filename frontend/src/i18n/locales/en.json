@@ -2134,7 +2134,10 @@
         "unknown": "The AI did not judge these terms."
       },
       "nowActive": "now active",
-      "effect": "{{active}} term(s) became active and {{reinforced}} review card(s) were reinforced."
+      "effectActive_one": "{{count}} term became active.",
+      "effectActive_other": "{{count}} terms became active.",
+      "effectReinforced_one": "{{count}} review card was reinforced.",
+      "effectReinforced_other": "{{count}} review cards were reinforced."
     }
   },
   "curriculum": {

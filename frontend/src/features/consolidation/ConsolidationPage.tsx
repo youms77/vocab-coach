@@ -16,6 +16,7 @@ import {
   useCreateTask,
 } from '../../api/consolidation'
 import { ApiError } from '../../api/client'
+import { formatPercent } from '../../i18n/format'
 import { useElapsedSeconds } from '../../components/useElapsedSeconds'
 import { formatShortDate } from '../session/format'
 import { ErrorText } from '../settings/ErrorText'
@@ -26,9 +27,7 @@ import { SectionHeader } from '../../components/SectionHeader'
 const STATUSES: TaskStatus[] = ['proposed', 'accepted', 'completed', 'dismissed']
 
 function percent(value: number, language: string) {
-  return new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 0 }).format(
-    value,
-  )
+  return formatPercent(language, value, 0)
 }
 
 function ReadyDeck({ deck }: { deck: ConsolidationDeck }) {

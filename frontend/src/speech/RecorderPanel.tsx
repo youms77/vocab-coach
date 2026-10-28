@@ -6,6 +6,7 @@ import { useClipSender } from './useClipSender'
 import { type Clip, useRecorder } from './useRecorder'
 import { cancelSpeech } from './useSpeech'
 import { Notice } from '../components/Notice'
+import { formatNumber } from '../i18n/format'
 
 /** What `useRecorder` returns: the recorder's state and its commands. */
 export type RecorderApi = ReturnType<typeof useRecorder>
@@ -79,7 +80,7 @@ export function RecorderView({
   disabled?: boolean
 }) {
   const { t, i18n } = useTranslation()
-  const number = (value: number) => value.toLocaleString(i18n.language)
+  const number = (value: number) => formatNumber(i18n.language, value)
   const audio = useRef<HTMLAudioElement>(null)
   const hintId = useId()
   const { limits, status, clip } = recorder

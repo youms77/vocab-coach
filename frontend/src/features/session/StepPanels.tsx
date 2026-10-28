@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import type { PracticeStep, SessionSummary as Summary } from '../../api/session'
+import { formatInstant } from '../../i18n/format'
 import { isDrillableCode } from '../drills/drillRules'
 import { sessionState } from '../drills/fromSession'
 import { useCategoryName } from '../errors/useCategoryName'
@@ -53,7 +54,7 @@ export function WaitPanel({
       : left >= 60_000
         ? t('session.wait.inMinutes', { count: Math.ceil(left / 60_000) })
         : t('session.wait.inSeconds', { count: Math.ceil(left / 1000) })
-  const time = new Intl.DateTimeFormat(i18n.language, { timeStyle: 'short' }).format(target)
+  const time = formatInstant(i18n.language, new Date(target), { timeStyle: 'short' })
 
   return (
     <>

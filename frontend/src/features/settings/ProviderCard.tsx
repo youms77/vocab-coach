@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { type ProviderState, useCredentialMutation } from '../../api/ai'
+import { formatInstant } from '../../i18n/format'
 import { ConnectionTest } from './ConnectionTest'
 import { ErrorText } from './ErrorText'
 import { Notice } from '../../components/Notice'
@@ -28,10 +29,7 @@ function ProviderStateLine({ provider }: { provider: ProviderState }) {
     text = t('settings.provider.state.disabled')
     tone = 'muted'
   } else if (provider.cooldown_until !== null) {
-    const time = new Date(provider.cooldown_until).toLocaleTimeString(i18n.language, {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    const time = formatInstant(i18n.language, provider.cooldown_until, { timeStyle: 'short' })
     text = t('settings.provider.state.cooldown', { time })
     tone = 'warn'
   } else if (provider.available) {
