@@ -543,7 +543,7 @@
   },
   "import": {
     "title": "Import a list",
-    "intro": "Paste a Markdown list or pick a .md or .txt file. You will see every line before anything is saved.",
+    "intro": "Paste a Markdown list or pick a .md, .txt, .csv or .tsv file. You will see every line before anything is saved.",
     "line": "Line {{line}}",
     "selected_one": "{{count}} row will be imported.",
     "selected_other": "{{count}} rows will be imported.",
@@ -551,7 +551,9 @@
     "importing": "Importing…",
     "input": {
       "title": "1. Your list",
-      "file": "File (.md or .txt)",
+      "file": "File (.csv, .tsv, .txt or .md)",
+      "fileHint": "CSV or TSV: the term in column 1 and, optionally, the English sentence it comes from in column 2. Commas, semicolons and tabs are detected, and a header row is skipped. TXT or Markdown: one term per line, optionally “term | sentence”.",
+      "notUtf8": "This file is not UTF-8 text, so accents would be lost. In Excel, use “Save as” and choose “CSV UTF-8 (comma delimited)”, then pick the file again.",
       "text": "Text",
       "hint": "One term per line, optionally “term | sentence where you met it”. Up to {{max}} characters. The file is read in your browser.",
       "tooLarge": "This text is longer than {{max}} characters. Split it into several imports.",
@@ -650,6 +652,8 @@
       "empty_term": "The term is empty.",
       "term_too_long": "The term is longer than 300 characters.",
       "term_not_in_sentence": "The term was not found in its sentence.",
+      "header_row_skipped": "Header row: not a term, skipped.",
+      "invalid_table": "This table cannot be read. Check the quotes and save it again as CSV UTF-8.",
       "duplicate_in_file": "Same term as line {{kept_line}}; only that line is imported.",
       "duplicate_exact": "This term is already in your library.",
       "duplicate_possible": "A similar term is already in your library.",

@@ -123,6 +123,36 @@ def test_commit_errors(client: TestClient) -> None:
     assert response.status_code == 404 and code(response) == "deck_not_found"
 
 
+def test_preview_csv_then_commit(client: TestClient) -> None:
+    text = "terme;phrase\nbias;The bias is small.\nodds ratio\n"
+    response = client.post("/api/import/preview", json={"text": text, "format": "csv"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["header"]["deck"] is None
+    assert [(r["line"], r["term"], r["sentence"]) for r in body["rows"]] == [
+        (2, "bias", "The bias is small."),
+        (3, "odds ratio", None),
+    ]
+    assert [p["code"] for p in body["problems"]] == ["header_row_skipped"]
+    summary = client.post(
+        "/api/import/commit",
+        json={
+            "rows": [{"term": r["term"], "sentence": r["sentence"]} for r in body["rows"]],
+            "target": {"new_deck_name": "From Excel"},
+        },
+    )
+    assert summary.status_code == 200 and summary.json()["imported"] == 2
+
+
+def test_preview_tsv_and_unknown_format(client: TestClient) -> None:
+    body = client.post(
+        "/api/import/preview", json={"text": "bias\tA, b; c\n", "format": "tsv"}
+    ).json()
+    assert [(r["term"], r["sentence"]) for r in body["rows"]] == [("bias", "A, b; c")]
+    response = client.post("/api/import/preview", json={"text": "x", "format": "xlsx"})
+    assert response.status_code == 422 and code(response) == "invalid_request"
+
+
 def test_preview_size_limit_and_body_type(client: TestClient) -> None:
     body = client.post("/api/import/preview", json={"text": "- x\n" * 1001}).json()
     assert body["rejected"] and body["problems"][0]["code"] == "too_large"

@@ -123,3 +123,18 @@ def test_demo_flag_uses_the_demo_database(
         assert not (tmp_path / "vocab-coach.sqlite3").exists()
     finally:
         get_settings.cache_clear()
+
+
+def test_csv_file_is_read_as_a_table(
+    db_file: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["db", "upgrade"]) == 0
+    capsys.readouterr()
+    csv_file = tmp_path / "words.csv"
+    csv_file.write_text("terme;phrase\nbias;The bias is small.\n", encoding="utf-8-sig")
+    assert main(["library", "import", str(csv_file)]) == 0
+    out = capsys.readouterr().out
+    assert "header_row_skipped" in out and "bias" in out and "1 lines read" in out
+    # The same bytes as Markdown give one oddly shaped line, so the option really switches parser.
+    assert main(["library", "import", str(csv_file), "--format", "markdown"]) == 0
+    assert "header_row_skipped" not in capsys.readouterr().out

@@ -224,9 +224,14 @@ def _build_parser() -> argparse.ArgumentParser:
     library = commands.add_parser("library", help="vocabulary library")
     library_commands = library.add_subparsers(dest="library_command", required=True)
     importer = library_commands.add_parser(
-        "import", help="preview a Markdown list (writes nothing unless --commit)"
+        "import", help="preview a Markdown, CSV or TSV list (writes nothing unless --commit)"
     )
-    importer.add_argument("file", type=Path, help="the Markdown file (UTF-8)")
+    importer.add_argument("file", type=Path, help="the list file (UTF-8)")
+    importer.add_argument(
+        "--format",
+        choices=["markdown", "csv", "tsv"],
+        help="default: from the extension (.csv, .tsv), else markdown",
+    )
     importer.add_argument("--deck-id", type=int, help="add to this deck instead of a new one")
     importer.add_argument(
         "--no-triage", action="store_true", help="queue the new terms directly (skip triage)"
@@ -734,7 +739,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.library_command == "extend":
             return cli_library.run_library_extend(url, settings, args.deck_id, count=args.count)
         return cli_library.run_library_import(
-            url, args.file, deck_id=args.deck_id, no_triage=args.no_triage, commit=args.commit
+            url,
+            args.file,
+            fmt=args.format,
+            deck_id=args.deck_id,
+            no_triage=args.no_triage,
+            commit=args.commit,
         )
     if args.command == "errors":
         return _errors(args, url)

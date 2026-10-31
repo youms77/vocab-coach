@@ -9,6 +9,7 @@ import {
   useCommit,
   usePreview,
   type CommitBody,
+  type ImportFormat,
   type ImportHeader,
   type ImportSummary,
   type Preview,
@@ -18,6 +19,12 @@ import { ErrorText } from '../settings/ErrorText'
 import { ImportRows, ProblemText } from './ImportRows'
 import { commitRow, initialRows, willImport, type RowState } from './importReview'
 import { Notice } from '../../components/Notice'
+
+/** The format follows the file extension; pasted text is Markdown. */
+function formatOf(fileName: string): ImportFormat {
+  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase()
+  return extension === '.csv' ? 'csv' : extension === '.tsv' ? 'tsv' : 'markdown'
+}
 
 const HEADER_FIELDS = ['deck', 'domain', 'source', 'context', 'deadline'] as const
 
@@ -213,11 +220,13 @@ export function ImportPage() {
   const { t, i18n } = useTranslation()
   // The app's language, never the browser's: 300,000 or 300 000.
   const max = formatNumber(i18n.language, MAX_IMPORT_CHARS)
-  const ids = { text: useId(), file: useId() }
+  const ids = { text: useId(), file: useId(), fileHint: useId() }
   const preview = usePreview()
   const [text, setText] = useState('')
   const [tooLarge, setTooLarge] = useState(false)
   const [fileError, setFileError] = useState(false)
+  const [notUtf8, setNotUtf8] = useState(false)
+  const [format, setFormat] = useState<ImportFormat>('markdown')
   // A new key for each preview resets the review (rows, target) to that preview.
   const [run, setRun] = useState(0)
   const [done, setDone] = useState<{ summary: ImportSummary; intake: CommitBody['intake'] } | null>(
@@ -227,14 +236,21 @@ export function ImportPage() {
   async function readFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     setFileError(false)
+    setNotUtf8(false)
     if (file === undefined) return
     try {
       const content = await file.text()
+      // file.text() decodes as UTF-8; a Windows-1252 CSV from Excel leaves U+FFFD behind.
+      if (content.includes('�')) {
+        setNotUtf8(true)
+        return
+      }
       if (content.length > MAX_IMPORT_CHARS) {
         setTooLarge(true)
         return
       }
       setTooLarge(false)
+      setFormat(formatOf(file.name))
       setText(content)
     } catch {
       setFileError(true)
@@ -250,12 +266,13 @@ export function ImportPage() {
     }
     setTooLarge(false)
     setDone(null)
-    preview.mutate({ text }, { onSuccess: () => setRun(run + 1) })
+    preview.mutate(format === 'markdown' ? { text } : { text, format }, { onSuccess: () => setRun(run + 1) })
   }
 
   function again() {
     setDone(null)
     setText('')
+    setFormat('markdown')
     preview.reset()
   }
 
@@ -284,9 +301,13 @@ export function ImportPage() {
                 <input
                   id={ids.file}
                   type="file"
-                  accept=".md,.txt,.markdown,text/markdown,text/plain"
+                  accept=".csv,.tsv,.txt,.md,.markdown"
+                  aria-describedby={ids.fileHint}
                   onChange={(e) => void readFile(e)}
                 />
+                <p id={ids.fileHint} className="field-hint">
+                  {t('import.input.fileHint')}
+                </p>
               </div>
               <div className="field">
                 <label htmlFor={ids.text}>{t('import.input.text')}</label>
@@ -294,7 +315,10 @@ export function ImportPage() {
                   id={ids.text}
                   rows={12}
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => {
+                    setText(e.target.value)
+                    setFormat('markdown')
+                  }}
                   spellCheck={false}
                 />
                 <p className="field-hint">
@@ -304,6 +328,11 @@ export function ImportPage() {
               {tooLarge && (
                 <Notice tone="danger" role="alert">
                   {t('import.input.tooLarge', { max })}
+                </Notice>
+              )}
+              {notUtf8 && (
+                <Notice tone="danger" role="alert">
+                  {t('import.input.notUtf8')}
                 </Notice>
               )}
               {fileError && (
