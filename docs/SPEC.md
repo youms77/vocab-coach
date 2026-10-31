@@ -79,6 +79,14 @@ No later module may require redoing the data model or the dashboard: this is why
   One line = one term, optionally followed by `|` and the original sentence. The YAML header is optional; any
   missing field stays empty. The parser accepts `-`, `*` and numbered bullets and blank lines; it **reports
   ambiguous lines instead of failing**.
+- **Other list formats** (approved by the owner, M10.c2, D-329): a plain-text file (`.txt`, same line rules, no
+  header needed) and a **CSV / TSV** table (`.csv`, `.tsv`, e.g. saved from Excel as "CSV UTF-8"): column 1 the
+  term, optional column 2 the original sentence, other columns ignored; comma, semicolon or tab detected; an
+  optional header row skipped. Same preview, duplicates and limits as Markdown; the deck is chosen in the page.
+- **Any other source** (PDF, Word, photo, messy list): the app does not read it. The About page and the README give
+  a ready-to-copy **conversion prompt** for any free chatbot, which returns the Markdown format above: it keeps a
+  whole list as it is, else only the words the user marked, else chooses by explicit criteria for a B1 French
+  speaker, under a maximum count (D-330).
 - **Quick add** of a term (term + optional context) from the interface.
 - **AI-generated usage sheet** ("enrichment"): not a dictionary entry but a usage guide. Content: meaning in
   the given context (and other frequent meanings), definition in simple English, French translation, part of
@@ -412,7 +420,7 @@ Every milestone leaves an app that starts and whose tests pass. The criteria bel
 | **M8 — General English tracks** | Module H: syllabus, word-list import (licence permitting), scenario units generated and stored | One track runnable end to end; intake triage applied |
 | **M9 — Dashboard** | Full module I; CSV export | Indicators computed on demo data, checked by tests on hand-built cases (normalised rates, retention) |
 | **RV — Visual redesign** | Frontend only, in two parts: RV.a foundations (CSS layers, one token system for both themes, bundled Inter, home-made icons, base components, collapsible sidebar and top bar, development-only style guide, contrast test, readable charts at 375 px) and RV.b screen-by-screen pass (home with hero photo, illustrated section headers, clean working screens); no backend, route, API or dependency change | `npm run check` green with every existing test passing; contrast test passes in both themes; no hard-coded colour outside the tokens; no horizontal page scroll at 375 px in English and French; sidebar state remembered; `/styleguide` absent from the production build |
-| **M10 — Polish** | Complete French translation; backup and restore; README with screenshots; single-port "use" mode; security and performance review | Restore of a backup into an empty database; installation from scratch following the README |
+| **M10 — Polish** | Complete French translation; backup and restore; README with screenshots; single-port "use" mode; security and performance review; CSV/TSV/TXT import, conversion prompt and an About page (M10.c2, D-329 to D-331) | Restore of a backup into an empty database; installation from scratch following the README |
 
 The dashboard comes late in the build order, but the events it uses are recorded from M1: when it arrives, the
 history already exists.

@@ -4,6 +4,7 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M10.c2** (import of CSV, TSV and plain-text lists, the chatbot conversion prompt, the About page, the README feature overview and "Preparing a word list"; no migration, no new dependency) is done on `feat/m10c-finish`, built in two parallel sessions and merged. Decisions D-329 to D-331. Pushed with a pull request to `main` (it carries RV, M10.a, M10.b, M10.c1 and M10.c2). Next: the owner's review, the CI, the merge, then what is left of M10.c2 (screenshots, illustrations check, clean install, version 1.0.0). See its section.
 - **M10.c1** (complete French translation: formats, typography, backend texts, tests; one additive backend change) is done on `feat/m10c-finish`, cut from the tip of `feat/m10b-use-mode`. Not pushed. Next: **M10.c2**. See its section.
 - **M10.b** (use mode: one process, one port, the built frontend served by FastAPI; security and performance reviews; no migration, no new project dependency) is done on `feat/m10b-use-mode`, cut from the tip of `feat/m10a-backup` (RV and M10.a are **not** in `main`). Not pushed. Decisions D-310 to D-318. Next: the owner's review (manual scenario in the M10.b section), then M10.c (translation and the final README).
 - **M10.a2** (the settings card; frontend only) is done on `feat/m10a-backup` after M10.a1. M10.a is complete; not pushed; the card is not seen in a browser. Next: the owner's review, then M10.b (decisions from D-310). See the M10.a2 section.
@@ -35,6 +36,37 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M10.c2 — Bring your words in: formats, conversion prompt, About page, README
+
+Branch `feat/m10c-finish` (merges of `claude/m10c2-import-formats-d972a6` and `claude/m10c2-about-readme-da3967`, two
+sessions run in parallel). No migration, no new dependency. Decisions D-329 to D-331.
+
+### Done
+
+- **Import** (D-329): `.csv` / `.tsv` (term, optional sentence; comma, semicolon or tab detected; header row skipped)
+  and `.txt`, through the same preview and commit; `format` on `POST /api/import/preview`; `library import --format`;
+  a notice for a non-UTF-8 file.
+- **Conversion prompt** (D-330), written with the owner: a list is kept whole, else the marked words, else words
+  chosen for a B1 French speaker under a maximum.
+- **About page** `/about` (D-331): purpose, principles, modules, formats, example, prompt with a Copy button; linked
+  from the sidebar and the Import page.
+- **README**: feature overview near the top and a "Preparing a word list" section with the formats and the prompt.
+
+### Verified
+
+- Branches: import — pytest green (+24 parser tests, +2 API, +1 CLI), 4 new Vitest tests; About — `npm run check`
+  green (922 Vitest tests). After the merge: see the M10.c2 commit message for the full `npm run check` result.
+- Browser (dev servers, demo): `/about` in English and French, title "À propos · vocab-coach", the French prompt
+  shown in full, no horizontal scroll at 375 px; the Import page shows the formats hint and the link; no console
+  error. The import session saw a semicolon CSV with a header row and a `.txt` file reach the preview.
+- Fixed while verifying: the undefined `--space-5` token on the modules list (D-331).
+
+### Not seen / left
+
+- The Copy button's success (the built-in browser pane denies clipboard writes; the failure message was seen).
+- A real Windows-1252 CSV from Excel; dark/light comparison of `/about` beyond the default theme.
+- Left from M10.c2's plan: screenshots in the README, clean install from the README, version 1.0.0.
 
 ## M10.c1 — Complete French translation
 

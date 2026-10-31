@@ -4270,3 +4270,63 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 
 - `vite.config.ts`: `testTimeout` 15 s (it was the 5 s default). With 80+ files running in parallel on this machine, about ten tests timed out in a full run and passed alone; no assertion was weakened.
 - Existing assertions changed (only their expected text, for D-322, D-321 and D-327): about 45 French literals in 21 test files (`'` became `’`, ` :` became a no-break space in role names, `« »` likewise), and `ConsolidationAttemptPage.test.tsx` (the "(s)" sentence became two sentences). No test was removed.
+
+## D-329 — CSV, TSV and plain-text word lists (M10.c2)
+
+- **Approved by the owner** (spec change, module A): besides Markdown, the import takes `.txt`, `.csv` and `.tsv`.
+  No new dependency (Python's `csv` module).
+- **Plain text needs no new parser**: the Markdown parser already reads bullet-less lines and `term | sentence`, so
+  `.txt` uses it unchanged; only the file input and its hint changed.
+- **One result type**: `domain/tabular_import.py` `parse_table(text, fmt)` returns the same `ParsedImport` (empty
+  header) as `parse_import`. `make_row` and `mark_duplicates` became public in `markdown_import.py` so both parsers
+  build and mark rows the same way; the service, preview and commit are not forked.
+- **Delimiter** (`csv` only): for comma, semicolon and tab, the first 10 records are sampled; the winner gives the
+  most records of the same width (2 columns or more); a tie goes to fewer columns, then comma, semicolon, tab. A
+  semicolon file whose sentences contain commas is therefore not read as comma. One column falls back to comma.
+  `tsv` always splits on tabs.
+- **Header row**: the first record is skipped (problem `header_row_skipped`, info) when column 1 is a term word
+  (term, terme, word, mot, vocabulary, vocabulaire) and column 2 is absent, empty or a sentence word (sentence,
+  phrase, example, exemple, context, contexte, original sentence). A real term "term" with a real sentence is kept.
+- **Rules**: `check_term` on each row (empty term, term not in sentence, sentence as term behave as in Markdown); no
+  emphasis stripping or `|` splitting, and a `|` in column 1 is ambiguous; line numbers are physical lines (a quoted
+  multi-line field gets its first line); limits `MAX_BYTES` and 1 000 data rows, plus one line for a header row. A
+  `csv.Error` gives `invalid_table` (error, nothing imported).
+- **API and CLI**: `PreviewRequest.format` = `"markdown"` (default) | `"csv"` | `"tsv"`, anything else 422;
+  `library import --format`, else `.csv` / `.tsv` from the file extension. Additive: existing Markdown requests are
+  byte-identical (the frontend sends `format` only for csv and tsv).
+- **Frontend**: the format comes from the picked file's extension; pasted or edited text is Markdown. `accept` is
+  `.csv,.tsv,.txt,.md,.markdown`.
+- **Encoding**: if `file.text()` contains U+FFFD (Excel's Windows-1252 CSV), the text is not loaded and a notice
+  asks to save as "CSV UTF-8"; no encoding guessing. **Not verified** with a real Windows-1252 file from Excel.
+
+## D-330 — The conversion prompt instead of reading PDF and Word (M10.c2)
+
+- **Chosen with the owner**: the app does not read PDF, Word or images. A PDF of a course is not a word list; picking
+  the words needs judgement (an AI call) and new parsing dependencies, for a less reliable result than a chatbot the
+  user already has. Instead a prompt, written with the owner, is shown on the About page (copy button) and in the
+  README; the user gives it, with the file, to any free chatbot and pastes the answer in the Import page.
+- **How the prompt picks words**, in order: (1) a file that is already a list keeps **all** its terms in order,
+  dropping numbers, translations and other columns and keeping an English example sentence if there is one; (2)
+  otherwise only the words the user marked (highlighted, underlined, bold, circled, margin, end list); (3) otherwise
+  the chatbot chooses: domain terms, academic or professional English beyond B1, spoken formulas, excluding basic
+  and transparent words, proper nouns, acronyms, numbers and one-off rarities, under a maximum count. Whole
+  expressions in dictionary form, no duplicates, the sentence copied word for word.
+- **Safety nets in the app**: the import preview reports doubtful lines before saving, and intake triage removes the
+  words the user already knows.
+- The prompt is one i18n value per language (`about.prompt.text`) and follows the interface language.
+
+## D-331 — The About page (M10.c2)
+
+- **Approved by the owner** (not in the original spec): `/about`, lazy route, link at the bottom of the sidebar after
+  Settings (`info` icon), tab title, keys under `about.*` and `nav.about`. Content: purpose, principles, one line
+  per module, the accepted formats with the SPEC module A example, and the conversion prompt with a "Copy" button
+  (Clipboard API, result announced in a `role="status"`; on failure it asks to copy by hand). The Import page links
+  to `/about#bring-your-words`; the page scrolls to the hash itself.
+- **Verbatim keys**: `i18n/verbatimKeys.ts` lists `about.prompt.text`, which `locales.test.ts` and
+  `untranslated.test.ts` skip: it is text for a chatbot copied as written (straight quotes, "tu", `deck:`), not
+  interface wording; `AboutPage.test.tsx` tests it.
+- **Fixed while verifying**: `.about-modules` used `--space-5`, a token that does not exist, so the list had no
+  indent and its bullets sat on the card edge; now `--space-10`, like the default list indent.
+- `Permissions-Policy` (D-312) does not restrict `clipboard-write`, so the copy works in use mode. The built-in
+  browser pane of the development tool denies clipboard writes, so there the failure message was seen, not the
+  success.
