@@ -7,11 +7,28 @@ expressions you meet in your reading, classes or daily life; the app builds a us
 walks you through a first discovery, schedules spaced reviews (FSRS), makes you produce sentences and speak,
 logs your recurring errors (prepositions, tenses…) and shows your progress with real statistics.
 
-> **Status: milestone M2.b2 (AI providers).** The app starts and shows an empty home screen. Behind it
-> sit the data model, the review scheduler, demo data and an AI gateway with Gemini, Groq and Ollama
-> adapters, usable from the command line (`python -m app ai ...`). Screens arrive milestone
-> by milestone — see [`docs/PROGRESS.md`](docs/PROGRESS.md) and the roadmap in
-> [`docs/SPEC.md`](docs/SPEC.md#9-roadmap).
+## What it does
+
+You bring the words and expressions you care about; the app turns them into vocabulary you use.
+
+- **Library and import**: your terms in decks, with search and filters. Import a list from Markdown, plain
+  text or CSV / TSV, with a preview of every line before anything is saved (see
+  [Preparing a word list](#preparing-a-word-list)).
+- **Usage sheets**: an AI-written guide for each term (meanings, when to use it, collocations, examples,
+  mistakes typical of French speakers, pronunciation).
+- **Discovery and triage**: a first encounter with a new term, and a quick "I know it / not sure / to learn"
+  sort so that no time goes to words you already know.
+- **Reviews**: spaced repetition with FSRS; you always try to recall before the answer is shown.
+- **Error log**: your recurring mistakes, sorted by category, with targeted **drills**.
+- **Writing**: short texts that use your terms, corrected by the AI; the mistakes feed the error log.
+- **Speaking**: free speaking, shadowing and optional pronunciation scores; speech to text with Groq.
+- **Transcripts**: paste a conversation and get the mistakes found in your own lines.
+- **Consolidation**: a short talk or task that brings the terms of one deck together.
+- **General English tracks**: frequent-word lists (NGSL, NAWL) and speaking scenarios, unit by unit.
+- **Statistics**: figures computed from your own reviews and events, with a CSV export.
+- **Backup**: your whole database and recordings in one zip file, with an optional automatic copy.
+
+The app also has an **About** page (in the sidebar) that explains all this, in English or French.
 
 ![Home screen](docs/screenshots/home.png)
 
@@ -23,6 +40,88 @@ logs your recurring errors (prepositions, tenses…) and shows your progress wit
 - Free to run: only free AI tiers (Gemini, Groq, local Ollama) and the browser's speech synthesis.
   Works without any key in a degraded mode.
 - Private: everything stays on your computer. Your data is never committed to the repository.
+
+## Preparing a word list
+
+The **Import** page (Library, then Import) takes a list in one of these forms. Whatever you use, you see every
+line in a preview before anything is saved: the lines the app is unsure about are reported and left out. The
+"I know it / not sure / to learn" triage then lets you drop the words you already know.
+
+| Format | What to write |
+|---|---|
+| Markdown (`.md`, or text pasted in the page) | An optional YAML header (`deck`, `domain`, `source`, `context`, `deadline`), then one term per line, optionally followed by `\|` and the sentence where you met it. |
+| Plain text (`.txt`) | One term per line, optionally followed by `\|` and a sentence. |
+| CSV / TSV (`.csv`, `.tsv`, for example saved from Excel as "CSV UTF-8") | Column 1 is the term, column 2 (optional) its sentence, other columns are ignored. Comma, semicolon or tab; a header row is allowed. |
+| Anything else (PDF, Word, photo, messy list) | Give it to a chatbot with the prompt below, then paste its answer in the Import page. |
+
+A Markdown list:
+
+```markdown
+---
+deck: Causal inference reading
+domain: econometrics
+source: "Angrist & Pischke, Mostly Harmless Econometrics, ch. 3"
+context: "Reading for my M2 report on policy evaluation"
+deadline: 2026-11-20
+---
+- heteroskedasticity
+- to account for | We account for regional fixed effects in all specifications.
+- shed light on
+```
+
+Every field of the header is optional. Two ready-made files are in `content/examples/`.
+
+### A prompt to convert any file
+
+Open any free chatbot that accepts files, attach your file, paste the prompt below and fill in the brackets,
+then paste the code block it answers with in the Import page. (The same prompt, in English or French, is on
+the **About** page with a Copy button.) Limits: a scanned PDF needs a chatbot that can read images; split a
+very long document by chapter, and check the answer before you import it.
+
+```text
+You are helping a French-speaking B1 learner of English build a vocabulary list.
+I am attaching a file: either a list of words (CSV, text, Markdown, Excel,
+photo of a list) or a document (PDF, Word, photo, notes).
+
+My context:
+- List name: [...]
+- Field: [e.g. econometrics]
+- Goal: [e.g. prepare my talk of 20 November]
+- Maximum number of terms: [30] (ignored if I send a list)
+
+1. Which terms to keep
+- If the file is already a list of words or expressions, keep ALL of them, in the
+  same order: remove none and add none. Ignore numbers, translations, definitions
+  and other columns. If a column or part of a line holds an English example
+  sentence containing the term, keep it as the sentence. Split terms written on
+  the same line (commas, semicolons).
+- Otherwise, if I marked words in the document (highlighted, underlined, in bold,
+  circled, noted in the margin or listed at the end), keep exactly those and
+  nothing else.
+- Otherwise, choose yourself, in this order of priority:
+  a. the field's terms that are essential to talk about this subject;
+  b. academic or professional English beyond B1: collocations ("carry out"),
+     phrasal verbs, connectors;
+  c. useful spoken formulas to present this subject.
+  Leave out: basic words (A1–B1), words that look the same in French, proper
+  names, acronyms, numbers, rare words that will not be needed again.
+  Do not exceed the maximum; put the most useful first.
+- In every case: keep whole expressions ("shed light on", not "shed"), in their
+  dictionary form, and remove duplicates.
+
+2. Format of the answer
+Answer only with one code block, with nothing before or after it:
+---
+deck: [list name]
+domain: [field]
+source: "[title of the file]"
+context: "[goal]"
+---
+- term | sentence copied word for word from the file, containing the term
+
+Rules: one line per term; if there is no sentence, nothing after the term
+(no "|"); no definition, translation, number or heading.
+```
 
 ## Install on Windows 11
 
@@ -105,7 +204,7 @@ keys never reach the repository. Every variable is optional: without any key the
 runs in a degraded mode (no AI features).
 
 The AI keys can also be added, replaced and removed from the application itself: open **Settings** in the
-top bar. The page writes the three AI variables into `.env` for you (it keeps your comments and other
+sidebar. The page writes the three AI variables into `.env` for you (it keeps your comments and other
 lines), never shows a saved key again, and has a **Test connection** button per provider (one real request,
 up to about a minute and a half). The same page sets the provider order, shows today's AI calls and holds
 the study settings (time budget, new terms per day, target retention, study day, audio speed). Editing `.env` by hand stays possible. If one of these variables is **also set
@@ -393,6 +492,7 @@ again in Settings (or copy your `.env`): they are not in the backup.
 
 | Task | Command |
 |---|---|
+| Install or update dependencies | `npm run setup` |
 | Start backend + frontend | `.\start.ps1` / `./start.sh` (or `npm run dev` after `npm run setup`) |
 | Run every check (lint, types, tests) | `npm run check` |
 | Backend tests only | `uv --directory backend run pytest` |
