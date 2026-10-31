@@ -15,6 +15,10 @@ import {
   readFeedback,
   type TargetEntry,
 } from './correction'
+import { Notice } from '../../components/Notice'
+import { CategoryCode } from '../../components/CategoryCode'
+import { CorrectionMark } from '../../components/CorrectionMark'
+import { English } from '../../components/English'
 
 type Level = 2 | 3
 
@@ -61,7 +65,7 @@ function CategoryName({ code, label }: { code: string; label: string | null }) {
   return (
     <>
       {label !== null && <>{label} </>}
-      <code className="category-code">{code}</code>
+      <CategoryCode code={code} />
     </>
   )
 }
@@ -96,11 +100,11 @@ function ErrorItem({
         )}
       </p>
       <p lang="en" className="correction-change">
-        <span className="visually-hidden">{t('correction.wrong')}: </span>
-        <del className="correction-wrong">{entry.wrong}</del>
-        <span aria-hidden="true"> → </span>
-        <span className="visually-hidden">{t('correction.right')}: </span>
-        <ins className="correction-right">{entry.correction}</ins>
+        <CorrectionMark
+          wrong={entry.wrong}
+          correction={entry.correction}
+          labels={{ wrong: t('correction.wrong'), right: t('correction.right') }}
+        />
       </p>
       {entry.alternatives.length > 0 && (
         <p>
@@ -117,7 +121,7 @@ function ErrorItem({
       )}
       {term !== null && (
         <p>
-          {t('correction.term')}: <Link to={`/library/items/${term.id}`}>{term.term}</Link>
+          {t('correction.term')}: <Link to={`/library/items/${term.id}`}><English>{term.term}</English></Link>
         </p>
       )}
     </li>
@@ -320,7 +324,7 @@ function Body({
           )}
         </p>
         {model.entries.length === 0 && (
-          <p className="form-message form-message--ok" role="status">
+          <Notice tone="success" role="status">
             {model.kind === 'transcript'
               ? t('correction.noErrorsTurns')
               : model.kind === 'speaking'
@@ -328,7 +332,7 @@ function Body({
                 : model.sentenceCount === 1
                 ? t('correction.sentenceCorrect')
                 : t('correction.noErrors')}
-          </p>
+          </Notice>
         )}
       </section>
 

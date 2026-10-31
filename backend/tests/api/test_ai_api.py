@@ -124,6 +124,15 @@ def test_malformed_bodies_get_a_422_that_never_quotes_the_input(env: ApiEnv) -> 
     assert not env.env_path.exists()
 
 
+def test_a_field_error_carries_a_stable_type_next_to_the_english_message(env: ApiEnv) -> None:
+    """The interface translates from `type` (M10.c1, D-324); `message` stays the English text."""
+    response = env.client.put("/api/ai/providers/gemini/credential", json={"other": "x"})
+    errors = response.json()["detail"]["errors"]
+    assert response.status_code == 422
+    assert {"loc": ["body", "value"], "type": "missing"}.items() <= errors[0].items()
+    assert errors[0]["message"] == "Field required"
+
+
 def test_unknown_provider_is_404(env: ApiEnv) -> None:
     for call in (
         lambda: env.client.put("/api/ai/providers/openai/credential", json={"value": GEMINI_KEY}),

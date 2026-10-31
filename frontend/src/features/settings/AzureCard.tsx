@@ -2,10 +2,12 @@ import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { type SpeechProviderState, useAiStatus, useCredentialMutation } from '../../api/ai'
+import { numberFormatter } from '../../i18n/format'
 import { usePronunciationUsage } from '../../api/pronunciation'
 import { useSettings, useSettingsMutation } from '../../api/settings'
 import { ConnectionTest } from './ConnectionTest'
 import { ErrorText } from './ErrorText'
+import { Notice } from '../../components/Notice'
 
 function CredentialForm({ azure, locked }: { azure: SpeechProviderState; locked: boolean }) {
   const { t } = useTranslation()
@@ -120,14 +122,14 @@ function CredentialForm({ azure, locked }: { azure: SpeechProviderState; locked:
       )}
       <div aria-live="polite">
         {problem !== null && (
-          <p className="form-message form-message--error">
+          <Notice tone="danger">
             {problem === 'key' ? t('settings.azure.keyRequired') : t('settings.azure.regionRequired')}
-          </p>
+          </Notice>
         )}
         {done !== null && !mutation.isPending && !mutation.isError && (
-          <p className="form-message form-message--ok">
+          <Notice tone="success">
             {done === 'saved' ? t('settings.provider.savedKey') : t('settings.provider.removed')}
-          </p>
+          </Notice>
         )}
       </div>
       {mutation.isError && <ErrorText error={mutation.error} />}
@@ -169,7 +171,7 @@ function EnableSetting({ azure, locked }: { azure: SpeechProviderState; locked: 
       </p>
       <div aria-live="polite">
         {saved && !mutation.isPending && !mutation.isError && (
-          <p className="form-message form-message--ok">{t('settings.azure.enableSaved')}</p>
+          <Notice tone="success">{t('settings.azure.enableSaved')}</Notice>
         )}
       </div>
       {mutation.isError && <ErrorText error={mutation.error} />}
@@ -182,9 +184,9 @@ function Usage() {
   const usage = usePronunciationUsage()
   if (usage.isPending) return null
   if (usage.isError) {
-    return <p className="form-message form-message--error">{t('settings.azure.usageError')}</p>
+    return <Notice tone="danger">{t('settings.azure.usageError')}</Notice>
   }
-  const number = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 })
+  const number = numberFormatter(i18n.language, { maximumFractionDigits: 1 })
   return (
     <div>
       <h3>{t('settings.azure.usageTitle')}</h3>
@@ -214,8 +216,8 @@ export function AzureCard() {
     <section className="card" aria-labelledby="azure-title" id="azure">
       <h2 id="azure-title">{t('settings.azure.title')}</h2>
       <p className="muted">{t('settings.azure.intro')}</p>
-      <p className="form-message form-message--warn">{t('settings.azure.privacy')}</p>
-      {locked && <p className="form-message form-message--warn">{t('settings.azure.demoNote')}</p>}
+      <Notice tone="warning">{t('settings.azure.privacy')}</Notice>
+      {locked && <Notice tone="warning">{t('settings.azure.demoNote')}</Notice>}
       <p className={`status status--${azure.configured ? 'ok' : 'muted'}`}>
         {azure.configured
           ? t('settings.azure.regionCurrent', { region: azure.region ?? '?' })

@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next'
 
 import type { PronunciationScores } from '../../api/speech'
+import { formatNumber } from '../../i18n/format'
 import { formatDateTime } from '../session/format'
 import { errorTypeKey, needsAttention, weakestPhonemes } from './pronunciation'
+import { Notice } from '../../components/Notice'
 
 function ScoreValue({ value }: { value: number | null }) {
   const { t, i18n } = useTranslation()
@@ -11,7 +13,7 @@ function ScoreValue({ value }: { value: number | null }) {
       {value === null
         ? t('pronunciation.noScore')
         : t('pronunciation.scoreValue', {
-            value: new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 0 }).format(value),
+            value: formatNumber(i18n.language, value, 0),
           })}
     </>
   )
@@ -32,7 +34,7 @@ export function PronunciationView({
   const { t, i18n } = useTranslation()
 
   if (scores.status === 'silence') {
-    return <p className="form-message form-message--warn">{t('pronunciation.silence')}</p>
+    return <Notice tone="warning">{t('pronunciation.silence')}</Notice>
   }
   const weakest = weakestPhonemes(scores)
   const overall = [

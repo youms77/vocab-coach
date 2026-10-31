@@ -2,8 +2,10 @@ import { type FormEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { type ProviderState, useCredentialMutation } from '../../api/ai'
+import { formatInstant } from '../../i18n/format'
 import { ConnectionTest } from './ConnectionTest'
 import { ErrorText } from './ErrorText'
+import { Notice } from '../../components/Notice'
 
 // The .env variable behind each provider (D-062). Names only, never values.
 const VARIABLES: Record<ProviderState['name'], string> = {
@@ -27,10 +29,7 @@ function ProviderStateLine({ provider }: { provider: ProviderState }) {
     text = t('settings.provider.state.disabled')
     tone = 'muted'
   } else if (provider.cooldown_until !== null) {
-    const time = new Date(provider.cooldown_until).toLocaleTimeString(i18n.language, {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    const time = formatInstant(i18n.language, provider.cooldown_until, { timeStyle: 'short' })
     text = t('settings.provider.state.cooldown', { time })
     tone = 'warn'
   } else if (provider.available) {
@@ -145,11 +144,11 @@ function CredentialForm({ provider, locked }: { provider: ProviderState; locked:
         </div>
       )}
       <div aria-live="polite">
-        {emptyError && <p className="form-message form-message--error">{t('settings.provider.emptyValue')}</p>}
+        {emptyError && <Notice tone="danger">{t('settings.provider.emptyValue')}</Notice>}
         {done !== null && !mutation.isPending && !mutation.isError && (
-          <p className="form-message form-message--ok">
+          <Notice tone="success">
             {done === 'saved' ? t('settings.provider.savedKey') : t('settings.provider.removed')}
-          </p>
+          </Notice>
         )}
       </div>
       {mutation.isError && <ErrorText error={mutation.error} />}

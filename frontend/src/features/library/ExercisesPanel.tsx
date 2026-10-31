@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useExercises, usePatchExercise, type Exercise } from '../../api/enrichment'
 import { ErrorText } from '../settings/ErrorText'
 import { FieldErrors } from './FieldErrors'
+import { Notice } from '../../components/Notice'
 
 type FieldName =
   | 'sentence'
@@ -140,9 +141,9 @@ function ExerciseForm({ exercise, onDone }: { exercise: Exercise; onDone: () => 
         )
       })}
       {gapCount !== 1 && (
-        <p className="form-message form-message--warn" role="status">
+        <Notice tone="warning" role="status">
           {t('exercises.gapHint', { gap: GAP })}
-        </p>
+        </Notice>
       )}
       <div className="confirm">
         <button type="submit" className="button button--primary" disabled={patch.isPending}>
@@ -206,9 +207,9 @@ function ExerciseBlock({ exercise }: { exercise: Exercise }) {
         <>
           <ExerciseContent exercise={exercise} />
           {saved && (
-            <p className="form-message form-message--ok" role="status">
+            <Notice tone="success" role="status">
               {t('library.saved')}
-            </p>
+            </Notice>
           )}
           <button
             type="button"

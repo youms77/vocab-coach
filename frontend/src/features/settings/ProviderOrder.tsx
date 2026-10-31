@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { AiStatus, ProviderName } from '../../api/ai'
 import { useSettingsMutation } from '../../api/settings'
 import { ErrorText } from './ErrorText'
+import { Notice } from '../../components/Notice'
 
 interface Entry {
   name: ProviderName
@@ -102,7 +103,7 @@ export function ProviderOrder({ status, locked }: { status: AiStatus; locked: bo
         })}
       </ol>
       {draft.length === 0 && (
-        <p className="form-message form-message--warn">{t('settings.order.allOff')}</p>
+        <Notice tone="warning">{t('settings.order.allOff')}</Notice>
       )}
       <button
         type="button"
@@ -113,7 +114,7 @@ export function ProviderOrder({ status, locked }: { status: AiStatus; locked: bo
         {t('settings.order.save')}
       </button>
       <div aria-live="polite">
-        {saved && !dirty && <p className="form-message form-message--ok">{t('settings.saved')}</p>}
+        {saved && !dirty && <Notice tone="success">{t('settings.saved')}</Notice>}
       </div>
       {mutation.isError && <ErrorText error={mutation.error} />}
     </section>

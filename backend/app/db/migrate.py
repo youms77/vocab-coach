@@ -37,6 +37,11 @@ def downgrade(url: str | None = None, revision: str = "base") -> None:
     command.downgrade(alembic_config(url), revision)
 
 
+def head_revision() -> str | None:
+    """The latest revision of our migration chain."""
+    return ScriptDirectory.from_config(alembic_config()).get_current_head()
+
+
 @dataclass(frozen=True)
 class SchemaStatus:
     revision: str | None
@@ -48,7 +53,7 @@ class SchemaStatus:
 
 
 def schema_status(engine: Engine) -> SchemaStatus:
-    head = ScriptDirectory.from_config(alembic_config()).get_current_head()
+    head = head_revision()
     with engine.connect() as connection:
         revision = MigrationContext.configure(connection).get_current_revision()
     return SchemaStatus(revision=revision, head=head)

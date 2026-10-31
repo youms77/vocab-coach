@@ -19,7 +19,7 @@ describe('Degraded-mode banner', () => {
 
     expect(await screen.findByText(/^No AI provider is available right now/)).toBeInTheDocument()
     await user.click(screen.getByRole('link', { name: 'Open the AI settings' }))
-    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
     // Already on the settings page: no link to itself.
     expect(screen.queryByRole('link', { name: 'Open the AI settings' })).not.toBeInTheDocument()
   })
@@ -46,7 +46,7 @@ describe('Degraded-mode banner', () => {
 
     await screen.findByText(/^No AI provider/)
     await user.selectOptions(screen.getByLabelText('Language'), 'fr')
-    expect(screen.getByText(/^Aucun fournisseur d'IA n'est disponible/)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: "Ouvrir les réglages de l'IA" })).toBeInTheDocument()
+    expect(screen.getByText(/^Aucun fournisseur d’IA n’est disponible/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Ouvrir les réglages de l’IA" })).toBeInTheDocument()
   })
 })

@@ -14,6 +14,7 @@ import { CorrectionView } from '../writing/CorrectionView'
 import { forget, recall } from './transcriptMemory'
 import { TranscriptInputForm } from './TranscriptInputForm'
 import { useTranscriptInput } from './useTranscriptInput'
+import { Notice } from '../../components/Notice'
 
 /** "Paste the conversation again": the same paste and choice as the first page, then the analysis. */
 function PasteAgain({
@@ -79,7 +80,7 @@ function NotAnalysed({
             <p className="muted">{t('transcripts.detail.analysingHint')}</p>
           </>
         ) : (
-          <p className="form-message form-message--warn">{message}</p>
+          <Notice tone="warning">{message}</Notice>
         )}
       </div>
       {error !== null && !pending && !pasting && <ErrorText error={error} />}
@@ -155,9 +156,9 @@ export function TranscriptDetailPage() {
     return (
       <div className="transcript-page">
         <PageTitle>{t('transcripts.detail.title')}</PageTitle>
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.production_not_found')}
-        </p>
+        </Notice>
         <p>
           <Link to="/transcripts/history">{t('transcripts.detail.allTranscripts')}</Link>
         </p>

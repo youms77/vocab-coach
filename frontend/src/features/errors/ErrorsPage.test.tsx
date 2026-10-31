@@ -198,7 +198,7 @@ describe('Error log page', () => {
     await i18n.changeLanguage('fr')
     mockApi({ ...base, 'GET /errors': errorPage(rows, { total: 3 }) })
     renderApp('/errors')
-    expect(await screen.findByRole('heading', { level: 1, name: "Journal d'erreurs" })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: "Journal d’erreurs" })).toBeInTheDocument()
     expect(await screen.findByText('3 erreurs')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Expression figée (7)' })).toBeInTheDocument()
     expect(screen.getByLabelText('Origine')).toBeInTheDocument()

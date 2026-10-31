@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { useDecks } from '../../api/library'
+import { Notice } from '../../components/Notice'
 import { entriesOf, useToday } from '../../api/session'
 import { isDrillableCode } from '../drills/drillRules'
 import { sessionState } from '../drills/fromSession'
@@ -10,7 +11,7 @@ import { ErrorText } from '../settings/ErrorText'
 import { minutesOf } from './format'
 import { PlanWarnings } from './PlanWarnings'
 
-/** The home page's "Today's session" card: the plan, its warnings, and Start / Resume. */
+/** The home page's "Today's session" card: the plan and its warnings. Start / Resume is in the hero. */
 export function TodayCard() {
   const { t } = useTranslation()
   const today = useToday()
@@ -23,7 +24,9 @@ export function TodayCard() {
   } else if (today.isError) {
     body = (
       <>
-        <p className="form-message form-message--error">{t('today.loadError')}</p>
+        <Notice tone="danger" role="alert">
+          {t('today.loadError')}
+        </Notice>
         <ErrorText error={today.error} />
       </>
     )
@@ -113,14 +116,6 @@ export function TodayCard() {
         <p className="link-row">
           <Link to="/queue">{t('queue.manageLink')}</Link>
         </p>
-        {(!empty || open !== null) && (
-          <p className="today-actions">
-            {open !== null && <span className="muted">{t('today.openSession')} </span>}
-            <Link to="/session" className="button button--primary">
-              {open !== null ? t('today.resume') : t('today.start')}
-            </Link>
-          </p>
-        )}
       </>
     )
   }

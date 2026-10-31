@@ -16,6 +16,8 @@ const KNOWN_CODES = [
   'env_file_locked',
   'test_in_progress',
   'demo_read_only',
+  'backup_not_configured',
+  'database_out_of_date',
   'env_file_write_failed',
   'database_unavailable',
   'item_not_found',
@@ -98,6 +100,14 @@ const KNOWN_CODES = [
   'unit_changed',
   'invalid_content',
   'invalid_step',
+  'card_exists',
+  'duration_required',
+  'not_cardable',
+  'not_ready',
+  'suggestion_not_found',
+  'task_closed',
+  'task_not_found',
+  'unknown_table',
 ] as const
 
 // These say *why* a value was refused (never the value itself): the English detail is kept.
@@ -185,6 +195,11 @@ export function describeError(t: TFunction, error: unknown): DescribedError {
   if (error.status === 502 || error.status === 504) {
     // Vite's proxy answers this way when the backend is down.
     return { text: t('errors.network'), detail: null, reasons: [] }
+  }
+  // A code this version of the interface does not know: a French sentence, the backend's English
+  // text underneath (D-323).
+  if (error.code !== null) {
+    return { text: t('errors.unknown_code'), detail: error.message, reasons: [] }
   }
   return { text: t('errors.unexpected', { status: error.status }), detail: null, reasons: [] }
 }

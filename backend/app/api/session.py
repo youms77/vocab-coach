@@ -7,21 +7,24 @@ Writes are allowed on the demo database. Errors use the D-063 format.
 from datetime import date, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Response
 from pydantic import BaseModel
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from app.api.clock import NowDep
 from app.api.errors import require_database
-from app.db.engine import get_session
+from app.config import get_settings
+from app.db.engine import get_engine, get_session
 from app.db.models import StudySession
 from app.domain.planner import SessionPlan
-from app.services import study_sessions
+from app.services import backup_auto, study_sessions
 from app.services.planning import plan_today
 
 router = APIRouter(dependencies=[Depends(require_database)])
 
 SessionDep = Annotated[Session, Depends(get_session)]
+EngineDep = Annotated[Engine, Depends(get_engine)]
 
 
 class SessionOut(BaseModel):
@@ -77,8 +80,16 @@ def next_step(
 
 
 @router.post("/session/{session_id}/end", tags=["session"])
-def end(session_id: int, session: SessionDep, now: NowDep) -> SessionOut:
+def end(
+    session_id: int,
+    session: SessionDep,
+    now: NowDep,
+    engine: EngineDep,
+    background: BackgroundTasks,
+) -> SessionOut:
     study = study_sessions.get_study_session(session, session_id)
     study_sessions.end_session(session, study, now)
     session.commit()
+    # After the response: the automatic copy (if a folder is set) never delays or fails the end.
+    background.add_task(backup_auto.after_session, engine, get_settings(), now)
     return session_out(session, study)

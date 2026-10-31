@@ -21,6 +21,7 @@ import {
   type ListField,
   type SheetDraft,
 } from './sheetForm'
+import { Notice } from '../../components/Notice'
 
 type Column =
   | 'definition'
@@ -308,9 +309,9 @@ export function SheetEditor({
         </div>
       </fieldset>
       {missingMeaning && (
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('sheet.needsMeaning')}
-        </p>
+        </Notice>
       )}
       <div className="confirm">
         <button type="submit" className="button button--primary" disabled={save.isPending}>

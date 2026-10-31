@@ -4003,3 +4003,330 @@ The worst case of a wrong guess is a one-hour cooldown, or an `auth` mark cleare
 
 - **Study time** is the actions-based time. The sessions' own duration is drawn as a dashed line "for comparison" and **never added** to it, as the API specifies; the note under the chart says that a long reading without a click is not counted.
 - **AI**: successes are written `n of total`, not as a percentage (a count is always exact, and a rate on a handful of calls would mislead). Rate limits and used-up quotas have their own columns, apart from the other errors, as in the API. **No free-tier quota or limit is written on the screen** (CLAUDE.md: never invent a quota): the Azure line gives the month's audio minutes and assessments and sends the owner to the Azure portal for the limit.
+
+
+## D-285 — The stylesheet is cut into cascade layers and files (RV.a)
+
+- `frontend/src/styles/index.css` declares `@layer tokens, base, components, layout, features;` and imports `tokens.css`, `base.css`, `components.css`, `layout.css` and one file per feature under `styles/features/` (all in the `features` layer). `styles.css` (2,834 lines) is gone. **No rule may sit outside a layer**: an unlayered rule beats every layer.
+- The cut was made first and alone, without changing one declaration: the 42 reference screenshots taken on `main` and after the cut are byte-identical (three differ only by the "Computed on" timestamp of the statistics page). The rules that every screen shares (`kbd`, `table`, `th`/`td`, `fieldset`, `legend`, `code`, `.table-wrap`, `.visually-hidden`, `.badge`, `.button--small`) then moved from the feature files to `components.css`.
+- A feature file uses the tokens and no colour of its own. Borders of 1 to 3 px stay literal (they are a drawing, not a design value); recurring radii and spacings use the tokens.
+- **Rejected**: CSS modules (a build change for no gain here) and a CSS-in-JS library (a dependency).
+
+## D-286 — One definition per theme: `light-dark()` and `color-scheme` (RV.a; keeps the choice of D-007)
+
+- Every colour is written once, as `--ink: light-dark(#1e1b3a, #e8e7f5);`. `:root { color-scheme: light dark }` follows the operating system; the Theme selector keeps setting `data-theme` on `<html>` and in `localStorage` (`vocab-coach.theme`), now as `:root[data-theme='light'|'dark'] { color-scheme: ... }`. `theme.ts` did not change. The old duplicated dark block (a media query and a `data-theme` copy) is gone. As a bonus the native controls (select lists, scroll bars) follow the theme.
+- **Checked on MDN** (page of 18 April 2026, read on 27 October 2026): `light-dark()` for colours is Baseline 2024: Chrome 123, Edge 123, Firefox 120, Safari 17.5. The app is local and used in a current Edge, so it requires **Chrome or Edge 123 or later**.
+- Old name to new name: `--text` to `--ink`; `--text-muted` to `--ink-muted` (and `--ink-subtle`); `--accent` to `--brand`; `--accent-contrast` to `--on-brand`; `--ok` to `--success`; `--warn` to `--warning`; `--focus` to `--focus-ring`; `--surface-2` to `--surface-sunken` (or `--surface` for fields and buttons); `--border` to `--border` (hairlines) or `--border-strong` (fields, secondary buttons); `--radius` to `--radius-md` or `--radius-lg`; `--content-width` (880 px) to `--content-max` (1120 px) and `--reading-max` (720 px). `--danger`, `--bg`, `--surface`, `--chart-1..5` keep their names with new values. **Trap**: `--accent` now means coral (error marks, never a button). The renaming was done first, with a search proving that no `var(--accent)` was left, and only then was the new `--accent` defined.
+- Breakpoints, which a media query cannot read from a variable: **600 px** (phones: one column, 40 px touch targets, compact top bar) and **960 px** (the sidebar becomes a menu panel). They are written out where used and listed in `docs/architecture.md`; the old 560 px, 40 rem and 30 rem queries of the feature files are still there until RV.b brings them to 600 px.
+
+## D-287 — Values corrected for contrast, and names kept from the Design System (RV.a)
+
+- The brief corrects two Design System values: `border-strong` is `#8582a8` (light) and `#7472ab` (dark), which gives 3.65:1 on `surface` in both themes (the first value was 1.6:1); `accent` is `#a8461f` in light, 5.16:1 on `accent-tint` (the first value did not reach 4.5:1). `chart-2` light (`#c2552d`) is the weakest series on the page background, 4.21:1.
+- The Design System also defines `on-hero` (white, text on the photo banner); it is kept as a token. Spacing names are the Design System's (`space-1, 2, 3, 4, 6, 8, 10` = 4, 8, 12, 16, 24, 32, 40 px), not seven consecutive numbers.
+- The hover of a secondary button is `color-mix(in srgb, var(--brand) 10%, var(--surface))`: the Design System's `brand-tint` equals `surface` in dark and would show nothing.
+
+## D-288 — Inter is bundled and replaces the system fonts of D-007 (RV.a)
+
+- `frontend/src/assets/fonts/InterVariable.woff2` (352,240 bytes) and `OFL.txt` (4,380 bytes, the SIL Open Font License 1.1 of the Inter project), taken from the official release **Inter v4.1, published on 16 November 2024** (`github.com/rsms/inter/releases`, `Inter-4.1.zip`, 33,707,794 bytes, kept outside the repository; only `web/InterVariable.woff2` and `LICENSE.txt` were extracted). No italic: nothing in the app uses one.
+- Declared with `@font-face` (`font-weight: 100 900`, `font-display: swap`) in `base.css`; the stack falls back to `"Segoe UI Variable", "Segoe UI", system-ui, sans-serif`. Nothing is loaded from the network, so the app stays offline. This replaces the "system fonts only" part of D-007; the rest of D-007 (the choice of theme) stands. Cost: about 356 KB in the repository, one request for the font.
+
+## D-289 — The icons are a small home-made set, not a library (RV.a)
+
+- `components/Icon.tsx` draws 30 outline icons from `components/iconPaths.ts` (24x24 grid, stroke 1.75, `currentColor`, round caps), all `aria-hidden`; a button with only an icon carries an `aria-label`. Sizes: 20 px in navigation and tiles, 18 px in buttons, 16 px in small buttons.
+- `docs/DESIGN_PLAN.md` planned Tabler Icons; no package is added instead (the brief forbids any new dependency, and about 30 shapes do not justify one).
+
+## D-290 — A collapsible sidebar, a top bar and a menu panel (RV.a; the only new feature of RV)
+
+- One `<nav aria-label="Main">` in the DOM, inside `Sidebar`; CSS makes it the left sidebar from 960 px (232 px, or a 72 px icon rail) and a panel that slides in below. No `matchMedia` (absent from jsdom): the fold button and the Menu button are both in the markup and CSS shows one. A hidden panel is `visibility: hidden`, so it is neither focusable nor read.
+- Folded: the labels stay in the markup, hidden visually, each link gets a `title`, the group titles disappear; the button has `aria-expanded` and says its action ("Collapse the menu" / "Expand the menu"). The choice is kept in `localStorage` (`vocab-coach.sidebar`, `expanded` or `collapsed`), read and written inside `try/catch`.
+- Menu panel: `aria-expanded` and `aria-controls`; opening moves the focus to the first link, Escape closes it and gives the focus back to the button, the backdrop closes it, and **it is open for one path only** (`openedOn === pathname`), so a route change closes it without an effect.
+- Groups: Home and Today (no title); **Vocabulary** (Library); **Practice** (Writing, Speaking, Tracks, Consolidation); **Progress** (Errors, Statistics); Settings alone at the bottom. The brief named the first group "Library" like its only link, which would read twice; "Vocabulary" / "Vocabulaire" is one key to change. **No counter** is shown on Library (the sketch had one for the terms to sort): it would need an API call from the shell on every page, and the brief forbids a new call. The counter exists in the component (`NavItem.count`) and in the style guide.
+- Top bar on one row at 375 px in both languages: the Menu button keeps only its icon below 600 px and the labels of the Language and Theme selectors are hidden visually (the selectors are still named by them); from 600 to 959 px the labels are hidden too and the brand shows only its mark. The brand also stays a link to `/`.
+
+## D-291 — The style guide is a development-only route (RV.a)
+
+- `/styleguide` is added to the route table only `if (import.meta.env.DEV)`, through a dynamic import; a production build replaces the flag by `false` and the page, its CSS and its texts leave the bundle. Checked after `npm --prefix frontend run build`: the witness string `STYLEGUIDE-WITNESS-7f3a91` and the title "Colour tokens" are not in `dist/`.
+- It shows both themes' tokens side by side (an element with `color-scheme: light` or `dark` resolves `light-dark()` on its own), the type scale, the icons, every component in each state, the sidebar expanded and folded and a chart. **Exception to the i18n rule**: its texts are in English, in the code (a developer's tool, not a screen of the product).
+
+## D-292 — The contrast of the tokens is a test (RV.a)
+
+- `styles/contrast.ts` is pure (WCAG 2.x relative luminance); `contrast.test.ts` reads the real `tokens.css` as text (jsdom does not compute `light-dark()`, and a `?raw` import of a CSS file is an empty string under Vitest, so it uses `node:fs` with `import.meta.dirname`) and checks, in both themes: text and brand-strong on the four surfaces (4.5:1), `ink-subtle`, `on-brand`, `sidebar-ink`, each status on its tint and `accent` on `accent-tint` (4.5:1), `border-strong` and `focus-ring` on `bg` and `surface` (3:1), `chart-1..5` on `surface` and `bg` (3:1; and 4.2:1 on `bg`). It also finds the values computed for the brief (3.65 and 5.16). 71 checks.
+- **Broken-code check**: dark `--ink-muted` changed from `#a3a1c2` to `#4a4870` made four tests fail (`dark: --ink-muted on --bg / --surface / --brand-tint / --surface-sunken is at least 4.5:1`, ratios 1.89 to 2.12), then the value was restored. (The brief says "too light"; on a dark page only a value too close to the background lowers the contrast.)
+
+## D-293 — Charts are drawn at the width of their container (RV.a; builds on D-279)
+
+- The labels were about 8 px at 375 px because the SVG, drawn in a 480-unit `viewBox`, was scaled down. `LineChart` now measures its container (`useElementWidth`, a `ResizeObserver`; 480 where the API does not exist, as in tests) and draws the SVG in a `viewBox` of that width, so nothing is scaled: axis labels are 13 px at any width (measured in the browser through the screen matrix of each `<text>`: 13.00 px at 375 and at 1280 px, legends 14 px), and the number of x labels follows the room (one per 64 px, at least two). `role="img"`, the gaps for missing data, "Show the numbers" and the `chart-1..5` colours are unchanged. No test measures a size.
+
+## D-294 — Hard-coded colours after RV.a (RV.a; confirmed in RV.b)
+
+- Outside `tokens.css` there is one literal colour: the `#000` of the `mask-image` of the section-header illustration (a mask only reads the alpha channel, so it has no hue). The white of the banner button comes from `--on-hero` and its ink from `--sidebar`; the sidebar mark, rings and counters use tokens. The searches are in `PROGRESS.md`.
+
+## D-295 — The home page is built from what it already loads (RV.b)
+
+- `HomePage` reads `useToday`, `useDecks` and `useHealth`, which the page already used: no new API call. The hero carries the date, a greeting with the planned minutes, one sentence (reviews and new terms) and the single Start / Resume action; with an empty plan it keeps the old title ("Welcome") and introduction, and shows no button. Three `StatTile`s (reviews due, new terms, planned minutes against the budget, with a bar), then the "Continue" `ActionTile`s (Library with its deck count, Writing, Speaking, Errors, and Consolidation only when the plan holds a task), then the existing "Today's session" card (per-deck counts, targeted practice, warnings) and the server status.
+- Start / Resume moved from the card to the hero: there is **one** link of that name on the page (two would break `getByRole`). The only test touched for it is the Start assertion of `TodayCard.test.tsx`, which looked inside the card and now looks at the page.
+- New EN and FR keys (same keys, "vous", no gendered form): `home.greeting`, `home.heroText`, `home.heroReviews`, `home.heroNewItems`, `home.tiles.*`, `home.continueTitle`, `home.continue.*`. The word "Section" (`nav.section`) and the group titles of RV.a form the eyebrow of the section headers: "Section · Practice".
+
+## D-296 — Section headers: one primary button, the title keeps the focus, the illustrations are found at build time (RV.b)
+
+- Library, Writing, Speaking and Errors have a `SectionHeader` with an illustration slot; Tracks, Consolidation and Statistics have the same header without one. The underlined link rows under the old titles became buttons (`<Link className="button">`, same labels, same routes). **One primary button where the page has no primary action of its own**: Import a list (Library) and Targeted drills (Errors). Writing and Speaking keep all their header buttons secondary because the form below carries the page's primary button ("one primary per view").
+- `SectionHeader` now renders `PageTitle`, so the title still takes the focus on arrival (an accessibility behaviour of every page that must not disappear with the redesign), and takes an optional `note` (Statistics keeps its demo flag and its "Computed on" line there). `PageTitle` takes an optional `className`.
+- The eight PNG files were **not provided** when RV.b was done. `components/sectionArt.ts` finds `src/assets/sections/header-<section>-<light|dark>.png` with `import.meta.glob` (eager, `?url`); a section whose two files are not both there has a header without an illustration, and the build does not fail. Dropping the files in the folder is enough, no code change.
+
+## D-297 — Working screens: a reading column, a sunken answer zone, four coloured rating buttons (RV.b)
+
+- `.session` (the review player, discovery, waiting, summary) is a column of `--reading-max` (720 px); no image. The progress bar is drawn from tokens (`<progress>` kept, with its figures in words under it); the answer area of a typed card is a sunken block, full width; "End the session" is a ghost button.
+- Rating buttons carry `rating__button--again|hard|good|easy` (danger, warning, success and brand tints, the tone as text and border; each pair is covered by the contrast test). They are 3.5 rem high whatever they contain, so the suggestion ("Suggested" in words plus a ring) never adds a line; two by two below 600 px. The key hints stay `kbd`. Shortcuts, texts and the order of the buttons are unchanged (D-122).
+
+## D-298 — `CorrectionMark` and `CategoryCode` (RV.b)
+
+- `CorrectionMark` shows a mistake and its fix: the wrong fragment on `accent-tint` with a wavy `accent` underline, then the correction on `success-tint`; the arrow and the hidden words "Wrong" / "Right" repeat it (no colour alone, D-087). Used in the correction view, the error log list, the error page and the statistics top errors. The mark inside the corrected text uses the same tint and underline. (`accent` is for marks of error in a text, never a button, as in the brief.)
+- `CategoryCode` renders a code such as `grammar.tense.past_simple_vs_present_perfect` with a `<wbr>` after each dot, so it breaks at the dots and never in the middle of a word; its text content is unchanged.
+
+## D-299 — Import preview as cards below 600 px, without changing the markup (RV.b)
+
+- The seven-column table keeps its `<table>`, its cells, its controls and its tab order. Below 600 px the CSS lays every row out as a card (`display: block`); each cell is named by its column through a `data-label` attribute (the existing `import.rows.*` texts) shown by `::before`; the header row stays in the DOM, hidden visually. On wider screens nothing changes (the table scrolls inside its `.table-wrap`).
+
+## D-300 — Notices wherever a message is a paragraph, and the old messages look the same (RV.b)
+
+- About a hundred `<p className="form-message form-message--warn|error|ok">` (same text, same `role`) became `<Notice>` through a one-off script; the ones with extra classes, ids, refs or block content were left. Their classes (`form-message*`) now have the tinted look of a notice, so the two never look different. The old `.status` and `.badge` rows were already restyled in RV.a and stay where the markup was not touched. A row of tiles is `.tile-grid`.
+- The `<fieldset>` of the dialogue step's speed choice was inside a `<p>` (a React warning): its parent is now a `<div className="link-row">`.
+
+## D-301 — Media queries and sizes in the feature files (RV.b)
+
+- The queries of `queue.css` (560 px), `curriculum.css` (40 rem, twice) and `dashboard.css` (30 rem) are now 600 px; the top-bar rules that the 560 px block still carried from the old navigation were dead and are removed. Font sizes and radii written in px / rem in the feature files use the tokens (`--fs-*`, `--radius-*`); the sizes left are widths and spacings of layouts, and one `13px` of the statistics charts. After RV.b the only hard-coded colour outside `tokens.css` is the `#000` of D-294 (the `rg` output is in PROGRESS).
+
+## D-302 — The `vocab-coach-backup-1` archive and the exact encoding of values (M10.a)
+
+- **Layout**: `manifest.json`, `tables/<table>.jsonl` (every table of `Base.metadata` except `alembic_version`, replaced by the manifest's `alembic_revision`; `setting` included, with `_demo`), `audio/YYYY/MM/<hex32>.<ext>` (only the files that `production_attempt.audio_path` or `review_log.audio_path` refer to; a missing one is listed in `missing_audio`, not an error). The manifest also carries `format`, `created_at`, `app_version`, `study_day`, `timezone`, `demo`, `kind`, `tables` (row counts) and `files` (`{sha256, size}` for every table and recording).
+- **Encoding** (`services/backup_format.py`, pure): instants `YYYY-MM-DDTHH:MM:SS.ffffffZ`, dates `YYYY-MM-DD`, JSON columns as native JSON, enumerations by value, booleans as JSON booleans, null as `null`. Rows are read **as SQLite stores them** (plain SQL, columns in the model's order, `ORDER BY` the primary key), not through the ORM: nothing is re-interpreted on the way out.
+- **JSON null**: a JSON column can hold a SQL NULL (attribute never set) or the JSON value `null` (attribute set to `None`); the ORM writes both, and the demo has the second. The first is `null` in the archive, the second the marker `{"$json": "null"}`, so the restored file is identical, not only equal through the ORM. A real value equal to that marker is not expected in any column.
+- **Never in the archive**: `.env`, any environment variable, any key (a test puts two keys in the environment and searches every decompressed member, the member names and the compressed bytes for each key and its last 8 characters), the other mode's recordings folder (only referenced files are copied, from the folder of the current mode).
+- **No new dependency** (`zipfile`, `json`, `hashlib`); **no migration**.
+
+## D-303 — What is checked before anything is written (M10.a)
+
+- `services/backup_verify.py` reads the zip and refuses it with a stable code: `not_a_zip`, `unsafe_member_name` (absolute path, `..`, backslash, drive letter, empty part), `unexpected_member` (only the three kinds of member are allowed; audio names follow D-169), `duplicate_member`, `archive_too_large`, `manifest_missing`, `invalid_manifest`, `unknown_format`, `backup_from_newer_version` (any `alembic_revision` outside our chain), `members_mismatch` (the manifest lists exactly the members), `checksum_mismatch` (sha256 and size of every file), `corrupt_archive`.
+- **Size limit**: `MAX_UNCOMPRESSED_BYTES` = 2 GiB. A real backup is a few tens of MB and a recording is at most 10 MB (D-169); 2 GiB cannot fill a laptop disk by surprise. A zip bomb lies about its sizes, so the declared sizes are summed first and the bytes actually read are counted while hashing. The manifest has its own 16 MB cap.
+- The name check and the "only known members" check overlap on purpose: with the first removed, `../x` is still refused (as `unexpected_member`), and the test expecting `unsafe_member_name` fails, which is how the check was verified (see PROGRESS).
+- On Windows the zip reader turns a backslash into `/`; the test accepts either refusal there and tests `_unsafe` directly.
+
+## D-304 — Building the restored database in a temporary file (M10.a)
+
+- In `<db>.tmp-<pid>` next to the target: `alembic upgrade <manifest revision>` (schema only), every table inserted, `alembic upgrade head`, `sync_taxonomy()`, then `PRAGMA integrity_check`, an empty `PRAGMA foreign_key_check` and a WAL checkpoint.
+- **Reflected tables**: rows go into the tables *reflected from the temporary database*, not into the current models, so an archive made at `0001` loads into the `0001` schema and is then migrated (tested: `review_log.production_attempt_id` exists afterwards). A row whose columns differ from that schema is refused (`column_mismatch`).
+- **Original values**: Core `insert` with explicit values, so no Python `default=` (`created_at`) and no `onupdate` runs; JSON columns are re-typed `JSON(none_as_null=True)` and the marker of D-302 is bound as `JSON.NULL`. Keys are the original ones (D-018).
+- **Foreign keys stay on**; the schema has cycles (`card`, `error_event`, `review_log`, `lexical_item`...) that `sorted_tables` cannot order (its warning is silenced), so the insertion transaction starts with an explicit `BEGIN` and `PRAGMA defer_foreign_keys = ON`: the check happens at commit.
+- **Counts** are compared with the manifest right after the insertion (before `head`, because a migration or the taxonomy sync may add rows). Any failure rolls back, and the temporary file and folder are always removed.
+
+## D-305 — The swap, the target and `.bak` files (M10.a)
+
+- **Order** (D-188): the old recordings folder is set aside (renamed) **before** the database is replaced; then the old database (and its `-wal` / `-shm`) is renamed, the new one is put in place with `os.replace`, then the new folder. Every step that succeeded is undone if a later one fails. A `PermissionError` (a file held open on Windows: tested with a real held connection) becomes `file_locked` with "stop the app" and exit code 2.
+- **Target**: empty means no row outside `alembic_version` and the taxonomy (`user_data_tables`, the definition of D-033), and no file in the recordings folder. Otherwise `target_not_empty`, unless `--replace --yes`; then the old database becomes `<name>.bak-YYYYMMDD-HHMMSS` and the old recordings `audio.bak-...` (`audio-demo.bak-...` in demo mode), both kept. An empty old database is simply replaced, no `.bak`.
+- **Demo**: the archive's `demo` flag must equal the mode (`--demo`): a demo archive only goes into the demo database and the reverse is refused (`demo_mismatch`).
+- The CLI says that AI keys are not in a backup. No restore from the interface (out of scope).
+
+## D-306 — Reading, naming and the `backup.created` event (M10.a)
+
+- The tables are read in **one read transaction** (`PRAGMA query_only` plus an explicit `BEGIN`, as D-271), so the manifest's counts match the files. The schema revision is read **on the same connection**: opening a second one from the pool made `read_only` reset `query_only` on the wrong connection and left a pooled connection read-only (found by the first test that wrote the event; `migrate.head_revision()` was added for this).
+- File name `vocab-coach-backup-YYYYMMDD-HHMMSS.zip` in the local time of the `timezone` setting. A file is written to `<name>.tmp-<pid>` then `os.replace`d; the API uses a `SpooledTemporaryFile` (32 MB in memory) like the CSV export.
+- Event `backup.created {kind, tables, rows, audio_files, bytes}`: no path, no text. It is written in its own short transaction **after** the archive is complete, so the archive does not contain the event that describes it (accepted; documented in the README and the module). A database that is not at head cannot be backed up (`database_out_of_date`).
+- `setting.changed` for `backup_auto_folder` stores the folder in `event_log` like any setting does; the backup event never does.
+
+## D-307 — The automatic copy (M10.a)
+
+- Settings `backup_auto_folder` (`""` = off, 500 characters) and `backup_auto_keep` (1 to 60, default 10). The folder is checked by `services/backup_auto.py` (it touches the disk, so not in the pure registry): absolute, existing, writable, not inside a Git repository (walk up to a `.git`) unless under that repository's `data/`. The API refuses a bad folder with 422 `invalid_setting` and `reason` (`not_absolute`, `not_found`, `not_writable`, `inside_repository`); the check runs again at every copy. The demo database refuses to set the folder (`demo_read_only`, like the provider order).
+- **Triggers, no thread of our own**: `BackgroundTasks` after `POST /api/session/{id}/end`; the startup hook in the lifespan (the event loop's executor, so the start is not delayed) when the last `backup.created` with `kind=auto` is over 24 hours old; `POST /api/backup/auto/run` and `backup auto`. Never on the demo. `app.main.startup_backup` is a function of its own that the test suite switches off for every test (it would otherwise look at the real `data/`).
+- **Write**: temporary file in the target folder, then `os.replace` with 3 retries 200 ms apart on `PermissionError` (D-062). A failure is logged, kept in memory (`last_error`: a stable code such as `file_locked`, `write_failed`, `not_found`) for the status route, and never raised to the user.
+- **Rotation** deletes the oldest copies beyond `keep` among the files whose name matches the pattern exactly (case-sensitive `fullmatch`); tested with foreign files of a close name.
+
+## D-308 — API and CLI (M10.a)
+
+- `POST /api/backup` returns the zip (`application/zip`, `Content-Disposition: attachment`); `GET /api/backup/status` returns `{auto_folder_configured, last_auto_at, last_auto_error, last_manual_at, keep, demo}` and never a path; `POST /api/backup/auto/run` answers the status (409 `backup_not_configured`, 409 `demo_read_only`; a copy that fails is in `last_auto_error`). Errors follow D-063.
+- CLI `backup create [--out] [--force]`, `verify <zip>`, `restore <zip> [--replace --yes]`, `auto`; exit codes (D-053): 0, 1 (the automatic copy failed), 2 (usage, archive refused, file in use, target not empty, nothing configured).
+- A test for the Windows lock must dispose the SQLAlchemy engine first: a pooled connection really does hold the file (the same lock the app shows).
+
+## D-309 — The "Backup" card of the settings page (M10.a2)
+
+- One card at the end of `/settings` (`features/settings/BackupCard.tsx`, `api/backup.ts`): a warning notice (all personal data, no key), "Download a backup" (`apiDownload` of D-239, extended with a `POST` method; the file name comes from `Content-Disposition`), the automatic-copy form (folder and number of copies, saved with the existing `PATCH /api/settings`; the number is checked in the form against the bounds the API sends, the folder only by the server), the status (last automatic copy, last download, last error in words through `settings.backup.errors.<code>`), "Make a copy now", and the "Restore" block with the commands to copy and "stop the app first". No restore button (out of scope).
+- A refused folder shows `settings.backup.reasons.<reason>` (`not_absolute`, `not_found`, `not_writable`, `inside_repository`) from `detail.reason`; any other failure goes through `ErrorText`. On the demo database the form and the copy button are disabled and a notice says why; the download stays available. `backup_not_configured` and `database_out_of_date` joined the known error codes.
+- Strings are in `en.json` and `fr.json` under `settings.backup` (same keys). The path examples use forward slashes. Styles: the base `card`, `field`, `button`, `notice` plus `.code-block` and `.backup-status` in `features/settings.css`, tokens only.
+
+
+## D-310 — The use mode: one process, one port, the built frontend served by FastAPI (M10.b)
+
+- `VOCAB_USE_MODE=1` (set by `python -m app --use`, which the launchers call) and `VOCAB_FRONTEND_DIST` (default `<repo>/frontend/dist`) are read only in that mode; development is unchanged. Without `dist/index.html` the start stops with exit code 2 and the build command (`create_app` raises `FrontendNotBuilt`; the CLI checks first).
+- `app/api/frontend.py` registers **one catch-all route after every API route and `/docs`**: `/api`, `/docs`, `/redoc`, `/openapi.json` give the same plain 404 as before (a write to an unknown `/api/...` stays 404, not 405); under `/assets/` or with an extension, a real file resolved inside `dist` or a 404, **never `index.html`**; any other GET / HEAD, `index.html`; any other method on a page path, 405. Media types are fixed in a table (Windows can map `.js` to `text/plain` through the registry).
+- `/styleguide` returns `index.html` (the router answers "not found"); the route and the witness string are not in the build (D-291, checked in `dist/`). No source maps (not configured in Vite), no compression (loopback, no dependency).
+- Port: `VOCAB_PORT` still applies; the launchers read it for the busy-port check (D-317).
+
+## D-311 — Content-Security-Policy: strict `style-src`, the two `style=` widths moved to the CSSOM (M10.b)
+
+- Policy on the frontend's responses only: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`.
+- Inventory of `style=` in the application code: **two**, both a dynamic `width: N%` (`StatTile` progress bar, `BarList`); the others are in the style guide, which is not in the build. Choice: **no `'unsafe-inline'`**. A `ref` callback (`components/widthRef.ts`) sets `element.style.width`: a property set from a script is not blocked by `style-src`, only the `style=` attribute is. The widths are still dynamic, the two components' tests are unchanged.
+- `blob:` is used for the local clip before sending (`useRecorder`) and for downloads (`apiDownload`); `data:` has no use in the source but stays as the brief set it. Verified in the browser: playback of a demo recording (`Audio` on the API URL with a seek, and on a `blob:` URL), a backup download (`blob:` anchor), a review by keyboard, the 15 screens: **0 CSP violations**. The enforcement itself was checked with a probe (`setAttribute('style', ...)` raised `style-src-attr`).
+
+## D-312 — Security headers, `no-store` on `/api`, the `localhost` redirect, middleware order (M10.b)
+
+- `SecurityHeaders` adds `X-Content-Type-Options`, `Referrer-Policy: no-referrer`, COOP and CORP `same-origin`, `Permissions-Policy: microphone=(self), camera=(), geolocation=(), payment=(), usb=()` to **every** response, in both modes (the Vite proxy passes them on harmlessly). `Cache-Control: no-store` on `/api` when the route set none; the audio route with `Range` still answers 206 and seeks (checked with `curl` and `Audio.currentTime` in the browser).
+- `LocalhostRedirect` (use mode only, GET and HEAD): `localhost:<port>` and `[::1]:<port>` get a 307 to `127.0.0.1:<port>` with the same raw path and query. A write is not redirected.
+- Order, outermost first: `ApiGuard` (D-061, unchanged, so a foreign Host is 403 before any redirect) -> `LocalhostRedirect` -> `SecurityHeaders` -> CORS -> routes. Pure ASGI, no buffering of streamed bodies.
+
+## D-313 — The database at the start of the use mode: a plain copy of the file, then the upgrade (M10.b)
+
+- **Departure from the brief, approved by the owner**: the brief asked for a `vocab-coach-backup-...-pre-upgrade.zip` made by the M10.a1 service. `write_backup` refuses a database that is not at `head` (`database_out_of_date`, D-303), which is exactly the case here. The copy is instead a consistent SQLite file made with SQLite's own online backup API, `data/backups/vocab-coach-pre-upgrade-from-<revision>-<date>.sqlite3`, written to a temporary name, checked (`integrity_check`, same revision as the original) and renamed. Recordings are not touched by a migration and not copied. To go back: close the app, put the file in place of the database.
+- The name does not match `backup_format.BACKUP_FILE_NAME`, so the automatic copy's rotation never deletes it (tested). If the copy fails, nothing is upgraded and the start stops with exit code 2.
+- `python -m app db prepare` does this (also used by the launchers, before `demo seed --if-missing`); `--use` calls it again (a no-op when up to date). No database file (or an empty one): created by `upgrade`, as in development.
+- Demo database behind `head`: never upgraded; a message with `demo seed --reset`. The start goes on when the file still has a schema revision (the file is usable); with no revision it stops with exit code 2.
+
+## D-314 — Bundle: one file per page, a `vendor` chunk, an announced wait and a way out (M10.b)
+
+- Every page of `routes.tsx` is `React.lazy` (`page(() => import(...), 'Name')`); the layout and the not-found page stay in the entry file. `PageBoundary` (a `Suspense` around the `Outlet`, inside the layout, so the page keeps its shell) shows `RouteFallback`: `role="status"`, text `route.loading` (EN / FR), `min-height: 50vh` so nothing jumps. `RouteError` is the `errorElement` of the same group: a `role="alert"` notice (`route.error`) and a "Reload the page" button (`route.reload`), for a page file that no longer exists after a rebuild. Never a blank screen.
+- The pages alone left the entry file at 513,495 B, just over Vite's 500 kB: `build.rolldownOptions.output.codeSplitting` puts `node_modules` in a `vendor` chunk (403 kB; it changes rarely, so the browser keeps it). Result in `docs/performance-review.md`: entry 226,762 B, home page 651,426 B of JavaScript against 1,028,419 (-37 %).
+- Home and the session are lazy too: the entry file is the smaller one and the home chunk is 6.6 kB.
+- **Not applied, to be decided**: lazy-loading `fr.json` (111 kB raw, 33 kB gzip) for English readers.
+- Tests: the first import of a page in Vitest can exceed the 1 s default of Testing Library when many files run at once; `asyncUtilTimeout` is 5 s in `src/test/setup.ts`. Four existing tests looked at a heading with `getBy` right after `renderApp`; they now use `findBy` (an assertion became asynchronous, none was weakened).
+
+## D-315 — `read_only` keeps the same connection until it is writable again (M10.b)
+
+- Found while downloading a backup in the browser: `POST /api/backup` failed with "attempt to write a readonly database" on `backup.created`. `read_only` ran `PRAGMA query_only = OFF` **after** `session.rollback()`; the rollback gives the connection back to the pool and the next statement can get another one, leaving `ON` on the first (a later write on it fails). It depended on the pool order, so the tests (one connection) never saw it.
+- Fix: the pragma is reset on the connection the session holds (`session.connection()`), before the rollback. `tests/test_read_only_session.py` warms a three-connection pool and checks every connection is writable afterwards; it fails on the old code and passes on the new one.
+
+## D-316 — A 375 px overflow on the Consolidation page (M10.b)
+
+- With a deck ready for a task, `/consolidation` was 698 px wide at 375 px (725 in French): `.consolidation-page` is a grid with an implicit `auto` column, widened by the long option text of the task `<select>`. `grid-template-columns: minmax(0, 1fr)` (as on the dashboard page). The RV.b check did not see it: its demo had no deck ready on that page.
+
+## D-317 — One fixed port, no fallback (M10.b)
+
+- `start.ps1 -Use` / `start.sh --use` stop with exit code 2 when the port (8000, or `VOCAB_PORT`) is taken, naming the program on Windows (`Get-NetTCPConnection`, `Get-Process`; a connection test on `/dev/tcp` elsewhere). Another port would be another origin: the browser would lose the theme and the language.
+- The browser opener (`scripts/wait-and-open.mjs`) reads `VOCAB_USE_MODE=1` and opens the backend's address, without waiting for Vite.
+
+## D-318 — Risks accepted in the security review (M10.b)
+
+- Another program running as the same user can read `data/` and `.env`; there is no HTTPS on the loopback; there is no CSRF token (the Host / Origin / Sec-Fetch-Site / JSON rules of D-061 replace it). Backups and the pre-upgrade copy are not encrypted. The single-user, local design makes the first three acceptable; nothing in the spec asks for more. Details in `docs/security-review.md`.
+
+## D-319 — One formatting module for numbers and dates, by the active language (M10.c1)
+
+- `frontend/src/i18n/format.ts` builds every `Intl.NumberFormat` / `Intl.DateTimeFormat`, memoised per language and options; the helpers take the language, so a language change shows at once (components re-render with `i18n.language`). `features/dashboard/format.ts` and `features/session/format.ts` keep their signatures and call it. `hardcoded.test.ts` fails on a `new Intl.*` or a `toLocale*String()` anywhere else.
+- Study days (`YYYY-MM-DD`) are read as UTC and formatted in UTC (`formatStudyDay`): `format.test.ts` forces `America/Los_Angeles`, `Pacific/Honolulu`, `Africa/Douala` and `Pacific/Kiritimati`. Instants are formatted in the browser time zone; French gets the 24-hour clock from `Intl`.
+- The browser clock still appears in three places, none of which decides a study day (D-266): the home greeting's date while the plan is loading (once loaded it is the plan's `study_day`, now formatted as a study day), `localDay()` as the fallback of the queue and transcript date pickers (documented there), and "saved for 14:05 or for 3 November" after a review, which is a due *instant* shown in local time.
+- `{{count}}` in a plural text is not formatted: 1000 shows as `1000`, not `1 000`. Counts of that size do not occur in the interface.
+
+## D-320 — `<html lang>` set when the module loads (M10.c1)
+
+- `i18n/index.ts` calls `applyDocumentLanguage(i18n.resolvedLanguage)` right after `init`, then on every `languageChanged`; the value is always `en` or `fr`. Seen in the built-in browser: with `fr` stored, a fresh load has `lang="fr"`. The unit test (`documentLang.test.ts`) passes with or without the explicit call (i18next already emits `languageChanged` during `init`), so it locks the behaviour but did not fail when the call was removed: the known issue of M5.c1 could not be reproduced here.
+
+## D-321 — Tests that keep the translation clean (M10.c1)
+
+- `hardcoded.test.ts` (TypeScript compiler API, no new dependency): JSX text with a letter, literals in `aria-label`, `aria-description`, `title`, `placeholder`, `alt`, `label`, in `announce()`/`confirm()`/`alert()`, in `document.title`, a hand-built `Intl`, a `count === 1 ? 'a' : 'b'`. Exceptions: the "v" of the version and `newgeneralservicelist.com`, each with its reason. Seen failing with a string added to `Notice.tsx`. The sources already had no hard-coded string: the three findings of the first run were these two exceptions.
+- `plurals.test.ts`: the same plural bases in both files, `_one` and `_other` everywhere, no "(s)", a real sentence for 0, 1, 2 and 1000 in both languages, French 0 singular. It found one "(s)": the consolidation summary sentence had two numbers, so it is now two plural keys (`effectActive`, `effectReinforced`).
+- `untranslated.test.ts`: a French value equal to the English one must be listed with a reason (product names, French words with the English spelling, `shadowing`); no stale entry; no tutoiement; no "deck". It caught `Decks` / `Deck` and eleven `tu`/`ton`/`tes` texts in the statistics page.
+- 34 keys of `en.json` look unused after the dynamic prefixes (`app.tagline`, `speaking.topics.*`, `writing.topics.*`, `drills.summary.*`, `steps.review`, two `settings.azure.*`, two `curriculum.edit.*`): **reported, nothing deleted**; the `topics` ones are probably built as a template string with a variable prefix.
+
+## D-322 — French typography and the glossary (M10.c1)
+
+- U+00A0 (no-break space) before `: ; ! ?`, inside `« »` and before a unit (`5 s`, `10 Mo`, `12 %`); a typographic apostrophe `’` only (470 straight ones converted); `…`; no double space. The strict French rule asks for a *narrow* no-break space (U+202F) before `; ! ?`; the brief says U+00A0, which is what is used. `locales.test.ts` checks all of it; the old `fr.json` fails 5 of those checks.
+- Vouvoiement everywhere (D-119). `docs/i18n-glossary.md` lists the choices with their reason and where they appear.
+- Consequence for the existing tests: Testing Library normalises the text it reads (no-break spaces become ordinary spaces) but not the strings it is given, while accessible names keep the no-break space. So `getByText` / `toHaveTextContent` expect an ordinary space, and `getByRole(..., { name })` / `toHaveAccessibleName` expect U+00A0 inside `« »` and before `:`.
+
+## D-323 — Backend error codes: all known, an unknown one says so in French (M10.c1)
+
+- `backendCodes.test.ts` reads `backend/app` and checks that every HTTP error code (`status, code = N, "x"`, `api_error(N, "x")`, `"code": "x"`) is in `KNOWN_CODES` and has an `errors.*` sentence in both languages. It found eight: `card_exists`, `not_cardable`, `suggestion_not_found`, `duration_required`, `unknown_table` (new sentences) and `not_ready`, `task_closed`, `task_not_found` (sentences existed, code missing from the list). `task_open` is not an HTTP code (a reason of `not_ready`, translated as `consolidation.reasons.*`).
+- A code the interface does not know: `errors.unknown_code` ("Le serveur a refusé cette demande."), with the backend's English `message` underneath, `lang="en"`. Without a code: the HTTP-status sentence as before. Seen in the browser with a faked answer.
+
+## D-324 — Stable `type` next to the English field messages (M10.c1)
+
+- Additive, no migration: the `errors` items of `invalid_request` (`api/errors.py`) and `invalid_exercise` (`services/enrichment.py`) carry `type` (Pydantic's `error["type"]`, for example `missing`, `string_too_long`) next to `loc` and `message`. `input` and `ctx` are still left out. Tested in `test_ai_api.py` and `test_enrichment_service.py`.
+- `FieldErrors` says the sentence from `fieldErrors.<type>` (24 types, both languages, without the limits since `ctx` is not sent); a type it does not know keeps the English `message`, `lang="en"`.
+
+## D-325 — The tab title (M10.c1)
+
+- No page set `document.title`; the tab always said "vocab-coach". `pageTitle.ts` maps each route to a title key (first match wins; a detail page takes its section's title) and `Layout` sets `<page> · vocab-coach` in the active language. `pageTitle.test.tsx` checks every route of `routes.tsx` has one.
+
+## D-326 — `lang="en"` on learning content (M10.c1)
+
+- New `components/English.tsx` (a `<span lang="en">`), used for the term in 12 places (library list and term page, triage, duplicates, enrichment, error list, correction view, consolidation task and attempt, word unit, memory section, extension panel). The usage sheet marks its English entries (`Entry english`), the pitfalls and the other meanings; the review card marks the simple definition. The review prompt and result already tagged their terms, sentences and options.
+- **Not covered**: a term inside a translated sentence (`Que signifie « off the top of my head » ?`, the `aria-label`s), the `Cues` definition in a review (UI prefix and English in one sentence), the term pickers and forms (an `<input>` value), the `ReadAndGuess` mark of the discovery flow, and the terms in the unit views of the curriculum. They need `<Trans>` or a per-field audit.
+
+## D-327 — The texts that come from the backend (M10.c1)
+
+| Surface | Decision | Reason |
+|---|---|---|
+| A D-063 code the interface does not know | Generic French sentence + English `message` underneath (frontend) | D-323 |
+| The 8 codes that had no sentence or no entry | Translated from the code (frontend) | D-323 |
+| `invalid_setting` `reason` | Left in English (detail, `lang="en"`) under the translated sentence | The page validates with the same bounds first (`GeneralSettings`); the backend text is only the safety net |
+| `invalid_credential`, `invalid_production`, `invalid_error` detail | Left in English under the translated sentence | A free sentence saying why a value was refused, without the value; rare |
+| Field messages of `invalid_request` / `invalid_exercise` | Stable `type` added (backend, additive, tested) and translated (frontend) | D-324 |
+| `problems` of an import | Already translated from the stable `code`; an unknown code shows the English `message` with `lang="en"` (added) | D-151 |
+| `problems` of a transcript | Already translated from `codes` | D-151 |
+| `problems` of `invalid_content` (a unit's content) | Left in English, `lang="en"`, in the field list and the summary | Free sentences from the unit validator that name a location and never the text (D-246); a stable code for each would be a backend change of its own |
+| `reason` of `not_drillable` | Translated (`drills.reasons.*`); unknown reason keeps the English `message` | Already so |
+| `message` of the connection test | Left in English, in a `<details>`, `lang="en"` | Raw, masked text of the provider, for diagnosis |
+| AI `reason` of a degraded result | Translated (`aiReasons.*`) | Already so |
+| The name of the deck made from errors ("Error cards") and its description | Left in English | Stored data created by the backend: a French display would need a stable key on the deck, which is a feature, not a translation. **Seen in French on the library, queue, triage, statistics and consolidation pages: decision for the owner.** |
+| The `domain` of a deck ("academic") | Left as typed | Free text entered by the user |
+
+## D-328 — Test timeout and the French assertions of existing tests (M10.c1)
+
+- `vite.config.ts`: `testTimeout` 15 s (it was the 5 s default). With 80+ files running in parallel on this machine, about ten tests timed out in a full run and passed alone; no assertion was weakened.
+- Existing assertions changed (only their expected text, for D-322, D-321 and D-327): about 45 French literals in 21 test files (`'` became `’`, ` :` became a no-break space in role names, `« »` likewise), and `ConsolidationAttemptPage.test.tsx` (the "(s)" sentence became two sentences). No test was removed.
+
+## D-329 — CSV, TSV and plain-text word lists (M10.c2)
+
+- **Approved by the owner** (spec change, module A): besides Markdown, the import takes `.txt`, `.csv` and `.tsv`.
+  No new dependency (Python's `csv` module).
+- **Plain text needs no new parser**: the Markdown parser already reads bullet-less lines and `term | sentence`, so
+  `.txt` uses it unchanged; only the file input and its hint changed.
+- **One result type**: `domain/tabular_import.py` `parse_table(text, fmt)` returns the same `ParsedImport` (empty
+  header) as `parse_import`. `make_row` and `mark_duplicates` became public in `markdown_import.py` so both parsers
+  build and mark rows the same way; the service, preview and commit are not forked.
+- **Delimiter** (`csv` only): for comma, semicolon and tab, the first 10 records are sampled; the winner gives the
+  most records of the same width (2 columns or more); a tie goes to fewer columns, then comma, semicolon, tab. A
+  semicolon file whose sentences contain commas is therefore not read as comma. One column falls back to comma.
+  `tsv` always splits on tabs.
+- **Header row**: the first record is skipped (problem `header_row_skipped`, info) when column 1 is a term word
+  (term, terme, word, mot, vocabulary, vocabulaire) and column 2 is absent, empty or a sentence word (sentence,
+  phrase, example, exemple, context, contexte, original sentence). A real term "term" with a real sentence is kept.
+- **Rules**: `check_term` on each row (empty term, term not in sentence, sentence as term behave as in Markdown); no
+  emphasis stripping or `|` splitting, and a `|` in column 1 is ambiguous; line numbers are physical lines (a quoted
+  multi-line field gets its first line); limits `MAX_BYTES` and 1 000 data rows, plus one line for a header row. A
+  `csv.Error` gives `invalid_table` (error, nothing imported).
+- **API and CLI**: `PreviewRequest.format` = `"markdown"` (default) | `"csv"` | `"tsv"`, anything else 422;
+  `library import --format`, else `.csv` / `.tsv` from the file extension. Additive: existing Markdown requests are
+  byte-identical (the frontend sends `format` only for csv and tsv).
+- **Frontend**: the format comes from the picked file's extension; pasted or edited text is Markdown. `accept` is
+  `.csv,.tsv,.txt,.md,.markdown`.
+- **Encoding**: if `file.text()` contains U+FFFD (Excel's Windows-1252 CSV), the text is not loaded and a notice
+  asks to save as "CSV UTF-8"; no encoding guessing. **Not verified** with a real Windows-1252 file from Excel.
+
+## D-330 — The conversion prompt instead of reading PDF and Word (M10.c2)
+
+- **Chosen with the owner**: the app does not read PDF, Word or images. A PDF of a course is not a word list; picking
+  the words needs judgement (an AI call) and new parsing dependencies, for a less reliable result than a chatbot the
+  user already has. Instead a prompt, written with the owner, is shown on the About page (copy button) and in the
+  README; the user gives it, with the file, to any free chatbot and pastes the answer in the Import page.
+- **How the prompt picks words**, in order: (1) a file that is already a list keeps **all** its terms in order,
+  dropping numbers, translations and other columns and keeping an English example sentence if there is one; (2)
+  otherwise only the words the user marked (highlighted, underlined, bold, circled, margin, end list); (3) otherwise
+  the chatbot chooses: domain terms, academic or professional English beyond B1, spoken formulas, excluding basic
+  and transparent words, proper nouns, acronyms, numbers and one-off rarities, under a maximum count. Whole
+  expressions in dictionary form, no duplicates, the sentence copied word for word.
+- **Safety nets in the app**: the import preview reports doubtful lines before saving, and intake triage removes the
+  words the user already knows.
+- The prompt is one i18n value per language (`about.prompt.text`) and follows the interface language.
+
+## D-331 — The About page (M10.c2)
+
+- **Approved by the owner** (not in the original spec): `/about`, lazy route, link at the bottom of the sidebar after
+  Settings (`info` icon), tab title, keys under `about.*` and `nav.about`. Content: purpose, principles, one line
+  per module, the accepted formats with the SPEC module A example, and the conversion prompt with a "Copy" button
+  (Clipboard API, result announced in a `role="status"`; on failure it asks to copy by hand). The Import page links
+  to `/about#bring-your-words`; the page scrolls to the hash itself.
+- **Verbatim keys**: `i18n/verbatimKeys.ts` lists `about.prompt.text`, which `locales.test.ts` and
+  `untranslated.test.ts` skip: it is text for a chatbot copied as written (straight quotes, "tu", `deck:`), not
+  interface wording; `AboutPage.test.tsx` tests it.
+- **Fixed while verifying**: `.about-modules` used `--space-5`, a token that does not exist, so the list had no
+  indent and its bullets sat on the card edge; now `--space-10`, like the default list indent.
+- `Permissions-Policy` (D-312) does not restrict `clipboard-write`, so the copy works in use mode. The built-in
+  browser pane of the development tool denies clipboard writes, so there the failure message was seen, not the
+  success.

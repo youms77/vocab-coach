@@ -15,6 +15,7 @@ import { formatDateTime } from '../session/format'
 import { aiReasonText } from '../settings/aiReason'
 import { ErrorText } from '../settings/ErrorText'
 import { CorrectionView } from './CorrectionView'
+import { Notice } from '../../components/Notice'
 
 /** Why the text is not corrected: the AI's failure (a 200 answer) or a refused request. */
 function NotCorrected({
@@ -45,7 +46,7 @@ function NotCorrected({
         {pending ? (
           <p>{t('writing.detail.checkingHint')}</p>
         ) : (
-          <p className="form-message form-message--warn">{message}</p>
+          <Notice tone="warning">{message}</Notice>
         )}
       </div>
       {error !== null && !pending && <ErrorText error={error} />}
@@ -119,9 +120,9 @@ export function WritingDetailPage() {
     return (
       <div className="writing-page">
         <PageTitle>{t('writing.detail.title')}</PageTitle>
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.production_not_found')}
-        </p>
+        </Notice>
         <p>
           <Link to="/writing/history">{t('writing.detail.allTexts')}</Link>
         </p>

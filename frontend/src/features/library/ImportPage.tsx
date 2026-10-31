@@ -3,11 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { ApiError } from '../../api/client'
+import { formatNumber } from '../../i18n/format'
 import {
   MAX_IMPORT_CHARS,
   useCommit,
   usePreview,
   type CommitBody,
+  type ImportFormat,
   type ImportHeader,
   type ImportSummary,
   type Preview,
@@ -16,6 +18,13 @@ import { useDecks } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
 import { ImportRows, ProblemText } from './ImportRows'
 import { commitRow, initialRows, willImport, type RowState } from './importReview'
+import { Notice } from '../../components/Notice'
+
+/** The format follows the file extension; pasted text is Markdown. */
+function formatOf(fileName: string): ImportFormat {
+  const extension = fileName.slice(fileName.lastIndexOf('.')).toLowerCase()
+  return extension === '.csv' ? 'csv' : extension === '.tsv' ? 'tsv' : 'markdown'
+}
 
 const HEADER_FIELDS = ['deck', 'domain', 'source', 'context', 'deadline'] as const
 
@@ -200,7 +209,7 @@ function Review({
         </button>
         {commit.isError && <ErrorText error={commit.error} />}
         {failedLine !== null && (
-          <p className="form-message form-message--error">{t('import.line', { line: failedLine })}</p>
+          <Notice tone="danger">{t('import.line', { line: failedLine })}</Notice>
         )}
       </section>
     </form>
@@ -210,12 +219,14 @@ function Review({
 export function ImportPage() {
   const { t, i18n } = useTranslation()
   // The app's language, never the browser's: 300,000 or 300 000.
-  const max = new Intl.NumberFormat(i18n.language).format(MAX_IMPORT_CHARS)
-  const ids = { text: useId(), file: useId() }
+  const max = formatNumber(i18n.language, MAX_IMPORT_CHARS)
+  const ids = { text: useId(), file: useId(), fileHint: useId() }
   const preview = usePreview()
   const [text, setText] = useState('')
   const [tooLarge, setTooLarge] = useState(false)
   const [fileError, setFileError] = useState(false)
+  const [notUtf8, setNotUtf8] = useState(false)
+  const [format, setFormat] = useState<ImportFormat>('markdown')
   // A new key for each preview resets the review (rows, target) to that preview.
   const [run, setRun] = useState(0)
   const [done, setDone] = useState<{ summary: ImportSummary; intake: CommitBody['intake'] } | null>(
@@ -225,14 +236,21 @@ export function ImportPage() {
   async function readFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     setFileError(false)
+    setNotUtf8(false)
     if (file === undefined) return
     try {
       const content = await file.text()
+      // file.text() decodes as UTF-8; a Windows-1252 CSV from Excel leaves U+FFFD behind.
+      if (content.includes('�')) {
+        setNotUtf8(true)
+        return
+      }
       if (content.length > MAX_IMPORT_CHARS) {
         setTooLarge(true)
         return
       }
       setTooLarge(false)
+      setFormat(formatOf(file.name))
       setText(content)
     } catch {
       setFileError(true)
@@ -248,12 +266,13 @@ export function ImportPage() {
     }
     setTooLarge(false)
     setDone(null)
-    preview.mutate({ text }, { onSuccess: () => setRun(run + 1) })
+    preview.mutate(format === 'markdown' ? { text } : { text, format }, { onSuccess: () => setRun(run + 1) })
   }
 
   function again() {
     setDone(null)
     setText('')
+    setFormat('markdown')
     preview.reset()
   }
 
@@ -265,6 +284,9 @@ export function ImportPage() {
       <section className="hero">
         <h1>{t('import.title')}</h1>
         <p className="muted">{t('import.intro')}</p>
+        <p className="muted">
+          <Link to="/about#bring-your-words">{t('import.aboutLink')}</Link>
+        </p>
         <p>
           <Link to="/library">{t('library.back')}</Link>
         </p>
@@ -282,9 +304,13 @@ export function ImportPage() {
                 <input
                   id={ids.file}
                   type="file"
-                  accept=".md,.txt,.markdown,text/markdown,text/plain"
+                  accept=".csv,.tsv,.txt,.md,.markdown"
+                  aria-describedby={ids.fileHint}
                   onChange={(e) => void readFile(e)}
                 />
+                <p id={ids.fileHint} className="field-hint">
+                  {t('import.input.fileHint')}
+                </p>
               </div>
               <div className="field">
                 <label htmlFor={ids.text}>{t('import.input.text')}</label>
@@ -292,7 +318,10 @@ export function ImportPage() {
                   id={ids.text}
                   rows={12}
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => {
+                    setText(e.target.value)
+                    setFormat('markdown')
+                  }}
                   spellCheck={false}
                 />
                 <p className="field-hint">
@@ -300,14 +329,19 @@ export function ImportPage() {
                 </p>
               </div>
               {tooLarge && (
-                <p className="form-message form-message--error" role="alert">
+                <Notice tone="danger" role="alert">
                   {t('import.input.tooLarge', { max })}
-                </p>
+                </Notice>
+              )}
+              {notUtf8 && (
+                <Notice tone="danger" role="alert">
+                  {t('import.input.notUtf8')}
+                </Notice>
               )}
               {fileError && (
-                <p className="form-message form-message--error" role="alert">
+                <Notice tone="danger" role="alert">
                   {t('import.input.fileError')}
-                </p>
+                </Notice>
               )}
               <button
                 type="submit"
@@ -343,9 +377,9 @@ export function ImportPage() {
                   </ul>
                 )}
                 {data.rejected && (
-                  <p className="form-message form-message--error" role="alert">
+                  <Notice tone="danger" role="alert">
                     {t('import.preview.rejected')}
-                  </p>
+                  </Notice>
                 )}
                 {!data.rejected && data.rows.length === 0 && (
                   <p className="muted">{t('import.preview.noRows')}</p>

@@ -19,6 +19,8 @@ import { aiReasonText } from '../settings/aiReason'
 import { ErrorText } from '../settings/ErrorText'
 import { countText } from '../writing/draft'
 import { inLanguage, loadTaskDraft, otherLanguage, saveTaskDraft } from './text'
+import { Notice } from '../../components/Notice'
+import { English } from '../../components/English'
 
 type NextStatus = Exclude<TaskStatus, 'proposed'>
 type Confirmed = 'completed' | 'dismissed'
@@ -176,9 +178,9 @@ function WrittenForm({ task }: { task: ConsolidationTask }) {
           {t('writing.text.chars', { chars, max: MAX_WRITTEN_CHARS })}
         </p>
         {tooLong && (
-          <p className="form-message form-message--error" role="alert">
+          <Notice tone="danger" role="alert">
             {t('writing.text.tooLong', { chars, max: MAX_WRITTEN_CHARS })}
-          </p>
+          </Notice>
         )}
       </div>
       <p>
@@ -272,10 +274,10 @@ function TaskView({ task }: { task: ConsolidationTask }) {
           <span className="badge">{t(`consolidation.source.${task.source}`)}</span>
         </p>
         {task.source === 'template' && (
-          <p className="form-message form-message--warn">
+          <Notice tone="warning">
             {t('consolidation.task.templateNote')}{' '}
             {templateReason !== null && t('consolidation.task.templateReason', { reason: aiReasonText(t, templateReason) })}
-          </p>
+          </Notice>
         )}
         <p className="link-row">
           <Link to="/consolidation">{t('consolidation.task.all')}</Link>
@@ -331,7 +333,7 @@ function TaskView({ task }: { task: ConsolidationTask }) {
           {task.targets.map((target) => (
             <li key={target.item_id}>
               <Link to={`/library/items/${target.item_id}`} lang="en">
-                {target.term}
+                <English>{target.term}</English>
               </Link>
               <span className="badge">{t(`library.status.${target.item_status as 'active'}`, { defaultValue: target.item_status })}</span>
             </li>
@@ -381,9 +383,9 @@ export function ConsolidationTaskPage() {
     return (
       <div className="consolidation-page">
         <PageTitle>{t('consolidation.task.title')}</PageTitle>
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.task_not_found')}
-        </p>
+        </Notice>
         <p>
           <Link to="/consolidation">{t('consolidation.task.all')}</Link>
         </p>

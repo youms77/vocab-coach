@@ -1,0 +1,251 @@
+/* Statistics dashboard (M9.b1) */
+.stats-page {
+  display: grid;
+  /* minmax(0, ...): a wide table scrolls in its .table-wrap instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.stats-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+}
+
+.stats-section h3 {
+  margin-top: var(--space-6);
+}
+
+.stats-section h4 {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: var(--fs-body-sm);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+
+.stat {
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  min-width: 0;
+}
+
+.stat__label {
+  color: var(--ink-muted);
+  font-size: var(--fs-body-sm);
+}
+
+.stat__value {
+  margin: var(--space-1) 0;
+  font-size: var(--fs-title-2);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.stat__detail {
+  margin: 0;
+  font-size: var(--fs-body-sm);
+}
+
+.period-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-4);
+}
+
+.period-picker .field {
+  margin-bottom: 0;
+}
+
+.period-picker .form-message {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.stats-total {
+  font-size: var(--fs-body);
+}
+
+.stats-list,
+.stats-top {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-6);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.stats-top p {
+  margin: 0;
+}
+
+.stats-example {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--border);
+  color: var(--ink-muted);
+  font-size: var(--fs-body-sm);
+  overflow-wrap: anywhere;
+}
+
+.stats-more {
+  margin: var(--space-2) 0;
+}
+
+.stats-more summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Charts: plain SVG, colours from the tokens, the numbers in a table under the picture. */
+.chart {
+  margin: var(--space-3) 0;
+}
+
+.chart__title {
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+
+.chart__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart__tick {
+  fill: var(--ink-muted);
+  font-size: 13px;
+}
+
+.chart__line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.chart__line--dashed {
+  stroke-dasharray: 6 4;
+}
+
+.chart__dot {
+  fill: currentColor;
+}
+
+.chart__series--0 {
+  color: var(--chart-1);
+}
+
+.chart__series--1 {
+  color: var(--chart-2);
+}
+
+.chart__series--2 {
+  color: var(--chart-3);
+}
+
+.chart__series--3 {
+  color: var(--chart-4);
+}
+
+.chart__series--4 {
+  color: var(--chart-5);
+}
+
+.chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  font-size: var(--fs-body-sm);
+}
+
+.chart__swatch {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 3px solid currentColor;
+  margin-right: var(--space-2);
+  vertical-align: middle;
+}
+
+.chart__swatch--dashed {
+  border-top-style: dashed;
+}
+
+.chart__data summary {
+  cursor: pointer;
+  color: var(--brand);
+}
+
+.chart__data .table-wrap {
+  margin-top: var(--space-2);
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.bar-list {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.bar-list__row {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr) minmax(0, auto);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bar-list__label {
+  overflow-wrap: anywhere;
+}
+
+.bar-list__track {
+  height: 10px;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.bar-list__bar {
+  display: block;
+  height: 100%;
+  background: var(--chart-1);
+}
+
+.bar-list__value {
+  font-size: var(--fs-body-sm);
+  color: var(--ink-muted);
+  text-align: right;
+}
+
+@media (max-width: 599.98px) {
+  .stats-section {
+    padding: var(--space-3);
+  }
+
+  .bar-list__row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .bar-list__label {
+    grid-column: 1 / -1;
+  }
+}

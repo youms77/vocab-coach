@@ -115,6 +115,10 @@ SETTINGS: dict[str, SettingSpec] = {
         SettingSpec(
             "pronunciation_assessment", str, "off", choices=PRONUNCIATION_ASSESSMENT_CHOICES
         ),
+        # Automatic backup copy (module J, M10.a): an absolute folder ("" = off; the folder itself
+        # is checked by `services/backup_auto.py`, which touches the disk) and how many to keep.
+        SettingSpec("backup_auto_folder", str, "", max_length=500),
+        SettingSpec("backup_auto_keep", int, 10, minimum=1, maximum=60),
     )
 }
 

@@ -1,0 +1,242 @@
+/* Import, triage and duplicates pages (M3.c2) */
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.import-input textarea {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: var(--fs-body-sm);
+}
+
+.import-header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-3);
+}
+
+.import-header dt {
+  color: var(--ink-muted);
+  font-size: var(--fs-body-sm);
+}
+
+.import-header dd {
+  margin: 0;
+}
+
+.import-review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.import-review fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.import-table td {
+  vertical-align: top;
+}
+
+.import-table .import-row__wrap {
+  white-space: normal;
+  min-width: 14rem;
+}
+
+.import-row__term input {
+  min-width: 12rem;
+}
+
+.import-table .import-row__include {
+  white-space: normal;
+  min-width: 7rem;
+}
+
+.import-table select {
+  max-width: 16rem;
+}
+
+.import-row__term .button {
+  display: block;
+  margin-top: var(--space-1);
+}
+
+.import-row--ambiguous {
+  background: var(--surface-sunken);
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.problem-list {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.problem__severity {
+  font-weight: 600;
+}
+
+.problem--ambiguous .problem__severity,
+.problem--error .problem__severity {
+  color: var(--warning);
+}
+
+.triage-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.triage-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.triage-card--current {
+  border-color: var(--brand);
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.triage-card fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.triage-card legend {
+  margin-bottom: var(--space-1);
+}
+
+.triage-card__term {
+  font-size: var(--fs-body);
+}
+
+.triage-card p {
+  margin: 0 0 var(--space-2);
+}
+
+.triage-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.triage-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+}
+
+.triage-choice:has(input:checked) {
+  border-color: var(--brand);
+  font-weight: 600;
+}
+
+.triage-choice:has(input:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.triage-submit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.duplicate-group h2 {
+  margin-top: 0;
+}
+
+.duplicate-group fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.duplicate-items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.duplicate-items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+
+/* Below 600px each row is a card: the cells stack, each named by its column; the markup, the
+   controls and the tab order do not change. */
+@media (max-width: 599.98px) {
+  .import-table,
+  .import-table tbody,
+  .import-table tr,
+  .import-table td {
+    display: block;
+  }
+
+  .import-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .import-table tr {
+    margin-bottom: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+
+  .import-table .import-row--ambiguous {
+    background: var(--surface-sunken);
+  }
+
+  .import-table td {
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-2) 0;
+    border-bottom: 0;
+    white-space: normal;
+  }
+
+  .import-table td::before {
+    content: attr(data-label);
+    color: var(--ink-muted);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 600;
+  }
+
+  .import-table .import-row__wrap,
+  .import-table .import-row__include {
+    min-width: 0;
+  }
+
+  .import-row__term input,
+  .import-table select {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+}

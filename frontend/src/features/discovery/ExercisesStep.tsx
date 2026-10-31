@@ -8,6 +8,7 @@ import { SheetView } from '../library/SheetView'
 import { StepHeading } from '../session/StepHeading'
 import { ErrorText } from '../settings/ErrorText'
 import { GradeResult } from './GradeResult'
+import { Notice } from '../../components/Notice'
 
 const ORDER = ['typed_recall', 'gap_fill'] as const
 
@@ -146,7 +147,7 @@ export function ExercisesStep({
     return (
       <>
         <StepHeading>{t('discovery.exercises.title')}</StepHeading>
-        <p className="form-message form-message--error">{t('discovery.exercises.loadError')}</p>
+        <Notice tone="danger">{t('discovery.exercises.loadError')}</Notice>
         <ErrorText error={exercises.error} />
         <button type="button" className="button" onClick={() => onDone([])}>
           {t('discovery.exercises.skip')}

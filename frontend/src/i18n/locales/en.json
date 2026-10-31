@@ -15,7 +15,17 @@
     "errors": "Errors",
     "consolidation": "Consolidation",
     "curriculum": "Tracks",
-    "stats": "Statistics"
+    "stats": "Statistics",
+    "menu": "Menu",
+    "collapse": "Collapse the menu",
+    "expand": "Expand the menu",
+    "section": "Section",
+    "groups": {
+      "vocabulary": "Vocabulary",
+      "practice": "Practice",
+      "progress": "Progress"
+    },
+    "about": "About"
   },
   "demo": {
     "badge": "Demo data",
@@ -212,6 +222,45 @@
       "usage": "{{minutes}} min of audio sent in {{count}} assessments (month {{month}}). Free tier: about {{limit}} min a month, checked on {{checked}}.",
       "usageNote": "This counts what this app sent, not what Microsoft counts.",
       "usageError": "The monthly use could not be loaded."
+    },
+    "backup": {
+      "title": "Backup",
+      "intro": "One zip file with all your data: terms, reviews, errors, statistics and your recordings. The app keeps working while it is made.",
+      "warning": "The archive contains all your personal data and no AI key (keys stay in the .env file). Keep it somewhere private.",
+      "download": "Download a backup",
+      "downloading": "Preparing the backup…",
+      "loadError": "The backup status could not be loaded.",
+      "demoNote": "Demo database: the automatic copy is off. You can still download a backup of the demo data.",
+      "autoTitle": "Automatic copy",
+      "folder": "Folder for automatic copies",
+      "folderHint": "A full path to an existing folder on this computer, for example in OneDrive or Google Drive. Leave empty to turn it off. It cannot be inside a Git repository. A copy is made when a session ends and when the app starts if the last one is over 24 hours old.",
+      "keep": "Copies to keep",
+      "lastAuto": "Last automatic copy",
+      "lastManual": "Last download",
+      "never": "Never",
+      "lastError": "The last automatic copy failed: {{reason}}",
+      "copyNow": "Make a copy now",
+      "copying": "Copying…",
+      "errors": {
+        "not_absolute": "the folder is not a full path.",
+        "not_found": "the folder does not exist.",
+        "not_writable": "the folder cannot be written to.",
+        "inside_repository": "the folder is inside a Git repository.",
+        "file_locked": "another program (a sync client, for instance) kept the file busy. It will be tried again at the next copy.",
+        "write_failed": "the file could not be written.",
+        "database_out_of_date": "the database is not up to date.",
+        "unknown": "an unexpected problem. The details are in the server log."
+      },
+      "reasons": {
+        "not_absolute": "Enter a full path, such as C:/Users/you/OneDrive/vocab-coach.",
+        "not_found": "This folder does not exist.",
+        "not_writable": "The app cannot write in this folder.",
+        "inside_repository": "This folder is inside a Git repository: a backup holds all your personal data."
+      },
+      "restoreTitle": "Restore",
+      "restoreIntro": "Restoring is done from a terminal, in the backend folder, into an empty database. Check the archive first; with --replace the current data is kept as .bak files.",
+      "restoreStop": "Stop the app first (Ctrl+C in its window).",
+      "restoreKeys": "AI keys are not in a backup: enter them again in Settings, or copy your .env file."
     }
   },
   "errors": {
@@ -315,7 +364,15 @@
     "unit_generated": "This unit was already written. The page shows it now.",
     "unit_changed": "This unit changed meanwhile. Reload the page and try again.",
     "invalid_content": "The content of the unit was refused:",
-    "invalid_step": "This step is ticked by your recordings, not by a button."
+    "invalid_step": "This step is ticked by your recordings, not by a button.",
+    "backup_not_configured": "The backup folder is not set.",
+    "database_out_of_date": "The database is not up to date. Run the update first.",
+    "card_exists": "A card already exists for this term.",
+    "not_cardable": "This error cannot become a card.",
+    "suggestion_not_found": "This suggestion no longer exists.",
+    "duration_required": "The recording has no known duration.",
+    "unknown_code": "The server refused this request.",
+    "unknown_table": "This table does not exist."
   },
   "home": {
     "title": "Welcome",
@@ -325,7 +382,32 @@
     "statusTitle": "System status",
     "apiChecking": "Checking the local server…",
     "apiOk": "Local server is running (version {{version}}).",
-    "apiDown": "Cannot reach the local server. Is the backend running?"
+    "apiDown": "Cannot reach the local server. Is the backend running?",
+    "greeting": "Ready? About {{minutes}} min today.",
+    "heroText": "{{reviews}} and {{newItems}} are waiting for you.",
+    "heroReviews_one": "{{count}} review",
+    "heroReviews_other": "{{count}} reviews",
+    "heroNewItems_one": "{{count}} new term",
+    "heroNewItems_other": "{{count}} new terms",
+    "tiles": {
+      "reviews": "Reviews due",
+      "newItems": "New terms",
+      "minutes": "Minutes planned, for a budget of {{budget}} min"
+    },
+    "continueTitle": "Continue",
+    "continue": {
+      "decks_one": "{{count}} deck",
+      "decks_other": "{{count}} decks",
+      "writing": "Get a text corrected",
+      "speaking": "Shadow or speak freely",
+      "errors": "Your error log",
+      "consolidation": "A task is ready"
+    }
+  },
+  "route": {
+    "loading": "Loading…",
+    "error": "This page could not be loaded. The application may have been updated since you opened it.",
+    "reload": "Reload the page"
   },
   "notFound": {
     "title": "Page not found",
@@ -462,7 +544,7 @@
   },
   "import": {
     "title": "Import a list",
-    "intro": "Paste a Markdown list or pick a .md or .txt file. You will see every line before anything is saved.",
+    "intro": "Paste a Markdown list or pick a .md, .txt, .csv or .tsv file. You will see every line before anything is saved.",
     "line": "Line {{line}}",
     "selected_one": "{{count}} row will be imported.",
     "selected_other": "{{count}} rows will be imported.",
@@ -470,7 +552,9 @@
     "importing": "Importing…",
     "input": {
       "title": "1. Your list",
-      "file": "File (.md or .txt)",
+      "file": "File (.csv, .tsv, .txt or .md)",
+      "fileHint": "CSV or TSV: the term in column 1 and, optionally, the English sentence it comes from in column 2. Commas, semicolons and tabs are detected, and a header row is skipped. TXT or Markdown: one term per line, optionally “term | sentence”.",
+      "notUtf8": "This file is not UTF-8 text, so accents would be lost. In Excel, use “Save as” and choose “CSV UTF-8 (comma delimited)”, then pick the file again.",
       "text": "Text",
       "hint": "One term per line, optionally “term | sentence where you met it”. Up to {{max}} characters. The file is read in your browser.",
       "tooLarge": "This text is longer than {{max}} characters. Split it into several imports.",
@@ -569,12 +653,15 @@
       "empty_term": "The term is empty.",
       "term_too_long": "The term is longer than 300 characters.",
       "term_not_in_sentence": "The term was not found in its sentence.",
+      "header_row_skipped": "Header row: not a term, skipped.",
+      "invalid_table": "This table cannot be read. Check the quotes and save it again as CSV UTF-8.",
       "duplicate_in_file": "Same term as line {{kept_line}}; only that line is imported.",
       "duplicate_exact": "This term is already in your library.",
       "duplicate_possible": "A similar term is already in your library.",
       "already_in_deck": "This term is already in the target deck; it will be skipped.",
       "existing_status_kept": "The existing term keeps its status."
-    }
+    },
+    "aboutLink": "Not sure how to prepare your list? See the accepted formats and a prompt that converts any file."
   },
   "triage": {
     "title": "Sort new terms",
@@ -2059,7 +2146,10 @@
         "unknown": "The AI did not judge these terms."
       },
       "nowActive": "now active",
-      "effect": "{{active}} term(s) became active and {{reinforced}} review card(s) were reinforced."
+      "effectActive_one": "{{count}} term became active.",
+      "effectActive_other": "{{count}} terms became active.",
+      "effectReinforced_one": "{{count}} review card was reinforced.",
+      "effectReinforced_other": "{{count}} review cards were reinforced."
     }
   },
   "curriculum": {
@@ -2528,6 +2618,135 @@
       "sentence_production": "Sentence production",
       "spoken_answer": "Spoken answer",
       "self_assessment": "Self-assessment"
+    }
+  },
+  "fieldErrors": {
+    "missing": "This field is required.",
+    "string_type": "This field must be text.",
+    "string_too_short": "This text is too short.",
+    "string_too_long": "This text is too long.",
+    "string_pattern_mismatch": "This text does not have the expected form.",
+    "too_short": "There are too few items.",
+    "too_long": "There are too many items.",
+    "int_type": "This field must be a whole number.",
+    "int_parsing": "This field must be a whole number.",
+    "float_type": "This field must be a number.",
+    "float_parsing": "This field must be a number.",
+    "bool_type": "This field must be yes or no.",
+    "bool_parsing": "This field must be yes or no.",
+    "greater_than": "This number is too small.",
+    "greater_than_equal": "This number is too small.",
+    "less_than": "This number is too large.",
+    "less_than_equal": "This number is too large.",
+    "literal_error": "This value is not one of the accepted ones.",
+    "enum": "This value is not one of the accepted ones.",
+    "list_type": "This field must be a list.",
+    "dict_type": "This field must be an object.",
+    "extra_forbidden": "This field is not expected.",
+    "json_invalid": "The request is not valid JSON.",
+    "value_error": "This value is not accepted."
+  },
+  "about": {
+    "title": "About",
+    "lede": "What vocab-coach is for, what it does, and how to bring your words in.",
+    "purpose": {
+      "title": "What it is for",
+      "text": "vocab-coach turns the words and expressions you meet in your reading, classes and daily life into vocabulary you can actually use. It builds a usage sheet for each term, introduces it, schedules spaced reviews, makes you write and speak with it, and keeps a log of your recurring mistakes so that you can see what improves."
+    },
+    "principles": {
+      "title": "Principles",
+      "local": "Local and private: your data stays on your computer. Only the text you send to an AI provider leaves it.",
+      "free": "Free: only the free tiers of AI services and the speech tools of your browser. Nothing paid is ever called.",
+      "degraded": "Works without any key: reviews, manual entry and statistics keep working; the AI features wait for a provider.",
+      "recall": "Active recall: you always try to answer before the answer is shown."
+    },
+    "modules": {
+      "title": "The modules",
+      "library": {
+        "name": "Library and import",
+        "text": "Your terms, grouped in decks, with search, filters and import from a list."
+      },
+      "sheets": {
+        "name": "Usage sheets",
+        "text": "An AI-written guide for each term: meanings, when to use it, collocations, examples, typical mistakes of French speakers."
+      },
+      "discovery": {
+        "name": "Discovery",
+        "text": "A first encounter with a new term before its review cards exist."
+      },
+      "reviews": {
+        "name": "Reviews",
+        "text": "Spaced repetition with FSRS, always asking you to recall before showing the answer."
+      },
+      "errors": {
+        "name": "Error log",
+        "text": "Your recurring mistakes, sorted by category, with how they change over time."
+      },
+      "writing": {
+        "name": "Writing",
+        "text": "Short texts that use your terms, corrected; the mistakes go to the error log."
+      },
+      "speaking": {
+        "name": "Speaking",
+        "text": "Free speaking, shadowing of sentences and optional pronunciation scores."
+      },
+      "transcripts": {
+        "name": "Transcripts",
+        "text": "Paste a conversation you had and get the mistakes found in your own lines."
+      },
+      "drills": {
+        "name": "Drills",
+        "text": "Short exercises aimed at one category of error."
+      },
+      "consolidation": {
+        "name": "Consolidation",
+        "text": "A short talk or task that brings the terms of one deck together."
+      },
+      "tracks": {
+        "name": "General English tracks",
+        "text": "Frequent-word lists and speaking scenarios to follow unit by unit."
+      },
+      "stats": {
+        "name": "Statistics",
+        "text": "Figures computed from your own reviews and events, with a CSV export."
+      },
+      "backup": {
+        "name": "Backup",
+        "text": "A full backup of your data in one file, in the Settings."
+      }
+    },
+    "bring": {
+      "title": "Bring your words in",
+      "intro": "The Import page accepts the formats below. Whatever you use, you see every line in a preview before anything is saved: the lines the app is unsure about are reported and left out. Then the intake triage (“I know it”, “not sure”, “to learn”) lets you drop the words you already know.",
+      "markdown": {
+        "title": "Markdown (.md) or pasted text",
+        "fields": "Header fields, all optional:",
+        "text": "An optional header between two lines of three dashes, then one term per line, optionally followed by “|” and the sentence where you met it."
+      },
+      "text": {
+        "title": "Plain text (.txt)",
+        "text": "One term per line, optionally followed by “|” and a sentence."
+      },
+      "table": {
+        "title": "CSV or TSV (.csv, .tsv)",
+        "text": "For a list kept in a spreadsheet: save it from Excel as “CSV UTF-8”. Column 1 is the term, column 2 (optional) is its sentence, and other columns are ignored. Commas, semicolons and tabs are recognised, and a header row is allowed."
+      },
+      "other": {
+        "title": "Anything else",
+        "text": "PDF, Word document, photo, messy list: give it to a chatbot with the prompt below, then paste its answer in the Import page."
+      },
+      "exampleLabel": "Example of a Markdown list",
+      "import": "Open the Import page"
+    },
+    "prompt": {
+      "title": "A prompt to convert any file",
+      "intro": "Open any free chatbot that accepts files, attach your file, paste this prompt and fill in the brackets. Then paste the code block it answers with in the Import page. The prompt follows the language of the interface.",
+      "label": "Prompt for a chatbot",
+      "copy": "Copy the prompt",
+      "copied": "Prompt copied.",
+      "copyFailed": "The copy did not work: select the text and copy it by hand.",
+      "limits": "Limits: a scanned PDF needs a chatbot that can read images. Split a very long document by chapter, and check the answer before you import it.",
+      "text": "You are helping a French-speaking B1 learner of English build a vocabulary list.\nI am attaching a file: either a list of words (CSV, text, Markdown, Excel,\nphoto of a list) or a document (PDF, Word, photo, notes).\n\nMy context:\n- List name: [...]\n- Field: [e.g. econometrics]\n- Goal: [e.g. prepare my talk of 20 November]\n- Maximum number of terms: [30] (ignored if I send a list)\n\n1. Which terms to keep\n- If the file is already a list of words or expressions, keep ALL of them, in the\n  same order: remove none and add none. Ignore numbers, translations, definitions\n  and other columns. If a column or part of a line holds an English example\n  sentence containing the term, keep it as the sentence. Split terms written on\n  the same line (commas, semicolons).\n- Otherwise, if I marked words in the document (highlighted, underlined, in bold,\n  circled, noted in the margin or listed at the end), keep exactly those and\n  nothing else.\n- Otherwise, choose yourself, in this order of priority:\n  a. the field's terms that are essential to talk about this subject;\n  b. academic or professional English beyond B1: collocations (\"carry out\"),\n     phrasal verbs, connectors;\n  c. useful spoken formulas to present this subject.\n  Leave out: basic words (A1–B1), words that look the same in French, proper\n  names, acronyms, numbers, rare words that will not be needed again.\n  Do not exceed the maximum; put the most useful first.\n- In every case: keep whole expressions (\"shed light on\", not \"shed\"), in their\n  dictionary form, and remove duplicates.\n\n2. Format of the answer\nAnswer only with one code block, with nothing before or after it:\n---\ndeck: [list name]\ndomain: [field]\nsource: \"[title of the file]\"\ncontext: \"[goal]\"\n---\n- term | sentence copied word for word from the file, containing the term\n\nRules: one line per term; if there is no sentence, nothing after the term\n(no \"|\"); no definition, translation, number or heading."
     }
   }
 }

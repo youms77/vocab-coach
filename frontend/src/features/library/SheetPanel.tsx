@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 
 import { ApiError } from '../../api/client'
+import { formatInstant } from '../../i18n/format'
 import {
   useRegenerateSheet,
   useRunEnrichment,
@@ -16,14 +17,13 @@ import { ErrorText } from '../settings/ErrorText'
 import { ExercisesPanel } from './ExercisesPanel'
 import { SheetEditor } from './SheetEditor'
 import { ShadowLink, SheetView } from './SheetView'
+import { Notice } from '../../components/Notice'
 
 // Before discovery (module B), the sheet is the answer the user is asked to guess.
 const UNDISCOVERED: readonly ItemStatus[] = ['draft', 'triage', 'queued']
 
 function formatDate(iso: string, language: string): string {
-  return new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short' }).format(
-    new Date(iso),
-  )
+  return formatInstant(language, iso)
 }
 
 type Tone = 'ok' | 'warn'
@@ -243,11 +243,11 @@ function SheetBody({ item }: { item: ItemDetail }) {
         {t('sheet.versions.version', { version: current.version })} · <Provenance sheet={current} />
       </p>
       {saved && (
-        <p className="form-message form-message--ok" role="status">
+        <Notice tone="success" role="status">
           {t('sheet.saved')}
-        </p>
+        </Notice>
       )}
-      {incomplete && <p className="form-message form-message--warn">{t('sheet.needsCompletion')}</p>}
+      {incomplete && <Notice tone="warning">{t('sheet.needsCompletion')}</Notice>}
       {item.origin_sentence !== null && item.origin_sentence.trim() !== '' && (
         <p className="sheet-origin">
           <strong>{t('sheet.originSentence')}</strong> <span lang="en">“{item.origin_sentence}”</span>{' '}
@@ -286,7 +286,7 @@ export function SheetCard({ item }: { item: ItemDetail }) {
         <>
           <p className="muted">{t('sheet.hidden')}</p>
           {undiscovered && (
-            <p className="form-message form-message--warn">{t('sheet.spoiler')}</p>
+            <Notice tone="warning">{t('sheet.spoiler')}</Notice>
           )}
         </>
       )}

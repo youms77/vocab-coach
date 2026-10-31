@@ -298,7 +298,7 @@ describe('Shadowing: the page of one take', () => {
     await i18n.changeLanguage('fr')
     renderApp('/speaking/shadowing/7')
     expect(await screen.findByRole('heading', { level: 1, name: 'Votre shadowing' })).toBeInTheDocument()
-    expect(await screen.findByText("Cet enregistrement n'est pas encore transcrit.")).toBeInTheDocument()
+    expect(await screen.findByText("Cet enregistrement n’est pas encore transcrit.")).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Transcrire' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Écouter les deux' })).toBeInTheDocument()
   })

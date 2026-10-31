@@ -5,6 +5,7 @@ import { MAX_PASTED_CHARS } from '../../api/transcripts'
 import { ErrorText } from '../settings/ErrorText'
 import { TranscriptPreviewView } from './TranscriptPreviewView'
 import type { TranscriptInput } from './useTranscriptInput'
+import { Notice } from '../../components/Notice'
 
 /**
  * The text area, the "Preview" button and the preview with the choice of your turns. Over the
@@ -41,9 +42,9 @@ export function TranscriptInputForm({
           {t('transcripts.paste.chars', { chars: input.chars, max: MAX_PASTED_CHARS })}
         </p>
         {input.tooLong && (
-          <p className="form-message form-message--error" role="alert">
+          <Notice tone="danger" role="alert">
             {t('transcripts.paste.tooLong', { chars: input.chars, max: MAX_PASTED_CHARS })}
-          </p>
+          </Notice>
         )}
       </div>
       <p>
@@ -58,9 +59,9 @@ export function TranscriptInputForm({
       </p>
       {input.error !== null && <ErrorText error={input.error} />}
       {input.stale && (
-        <p className="form-message form-message--warn" role="status">
+        <Notice tone="warning" role="status">
           {t('transcripts.paste.stale')}
-        </p>
+        </Notice>
       )}
       {input.preview !== null && (
         <TranscriptPreviewView

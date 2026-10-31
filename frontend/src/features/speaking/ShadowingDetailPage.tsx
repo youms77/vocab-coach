@@ -17,15 +17,16 @@ import { ComparisonView, type LoggedWord } from './ComparisonView'
 import { PlayBoth } from './PlayBoth'
 import { unitFromParam } from '../curriculum/unitRules'
 import { readUnavailableReason } from './shadowTarget'
+import { Notice } from '../../components/Notice'
 
 function NotFound() {
   const { t } = useTranslation()
   return (
     <div className="speaking-page">
       <PageTitle>{t('shadowing.detail.title')}</PageTitle>
-      <p className="form-message form-message--error" role="alert">
+      <Notice tone="danger" role="alert">
         {t('errors.production_not_found')}
-      </p>
+      </Notice>
       <p>
         <Link to="/speaking/shadowing/history">{t('shadowing.detail.allShadowings')}</Link>
       </p>
@@ -39,9 +40,9 @@ function NotAShadowing() {
   return (
     <div className="speaking-page">
       <PageTitle>{t('shadowing.detail.title')}</PageTitle>
-      <p className="form-message form-message--warn" role="alert">
+      <Notice tone="warning" role="alert">
         {t('shadowing.detail.notShadowing')}
-      </p>
+      </Notice>
       <p className="link-row">
         <Link to="/errors">{t('shadowing.detail.errorLog')}</Link>
         <Link to="/speaking/shadowing/history">{t('shadowing.detail.allShadowings')}</Link>
@@ -165,7 +166,7 @@ export function ShadowingDetailPage() {
                 )}
               </>
             ) : (
-              <p className="form-message form-message--warn">{t('shadowing.detail.noAudio')}</p>
+              <Notice tone="warning">{t('shadowing.detail.noAudio')}</Notice>
             )}
           </section>
 
@@ -186,7 +187,7 @@ export function ShadowingDetailPage() {
 
             {status === 'silence' && (
               <>
-                <p className="form-message form-message--warn">{t('shadowing.detail.silence')}</p>
+                <Notice tone="warning">{t('shadowing.detail.silence')}</Notice>
                 <p>
                   <Link
                     to="/speaking/shadowing"

@@ -115,7 +115,7 @@ describe('/curriculum', () => {
     mockApi({ ...base, 'GET /curriculum/tracks': [track(), scenarioTrack()] })
     renderApp('/curriculum')
     expect(
-      await screen.findByRole('heading', { level: 1, name: "Parcours d'anglais général" }),
+      await screen.findByRole('heading', { level: 1, name: "Parcours d’anglais général" }),
     ).toBeInTheDocument()
     expect(
       await screen.findByRole('heading', { level: 2, name: 'Anglais courant de tous les jours' }),
@@ -123,7 +123,7 @@ describe('/curriculum', () => {
     expect(screen.getByText('113 unités')).toBeInTheDocument()
     // The top bar entry, in both languages.
     expect(screen.getByRole('link', { name: 'Parcours' })).toHaveAttribute('href', '/curriculum')
-    expect(screen.getByRole('button', { name: 'Commencer le parcours « Anglais courant de tous les jours »' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Commencer le parcours « Anglais courant de tous les jours »' })).toBeInTheDocument()
   })
 })
 
@@ -412,7 +412,7 @@ describe('A scenario unit', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: "Entretien d'embauche 1" }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 2, name: 'Étape 1 : formules' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Étape 1 : formules' })).toBeInTheDocument()
     expect(screen.getByText(/0 étapes sur 4/)).toBeInTheDocument()
     expect(screen.getByText('Un entretien dans une petite entreprise.')).toBeInTheDocument()
     // The English setting on demand.

@@ -16,18 +16,18 @@ import {
   useCreateTask,
 } from '../../api/consolidation'
 import { ApiError } from '../../api/client'
-import { PageTitle } from '../../components/PageTitle'
+import { formatPercent } from '../../i18n/format'
 import { useElapsedSeconds } from '../../components/useElapsedSeconds'
 import { formatShortDate } from '../session/format'
 import { ErrorText } from '../settings/ErrorText'
 import { inLanguage } from './text'
+import { Notice } from '../../components/Notice'
+import { SectionHeader } from '../../components/SectionHeader'
 
 const STATUSES: TaskStatus[] = ['proposed', 'accepted', 'completed', 'dismissed']
 
 function percent(value: number, language: string) {
-  return new Intl.NumberFormat(language, { style: 'percent', maximumFractionDigits: 0 }).format(
-    value,
-  )
+  return formatPercent(language, value, 0)
 }
 
 function ReadyDeck({ deck }: { deck: ConsolidationDeck }) {
@@ -118,21 +118,21 @@ function ReadyDeck({ deck }: { deck: ConsolidationDeck }) {
           {create.isPending && <p className="muted">{t('consolidation.create.wait')}</p>}
         </div>
         {conflict?.code === 'task_open' && (
-          <p className="form-message form-message--warn" role="alert">
+          <Notice tone="warning" role="alert">
             {t('errors.task_open')}{' '}
             {typeof conflict.detail.task_id === 'number' && (
               <Link to={`/consolidation/tasks/${conflict.detail.task_id}`}>
                 {t('consolidation.decks.openTask')}
               </Link>
             )}
-          </p>
+          </Notice>
         )}
         {conflict?.code === 'not_ready' && (
-          <p className="form-message form-message--warn" role="alert">
+          <Notice tone="warning" role="alert">
             {t('errors.not_ready')}{' '}
             {typeof conflict.detail.reason === 'string' &&
               t(`consolidation.reasons.${conflict.detail.reason}`, { defaultValue: '' })}
-          </p>
+          </Notice>
         )}
         {create.isError && conflict?.code !== 'task_open' && conflict?.code !== 'not_ready' && (
           <ErrorText error={create.error} />
@@ -310,10 +310,11 @@ export function ConsolidationPage() {
   const { t } = useTranslation()
   return (
     <div className="consolidation-page">
-      <section className="hero">
-        <PageTitle>{t('consolidation.title')}</PageTitle>
-        <p className="muted">{t('consolidation.intro')}</p>
-      </section>
+      <SectionHeader
+        eyebrow={`${t('nav.section')} · ${t('nav.groups.practice')}`}
+        title={t('consolidation.title')}
+        description={t('consolidation.intro')}
+      />
       <Decks />
       <Tasks />
     </div>

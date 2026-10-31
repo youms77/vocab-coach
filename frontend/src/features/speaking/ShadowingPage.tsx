@@ -10,6 +10,7 @@ import { SpeakButton } from '../../speech/SpeakButton'
 import { convertToWav } from '../../speech/wav'
 import { ErrorText } from '../settings/ErrorText'
 import { readShadowTarget, SHADOW_MAX_CHARS } from './shadowTarget'
+import { Notice } from '../../components/Notice'
 
 /**
  * Shadowing: listen to a sentence, record yourself repeating it, send. The sentence comes from the
@@ -110,9 +111,9 @@ export function ShadowingPage() {
             {t('shadowing.chars', { chars, max: SHADOW_MAX_CHARS })}
           </p>
           {tooLong && (
-            <p className="form-message form-message--error" role="alert">
+            <Notice tone="danger" role="alert">
               {t('shadowing.tooLong', { chars, max: SHADOW_MAX_CHARS })}
-            </p>
+            </Notice>
           )}
         </div>
         {usable && (

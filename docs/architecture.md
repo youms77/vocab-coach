@@ -21,7 +21,27 @@ Browser ── http://127.0.0.1:5173 ──> Vite dev server (frontend/)
 Host and ports of the dev servers live in `frontend/dev-server.json`, read by `vite.config.ts` and the
 opener. Demo mode (`VOCAB_DEMO=1`, `python -m app --demo`, `start.ps1 -Demo`) only changes the database
 file (and the recordings folder, `data/audio-demo/`); see D-033, D-169, D-188.
-Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/dist`.
+The single-port "use" mode, where FastAPI also serves `frontend/dist`, is described under "Two ways to run" below.
+
+## Two ways to run (M10.b)
+
+| | Development (`start.ps1`) | Use (`start.ps1 -Use`) |
+|---|---|---|
+| Processes | uvicorn `--reload` + Vite | one uvicorn, no reload |
+| Address | app `127.0.0.1:5173`, API `127.0.0.1:8000` (Vite proxies `/api`) | `127.0.0.1:8000` only |
+| Frontend | Vite, hot reload | `frontend/dist`, served by FastAPI (`VOCAB_USE_MODE=1`, `VOCAB_FRONTEND_DIST`) |
+| Database | `db upgrade` | `db prepare`: copy of a personal database behind `head`, then upgrade (D-313) |
+
+**Middleware order** (outermost first; `create_app` in `app/main.py`): `ApiGuard` (Host, Origin, Sec-Fetch-Site,
+JSON, D-061; unchanged) -> `LocalhostRedirect` (use mode only: `localhost` / `[::1]` -> 307 to `127.0.0.1`) ->
+`SecurityHeaders` (fixed headers on every response, `no-store` on `/api`) -> CORS -> the routers. A foreign Host
+is refused (403) by the guard before the redirect can answer.
+
+**The page fallback** (`app/api/frontend.py`, use mode only; one catch-all route registered after everything):
+`/api`, `/docs`, `/redoc`, `/openapi.json` -> plain 404 as before; under `/assets/` or with an extension in the last
+segment -> a real file of `dist` (path resolved and checked to stay inside `dist`) or 404, never `index.html`;
+any other GET / HEAD path -> `index.html`; any other method on a page path -> 405. Hashed files are
+`immutable`, `index.html` is `no-cache`; the Content-Security-Policy is set on these responses only (D-311).
 
 ## Backend (`backend/`)
 
@@ -56,6 +76,7 @@ Planned for M10: a single-port "use" mode where FastAPI also serves `frontend/di
 | `app/db/` | data layer (see below) | M1.a |
 | `app/ai/` | AI gateway, prompts, schemas, providers (see "AI gateway" below) | M2.a, M2.b1 (Groq, Ollama), M2.b2 (Gemini) |
 | `app/speech/audio_store.py` | local recordings: accepted media types, `YYYY/MM/<32 hex>.<ext>` names (a random UUID4 by default, an injected factory for the demo, D-187), atomic write, paths resolved inside the folder only, demo folder (D-169) | M6.a1, M6.a2b |
+| `app/services/backup_format.py`, `backup.py`, `backup_verify.py`, `backup_restore.py`, `backup_auto.py`, `app/api/backup.py`, `app/cli_backup.py` | module J, full backup (M10.a, D-302 to D-308): the `vocab-coach-backup-1` zip (format and value encoding, pure; creation in one read transaction; verification before any write; restore into a temporary database then a D-188 swap; automatic copy with rotation); `POST /api/backup`, `GET /api/backup/status`, `POST /api/backup/auto/run`; `backup create \| verify \| restore \| auto` | M10.a |
 | `alembic.ini` | Alembic configuration (URL comes from the app settings) | M1.a |
 | `tests/` | pytest suite; database tests use a temporary SQLite file built by the migrations | M0, M1.a |
 
@@ -250,15 +271,20 @@ http.py      urllib client: error status = a normal answer, network failure = Pr
 |---|---|
 | `main.tsx` | bootstraps i18n, theme, TanStack Query client, router |
 | `routes.tsx` | route table (one entry per feature) |
-| `components/` | `Layout` (top bar, skip link, "Demo data" badge, outlet), `AiBanner` (degraded mode, every page), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage`, `keyboard.ts` (shortcut guard shared by triage and reviews, M4.c) |
-| `features/home/` | home screen: the Today card (from `features/session/`) and backend status |
+| `components/` | `Layout` (skip link, sidebar, top bar, menu state, outlet), `Sidebar` (the one `<nav>`: left sidebar, icon rail, or menu panel; D-290), `TopBar` (fold / Menu button, "Demo data" badge, language and theme), `AiBanner` (degraded mode, every page), `LanguageSwitcher`, `ThemeSwitcher`, `NotFoundPage`, `keyboard.ts` (shortcut guard shared by triage and reviews, M4.c); base components of RV.a: `Icon` + `iconPaths.ts` (D-289), `Badge`, `Notice`, `StatTile`, `ActionTile`, `SectionHeader` (with `sectionArt.ts`: the illustrations found at build time, D-296), `HomeHero`, `EmptyState`; RV.b: `CorrectionMark`, `CategoryCode` (D-298), `PageTitle`; `charts/` (`LineChart`, `BarList`, `useElementWidth`, D-293) |
+
+Breakpoints (CSS constants, written out in each media query because a query cannot read a variable): **600 px** (phones: one column, 40 px targets, compact top bar) and **960 px** (below it the sidebar is a panel opened by the Menu button). Browsers: `light-dark()` needs Chrome or Edge 123 or later (D-286).
+| `features/home/` | home screen: hero with the day's action, stat tiles, Continue tiles, the Today card (from `features/session/`) and backend status (D-295) |
 | `features/session/` | `TodayCard` and `PlanWarnings` (today's plan and its translated warnings), `/session` (`SessionPage`: start, next steps, review player, end with confirmation, summary, saved-review announcement; `StepPanels`: `wait` timer, practice info, summary), `SessionProgress`, `StepHeading` (focus on each step), `format.ts` (M4.b, M4.c) |
 | `features/review/` | module C in the session (M4.c1): `ReviewPlayer` (calls, focus, autoplay, errors), `reviewMachine.ts` (pure card state machine, D-120), `ReviewPrompt` (prompt by type, before the answer), `ReviewResult` (correction and sheet summary), `RatingButtons`, `useReviewShortcuts` (keys by phase, D-122), `stepText.ts` (replay text, D-123) |
 | `features/queue/` | `/queue` (M4.c2): `QueuePage` (order, status, pace, warnings, moves, status changes), `queueOrder.ts` (D-027 order, groups, moves, D-026 transitions; pure) |
 | `features/discovery/` | module B in the session: `DiscoveryFlow` (start, steps, complete, errors), `ReadAndGuess`, `SheetStep` (reuses `SheetView`), `ExercisesStep` and `GradeResult`, `ProductionSteps` (repetition, personal sentence), `highlight.ts` (M4.b) |
 | `speech/` | browser speech synthesis: `voices.ts` (voice choice, slow rate), `useSpeech.ts` (store, hook, cancel on route change), `SpeakButton` (M4.b, D-112) |
-| `features/settings/` | `/settings`: provider cards (key / address form, connection test), provider order, AI usage, study settings; `errorMessage.ts` maps the API's `detail.code` to i18n keys (M2.c2) |
+| `features/settings/` | `/settings`: provider cards (key / address form, connection test), provider order, AI usage, study settings, the `BackupCard` (download, automatic copy, restore commands; `api/backup.ts`, D-309); `errorMessage.ts` maps the API's `detail.code` to i18n keys (M2.c2) |
 | `api/` | `client.ts` (`apiGet`, `apiSend`, `ApiError` with `code`), `health.ts`, `ai.ts`, `settings.ts`, library, import, triage, duplicates and enrichment modules, and (M4.b, M4.c) `session.ts`, `discovery.ts`, `reviews.ts` (grade, reveal, record; types mirroring the backend contracts, query and mutation hooks) |
 | `i18n/` | i18next setup, `locales/en.json`, `locales/fr.json`, typed keys |
-| `theme.ts`, `styles.css` | theme preference and CSS design tokens (light/dark) |
+| `theme.ts`, `sidebar.ts`, `useActiveTheme.ts` | theme preference (`vocab-coach.theme`), sidebar fold state (`vocab-coach.sidebar`), the theme in effect for what CSS cannot switch (RV.a) |
+| `styles/` | the CSS, in cascade layers (D-285): `index.css` (layer order and imports), `tokens.css` (every colour once, as `light-dark()`, plus type, spacing, radius, shadow and size tokens: D-286), `base.css` (Inter `@font-face`, reset, headings), `components.css` (buttons, fields, cards, tables, badges, notices, tiles, section header, hero, empty state), `layout.css` (shell, sidebar, top bar), `features/*.css` (one file per feature, no colour of its own), `contrast.ts` + `contrast.test.ts` (WCAG test of the tokens, D-292) |
+| `assets/fonts/`, `assets/hero/`, `assets/sections/` | the bundled Inter variable font and its licence (D-288), the home hero photo, the section header illustrations `header-<library, writing, speaking or errors>-<light or dark>.png` (still to be added by the owner, D-296) |
+| `features/styleguide/` | `/styleguide`, mounted only in development (D-291) |
 | `test/` | Vitest setup, `renderApp()` / `renderWithProviders()` helpers, `mockApi()` (fetch replaced by a small router that records calls), `fixtures.ts`, `fakeSpeech.ts` (fake `speechSynthesis`) |

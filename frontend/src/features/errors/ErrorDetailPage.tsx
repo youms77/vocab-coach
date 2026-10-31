@@ -19,6 +19,8 @@ import { CategorySelect } from './CategorySelect'
 import { findFragment, highlightSegments } from './fragment'
 import { productionLink } from './logRules'
 import { TermPicker } from './TermPicker'
+import { Notice } from '../../components/Notice'
+import { CorrectionMark } from '../../components/CorrectionMark'
 
 /** The state the list passes to its rows, so the way back keeps the filters. */
 function listPath(state: unknown): string {
@@ -199,7 +201,7 @@ function EditForm({
         </button>
       </div>
       <div role="status">
-        {saved && <p className="form-message form-message--ok">{t('errorLog.detail.saved')}</p>}
+        {saved && <Notice tone="success">{t('errorLog.detail.saved')}</Notice>}
         {unchanged && <p className="form-message">{t('errorLog.detail.unchanged')}</p>}
       </div>
       {patch.isError && <ErrorText error={patch.error} />}
@@ -285,9 +287,9 @@ export function ErrorDetailPage() {
       </section>
 
       {!valid && (
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.error_not_found')}
-        </p>
+        </Notice>
       )}
       {valid && query.isPending && <p className="muted">{t('errorLog.detail.loading')}</p>}
       {valid && query.isError && <ErrorText error={query.error} />}
@@ -299,8 +301,8 @@ export function ErrorDetailPage() {
             <OriginalSentence error={error} />
             <p>
               <strong>{t('errorLog.detail.wrong')}:</strong>{' '}
-              <span className="correction-wrong" lang="en">
-                {error.erroneous_text}
+              <span lang="en">
+                <CorrectionMark wrong={error.erroneous_text} />
               </span>
             </p>
           </section>

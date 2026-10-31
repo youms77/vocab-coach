@@ -13,6 +13,7 @@ from app.config import get_settings
 from app.db import migrate
 from app.db.engine import create_db_engine, get_engine
 from app.main import create_app
+from tests.backup_support import demo_engine, demo_source  # noqa: F401  (fixtures of the backup tests)
 
 
 def sqlite_url(path: Path) -> str:
@@ -66,3 +67,10 @@ def make_api_client(engine: Engine) -> TestClient:
 @pytest.fixture
 def api_client(engine: Engine) -> TestClient:
     return make_api_client(engine)
+
+
+@pytest.fixture(autouse=True)
+def no_startup_backup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The API's startup copy (M10.a) would look at the real `data/` folder: off in every test
+    (`test_startup_hook_runs_in_the_lifespan` turns it back on with a spy)."""
+    monkeypatch.setattr("app.main.startup_backup", lambda settings: None)

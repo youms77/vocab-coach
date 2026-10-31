@@ -69,7 +69,8 @@ describe('Today card', () => {
     expect(screen.getByText('Job interview phrases: 1')).toBeInTheDocument()
     expect(screen.getByText('About 13 min, for a daily budget of 45 min')).toBeInTheDocument()
     expect(screen.getByText(/Targeted practice: grammar.preposition \(4 recent errors\)/)).toBeInTheDocument()
-    expect(within(card()).getByRole('link', { name: "Start today's session" })).toHaveAttribute(
+    // The one action of the day moved to the home hero (RV.b).
+    expect(screen.getByRole('link', { name: "Start today's session" })).toHaveAttribute(
       'href',
       '/session',
     )
@@ -111,7 +112,7 @@ describe('Today card', () => {
     )
     await user.selectOptions(screen.getByLabelText('Language'), 'fr')
     expect(
-      screen.getByRole('link', { name: "essayez un parcours d'anglais général" }),
+      screen.getByRole('link', { name: "essayez un parcours d’anglais général" }),
     ).toHaveAttribute('href', '/curriculum')
   })
 
@@ -209,9 +210,9 @@ describe('Today card', () => {
     expect(screen.getByRole('heading', { name: 'Séance du jour' })).toBeInTheDocument()
     expect(screen.getByText('1 révision due')).toBeInTheDocument()
     expect(
-      screen.getByText(/1 terme en file n'a pas encore de fiche utilisable/),
+      screen.getByText(/1 terme en file n’a pas encore de fiche utilisable/),
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Démarrer la séance du jour' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: "Aujourd'hui" })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: "Aujourd’hui" })).toBeInTheDocument()
   })
 })

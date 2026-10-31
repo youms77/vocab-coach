@@ -14,11 +14,16 @@ import {
   useErrors,
 } from '../../api/errors'
 import { useItem } from '../../api/library'
-import { PageTitle } from '../../components/PageTitle'
 import { formatShortDate } from '../session/format'
 import { ErrorText } from '../settings/ErrorText'
 import { CategorySelect } from './CategorySelect'
 import { productionLink } from './logRules'
+import { Icon } from '../../components/Icon'
+import { SectionHeader } from '../../components/SectionHeader'
+import { sectionArt } from '../../components/sectionArt'
+import { CategoryCode } from '../../components/CategoryCode'
+import { CorrectionMark } from '../../components/CorrectionMark'
+import { English } from '../../components/English'
 
 function FilterForm({
   filters,
@@ -142,15 +147,27 @@ export function ErrorsPage() {
 
   return (
     <div className="errors-page">
-      <section className="hero">
-        <PageTitle>{t('errorLog.title')}</PageTitle>
-        <p className="muted">{t('errorLog.intro')}</p>
-        <p className="link-row">
-          <Link to="/errors/new">{t('errorLog.addLink')}</Link>
-          <Link to="/errors/categories">{t('errorLog.categoriesLink')}</Link>
-          <Link to="/drills">{t('errorLog.drillsLink')}</Link>
-        </p>
-      </section>
+      <SectionHeader
+        eyebrow={`${t('nav.section')} · ${t('nav.groups.progress')}`}
+        title={t('errorLog.title')}
+        description={t('errorLog.intro')}
+        illustration={sectionArt('errors')}
+        actions={
+          <>
+            <Link to="/drills" className="button button--primary">
+              <Icon name="target" size={18} />
+              {t('errorLog.drillsLink')}
+            </Link>
+            <Link to="/errors/new" className="button">
+              <Icon name="plus" size={18} />
+              {t('errorLog.addLink')}
+            </Link>
+            <Link to="/errors/categories" className="button">
+              {t('errorLog.categoriesLink')}
+            </Link>
+          </>
+        }
+      />
 
       <section className="card" aria-labelledby="errors-filters-title">
         <h2 id="errors-filters-title">{t('errorLog.filters.title')}</h2>
@@ -226,14 +243,18 @@ export function ErrorsPage() {
                         <tr key={error.id}>
                           <td>{formatShortDate(error.occurred_at, i18n.language)}</td>
                           <th scope="row" className="cell-wrap" lang="en">
-                            <Link to={`/errors/${error.id}`} state={{ search: location.search }}>
-                              {error.erroneous_text}
-                            </Link>{' '}
-                            → <span>{error.correction}</span>
+                            <CorrectionMark
+                              wrong={
+                                <Link to={`/errors/${error.id}`} state={{ search: location.search }}>
+                                  {error.erroneous_text}
+                                </Link>
+                              }
+                              correction={error.correction}
+                            />
                           </th>
                           <td>
                             {labelOf(error.category, i18n.language)}{' '}
-                            <code className="category-code">{error.category.code}</code>
+                            <CategoryCode code={error.category.code} />
                             {error.category.status === 'proposed' && (
                               <span className="muted"> ({t('errorLog.categories.status.proposed')})</span>
                             )}
@@ -241,7 +262,7 @@ export function ErrorsPage() {
                           <td>{t(`errorLog.source.${error.source}`)}</td>
                           <td lang="en">
                             {error.term !== null ? (
-                              <Link to={`/library/items/${error.term.id}`}>{error.term.term}</Link>
+                              <Link to={`/library/items/${error.term.id}`}><English>{error.term.term}</English></Link>
                             ) : (
                               '—'
                             )}

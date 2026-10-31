@@ -1,0 +1,135 @@
+/*
+ * Design tokens (RV.a, D-285 onwards). The single source of truth for both themes.
+ *
+ * Each colour is written ONCE as `light-dark(<light>, <dark>)`: `color-scheme` picks the side.
+ *   - no choice made: `color-scheme: light dark` follows the operating system;
+ *   - Theme selector: `data-theme='light'|'dark'` on <html> forces one side (theme.ts, D-007).
+ * `src/styles/contrast.test.ts` parses the colour lines below, so keep them in the exact form
+ *   --name: light-dark(#rrggbb, #rrggbb);
+ * (colours with an alpha channel use rgba() and are skipped by the test).
+ *
+ * Breakpoints cannot be variables in a media query; they are written out where used:
+ *   600px  small screens (phones): one column, 40px touch targets;
+ *   960px  the sidebar becomes a menu panel below this width.
+ * (Documented in docs/architecture.md.)
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces and ink */
+  --bg: light-dark(#f6f6fb, #14132b);
+  --surface: light-dark(#ffffff, #1e1d3d);
+  --surface-sunken: light-dark(#efeff7, #191834);
+  --border: light-dark(#e3e3f0, #2e2c55);
+  --border-strong: light-dark(#8582a8, #7472ab);
+  --ink: light-dark(#1e1b3a, #e8e7f5);
+  --ink-muted: light-dark(#5d5a7a, #a3a1c2);
+  --ink-subtle: light-dark(#6f6c8f, #8f8db3);
+
+  /* Brand (bright indigo; it lightens to periwinkle in dark, so text on it is dark: on-brand) */
+  --brand: light-dark(#4f46e5, #a5b4fc);
+  --brand-hover: light-dark(#4338ca, #b8c3fd);
+  --on-brand: light-dark(#ffffff, #14132b);
+  --brand-strong: light-dark(#312e81, #c7ccfb);
+  --brand-tint: light-dark(#eef0ff, #1e1d3d);
+  --brand-tint-border: light-dark(#d9dcfb, #2e2c55);
+  --focus-ring: light-dark(#4f46e5, #a5b4fc);
+
+  /* Sidebar and photo banner */
+  --sidebar: light-dark(#312e81, #0f0e24);
+  --sidebar-ink: light-dark(#c9ccf5, #a3a1c2);
+  --sidebar-ink-active: light-dark(#ffffff, #ffffff);
+  --sidebar-active: light-dark(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.1));
+  --hero-scrim: light-dark(rgba(49, 46, 129, 0.95), rgba(20, 19, 43, 0.96));
+  --hero-scrim-mid: light-dark(rgba(49, 46, 129, 0.82), rgba(20, 19, 43, 0.85));
+  --on-hero: light-dark(#ffffff, #ffffff);
+
+  /* Coral accent: marks in corrected text and small illustration details. Never a button. */
+  --accent: light-dark(#a8461f, #f0997b);
+  --accent-tint: light-dark(#fbede6, #3a2220);
+
+  /* Status: always paired with a word or an icon (D-087) */
+  --success: light-dark(#1e7a4c, #7fd49f);
+  --success-tint: light-dark(#e3f4ea, #173326);
+  --warning: light-dark(#8a5a00, #e3b55a);
+  --warning-tint: light-dark(#fbf0da, #33280f);
+  --danger: light-dark(#b3261e, #f2948d);
+  --danger-tint: light-dark(#fce9e7, #3a1a1e);
+
+  /* Chart series (at least 4.2:1 on bg and 3:1 on surface, both themes) */
+  --chart-1: light-dark(#4f46e5, #a5b4fc);
+  --chart-2: light-dark(#c2552d, #f0997b);
+  --chart-3: light-dark(#1e7a4c, #7fd49f);
+  --chart-4: light-dark(#8a5a00, #e3b55a);
+  --chart-5: light-dark(#993556, #ed93b1);
+
+  /* Flat illustrations (empty states) */
+  --illus-blob: light-dark(#dde0fd, #2a2856);
+  --illus-paper: light-dark(#ffffff, #3a3870);
+  --illus-light: light-dark(#a5b4fc, #4f46e5);
+  --illus-leaf: light-dark(#1d9e75, #5dcaa5);
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px light-dark(rgba(30, 27, 58, 0.06), rgba(0, 0, 0, 0.4));
+  --shadow-raised: 0 8px 24px light-dark(rgba(30, 27, 58, 0.12), rgba(0, 0, 0, 0.45));
+
+  /* Type (Inter first, then the system fonts; the scale is in rem so it follows the browser setting) */
+  --font-sans: Inter, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+
+  --fs-display: 2.25rem;
+  --lh-display: 2.625rem;
+  --fs-title-1: 1.875rem;
+  --lh-title-1: 2.25rem;
+  --fs-term: 2.125rem;
+  --lh-term: 2.5rem;
+  --fs-title-2: 1.25rem;
+  --lh-title-2: 1.75rem;
+  --fs-title-3: 1rem;
+  --lh-title-3: 1.5rem;
+  --fs-body: 1rem;
+  --lh-body: 1.5rem;
+  --fs-body-sm: 0.875rem;
+  --lh-body-sm: 1.25rem;
+  --fs-stat: 1.625rem;
+  --lh-stat: 2rem;
+  --fs-eyebrow: 0.75rem;
+  --lh-eyebrow: 1rem;
+  --fs-caption: 0.75rem;
+  --lh-caption: 1rem;
+
+  /* Spacing (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+
+  /* Motion (cancelled under prefers-reduced-motion, see base.css) */
+  --duration: 150ms;
+
+  /* Sizes */
+  --sidebar-width: 232px;
+  --sidebar-width-collapsed: 72px;
+  --content-max: 1120px;
+  --reading-max: 720px;
+  --control-height: 40px;
+  --control-height-sm: 32px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}

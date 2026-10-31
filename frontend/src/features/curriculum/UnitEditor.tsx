@@ -22,6 +22,7 @@ import {
   words,
 } from './unitForm'
 import { UNIT_LIMITS as LIMITS } from './unitRules'
+import { Notice } from '../../components/Notice'
 
 const slug = (path: string) => path.replace(/[^a-zA-Z0-9]+/g, '-')
 
@@ -475,7 +476,7 @@ export function UnitEditor({
       <fieldset className="sheet-list">
         <legend>{t('curriculum.edit.shadowing.legend')}</legend>
         <p className="muted">{t('curriculum.edit.shadowing.hint')}</p>
-        <p className="form-message form-message--warn">{t('curriculum.edit.shadowWarning')}</p>
+        <Notice tone="warning">{t('curriculum.edit.shadowWarning')}</Notice>
         <p className="muted">
           {t('curriculum.edit.shadowing.count', { count: shadowCount, ...LIMITS.shadowing })}
         </p>

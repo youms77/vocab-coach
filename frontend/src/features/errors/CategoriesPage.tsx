@@ -15,6 +15,8 @@ import { PageTitle } from '../../components/PageTitle'
 import { isDrillableNode } from '../drills/drillRules'
 import { ErrorText } from '../settings/ErrorText'
 import { CategorySelect } from './CategorySelect'
+import { Notice } from '../../components/Notice'
+import { CategoryCode } from '../../components/CategoryCode'
 
 function errorsHref(code: string): string {
   return `/errors?${new URLSearchParams({ category: code }).toString()}`
@@ -91,7 +93,7 @@ function Proposal({
   return (
     <li className="proposal">
       <p className="proposal__title">
-        <strong>{label}</strong> <code className="category-code">{node.code}</code>
+        <strong>{label}</strong> <CategoryCode code={node.code} />
       </p>
       <p className="muted">
         {parent !== undefined &&
@@ -182,7 +184,7 @@ function TreeNodes({ nodes }: { nodes: CategoryNode[] }) {
         <li key={node.code}>
           <p className="category-tree__row">
             <strong>{labelOf(node, i18n.language)}</strong>{' '}
-            <code className="category-code">{node.code}</code>
+            <CategoryCode code={node.code} />
             <span className="muted">
               {' '}
               · {t(`errorLog.categories.status.${node.status}`)} ·{' '}
@@ -383,7 +385,7 @@ export function CategoriesPage() {
       </section>
 
       <div role="status" aria-live="polite">
-        {message !== '' && <p className="form-message form-message--ok">{message}</p>}
+        {message !== '' && <Notice tone="success">{message}</Notice>}
       </div>
       {failure !== null && <ErrorText error={failure} />}
 
@@ -424,7 +426,7 @@ export function CategoriesPage() {
                   {rejected.map((node) => (
                     <li key={node.code}>
                       {labelOf(node, i18n.language)}{' '}
-                      <code className="category-code">{node.code}</code>
+                      <CategoryCode code={node.code} />
                     </li>
                   ))}
                 </ul>

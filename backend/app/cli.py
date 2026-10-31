@@ -14,6 +14,9 @@ open <code> <n> | generate <code> <n> | unit <id> | step | terms | edit` are the
 tracks (word lists, then scenario units written by the AI).
 `stats summary`, `stats errors | memory [--from] [--to] [--granularity]` print statistics and
 `stats export [--out file.zip] [--force]` writes every event table as CSV in a zip archive.
+`backup create [--out file.zip] [--force]` writes a full backup (all tables as JSON lines and the
+recordings), `backup verify <zip>` checks one, `backup restore <zip> [--replace --yes]` restores it
+into an empty database with the app stopped, `backup auto` makes the automatic copy now.
 `speech shadow --file <clip> --target "<sentence>"` records, transcribes and compares a shadowing,
 `speech transcribe <id>` transcribes it again, `speech compare "<target>" "<heard>"` compares two
 texts without AI; `speech speak --file <clip> [--prompt "<topic>"]` records free speaking and has
@@ -85,9 +88,52 @@ def db_reset(url: str, now: datetime | None = None) -> Path | None:
     return backup
 
 
-def _serve(reload: bool) -> int:
+def _prepare(settings: Settings) -> int:
+    """`db prepare` and the start of the use mode: create or upgrade the database, with a copy of
+    the file first when a personal database is behind (D-313). Exit code 2 when it must stop."""
+    from app.services.startup_upgrade import StartupError, prepare_database
+
+    try:
+        result = prepare_database(settings, db_upgrade, datetime.now())  # noqa: DTZ005 (file name)
+    except StartupError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    except PermissionError as exc:
+        print(
+            f"Cannot access the database file ({exc}). Is the app already running?", file=sys.stderr
+        )
+        return 2
+    if result.action == "ready":
+        print("Database is up to date.")
+    return 0
+
+
+def _serve(reload: bool, use: bool = False) -> int:
     import uvicorn
 
+    if use:
+        # Through the environment, as for --demo: `app.main` reads it when uvicorn imports it.
+        os.environ["VOCAB_USE_MODE"] = "1"
+        get_settings.cache_clear()
+        settings = get_settings()
+        from app.api.frontend import NOT_BUILT
+
+        index = settings.frontend_dist / "index.html"
+        if not index.is_file():
+            print(NOT_BUILT.format(path=index), file=sys.stderr)
+            return 2
+        code = _prepare(settings)
+        if code != 0:
+            return code
+        # No reload, no Server header (nothing to tell about the software behind the port).
+        uvicorn.run(
+            "app.main:app",
+            host=settings.host,
+            port=settings.port,
+            reload=False,
+            server_header=False,
+        )
+        return 0
     settings = get_settings()
     uvicorn.run("app.main:app", host=settings.host, port=settings.port, reload=reload)
     return 0
@@ -96,6 +142,11 @@ def _serve(reload: bool) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m app", description=__doc__)
     parser.add_argument("--reload", action="store_true", help="restart the API on code changes")
+    parser.add_argument(
+        "--use",
+        action="store_true",
+        help="use mode: one process and one port, serves the built frontend (no --reload)",
+    )
     parser.add_argument(
         "--demo",
         action="store_true",
@@ -106,6 +157,10 @@ def _build_parser() -> argparse.ArgumentParser:
     db = commands.add_parser("db", help="manage the SQLite database")
     db_commands = db.add_subparsers(dest="db_command", required=True)
     db_commands.add_parser("upgrade", help="apply migrations and load the error taxonomy")
+    db_commands.add_parser(
+        "prepare",
+        help="create or upgrade the database; a personal one is copied to data/backups first",
+    )
     reset = db_commands.add_parser(
         "reset", help="back up the current database file, then recreate an empty one"
     )
@@ -169,9 +224,14 @@ def _build_parser() -> argparse.ArgumentParser:
     library = commands.add_parser("library", help="vocabulary library")
     library_commands = library.add_subparsers(dest="library_command", required=True)
     importer = library_commands.add_parser(
-        "import", help="preview a Markdown list (writes nothing unless --commit)"
+        "import", help="preview a Markdown, CSV or TSV list (writes nothing unless --commit)"
     )
-    importer.add_argument("file", type=Path, help="the Markdown file (UTF-8)")
+    importer.add_argument("file", type=Path, help="the list file (UTF-8)")
+    importer.add_argument(
+        "--format",
+        choices=["markdown", "csv", "tsv"],
+        help="default: from the extension (.csv, .tsv), else markdown",
+    )
     importer.add_argument("--deck-id", type=int, help="add to this deck instead of a new one")
     importer.add_argument(
         "--no-triage", action="store_true", help="queue the new terms directly (skip triage)"
@@ -344,6 +404,31 @@ def _build_parser() -> argparse.ArgumentParser:
         "--out", type=Path, help="target .zip (default: data/exports/vocab-coach-export-DATE.zip)"
     )
     s_export.add_argument("--force", action="store_true", help="replace an existing file")
+
+    backup_parser = commands.add_parser(
+        "backup", help="full backup and restore: all data and recordings in a zip (module J)"
+    )
+    backup_commands = backup_parser.add_subparsers(dest="backup_command", required=True)
+    b_create = backup_commands.add_parser("create", help="write a full backup archive")
+    b_create.add_argument(
+        "--out",
+        type=Path,
+        help="target .zip (default: data/backups/vocab-coach-backup-DATE-TIME.zip)",
+    )
+    b_create.add_argument("--force", action="store_true", help="replace an existing file")
+    b_verify = backup_commands.add_parser("verify", help="check an archive, writing nothing")
+    b_verify.add_argument("archive", type=Path)
+    b_restore = backup_commands.add_parser(
+        "restore", help="restore an archive into an empty database (stop the app first)"
+    )
+    b_restore.add_argument("archive", type=Path)
+    b_restore.add_argument(
+        "--replace",
+        action="store_true",
+        help="replace a database that holds data (the old one is kept as *.bak-DATE-TIME)",
+    )
+    b_restore.add_argument("--yes", action="store_true", help="confirm --replace")
+    backup_commands.add_parser("auto", help="make the automatic copy into the chosen folder now")
 
     consolidation = commands.add_parser(
         "consolidation", help="consolidation tasks: use your solid terms in a talk (module G)"
@@ -619,7 +704,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Invalid configuration: {exc}", file=sys.stderr)
         return 1
     if args.command is None:
-        return _serve(args.reload)
+        return _serve(args.reload, args.use)
 
     if args.command == "demo":
         # Never the personal database: always the demo file, whatever VOCAB_DATABASE_URL says.
@@ -627,6 +712,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "ai":
         return _ai(args, settings)
     url = settings.resolved_database_url
+    if args.command == "backup":
+        from app import cli_backup
+
+        if args.backup_command == "create":
+            return cli_backup.run_backup_create(url, settings, args.out, force=args.force)
+        if args.backup_command == "verify":
+            return cli_backup.run_backup_verify(args.archive)
+        if args.backup_command == "restore":
+            return cli_backup.run_backup_restore(
+                settings, args.archive, replace=args.replace, yes=args.yes
+            )
+        return cli_backup.run_backup_auto(url, settings)
     if args.command == "library":
         from app import cli_library
 
@@ -642,7 +739,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.library_command == "extend":
             return cli_library.run_library_extend(url, settings, args.deck_id, count=args.count)
         return cli_library.run_library_import(
-            url, args.file, deck_id=args.deck_id, no_triage=args.no_triage, commit=args.commit
+            url,
+            args.file,
+            fmt=args.format,
+            deck_id=args.deck_id,
+            no_triage=args.no_triage,
+            commit=args.commit,
         )
     if args.command == "errors":
         return _errors(args, url)
@@ -765,6 +867,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(plan.model_dump_json(indent=2) if args.json else render_plan(plan))
         return 0
     try:
+        if args.db_command == "prepare":
+            return _prepare(settings)
         if args.db_command == "upgrade":
             result = db_upgrade(url)
             print(

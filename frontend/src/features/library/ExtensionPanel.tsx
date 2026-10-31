@@ -11,6 +11,8 @@ import {
 } from '../../api/enrichment'
 import type { Deck } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
+import { Notice } from '../../components/Notice'
+import { English } from '../../components/English'
 
 function Result({ deck, result }: { deck: Deck; result: ExtensionResult }) {
   const { t } = useTranslation()
@@ -20,9 +22,9 @@ function Result({ deck, result }: { deck: Deck; result: ExtensionResult }) {
         ? t('extension.incomplete')
         : t(`aiReasons.${result.reason ?? 'all_failed'}`)
     return (
-      <p className="form-message form-message--warn" role="status">
+      <Notice tone="warning" role="status">
         {t('extension.failed', { reason })}
-      </p>
+      </Notice>
     )
   }
   const terms = new Map(result.created.map((item) => [item.id, item.term]))
@@ -55,7 +57,7 @@ function Result({ deck, result }: { deck: Deck; result: ExtensionResult }) {
                 {d.candidates.map((c, i) => (
                   <span key={c.id}>
                     {i > 0 && ', '}
-                    <Link to={`/library/items/${c.id}`}>{c.term}</Link>
+                    <Link to={`/library/items/${c.id}`}><English>{c.term}</English></Link>
                   </span>
                 ))}
               </li>

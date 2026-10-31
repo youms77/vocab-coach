@@ -901,7 +901,11 @@ def update_exercise(
         validated = ex.validate_content(template.exercise_type, content)
     except ValidationError as exc:
         errors = [
-            {"loc": [str(part) for part in error["loc"]], "message": str(error["msg"])}
+            {
+                "loc": [str(part) for part in error["loc"]],
+                "message": str(error["msg"]),
+                "type": str(error["type"]),  # a stable code next to the English text (D-324)
+            }
             for error in exc.errors(include_input=False, include_url=False)
         ]
         raise InvalidExercise("This exercise content is invalid.", errors=errors) from exc

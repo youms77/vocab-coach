@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 
 import { type UsageRow, useAiUsage } from '../../api/ai'
+import { dateFormatter, numberFormatter } from '../../i18n/format'
+import { Notice } from '../../components/Notice'
 
 function errorTotal(row: UsageRow) {
   return Object.values(row.errors).reduce((sum, n) => sum + n, 0)
@@ -8,8 +10,8 @@ function errorTotal(row: UsageRow) {
 
 function TodayTable({ rows }: { rows: UsageRow[] }) {
   const { t, i18n } = useTranslation()
-  const number = new Intl.NumberFormat(i18n.language)
-  const oneDecimal = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 })
+  const number = numberFormatter(i18n.language)
+  const oneDecimal = numberFormatter(i18n.language, { maximumFractionDigits: 1 })
 
   return (
     <div className="table-wrap">
@@ -59,8 +61,8 @@ function TodayTable({ rows }: { rows: UsageRow[] }) {
 export function UsagePanel() {
   const { t, i18n } = useTranslation()
   const usage = useAiUsage(7)
-  const number = new Intl.NumberFormat(i18n.language)
-  const dayFormat = new Intl.DateTimeFormat(i18n.language, {
+  const number = numberFormatter(i18n.language)
+  const dayFormat = dateFormatter(i18n.language, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -72,7 +74,7 @@ export function UsagePanel() {
       <h2 id="usage-title">{t('settings.usage.title')}</h2>
       <p className="muted">{t('settings.usage.intro')}</p>
       {usage.isPending && <p className="muted">{t('settings.loading')}</p>}
-      {usage.isError && <p className="form-message form-message--error">{t('settings.usage.loadError')}</p>}
+      {usage.isError && <Notice tone="danger">{t('settings.usage.loadError')}</Notice>}
       {usage.isSuccess && (
         <>
           <h3>{t('settings.usage.today')}</h3>

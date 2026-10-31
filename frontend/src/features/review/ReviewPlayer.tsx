@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { ApiError } from '../../api/client'
+import { formatInstant } from '../../i18n/format'
 import type { ItemStatus } from '../../api/library'
 import {
   checkProduction,
@@ -67,10 +68,10 @@ function announcement(
   const sameDay = due.toDateString() === new Date().toDateString()
   const saved = sameDay
     ? t('review.saved.today', {
-        time: new Intl.DateTimeFormat(language, { timeStyle: 'short' }).format(due),
+        time: formatInstant(language, due, { timeStyle: 'short' }),
       })
     : t('review.saved.later', {
-        date: new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(due),
+        date: formatInstant(language, due, { dateStyle: 'long' }),
       })
   let message = saved
   if (record.item_status_changed) {

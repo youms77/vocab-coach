@@ -22,6 +22,8 @@ import { ErrorText } from '../settings/ErrorText'
 import { readAutoCorrect } from '../speaking/speakingState'
 import { readUnavailableReason } from '../speaking/shadowTarget'
 import { CorrectionView } from '../writing/CorrectionView'
+import { Notice } from '../../components/Notice'
+import { English } from '../../components/English'
 
 const codeOf = (error: unknown) => (error instanceof ApiError ? error.code : null)
 
@@ -75,7 +77,7 @@ export function TargetsSummary({
               {groups[group].map((target) => (
                 <li key={target.lexical_item_id}>
                   <Link to={`/library/items/${target.lexical_item_id}`} lang="en">
-                    {target.term}
+                    <English>{target.term}</English>
                   </Link>
                   {group === 'correct' && activated.has(target.lexical_item_id) && (
                     <span className="badge">{t('consolidation.summary.nowActive')}</span>
@@ -88,10 +90,8 @@ export function TargetsSummary({
       )}
       {fresh != null && (
         <p className="muted" role="status">
-          {t('consolidation.summary.effect', {
-            active: fresh.activated_item_ids.length,
-            reinforced: fresh.reinforced_card_ids.length,
-          })}
+          {t('consolidation.summary.effectActive', { count: fresh.activated_item_ids.length })}{' '}
+          {t('consolidation.summary.effectReinforced', { count: fresh.reinforced_card_ids.length })}
         </p>
       )}
     </section>
@@ -165,9 +165,9 @@ function Attempt({ id }: { id: number }) {
     return (
       <div className="consolidation-page">
         <PageTitle>{t('consolidation.attempt.title')}</PageTitle>
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.production_not_found')}
-        </p>
+        </Notice>
         <p>
           <Link to="/consolidation">{t('consolidation.task.all')}</Link>
         </p>
@@ -238,7 +238,7 @@ function Attempt({ id }: { id: number }) {
                   className="recorder__player"
                 />
               ) : (
-                <p className="form-message form-message--warn">{t('speaking.detail.noAudio')}</p>
+                <Notice tone="warning">{t('speaking.detail.noAudio')}</Notice>
               )}
             </section>
           )}
@@ -253,7 +253,7 @@ function Attempt({ id }: { id: number }) {
 
             {silent && (
               <>
-                <p className="form-message form-message--warn">{t('speaking.detail.silence')}</p>
+                <Notice tone="warning">{t('speaking.detail.silence')}</Notice>
                 <p>
                   <Link to={taskLink}>{t('consolidation.attempt.recordAgain')}</Link>
                 </p>
@@ -304,9 +304,9 @@ function Attempt({ id }: { id: number }) {
                   {correct.isPending ? (
                     <p>{t('speaking.detail.checkingHint')}</p>
                   ) : (
-                    <p className="form-message form-message--warn">
+                    <Notice tone="warning">
                       {notCorrectedText(t, correct.data, correct.error)}
-                    </p>
+                    </Notice>
                   )}
                 </div>
                 {correctionError !== null && !correct.isPending && <ErrorText error={correctionError} />}
@@ -367,9 +367,9 @@ function Attempt({ id }: { id: number }) {
             </section>
           )}
           {production.corrected && task.data?.status === 'completed' && (
-            <p className="form-message form-message--ok" role="status">
+            <Notice tone="success" role="status">
               {t('consolidation.task.final.completed')}
-            </p>
+            </Notice>
           )}
         </>
       )}
@@ -385,9 +385,9 @@ export function ConsolidationAttemptPage() {
     return (
       <div className="consolidation-page">
         <PageTitle>{t('consolidation.attempt.title')}</PageTitle>
-        <p className="form-message form-message--error" role="alert">
+        <Notice tone="danger" role="alert">
           {t('errors.production_not_found')}
-        </p>
+        </Notice>
         <p>
           <Link to="/consolidation">{t('consolidation.task.all')}</Link>
         </p>

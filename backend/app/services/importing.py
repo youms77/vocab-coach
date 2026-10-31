@@ -30,6 +30,7 @@ from app.domain.markdown_import import (
 )
 from app.domain.normalize import MatchKind, naive_lemma, normalize_term
 from app.domain.study_day import as_utc
+from app.domain.tabular_import import ImportFormat, parse_table
 from app.services.library import (
     DuplicateCandidate,
     InvalidAttachTarget,
@@ -137,12 +138,18 @@ def _items_in_deck(session: Session, deck_id: int | None) -> set[int]:
 
 
 def preview(
-    session: Session, text: str, today: date, *, deck_id: int | None = None
+    session: Session,
+    text: str,
+    today: date,
+    *,
+    deck_id: int | None = None,
+    fmt: ImportFormat = "markdown",
 ) -> ImportPreview:
-    """Parse `text` and look up the library. Reads only; `deck_id` is the target deck, if known."""
+    """Parse `text` (Markdown, CSV or TSV) and look up the library. Reads only; `deck_id` is the
+    target deck, if known."""
     if deck_id is not None:
         get_deck(session, deck_id)
-    parsed = parse_import(text, today)
+    parsed = parse_import(text, today) if fmt == "markdown" else parse_table(text, fmt)
     forms = [(row.normalized_form, naive_lemma(row.normalized_form)) for row in parsed.rows]
     all_candidates = find_duplicates_many(session, forms)
     in_deck_ids = _items_in_deck(session, deck_id)

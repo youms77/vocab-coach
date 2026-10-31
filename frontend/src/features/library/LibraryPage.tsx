@@ -22,6 +22,10 @@ import { usePendingEnrichment } from '../../api/enrichment'
 import { useTriage } from '../../api/triage'
 import { ErrorText } from '../settings/ErrorText'
 import { QuickAdd } from './QuickAdd'
+import { Icon } from '../../components/Icon'
+import { SectionHeader } from '../../components/SectionHeader'
+import { sectionArt } from '../../components/sectionArt'
+import { English } from '../../components/English'
 
 function Filters({
   filters,
@@ -185,23 +189,37 @@ export function LibraryPage() {
 
   return (
     <div className="library-page">
-      <section className="hero">
-        <h1>{t('library.title')}</h1>
-        <p className="muted">{t('library.intro')}</p>
-        <p className="link-row">
-          <Link to="/import">{t('library.importLink')}</Link>
-          <Link to="/triage">
-            {t('library.triageLink')}
-            {toSort > 0 && <> ({t('library.toSort', { count: toSort })})</>}
-          </Link>
-          <Link to="/enrichment">
-            {t('library.enrichmentLink')}
-            {waiting > 0 && <> ({t('library.sheetsWaiting', { count: waiting })})</>}
-          </Link>
-          <Link to="/duplicates">{t('library.duplicatesLink')}</Link>
-          <Link to="/library/decks">{t('library.decksLink')}</Link>
-        </p>
-      </section>
+      <SectionHeader
+        eyebrow={`${t('nav.section')} · ${t('nav.groups.vocabulary')}`}
+        title={t('library.title')}
+        description={t('library.intro')}
+        illustration={sectionArt('library')}
+        actions={
+          <>
+            <Link to="/import" className="button button--primary">
+              <Icon name="import" size={18} />
+              {t('library.importLink')}
+            </Link>
+            <Link to="/triage" className="button">
+              <Icon name="filter" size={18} />
+              {t('library.triageLink')}
+              {toSort > 0 && <> ({t('library.toSort', { count: toSort })})</>}
+            </Link>
+            <Link to="/enrichment" className="button">
+              <Icon name="sparkles" size={18} />
+              {t('library.enrichmentLink')}
+              {waiting > 0 && <> ({t('library.sheetsWaiting', { count: waiting })})</>}
+            </Link>
+            <Link to="/duplicates" className="button">
+              <Icon name="copy" size={18} />
+              {t('library.duplicatesLink')}
+            </Link>
+            <Link to="/library/decks" className="button">
+              {t('library.decksLink')}
+            </Link>
+          </>
+        }
+      />
       <QuickAdd />
       <section className="card" aria-labelledby="terms-title">
         <h2 id="terms-title">{t('library.terms.title')}</h2>
@@ -231,7 +249,7 @@ export function LibraryPage() {
                   {items.data.items.map((item) => (
                     <tr key={item.id}>
                       <th scope="row">
-                        <Link to={`/library/items/${item.id}`}>{item.term}</Link>
+                        <Link to={`/library/items/${item.id}`}><English>{item.term}</English></Link>
                       </th>
                       <td>{t(`library.type.${item.item_type}`)}</td>
                       <td>{t(`library.status.${item.status}`)}</td>

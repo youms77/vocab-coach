@@ -14,6 +14,7 @@ import {
   formatShareCounts,
 } from './format'
 import { StatsSection } from './StatsSection'
+import { English } from '../../components/English'
 
 /** "0–1 days", "21–90 days", "90+ days". */
 function rangeLabel(t: TFunction, range: Range): string {
@@ -167,7 +168,7 @@ function Content({ data }: { data: MemoryStats }) {
                   <span className="muted">{t('stats.memory.termGone')}</span>
                 ) : (
                   <Link to={`/library/items/${term.item_id}`} lang="en">
-                    {term.term}
+                    <English>{term.term}</English>
                   </Link>
                 )}{' '}
                 <span className="muted">{t('stats.memory.lapses', { count: term.lapses })}</span>

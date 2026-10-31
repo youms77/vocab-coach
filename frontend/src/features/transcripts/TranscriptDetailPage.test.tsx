@@ -253,7 +253,7 @@ describe('Transcript page in French', () => {
     ).toBeInTheDocument()
     await waitFor(() => expect(marks()).toHaveLength(2))
     expect(screen.getByText('Votre tour 1')).toBeInTheDocument()
-    expect(screen.getByText(/Analysé avec le contexte de l'interlocuteur/)).toBeInTheDocument()
+    expect(screen.getByText(/Analysé avec le contexte de l’interlocuteur/)).toBeInTheDocument()
     expect(screen.getByText('Seuls vos tours sont enregistrés.')).toBeInTheDocument()
   })
 })

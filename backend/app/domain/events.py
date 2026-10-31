@@ -80,6 +80,7 @@ class EventType(StrEnum):
     SESSION_ENDED = "session.ended"
     SETTING_CHANGED = "setting.changed"
     AI_CREDENTIAL_CHANGED = "ai.credential_changed"
+    BACKUP_CREATED = "backup.created"
 
 
 class ItemOrigin(StrEnum):
@@ -743,6 +744,20 @@ class AiCredentialChanged(Event):
 
     provider: Literal["gemini", "groq", "ollama", "azure"]
     action: Literal["set", "removed"]
+
+
+class BackupCreated(Event):
+    """A full backup archive was written (module J, M10.a). Counts only: no path, no text. It is
+    recorded after the archive is complete, so the archive does not contain its own event."""
+
+    event_type = EventType.BACKUP_CREATED
+    entity_type = "backup"
+
+    kind: Literal["manual", "auto"]
+    tables: Annotated[int, Field(ge=0)]
+    rows: Annotated[int, Field(ge=0)]
+    audio_files: Annotated[int, Field(ge=0)]
+    bytes: Annotated[int, Field(ge=0)]
 
 
 class CurriculumTrackStarted(Event):

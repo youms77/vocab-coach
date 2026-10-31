@@ -91,7 +91,7 @@ describe('Settings page: Azure card', () => {
     expect(within(card).getByLabelText('Azure Speech key')).toHaveAttribute('type', 'password')
     expect(within(card).getByRole('button', { name: 'Test connection' })).toBeDisabled()
     // Nothing can be turned on before a key is saved.
-    expect(within(card).getByRole('checkbox')).toBeDisabled()
+    expect(await within(card).findByRole('checkbox')).toBeDisabled()
     expect(within(card).queryByText('Use this month')).not.toBeInTheDocument()
   })
 
@@ -175,7 +175,7 @@ describe('Settings page: Azure card', () => {
       name: 'Pronunciation assessment (optional, Azure)',
     })
     expect(within(card).getByLabelText('Azure Speech key')).toBeDisabled()
-    expect(within(card).getByRole('checkbox')).toBeDisabled()
+    expect(await within(card).findByRole('checkbox')).toBeDisabled()
     expect(within(card).getByRole('button', { name: 'Test connection' })).toBeDisabled()
   })
 

@@ -8,6 +8,7 @@ import { StepHeading } from '../session/StepHeading'
 import { aiReasonText } from '../settings/aiReason'
 import { ErrorText } from '../settings/ErrorText'
 import { ComparisonView } from '../speaking/ComparisonView'
+import { Notice } from '../../components/Notice'
 
 export const PERSONAL_MAX = 1000
 
@@ -66,7 +67,7 @@ function RepetitionRecording({
           )
         }
       />
-      <div role="status">{notice !== null && <p className="form-message form-message--warn">{notice}</p>}</div>
+      <div role="status">{notice !== null && <Notice tone="warning">{notice}</Notice>}</div>
       {shadow.isError && <ErrorText error={shadow.error} />}
       {sent !== undefined && sent.comparison !== null && (
         <>

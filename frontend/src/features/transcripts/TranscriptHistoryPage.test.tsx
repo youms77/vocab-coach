@@ -64,6 +64,6 @@ describe('Transcript history', () => {
     listing([])
     renderApp('/transcripts/history')
     expect(await screen.findByRole('heading', { level: 1, name: 'Mes conversations' })).toBeInTheDocument()
-    expect(await screen.findByText('Aucune conversation pour l\'instant. Collez la première.')).toBeInTheDocument()
+    expect(await screen.findByText('Aucune conversation pour l’instant. Collez la première.')).toBeInTheDocument()
   })
 })

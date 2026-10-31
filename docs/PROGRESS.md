@@ -4,6 +4,13 @@ Updated at the end of every milestone session. Paste this file into the next pla
 
 ## Current state
 
+- **M10.c2** (import of CSV, TSV and plain-text lists, the chatbot conversion prompt, the About page, the README feature overview and "Preparing a word list"; no migration, no new dependency) is done on `feat/m10c-finish`, built in two parallel sessions and merged. Decisions D-329 to D-331. Pushed with a pull request to `main` (it carries RV, M10.a, M10.b, M10.c1 and M10.c2). Next: the owner's review, the CI, the merge, then what is left of M10.c2 (screenshots, illustrations check, clean install, version 1.0.0). See its section.
+- **M10.c1** (complete French translation: formats, typography, backend texts, tests; one additive backend change) is done on `feat/m10c-finish`, cut from the tip of `feat/m10b-use-mode`. Not pushed. Next: **M10.c2**. See its section.
+- **M10.b** (use mode: one process, one port, the built frontend served by FastAPI; security and performance reviews; no migration, no new project dependency) is done on `feat/m10b-use-mode`, cut from the tip of `feat/m10a-backup` (RV and M10.a are **not** in `main`). Not pushed. Decisions D-310 to D-318. Next: the owner's review (manual scenario in the M10.b section), then M10.c (translation and the final README).
+- **M10.a2** (the settings card; frontend only) is done on `feat/m10a-backup` after M10.a1. M10.a is complete; not pushed; the card is not seen in a browser. Next: the owner's review, then M10.b (decisions from D-310). See the M10.a2 section.
+- **M10.a1** (module J, full backup and restore: format, services, API, CLI; no migration, no screen) is done on `feat/m10a-backup`, cut from the tip of `feat/rv-visual-redesign`. Not pushed. Decisions D-302 to D-308. Next: **M10.a2** (the settings card). See the M10.a1 section.
+- **RV.b** (visual redesign, screen by screen; frontend only) is done on `feat/rv-visual-redesign` after RV.a: home, session, section headers, import cards, `CorrectionMark`, notices, CSS cleanup (D-295 to D-301). Not pushed. **The eight section illustrations are still missing** (the four headers work without them). Next: the owner's review of RV, the illustrations, then the push; M10.a branches from the tip of this branch and numbers its decisions from D-302. See the RV.b section.
+- **RV.a** (visual redesign, foundations; frontend only) is done on `feat/rv-visual-redesign`, cut from `main` (`9ebb82c`, M1 to M9): layers, tokens, Inter, icons, base components, the sidebar shell, the style guide, the contrast test, readable charts. Not pushed. RV.b followed (see above). See the RV.a section. M10.a comes after RV.
 - **M9.b** (module I, the statistics dashboard, frontend only) is done on `claude/m9b-dashboard-f352c1`, cut from `329160c` (tip of `feat/m9a-stats-backend`): **M9.b1** (overview, errors, memory, period picker, CSV link) and **M9.b2** (progress, practice, AI). Not pushed. Next: the owner's review of M9, then the push. See the M9.b2 and M9.b1 sections.
 - **M9.a** (module I, the statistics backend: every indicator from the logs, `/api/stats/*`, the CSV export, `stats summary | errors | memory | export`; no screen, no migration) is done on `feat/m9a-stats-backend`, cut from `bb7f8fd` (tip of `feat/m8b-curriculum-screens`), in two commits (M9.a1, M9.a2). Not pushed. Next: the owner's review, then **M9.b** (the dashboard). See the M9.a section and its API reference.
 - **M8.b2** (module H, the editor of a scenario unit's content: formulas, dialogue, shadowing lines, final task; frontend only) is done on `feat/m8b-curriculum-screens` after M8.b1 (`4d522c2`). Not pushed. Next: the owner's review of M6 to M8, then the push. See the M8.b2 section.
@@ -29,6 +36,301 @@ Updated at the end of every milestone session. Paste this file into the next pla
   pass with them (`tests/live/test_live_speech.py`, the M6.a1 shadowing, was still not run). The owner's manual
   scenarios (M2.c2, M3.c3, M5.a1, M5.a2, M5.a3, M5.b1, M5.b2, M5.c1, M5.c2, M6.a1, M6.a2a, M6.a2b, M6.b1, M6.b2.1 and M6.b2.2) are still to run.
 - Before starting a branch: `git switch main` then `git pull`.
+
+## M10.c2 — Bring your words in: formats, conversion prompt, About page, README
+
+Branch `feat/m10c-finish` (merges of `claude/m10c2-import-formats-d972a6` and `claude/m10c2-about-readme-da3967`, two
+sessions run in parallel). No migration, no new dependency. Decisions D-329 to D-331.
+
+### Done
+
+- **Import** (D-329): `.csv` / `.tsv` (term, optional sentence; comma, semicolon or tab detected; header row skipped)
+  and `.txt`, through the same preview and commit; `format` on `POST /api/import/preview`; `library import --format`;
+  a notice for a non-UTF-8 file.
+- **Conversion prompt** (D-330), written with the owner: a list is kept whole, else the marked words, else words
+  chosen for a B1 French speaker under a maximum.
+- **About page** `/about` (D-331): purpose, principles, modules, formats, example, prompt with a Copy button; linked
+  from the sidebar and the Import page.
+- **README**: feature overview near the top and a "Preparing a word list" section with the formats and the prompt.
+
+### Verified
+
+- Branches: import — pytest green (+24 parser tests, +2 API, +1 CLI), 4 new Vitest tests; About — `npm run check`
+  green (922 Vitest tests). After the merge: see the M10.c2 commit message for the full `npm run check` result.
+- Browser (dev servers, demo): `/about` in English and French, title "À propos · vocab-coach", the French prompt
+  shown in full, no horizontal scroll at 375 px; the Import page shows the formats hint and the link; no console
+  error. The import session saw a semicolon CSV with a header row and a `.txt` file reach the preview.
+- Fixed while verifying: the undefined `--space-5` token on the modules list (D-331).
+
+### Not seen / left
+
+- The Copy button's success (the built-in browser pane denies clipboard writes; the failure message was seen).
+- A real Windows-1252 CSV from Excel; dark/light comparison of `/about` beyond the default theme.
+- Left from M10.c2's plan: screenshots in the README, clean install from the README, version 1.0.0.
+
+## M10.c1 — Complete French translation
+
+Branch `feat/m10c-finish`, cut from the tip of `feat/m10b-use-mode` (M10.b is not in `main`). Not pushed. Decisions D-319 to D-328. One backend change, additive and tested (D-324); no migration.
+
+### Done
+
+- One formatting module (`i18n/format.ts`), study days without a time-zone shift (4 zones tested), `<html lang>` at load, tab title per route (D-325), `lang="en"` on learning content (D-326).
+- Tests that keep it clean: `hardcoded.test.ts`, `plurals.test.ts`, `untranslated.test.ts`, French typography in `locales.test.ts`, `backendCodes.test.ts`, `pageTitle.test.tsx`, `FieldErrors.test.tsx`, `format.test.ts`, `documentLang.test.ts`.
+- 687 French values corrected for typography, 16 reworded (tutoiement and "Deck" in the statistics page), 34 added, 1 removed: `docs/i18n-fr-changes-m10c1.md`. Glossary: `docs/i18n-glossary.md`.
+- Backend texts: table in D-327.
+
+### Verified
+
+- Full Vitest run before the last small fix: 914 passed, 1 failed (`hardcoded.test.ts` flagging `pageTitle.ts`, fixed since; the three affected test files pass). Ruff clean. A full `npm run check` and the full pytest run were **not** repeated after the last edits.
+- Break-and-restore: a string added to `Notice.tsx`, the study-day zone, the old `fr.json` against the typography tests.
+- Browser (demo in a temporary `VOCAB_DATA_DIR`, provider keys emptied): 37 URLs in French, no overflow at 375 px, English-leak sweep empty except "Error cards".
+
+### Not seen / left
+
+- Dark theme and 1 280 px in French; the four detail screens after a real recording; the full pytest run after the backend change (only the two touched test files ran).
+- 34 `en.json` keys look unused (reported, not deleted). "Error cards" deck name stays English (owner's decision). Learning content not tagged `lang="en"`: see D-326.
+
+### Next
+
+- M10.c2: illustrations, README, captures, clean install, version 1.0.0.
+
+## M10.b — Use mode, security review, performance review
+
+Branch `feat/m10b-use-mode`, cut from the tip of `feat/m10a-backup`. Not pushed.
+
+### Done
+
+- **Use mode** (D-310 to D-312, D-317): `python -m app --use`, `start.ps1 -Use`, `start.cmd -Use`, `start.sh --use` (with `-Demo` / `--demo`, `-NoBrowser`, `-Rebuild` / `--rebuild`). FastAPI serves `frontend/dist` and the API on `127.0.0.1:8000`: assets, page fallback, cache headers, security headers, strict CSP, `localhost` -> `127.0.0.1` redirect, guard unchanged and outermost. The launcher builds when `dist` is missing or older than the sources, prepares the database, refuses a busy port (exit 2).
+- **Database at start** (D-313): `db prepare` copies a personal database that is behind `head` to `data/backups/vocab-coach-pre-upgrade-from-<rev>-<date>.sqlite3`, then upgrades. **Departure from the brief** (approved by the owner): a plain SQLite file, not a backup zip, because the backup service refuses a database behind `head`.
+- **Bundle** (D-314): lazy pages, `vendor` chunk, accessible loading state, error screen with a reload button. Home JavaScript 1,028,419 -> 651,426 B (-37 %); the 500 kB warning is gone.
+- **Reviews**: `docs/security-review.md` (8 points, every line with a proof) and `docs/performance-review.md`. Audits: `npm audit` x4 and `pip-audit`: 0 findings.
+- **Two bugs found while verifying and fixed**: `POST /api/backup` could fail with a read-only database (D-315); a 375 px overflow on `/consolidation` (D-316).
+- README "Daily use", `docs/architecture.md` "Two ways to run".
+
+### Verified
+
+- `npm run check`: ruff clean, 2,983 pytest passed (1 skipped: symbolic links), typecheck, oxlint, 873 Vitest tests passed (4 existing assertions made asynchronous, none removed). `alembic check`: no new operation. `npm --prefix frontend run build`: no size warning. No new dependency.
+- New tests: `api/test_frontend_serving.py` (fake `dist` in `tmp_path`: fallback, 404s, 405, cache, headers, CSP, redirect, 403 before redirect, malicious paths, missing build, 500 without trace), `test_startup_upgrade.py` (copy valid and at `0001`, injected failure, rotation, demo, CLI exit codes), `test_read_only_session.py`, `RouteFallback.test.tsx`. `api/test_guard.py` untouched and passing.
+- **Break and restore**: removing the "stays inside `dist`" check made 7 path tests fail; serving `index.html` for a missing `/assets/` file made `test_missing_files_are_404_and_never_html` fail; both restored.
+- **Runtime**, demo in a temporary `VOCAB_DATA_DIR`: `start.ps1 -Use -Demo -NoBrowser` answers on `127.0.0.1:8000`; `/library/items/1`, `/stats` and `/styleguide` give the page, `/docs` works, `/assets/nope.js` and `/api/nope` give 404, `localhost:8000/stats?...` gives 307, a foreign Host 403; a second start gives "Port 8000 is already used by python (pid ...)" and exit 2; a restart says "Frontend build is up to date" and "Database is up to date".
+- **In the built-in browser** (same server): the 15 URLs `/`, `/session`, `/queue`, `/library`, `/library/items/1`, `/import`, `/writing`, `/speaking`, `/transcripts`, `/consolidation`, `/curriculum`, `/drills`, `/errors`, `/stats`, `/settings` visited by navigation inside one page load, in English and French, light and dark, at 1024 px and at 375 px: **no CSP violation, no error event, no page without a title, `scrollWidth` = `clientWidth` everywhere** after the D-316 fix. Two cards reviewed by keyboard (a choice key, then a rating key), a recording of the demo played and sought (`Audio` on the API URL and on a `blob:` URL), a backup downloaded from the settings card (`vocab-coach-backup-...zip` through a `blob:` link), a direct load of `/library/items/1` in a clean tab with an empty console.
+
+### Seen and not seen
+
+- **Not seen**: the 1280 px width (the pane is 1024 px; 375 px and 1024 px were checked), a screenshot of each of the 15 screens (the sweep checked structure, width and errors by script; a few screens were looked at), three cards by keyboard (two were done), the real `start.ps1 -Use` without `-NoBrowser` (the browser opening in use mode was not exercised), a real F5 key press (a direct load of a deep URL and the fallback by `curl` were used), the "cache empty" page weight (computed, not measured).
+- The "15 screens of RV.b" list is not spelled out in the documents, so the 15 URLs above are my reading of it.
+- A commit by someone else (`c142bfd`, the section illustrations) arrived on this branch while I worked, and the two locale files were reverted in the working tree at some point; I restored them from `HEAD` and re-added the three `route.*` keys. The eight PNG headers weigh 1.3 to 1.4 MB each: see the performance review.
+
+### Left / next
+
+- The owner decides on lazy-loading `fr.json` and on shrinking the PNG headers.
+- M10.c: complete translation check and the final README.
+
+### Manual scenario (3 minutes)
+
+```powershell
+.\start.ps1 -Use -Demo
+```
+
+1. The browser opens on `http://127.0.0.1:8000/`. Start a session and do 3 cards by keyboard.
+2. Open a term, press F5: the term page comes back.
+3. Type `http://localhost:8000/stats`: the address becomes `127.0.0.1`.
+4. F12, Console: no error.
+5. Ctrl+C, then `.\start.ps1 -Use` on your database: it starts without building, and without upgrading if the database is at `head` (otherwise it first writes `data\backups\vocab-coach-pre-upgrade-from-...sqlite3`).
+
+## M10.a2 — The "Backup" card of the settings page (frontend only)
+
+Same branch `feat/m10a-backup`, after M10.a1 (`9b24fc3`). Not pushed. **No backend change, no migration, no new dependency.** Decision **D-309**.
+
+### Done
+
+- `BackupCard` at the end of `/settings`: warning (all personal data, no key), "Download a backup" (`POST /api/backup` through `apiDownload`), automatic-copy form (folder, copies to keep), last copy and last error in words, "Make a copy now", and the "Restore" block (commands to copy, "stop the app first"). English and French, same keys. Demo: form and copy button disabled with a notice.
+
+### Verified
+
+- **Tests**: 869 Vitest tests in 74 files (863 in 73 before: **+6**, all in `BackupCard.test.tsx`: warning and restore commands, POST download with the server's file name, saving and the reason of a refused folder, out-of-range number never sent, last error in words and copy now, demo lock). The existing `SettingsPage.test.tsx` fixtures gained the two settings and the status route; no assertion was changed. `npm run check` is green (ruff, 2,929 pytest tests, typecheck, oxlint, Vitest) and `npm --prefix frontend run build` passes. Translation keys are type-checked.
+- Hard-coded colours outside `tokens.css`: only the `#000` of D-294, as before.
+
+### Not seen
+
+- **The card was not opened in a browser** (no screenshot, no 375 px or dark check, no focus-ring check): only the tests and the build ran. Please look at it in light and dark, in English and French, and at phone width.
+
+### Left / known limits
+
+- No progress bar for a large download (the browser shows its own). The status is not refreshed by a timer.
+- The folder is validated by the server only; the page does not offer a folder picker (a browser cannot give a full path).
+
+### Next step
+
+The owner's review of M10.a, then the push after the owner's go-ahead. Then **M10.b** (one-port mode, security and performance reviews). **M10.b numbers its decisions from D-310.**
+
+### Owner's manual scenario (2 minutes)
+
+The commands of M10.a1, then in the browser: (1) Settings shows the "Backup" card; (2) "Download a backup" saves a zip; (3) on your own database, enter an OneDrive folder, "Save", then "Make a copy now": the file `vocab-coach-backup-...zip` appears in the folder and the card shows the date.
+
+## M10.a1 — Full backup and restore: backend and CLI (module J)
+
+Branch `feat/m10a-backup`, cut from the tip of `feat/rv-visual-redesign` (as planned: RV is not merged, so decisions continue from D-301). Not pushed. **No migration** (`alembic check`: no new upgrade operations), **no new dependency**, no change to the frontend yet (M10.a2). Decisions **D-302 to D-308**.
+
+### Done
+
+- **Format** `vocab-coach-backup-1` (D-302): manifest, `tables/*.jsonl`, `audio/...`; exact encoding including clock columns and the two kinds of JSON null.
+- **Services**: `backup_format.py` (pure), `backup.py` (creation in one read transaction, `backup.created` after it), `backup_verify.py` (D-303), `backup_restore.py` (D-304, D-305), `backup_auto.py` (D-307).
+- **API** (D-308): `POST /api/backup`, `GET /api/backup/status`, `POST /api/backup/auto/run`; `backup_auto_folder` and `backup_auto_keep` in the settings registry, the folder checked in `PATCH /api/settings` (422 `invalid_setting` with `reason`); copy after `POST /api/session/{id}/end` (`BackgroundTasks`) and at startup.
+- **CLI**: `backup create | verify | restore | auto`.
+- Docs: README "Backup and restore", `architecture.md`, DECISIONS.
+
+### Verified
+
+- **Tests**: 2,929 pytest tests (2,879 before: **+50**), all green; `ruff check` and `ruff format --check` clean; `alembic check` clean. New files: `test_backup_roundtrip`, `test_backup_service`, `test_backup_verify`, `test_backup_restore`, `test_backup_auto`, `test_cli_backup`, `api/test_backup_api`, helpers `backup_support.py` and `backup_old_schema.py`; two fixtures added to `tests/conftest.py` (the demo source and an autouse switch for the startup copy).
+- **Round trip** (seed 42, 60 days, fixed anchor `2026-09-01`): fingerprint of all tables **identical, clock columns included**; recordings identical byte for byte; `GET /api/stats/overview` equal before and after.
+- **Restore from `0001`**: an archive built by hand at `0001` restores and the database reaches `head`. Unknown revision: refused (`backup_from_newer_version`), nothing written.
+- **Hostile archives** (each refused with no write in the target folder): `../x`, absolute path and drive letter, backslash, bad sha256, changed data, zip bomb (limit lowered by the test), no manifest, not a zip, unlisted member, unknown format.
+- **Target**: not empty without `--replace`: refused; with `--replace --yes`: `.bak` database and `audio.bak-` folder present and equal to the old ones. Demo to personal and personal to demo: refused.
+- **Injected failure** in the middle of the insertion (6th table): database and recordings folder unchanged, no temporary file or folder left. **Windows**: a real second connection holding the database during the restore gives `file_locked` ("stop the app"), nothing changed.
+- **Rotation**: 12 copies with `keep=10` leave 10, five foreign files with close names untouched. Folder inside a Git repository refused (allowed under `data/`); three retries 200 ms apart; startup copy only after 24 h; no copy on the demo.
+- **No key** in the archive; creating a backup writes only the `backup.created` event; reading statistics writes nothing.
+- **Two broken-code checks, then restored** (`grep BROKEN` returns nothing): (a) `created_at` regenerated at insertion: the round-trip test **fails** (fingerprints differ); (b) member-name check removed: the `../x` test **fails** (`unexpected_member` instead of `unsafe_member_name`: a second layer still refuses it, see D-303).
+
+### Seen / not seen
+
+- The CLI part of the manual scenario was run by me on a temporary `VOCAB_DATA_DIR` (seed, create 4,472 rows and 24 recordings, verify, restore with `--replace --yes`, a second restore refused with exit 2). The browser part (start the app on the demo, the settings card) belongs to M10.a2 and was not run. I ran `alembic check` without a temporary `VOCAB_DATA_DIR`, so it opened `data/vocab-coach.sqlite3` read-only (its modification time, 2026-10-26 13:51, did not change); everything else used temporary folders.
+
+### Left / known limits
+
+- The settings card (M10.a2). A restore from the interface is out of scope.
+- The `-wal` of an old database is moved with it; a database held open by a running app is refused (Windows) rather than restored.
+- A JSON value equal to `{"$json": "null"}` would be read back as a JSON null (D-302); no column holds one.
+- `backup.created` events are not in the archive that they describe (accepted).
+
+### Owner's manual scenario (2 minutes)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset
+uv run python -m app --demo backup create --out $env:TEMP\vc-backup.zip
+uv run python -m app --demo backup verify $env:TEMP\vc-backup.zip
+uv run python -m app --demo backup restore $env:TEMP\vc-backup.zip --replace --yes
+cd ..; .\start.ps1 -Demo
+```
+
+## RV.b — Visual redesign: screen by screen (frontend only)
+
+> **Update:** the eight section illustrations were added by the owner (`frontend/src/assets/sections/`, 1680x944 px, about 1.3 MB each, 10.8 MB in all, larger than the 800 px of the brief: worth recompressing). Seen in the browser at 1280 px: Library (light and dark), Writing (light), Speaking (dark); Errors was measured (`scrollWidth`) but not looked at. Where the text below says they are missing, read it as superseded.
+
+Same branch `feat/rv-visual-redesign`, after the documentation commit of RV.a (`32aa0c0`). Not pushed, nothing merged. **No backend change** (`git diff --stat main -- backend` is empty), **no migration, no new dependency** (`package.json` and the lockfiles are unchanged). Decisions **D-295 to D-301**. The brief (`docs/prompt_RV_visual_redesign.md`) is the reference.
+
+### Done
+
+- **Home** (D-295): `HomeHero` with the photo, the date, a greeting with the planned minutes, one sentence and the single Start / Resume action; three `StatTile`s; "Continue" `ActionTile`s; the Today card (plan details, warnings as notices) and the server status as a notice. Only data the page already loaded (no new API call).
+- **Today and the session** (D-297): reading column of 720 px, progress bar from tokens with its figures, sunken answer zone, four colour-coded rating buttons of a fixed height, `kbd` hints unchanged. The review result, discovery, wait, practice and summary steps inherit the column.
+- **Section headers** (D-296): Library, Writing, Speaking, Errors (illustration slot) and Tracks, Consolidation, Statistics (no slot); the link rows became buttons, one primary where the page has no primary action of its own.
+- **Import preview** (D-299): one card per row below 600 px, same controls and tab order.
+- **`CorrectionMark` and `CategoryCode`** (D-298): wrong fragment on `accent-tint` with a wavy underline, then the fix on `success-tint`; category codes break at the dots (`<wbr>`).
+- **Notices** (D-300): about a hundred paragraph messages are `Notice`s; the remaining `form-message*` look the same. `<fieldset>` no longer inside a `<p>` (dialogue step).
+- **CSS** (D-301): the 560 px / 40 rem / 30 rem queries are 600 px; sizes and radii of the feature files use tokens.
+- **Documentation**: this section, DECISIONS D-295 to D-301, `architecture.md`, `DESIGN_PLAN.md` (status "implemented", except the illustrations).
+
+### Verified
+
+- **Tests**: 863 Vitest tests in 73 files (857 in 71 at the end of RV.a: +6). **One existing assertion was modified** and none removed: in `TodayCard.test.tsx`, "Start today's session" was looked for inside the "Today's session" card and is now looked for on the page, because the one Start / Resume link moved to the home hero (D-295). The anti-leak tests of the review and the discovery are untouched. Added: `RatingButtons.test.tsx` (2: tone classes and keys, "Suggested" in words), `CategoryCode.test.tsx` (4: `<wbr>` after each dot with the text unchanged, and `CorrectionMark` with and without a fix). **`npm run check` is green** and `npm --prefix frontend run build` passes: ruff clean, 355 files formatted, 2,879 pytest tests passed, typecheck, oxlint, 863 of 863 Vitest tests (exit 0).
+- **Hard-coded colours** outside `tokens.css`, same command as RV.a: `rg -n --glob '*.css' --glob '!tokens.css' -e '#[0-9a-fA-F]{3,8}\b' -e 'rgba?\(' -e 'hsla?\(' frontend/src` returns one line, `frontend/src\styles\components.css:631: mask-image: radial-gradient(ellipse 50% 50% at 55% 50%, #000 55%, transparent 100%);` (D-294); `rg "#[0-9a-fA-F]{6}\b|rgba?\(" frontend/src --glob '*.tsx' --glob '!*.test.tsx'` returns nothing.
+- **CSS size** (built, minified): at the start of RV 36,104 bytes / 6,901 gzip; end of RV.a 50,186 / 9,474; **end of RV.b 53,784 / 9,790 (+49 % / +42 % over the start of RV; +7 % / +3 % over RV.a)**. The increase over the 20 % limit of the brief is code that did not exist (shell, tiles, header, hero, empty states, notices, import cards, rating colours, correction marks), not duplication; the old `.hero` rules, the dead top-bar rules and the old rating rules were removed. Fonts and the photo are separate assets.
+- **Binary files added in RV**: `InterVariable.woff2` (352,240), `home-hero-p6.jpg` (355,390); the licence is text. **The eight section illustrations are not in the repository** (not provided).
+- **Style guide absent from the build**: neither `STYLEGUIDE-WITNESS-7f3a91` nor "Colour tokens" is in `dist/`.
+- **At 375 px** (headless Edge driven through the DevTools protocol, demo database in a temporary `VOCAB_DATA_DIR` seeded `--anchor 2026-10-27`, no `.env`, no AI call): **`scrollWidth` is 375 on all 60 runs**: 15 screens (the 13 of the brief's list that a URL or a click reaches, the style guide and the open menu) in English and French, light and dark. At 1280 px `scrollWidth` is 1280 on every shot. Chart labels: **13.00 px at 375 and 1280 px**, legends 14 px (statistics page, 11 charts; style guide).
+- **Screenshots, before | after**: `C:\Users\Yobijo\AppData\Local\Temp\vc-rv-shots\index-rvb.html` (images in `before\` = start of RV, `final\` = end of RV.b, named `<screen>-<width>-<theme>-<language>.png`; 48 screens: the 15 of the list at 1280 light and dark, 375 light English, 375 French for the home, Today, review result and menu, the style guide, the folded sidebar, the open menu). The RV.a "after" set stays in `after\` with `index.html`. Full-page captures, height capped at 6,000 px; the sticky sidebar sits lower in a long page's capture: a capture effect.
+
+### Seen with my own eyes, and not seen
+
+- **Seen** (opened the screenshot): home (light and dark, 1280; French 375), the review result (1280 light, 375 English), discovery after the guess (1280 dark), library (1280 light, 375), import preview (375), writing correction (1280 dark, reduced), error log (1280 light), Today (French 375).
+- **Not seen**: the other captures of the 48 (the term page and its sheet, shadowing comparison, scenario unit, statistics, settings, the folded sidebar, the open menu, the style guide after RV.b, dark and 375 of most screens, French beyond the home and Today); the Writing, Speaking, Tracks and Consolidation landing pages (no capture in the list: checked by their tests and by the same component as the Library and Errors headers); the dialogue step (the `<fieldset>` fix is DOM-only); focus rings on each control; 200 % zoom at 1280 px (the 640 px width was measured in RV.a, not re-measured).
+
+### Left / known limits
+
+- **The eight illustrations** (`header-<library|writing|speaking|errors>-<light|dark>.png`, about 800 px) are not in `frontend/src/assets/sections/`: the four headers have none. Adding the files is enough (D-296), no code change; check them in both themes afterwards.
+- `ProblemText` (import problems) and the sheet, drill, transcript and speaking detail screens keep their markup (colours and sizes come from the tokens; `.badge` and `.status` were restyled in RV.a); the `form-message` divs with extra classes were not converted to `Notice`.
+- The 4 stat tiles and Continue tiles are one column on a phone (long page); a denser phone layout is a possible follow-up.
+- The page title still shows a focus ring when it takes the focus on arrival (it did before RV): it is visible in the captures.
+- Flaky test under load, as in RV.a: `drillLinks.test.tsx` (1 s `findBy`); it passed in every run of this session, which never ran concurrently with pytest.
+- Chrome or Edge 123 or later (D-286).
+
+### Next step
+
+The owner's review of RV (scenario below), the eight illustrations, then the push and the pull request after the owner's go-ahead. **M10.a branches from the tip of `feat/rv-visual-redesign` and numbers its decisions from D-302.**
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset --anchor <today, YYYY-MM-DD>
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Look at the home page: the photo, the three figures, the Continue tiles; start the session with the button of the banner, then do 3 cards with the keyboard (type, Enter, then 1 to 4 and Enter).
+2. Open the library (header with its buttons), then a term.
+3. Open the statistics, for the week.
+4. Fold and unfold the sidebar, then reload the page: the state is kept.
+5. Switch the Theme to Dark, then the Language to French, then narrow the window to a phone width and open the Menu (Escape closes it).
+6. Open the error log: mistakes in coral, fixes in green, codes breaking at the dots; open the import page, paste a few lines, press Preview and narrow the window: each row is a card.
+7. Open http://127.0.0.1:5173/styleguide.
+
+## RV.a — Visual redesign: foundations (frontend only)
+
+Branch `feat/rv-visual-redesign`, cut from `main` (`9ebb82c`), then `git cherry-pick 6f8b007` (the design plan and the hero photos). Six commits after the cherry-pick (spec, CSS layers, tokens and Inter, icons and shell, charts and style guide, documentation), not pushed. **No backend change** (`git diff --stat main -- backend` is empty), **no migration, no new dependency** (`package.json` and the lockfiles are unchanged). Decisions **D-285 to D-294**. The brief (`docs/prompt_RV_visual_redesign.md`) is the reference; the owner's go-ahead is needed before RV.b.
+
+### Done
+
+- **Spec** (once, first commit): section 8 now separates the illustrated landing pages from the clean working screens, section 9 has the RV line between M9 and M10. The second hero photo (`home-hero-p2.jpg`) is deleted.
+- **CSS in layers** (D-285): `styles.css` (2,834 lines) became `styles/index.css` (`@layer tokens, base, components, layout, features`), `tokens.css`, `base.css`, `components.css`, `layout.css` and 16 files in `styles/features/`. The cut came first and changed nothing: 39 of the 42 reference screenshots are byte-identical before and after it, the 3 others differ only by the "Computed on" timestamp of the statistics page.
+- **Tokens** (D-286, D-287): every colour once, as `light-dark()`, in `tokens.css`; the brief's values (with the corrected `border-strong` and `accent`); type scale, spacing, radius, shadow, size and duration tokens. The duplicated dark block is gone; the theme selector and `theme.ts` are unchanged. Old-to-new names are in D-286.
+- **Inter** (D-288): v4.1 (16 November 2024, SIL OFL 1.1), `InterVariable.woff2` 352,240 bytes and `OFL.txt` 4,380 bytes in `frontend/src/assets/fonts/`, with a system fallback; nothing loads from the network.
+- **Icons** (D-289): 30 home-made outline icons (`Icon`, `iconPaths.ts`), no library.
+- **Base components**: buttons (primary, secondary, ghost, danger, hero, icon; small, normal, large; disabled, busy; counter), fields, cards, tables (`.num` columns, scrolling `.table-wrap`), badges, notices, `kbd`, details, status dots, and the React components `Badge`, `Notice`, `StatTile`, `ActionTile`, `SectionHeader` (picks its illustration by active theme through `useActiveTheme`), `HomeHero`, `EmptyState` (three flat illustrations). The existing classes were restyled in place: no change in the ~200 buttons' markup.
+- **Shell** (D-290): sidebar (expanded 232 px, folded 72 px, state in `vocab-coach.sidebar`), top bar (fold or Menu button, Demo data badge, Language, Theme), menu panel below 960 px (Escape, focus, route change, backdrop), `aria-current`, groups Vocabulary / Practice / Progress, Settings at the bottom. New EN and FR keys: `nav.menu`, `nav.collapse`, `nav.expand`, `nav.section`, `nav.groups.*`.
+- **Charts** (D-293): `LineChart` is drawn at its container's width. **Style guide** (D-291): `/styleguide`, development only. **Contrast test** (D-292): 71 checks.
+
+### Verified
+
+- **Tests**: 857 Vitest tests in 71 files (775 in 67 before): +71 contrast, +8 sidebar and menu, +2 icons, +1 style guide. **No existing test was modified or removed.** **`npm run check` is green** at the end of RV.a (ruff, 355 files formatted, 2,879 pytest tests passed, typecheck, oxlint, 857 of 857 Vitest tests in 71 files) and `npm --prefix frontend run build` passes.
+- **Broken-code check** (applied, then reverted): dark `--ink-muted` `#a3a1c2` changed to `#4a4870` made four contrast tests fail (`dark: --ink-muted on --bg is at least 4.5:1` 2.12, `on --surface`, `on --brand-tint` 1.89, `on --surface-sunken` 2.01); restored, 71 of 71 pass.
+- **Hard-coded colours** outside `tokens.css`, `rg -n --glob '*.css' --glob '!tokens.css' -e '#[0-9a-fA-F]{3,8}\b' -e 'rgba?\(' -e 'hsla?\(' frontend/src` returns one line, `styles/components.css:616: mask-image: radial-gradient(ellipse 50% 50% at 55% 50%, #000 55%, transparent 100%)` (a mask reads only alpha, D-294); no colour in any `.tsx` (`rg "#[0-9a-fA-F]{6}\b"` over non-test TSX returns nothing).
+- **CSS size** (built, minified): before 36,104 bytes / 6,901 gzip, after **50,186 / 9,474 gzip (+39 % / +37 %)**; sources 49,373 bytes / 2,834 lines before, 3,667 lines in 24 files after (the 20 % limit of the brief is exceeded: the increase is new code, not duplication: the sidebar, top bar and menu panel, the section header, hero, tiles, notice, badge, empty state and its illustration classes, the new tokens, and the style guide's stylesheet is not in it). Fonts and photo are separate assets: Inter 352,240 bytes, home photo 355,390 bytes.
+- **Binary files added**: `InterVariable.woff2` (352,240), `home-hero-p6.jpg` (355,390, from the cherry-pick). The licence `OFL.txt` (4,380) is text. The eight section illustrations are for RV.b.
+- **Style guide absent from the build**: the witness string `STYLEGUIDE-WITNESS-7f3a91` and "Colour tokens" are not in `dist/`.
+- **In a real browser** (headless Edge driven through the DevTools protocol, demo database in a temporary `VOCAB_DATA_DIR`, seeded `--anchor 2026-10-27`, no `.env`, no AI call): fold 232 to 72 px and back; the choice survives a reload (`collapsed`); at 375 px the panel is `hidden`, Enter on Menu opens it with the focus on Home, Escape closes it and the focus is back on Menu; **`scrollWidth` equals the viewport on all 48 screenshots**: the 15 screens (plus the style guide, the folded sidebar and the open menu) at 1280 px light and dark, at 375 px in English, and at 375 px in French for the home, Today, the review card and the menu; at 640 px (200 % zoom of 1280) `scrollWidth` is 640; the top bar is on **one row** at 375 px in English and French (and at 600, 800 and 959 px in French).
+- **Chart labels**: rendered size of every axis label measured through the screen matrix of each SVG `<text>`: **13.00 px at 375 px and at 1280 px** (was about 8 px at 375 px), legends 14 px (statistics page, 11 charts, and the style guide).
+- **Screenshots, before | after**: `%TEMP%\vc-rv-shots\index.html` (`C:\Users\Yobijo\AppData\Local\Temp\vc-rv-shots\index.html`; images in `before\` and `after\`, named `<screen>-<width>-<theme>-<language>.png`). Full-page captures (height capped at 6,000 px) taken through headless Edge because the built-in browser's captures cannot be saved to files. The review-result and the discovery captures were taken after a scroll, so the sticky sidebar sits lower in the frame: a capture effect, not a layout fault.
+
+### Left / known limits
+
+- **RV.b is not done**: the home page still has its old content (no hero, no tiles), no page has a `SectionHeader` yet (the eight illustrations are not in the repository), the review and correction screens keep their old structure (rating buttons not colour-coded, no `CorrectionMark`), the sub-page links under the titles are still underlined links, `.status`, `.form-message--*`, `.problem--*` and `.badge` rows are not yet replaced by `Notice` and `Badge`, and the three known defects of the brief (category codes cut in the middle of a word, the `<fieldset>` in a `<p>` of the dialogue step, the seven-column import table below 600 px) are not fixed. At 375 px the import table still scrolls inside its own `.table-wrap` (no page overflow).
+- Pages are now up to 1120 px wide (`--content-max`) with no reading column: forms and long lines look wider than before until RV.b sets `--reading-max` on the working screens. The 560 px, 40 rem and 30 rem queries of the feature files are not yet 600 px.
+- The sidebar has no counter (D-290).
+- Chrome or Edge 123 or later is required (`light-dark()`, D-286).
+- **Flaky test under load**: `drillLinks.test.tsx > Practise now: the session step > links the targeted practice to the drills page` timed out (`findByRole`, 1 s) in two of four full runs of the whole suite on this machine; it passes alone (3 runs of 12 of 12). It also failed in two concurrent runs on `main` before any change (with `ManualErrorPage`, `ReviewPlayer.check` and `DiscoveryFlow` tests failing under the same load), so it predates RV; not changed.
+- **Not seen with my own eyes**: the dark theme of the section header (no illustration yet), the French menu panel open at 375 px beyond the screenshot, and the focus ring of every control (the ring colour is tested by the contrast test, not looked at on each page).
+
+### Next step
+
+The owner's review of RV.a (scenario below), then the RV.b plan (order of the screens, defects, estimate per screen, the illustrations: eight PNG files `header-<library|writing|speaking|errors>-<light|dark>.png` of about 800 px in `frontend/src/assets/sections/`).
+
+### Owner's manual scenario (about 3 minutes, no key needed)
+
+```powershell
+cd backend
+uv run python -m app demo seed --reset --anchor <today, YYYY-MM-DD>
+cd ..
+.\start.ps1 -Demo
+```
+
+1. Look at the home page and Today: the new indigo shell, the sidebar, the top bar, Inter. (The photo, the figures and the tiles of the home page are RV.b.)
+2. Open the library, then a term: titles in indigo, buttons, fields with visible borders.
+3. Open the statistics for the week: the axis labels of the charts are readable.
+4. Fold and unfold the sidebar (the button at the left of the top bar), then reload the page: the state is kept.
+5. Switch the Theme to Dark, then the Language to French, then narrow the window to a phone width (about 375 px) and open the Menu: Escape closes it.
+6. Open http://127.0.0.1:5173/styleguide: tokens in both themes, icons, every component.
 
 ## M9.b2 — Statistics dashboard: progress, practice, AI (frontend)
 

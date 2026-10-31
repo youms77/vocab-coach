@@ -5,6 +5,7 @@ import type { DiscoveryStart } from '../../api/discovery'
 import { SpeakButton } from '../../speech/SpeakButton'
 import { StepHeading } from '../session/StepHeading'
 import { highlightTerm } from './highlight'
+import { Notice } from '../../components/Notice'
 
 export const GUESS_MAX = 1000
 
@@ -32,7 +33,7 @@ export function ReadAndGuess({
   return (
     <>
       <StepHeading>{t('discovery.read.title')}</StepHeading>
-      {start.resumed && <p className="form-message form-message--warn">{t('discovery.resumed')}</p>}
+      {start.resumed && <Notice tone="warning">{t('discovery.resumed')}</Notice>}
       {sentence !== null ? (
         <figure className="discovery-sentence">
           <blockquote lang="en">

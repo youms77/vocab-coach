@@ -59,7 +59,7 @@ describe('Consolidation attempt page', () => {
     expect(within(summaryCard).getByText('now active')).toBeInTheDocument()
     expect(within(summaryCard).getByRole('heading', { name: 'Used wrongly (1)' })).toBeInTheDocument()
     expect(within(summaryCard).getByRole('heading', { name: 'Not used (1)' })).toBeInTheDocument()
-    expect(within(summaryCard).getByText(/1 term\(s\) became active and 1 review card/)).toBeInTheDocument()
+    expect(within(summaryCard).getByText(/1 term became active\. 1 review card was reinforced\./)).toBeInTheDocument()
     // The task is accepted: finishing it is offered, never done by itself.
     expect(screen.getByRole('button', { name: 'Yes, mark as completed' })).toBeInTheDocument()
     expect(calls.some((call) => call.method === 'POST' && call.path.endsWith('/status'))).toBe(false)

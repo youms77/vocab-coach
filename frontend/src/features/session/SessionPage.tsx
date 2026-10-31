@@ -16,6 +16,7 @@ import { ErrorText } from '../settings/ErrorText'
 import { SessionProgress } from './SessionProgress'
 import { StepHeading } from './StepHeading'
 import { PracticeInfoPanel, SessionSummary, WaitPanel } from './StepPanels'
+import { Notice } from '../../components/Notice'
 
 const isCode = (error: unknown, code: string) => error instanceof ApiError && error.code === code
 
@@ -40,7 +41,7 @@ function EndControl({
   }, [confirming])
   if (!confirming) {
     return (
-      <button type="button" className="button" onClick={() => setConfirming(true)}>
+      <button type="button" className="button button--ghost" onClick={() => setConfirming(true)}>
         {t('session.end')}
       </button>
     )
@@ -153,7 +154,7 @@ export function SessionPage() {
   } else if (start.isError) {
     content = (
       <>
-        <p className="form-message form-message--error">{t('session.startError')}</p>
+        <Notice tone="danger">{t('session.startError')}</Notice>
         <ErrorText error={start.error} />
         <button type="button" className="button" onClick={openSession}>
           {t('session.retry')}

@@ -102,6 +102,8 @@ const settings: SettingsMap = {
   ui_language: setting('en', { choices: ['en', 'fr'] }),
   tts_rate: setting(1, { type: 'float', minimum: 0.5, maximum: 2 }),
   tts_voice: setting(''),
+  backup_auto_folder: setting(''),
+  backup_auto_keep: setting(10, { minimum: 1, maximum: 60 }),
   ai_provider_order: {
     ...setting('x'),
     value: ['gemini', 'groq', 'ollama'],
@@ -117,6 +119,14 @@ function baseRoutes(aiStatus: AiStatus = status()) {
     'GET /ai/status': () => Response.json(aiStatus),
     'GET /ai/usage': usage,
     'GET /settings': settings,
+    'GET /backup/status': {
+      auto_folder_configured: false,
+      last_auto_at: null,
+      last_auto_error: null,
+      last_manual_at: null,
+      keep: 10,
+      demo: false,
+    },
   }
 }
 
@@ -156,7 +166,7 @@ describe('Settings page: providers', () => {
     )
     renderApp('/settings')
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument()
     const gemini = await screen.findByRole('article', { name: 'Google Gemini' })
     expect(within(gemini).getByText('Ready')).toBeInTheDocument()
     expect(within(gemini).getByText('gemini-3.5-flash-lite')).toBeInTheDocument()
@@ -626,7 +636,7 @@ describe('Settings page: French', () => {
     await user.selectOptions(screen.getByLabelText('Language'), 'fr')
 
     expect(screen.getByRole('heading', { level: 1, name: 'Réglages' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: "Fournisseurs d'IA" })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: "Fournisseurs d’IA" })).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Tester la connexion' })).toHaveLength(3)
   })
 })

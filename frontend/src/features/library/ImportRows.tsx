@@ -10,9 +10,11 @@ export function ProblemText({ problem, showLine }: { problem: Problem; showLine:
   const { t } = useTranslation()
   // Suggestions carry the values some messages name (`key`, `kept_line`).
   const values = { key: '?', kept_line: '?', ...problem.suggestion }
-  const text = isProblemCode(problem.code)
-    ? t(`import.problem.${problem.code}`, values)
-    : problem.message
+  const text = isProblemCode(problem.code) ? (
+    t(`import.problem.${problem.code}`, values)
+  ) : (
+    <span lang="en">{problem.message}</span>
+  )
   return (
     <span className={`problem problem--${problem.severity}`}>
       <span className="problem__severity">
@@ -51,8 +53,8 @@ function Row({ state, onChange }: { state: RowState; onChange: (next: RowState) 
 
   return (
     <tr className={row.ambiguous ? 'import-row import-row--ambiguous' : 'import-row'}>
-      <td>{row.line}</td>
-      <td className="import-row__include">
+      <td data-label={t('import.rows.line')}>{row.line}</td>
+      <td data-label={t('import.rows.include')} className="import-row__include">
         {waiting ? (
           confirmable(row) ? (
             <label className="checkbox-line">
@@ -78,7 +80,7 @@ function Row({ state, onChange }: { state: RowState; onChange: (next: RowState) 
           </label>
         )}
       </td>
-      <td className="import-row__term">
+      <td data-label={t('import.rows.term')} className="import-row__term">
         <input
           aria-label={t('import.rows.termLabel', { line: row.line })}
           value={state.term}
@@ -101,9 +103,9 @@ function Row({ state, onChange }: { state: RowState; onChange: (next: RowState) 
           </button>
         )}
       </td>
-      <td className="import-row__wrap">{row.sentence ?? '—'}</td>
-      <td>{t(`library.type.${row.item_type}`)}</td>
-      <td className="import-row__wrap" id={`row-${row.line}-problems`}>
+      <td data-label={t('import.rows.sentence')} className="import-row__wrap">{row.sentence ?? '—'}</td>
+      <td data-label={t('import.rows.type')}>{t(`library.type.${row.item_type}`)}</td>
+      <td data-label={t('import.rows.problems')} className="import-row__wrap" id={`row-${row.line}-problems`}>
         {row.problems.length === 0 ? (
           <span className="muted">{t('import.rows.ok')}</span>
         ) : (
@@ -116,7 +118,7 @@ function Row({ state, onChange }: { state: RowState; onChange: (next: RowState) 
           </ul>
         )}
       </td>
-      <td>
+      <td data-label={t('import.rows.duplicates')}>
         {state.duplicateChoice === null ? (
           <span className="muted">—</span>
         ) : isEdited(state) ? (

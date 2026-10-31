@@ -101,13 +101,18 @@ export async function apiUpload<T>(
 }
 
 /**
- * Downloads a text file the backend serves as an attachment (the Markdown export of a task): the
- * body is read as text and handed to the browser as a file named after `Content-Disposition`.
+ * Downloads a file the backend serves as an attachment (the Markdown export of a task, a backup
+ * archive with `POST`): the body is handed to the browser as a file named after
+ * `Content-Disposition`.
  */
-export async function apiDownload(path: string, fallbackName: string): Promise<void> {
-  const response = await fetch(`/api${path}`)
+export async function apiDownload(
+  path: string,
+  fallbackName: string,
+  method: 'GET' | 'POST' = 'GET',
+): Promise<void> {
+  const response = await fetch(`/api${path}`, method === 'GET' ? undefined : { method })
   if (!response.ok) {
-    throw await errorFrom(response, `GET /api${path}`)
+    throw await errorFrom(response, `${method} /api${path}`)
   }
   const disposition = response.headers.get('Content-Disposition') ?? ''
   const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? fallbackName

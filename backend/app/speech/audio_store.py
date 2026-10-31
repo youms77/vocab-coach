@@ -47,6 +47,11 @@ _NAME = re.compile(r"[0-9a-f]{32}")
 _STORED_PATH = re.compile(r"\d{4}/\d{2}/[0-9a-f]{32}\.(?:" + "|".join(SERVED_TYPES) + r")")
 
 
+def is_stored_path(relative_path: str) -> bool:
+    """True when `relative_path` follows the naming pattern of D-169 (no traversal is possible)."""
+    return _STORED_PATH.fullmatch(relative_path) is not None
+
+
 class InvalidAudioPath(ValueError):
     """A stored path that does not follow the naming pattern or leaves the audio folder."""
 

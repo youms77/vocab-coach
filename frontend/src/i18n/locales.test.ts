@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { VERBATIM_KEYS } from './verbatimKeys'
 import en from './locales/en.json'
 import fr from './locales/fr.json'
 
@@ -38,5 +39,34 @@ describe('translation files', () => {
     for (const [key, value] of enKeys) {
       expect(interpolations(frKeys.get(key) ?? ''), key).toEqual(interpolations(value))
     }
+  })
+
+  // French typography (M10.c1, D-322): a no-break space before : ; ! ? and inside « », before a
+  // unit (5 s, 10 Mo, 12 %); a typographic apostrophe; no space before a comma or a full stop.
+  describe('French typography', () => {
+    const rules: [string, RegExp][] = [
+      ['a straight apostrophe (use ’)', /\p{L}'\p{L}/u],
+      ['an ordinary space before : ; ! ?', /[^\s ] [:;!?](?=\s|$|[”»)])/],
+      ['no space before : ; ! ?', /[^\s \d/][:;!?](?=\s|$)/],
+      ['a « » without a no-break space', /«(?! )|(?<! )»/],
+      ['an ordinary space before a unit', /(\}\}|\d) (s|min|h|Mo|Ko|Go|%)(?!\p{L})/u],
+      ['three dots (use …)', /\.\.\./],
+      ['two spaces in a row', /[  ]{2}/],
+      ['a space before a comma', / ,/],
+    ]
+    for (const [name, rule] of rules) {
+      it(`has no value with ${name}`, () => {
+        const bad = [...frKeys]
+          .filter(([key, value]) => !VERBATIM_KEYS.has(key) && rule.test(value))
+          .map(([key]) => key)
+        expect(bad).toEqual([])
+      })
+    }
+
+    it('uses one apostrophe only: the typographic one', () => {
+      const values = [...frKeys].filter(([key]) => !VERBATIM_KEYS.has(key)).map(([, v]) => v)
+      expect(values.some((value) => value.includes('’'))).toBe(true)
+      expect(values.some((value) => /\p{L}'/u.test(value))).toBe(false)
+    })
   })
 })

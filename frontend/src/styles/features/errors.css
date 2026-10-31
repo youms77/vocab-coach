@@ -1,0 +1,108 @@
+/* Error log (M5.b2). */
+.errors-page {
+  display: grid;
+  /* minmax(0, ...): a wide table scrolls in its .table-wrap instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.errors-page > .card,
+.errors-page > .hero {
+  margin: 0;
+}
+
+.filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.filter-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.facets h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.facets__list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.facets__list .button[aria-pressed='true'] {
+  border-color: var(--brand);
+  border-width: 2px;
+  font-weight: 700;
+}
+
+.cell-wrap {
+  white-space: normal;
+  min-width: 14rem;
+}
+
+.field__label {
+  font-weight: 600;
+}
+
+.term-picker__current {
+  margin: 0 0 var(--space-2);
+}
+
+.term-picker__results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.proposals,
+.category-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.category-tree .category-tree {
+  margin-top: var(--space-2);
+  padding-left: var(--space-6);
+}
+
+.category-tree__row {
+  margin: 0;
+}
+
+.proposal {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius-sm);
+}
+
+.proposal p {
+  margin: 0 0 var(--space-2);
+}
+
+.proposal__rename {
+  margin-bottom: var(--space-2);
+}
+
+.category-rejected {
+  margin-top: var(--space-4);
+}
+

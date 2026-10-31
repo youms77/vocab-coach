@@ -2,9 +2,9 @@ import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router'
 
 import { type TrackSummary, useStartTrack, useTracks } from '../../api/curriculum'
-import { PageTitle } from '../../components/PageTitle'
 import { ErrorText } from '../settings/ErrorText'
 import { labelIn } from './labels'
+import { SectionHeader } from '../../components/SectionHeader'
 
 const LICENCE_URL = 'https://www.newgeneralservicelist.com'
 
@@ -80,10 +80,11 @@ export function TracksPage() {
 
   return (
     <div className="curriculum-page">
-      <section className="hero">
-        <PageTitle>{t('curriculum.title')}</PageTitle>
-        <p className="muted">{t('curriculum.intro')}</p>
-      </section>
+      <SectionHeader
+        eyebrow={`${t('nav.section')} · ${t('nav.groups.practice')}`}
+        title={t('curriculum.title')}
+        description={t('curriculum.intro')}
+      />
       {tracks.isPending && <p className="muted">{t('curriculum.loading')}</p>}
       {tracks.isError && <ErrorText error={tracks.error} />}
       {tracks.data !== undefined && (

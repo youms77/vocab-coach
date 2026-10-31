@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ApiError } from '../../api/client'
 import { useDecks, useQuickAdd, type Candidate, type QuickAddBody } from '../../api/library'
 import { ErrorText } from '../settings/ErrorText'
+import { Notice } from '../../components/Notice'
 
 function candidatesOf(error: unknown): Candidate[] {
   if (error instanceof ApiError && error.code === 'duplicate_term') {
@@ -91,9 +92,9 @@ export function QuickAdd() {
         </button>
       </form>
       {added !== null && (
-        <p className="form-message form-message--ok" role="status">
+        <Notice tone="success" role="status">
           {t('library.quickAdd.added', { term: added })}
-        </p>
+        </Notice>
       )}
       {quickAdd.isError && candidates.length === 0 && <ErrorText error={quickAdd.error} />}
       {candidates.length > 0 && pending !== null && (

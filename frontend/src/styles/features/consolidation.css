@@ -1,0 +1,26 @@
+/* Consolidation (M7.b) */
+.consolidation-page {
+  display: grid;
+  /* A long option of the task select must not widen the page (a 375 px overflow, found in M10.b). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.consolidation-deck h3 {
+  margin-top: 0;
+}
+
+.consolidation-create {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 24rem;
+}
+
+.consolidation-terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  list-style: none;
+  padding: 0;
+}
+

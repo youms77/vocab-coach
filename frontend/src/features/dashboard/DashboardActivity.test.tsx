@@ -239,6 +239,6 @@ describe('/stats AI', () => {
     expect(await screen.findByRole('region', { name: 'Progression' })).toBeInTheDocument()
     expect(await screen.findByText('650 mots écrits')).toBeInTheDocument()
     expect(await screen.findByText('Anglais courant')).toBeInTheDocument()
-    expect(screen.getByRole('region', { name: "Usage de l'IA" })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: "Usage de l’IA" })).toBeInTheDocument()
   })
 })
