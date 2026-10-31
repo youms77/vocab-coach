@@ -52,6 +52,8 @@ class ProblemCode(StrEnum):
     EMPTY_TERM = "empty_term"
     TERM_TOO_LONG = "term_too_long"
     TERM_NOT_IN_SENTENCE = "term_not_in_sentence"
+    HEADER_ROW_SKIPPED = "header_row_skipped"  # CSV / TSV only (app/domain/tabular_import.py)
+    INVALID_TABLE = "invalid_table"  # CSV / TSV only
     DUPLICATE_IN_FILE = "duplicate_in_file"
     # Added by the preview, which looks at the library (app/services/importing.py).
     DUPLICATE_EXACT = "duplicate_exact"
@@ -421,6 +423,13 @@ def _parse_line(line: int, raw: str, base_indent: int | None) -> ParsedRow | Imp
     else:
         problems.extend(check_term(term, sentence, line))
 
+    return make_row(line, raw, term, sentence, problems)
+
+
+def make_row(
+    line: int, raw: str, term: str, sentence: str | None, problems: list[ImportProblem]
+) -> ParsedRow:
+    """The row of a cleaned term; ambiguous rows are returned but not included."""
     ambiguous = is_ambiguous(problems)
     return ParsedRow(
         line=line,
@@ -435,7 +444,7 @@ def _parse_line(line: int, raw: str, base_indent: int | None) -> ParsedRow | Imp
     )
 
 
-def _mark_duplicates(rows: list[ParsedRow]) -> list[ParsedRow]:
+def mark_duplicates(rows: list[ParsedRow]) -> list[ParsedRow]:
     """Keep one row per normalised form: a clear one with a sentence, else the first clear one."""
     groups: dict[str, list[int]] = {}
     for index, row in enumerate(rows):
@@ -512,4 +521,4 @@ def parse_import(text: str, today: date) -> ParsedImport:
             if base_indent is None:
                 base_indent = _indent(raw)
             rows.append(parsed)
-    return ParsedImport(header=header, rows=_mark_duplicates(rows), problems=problems)
+    return ParsedImport(header=header, rows=mark_duplicates(rows), problems=problems)

@@ -249,7 +249,7 @@ describe('import page', () => {
     const calls = mockApi(routes())
     renderApp('/import')
     const file = new File(['- margin of error\n'], 'list.md', { type: 'text/markdown' })
-    await userEvent.upload(await screen.findByLabelText('File (.md or .txt)'), file)
+    await userEvent.upload(await screen.findByLabelText('File (.csv, .tsv, .txt or .md)'), file)
     await waitFor(() => expect(screen.getByLabelText('Text')).toHaveValue('- margin of error\n'))
     await userEvent.click(screen.getByRole('button', { name: 'Preview' }))
     await screen.findByRole('heading', { name: '3. Check each line' })
@@ -258,11 +258,64 @@ describe('import page', () => {
     })
   })
 
+  it('sends a picked .csv file as a table', async () => {
+    const calls = mockApi(routes())
+    renderApp('/import')
+    const csv = 'terme;phrase\nbias;The bias is small.\n'
+    const file = new File([csv], 'words.csv', { type: 'text/csv' })
+    await userEvent.upload(await screen.findByLabelText('File (.csv, .tsv, .txt or .md)'), file)
+    await waitFor(() => expect(screen.getByLabelText('Text')).toHaveValue(csv))
+    await userEvent.click(screen.getByRole('button', { name: 'Preview' }))
+    await screen.findByRole('heading', { name: '3. Check each line' })
+    expect(calls.find((c) => c.path === '/import/preview')!.body).toEqual({
+      text: csv,
+      format: 'csv',
+    })
+  })
+
+  it('sends a .tsv as tsv, a .txt as plain Markdown, and edited text as Markdown', async () => {
+    const calls = mockApi(routes())
+    renderApp('/import')
+    const input = await screen.findByLabelText('File (.csv, .tsv, .txt or .md)')
+    await userEvent.upload(input, new File(['bias\tA bias.'], 'w.tsv', { type: '' }))
+    await waitFor(() => expect(screen.getByLabelText('Text')).toHaveValue('bias\tA bias.'))
+    await userEvent.click(screen.getByRole('button', { name: 'Preview' }))
+    await screen.findByRole('heading', { name: '3. Check each line' })
+    expect(calls.filter((c) => c.path === '/import/preview')[0]!.body).toEqual({
+      text: 'bias\tA bias.',
+      format: 'tsv',
+    })
+
+    await userEvent.upload(input, new File(['bias'], 'w.txt', { type: 'text/plain' }))
+    await waitFor(() => expect(screen.getByLabelText('Text')).toHaveValue('bias'))
+    await userEvent.click(screen.getByRole('button', { name: 'Preview' }))
+    await waitFor(() => expect(calls.filter((c) => c.path === '/import/preview')).toHaveLength(2))
+    expect(calls.filter((c) => c.path === '/import/preview')[1]!.body).toEqual({ text: 'bias' })
+  })
+
+  it('asks for CSV UTF-8 when the file is not UTF-8', async () => {
+    const calls = mockApi(routes())
+    renderApp('/import')
+    const file = new File(['caf\uFFFD;A caf\uFFFD.'], 'words.csv', { type: 'text/csv' })
+    await userEvent.upload(await screen.findByLabelText('File (.csv, .tsv, .txt or .md)'), file)
+    expect(await screen.findByText(/CSV UTF-8/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Text')).toHaveValue('')
+    expect(calls.some((c) => c.path === '/import/preview')).toBe(false)
+  })
+
+  it('lists the accepted formats under the file input', async () => {
+    mockApi(routes())
+    renderApp('/import')
+    const input = await screen.findByLabelText('File (.csv, .tsv, .txt or .md)')
+    expect(input).toHaveAccessibleDescription(/column 1/)
+    expect(input).toHaveAttribute('accept', '.csv,.tsv,.txt,.md,.markdown')
+  })
+
   it('refuses a file over the limit before sending anything', async () => {
     const calls = mockApi(routes())
     renderApp('/import')
     const file = new File(['x'.repeat(300_001)], 'big.md', { type: 'text/markdown' })
-    await userEvent.upload(await screen.findByLabelText('File (.md or .txt)'), file)
+    await userEvent.upload(await screen.findByLabelText('File (.csv, .tsv, .txt or .md)'), file)
     expect(await screen.findByText(/longer than 300,000 characters/)).toBeInTheDocument()
     expect(screen.getByLabelText('Text')).toHaveValue('')
     expect(calls.some((c) => c.path === '/import/preview')).toBe(false)

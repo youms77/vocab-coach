@@ -1,6 +1,7 @@
 """`python -m app library import | enrich | extend`.
 
-`import <file>`: preview a Markdown list, or import it with `--commit`.
+`import <file>`: preview a Markdown, CSV or TSV list (format from the extension, or `--format`),
+or import it with `--commit`.
 
 Without `--commit` nothing is written (the connection is read-only). With `--commit` the clear
 lines are imported with the default duplicate choices; ambiguous lines are left out (they need a
@@ -36,6 +37,7 @@ from app.domain.markdown_import import (
     too_large_problem,
 )
 from app.domain.study_day import study_day_of
+from app.domain.tabular_import import ImportFormat
 from app.services import importing
 from app.services.importing import ImportPreview, ImportTarget, PreviewRow
 from app.services.library import LibraryError
@@ -103,10 +105,16 @@ def _read(path: Path) -> str:
     return decoded
 
 
+def format_of(path: Path) -> ImportFormat:
+    """`.csv` and `.tsv` are tables; everything else (`.md`, `.txt`...) is read as Markdown."""
+    return {".csv": "csv", ".tsv": "tsv"}.get(path.suffix.lower(), "markdown")  # type: ignore[return-value]
+
+
 def run_library_import(
     url: str,
     path: Path,
     *,
+    fmt: ImportFormat | None = None,
     deck_id: int | None = None,
     no_triage: bool = False,
     commit: bool = False,
@@ -144,7 +152,9 @@ def run_library_import(
                     ZoneInfo(get_setting(session, "timezone")),
                     get_setting(session, "day_start_hour"),
                 )
-                preview = importing.preview(session, content, today, deck_id=deck_id)
+                preview = importing.preview(
+                    session, content, today, deck_id=deck_id, fmt=fmt or format_of(path)
+                )
             except LibraryError as exc:
                 print(exc.message, file=sys.stderr)
                 return EXIT_USAGE

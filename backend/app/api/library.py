@@ -27,6 +27,7 @@ from app.domain.item_status import InvalidItemTransition, TransitionKind, unarch
 from app.domain.markdown_import import MAX_BODY_LINES, ImportHeader
 from app.domain.planner import DeadlinePace, PlanWarning, SessionPlan
 from app.domain.study_day import study_day_of
+from app.domain.tabular_import import ImportFormat
 from app.services import decks as deck_service
 from app.services import duplicates, enrichment, importing, library, triage
 from app.services.items import transition_item, unarchive_item
@@ -212,6 +213,7 @@ class PreviewRequest(BaseModel):
 
     text: str = Field(max_length=MAX_TEXT_CHARS)
     deck_id: int | None = None  # target deck, to flag terms it already holds
+    format: ImportFormat = "markdown"  # "csv" and "tsv": column 1 term, column 2 sentence
 
 
 class CommitRequest(BaseModel):
@@ -226,7 +228,7 @@ class CommitRequest(BaseModel):
 @router.post("/import/preview", tags=["import"])
 def import_preview(body: PreviewRequest, session: SessionDep) -> importing.ImportPreview:
     return importing.preview(
-        session, body.text, _study_today(session, utcnow()), deck_id=body.deck_id
+        session, body.text, _study_today(session, utcnow()), deck_id=body.deck_id, fmt=body.format
     )
 
 

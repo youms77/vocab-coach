@@ -543,7 +543,7 @@
   },
   "import": {
     "title": "Importer une liste",
-    "intro": "Collez une liste Markdown ou choisissez un fichier .md ou .txt. Vous verrez chaque ligne avant que quoi que ce soit ne soit enregistré.",
+    "intro": "Collez une liste Markdown ou choisissez un fichier .md, .txt, .csv ou .tsv. Vous verrez chaque ligne avant que quoi que ce soit ne soit enregistré.",
     "line": "Ligne {{line}}",
     "selected_one": "{{count}} ligne sera importée.",
     "selected_other": "{{count}} lignes seront importées.",
@@ -551,7 +551,9 @@
     "importing": "Import en cours…",
     "input": {
       "title": "1. Votre liste",
-      "file": "Fichier (.md ou .txt)",
+      "file": "Fichier (.csv, .tsv, .txt ou .md)",
+      "fileHint": "CSV ou TSV : le terme dans la colonne 1 et, facultativement, la phrase anglaise d’où il vient dans la colonne 2. Les virgules, points-virgules et tabulations sont reconnus, et la ligne d’en-tête est ignorée. TXT ou Markdown : un terme par ligne, éventuellement « terme | phrase ».",
+      "notUtf8": "Ce fichier n’est pas du texte UTF-8 : les accents seraient perdus. Dans Excel, utilisez « Enregistrer sous » et choisissez « CSV UTF-8 (délimité par des virgules) », puis sélectionnez de nouveau le fichier.",
       "text": "Texte",
       "hint": "Un terme par ligne, éventuellement « terme | phrase où vous l’avez rencontré ». Jusqu’à {{max}} caractères. Le fichier est lu dans votre navigateur.",
       "tooLarge": "Ce texte dépasse {{max}} caractères. Découpez-le en plusieurs imports.",
@@ -650,6 +652,8 @@
       "empty_term": "Le terme est vide.",
       "term_too_long": "Le terme dépasse 300 caractères.",
       "term_not_in_sentence": "Le terme n’a pas été trouvé dans sa phrase.",
+      "header_row_skipped": "Ligne d’en-tête : ce n’est pas un terme, ignorée.",
+      "invalid_table": "Ce tableau ne peut pas être lu. Vérifiez les guillemets et enregistrez-le de nouveau en CSV UTF-8.",
       "duplicate_in_file": "Même terme qu’à la ligne {{kept_line}} ; seule celle-ci est importée.",
       "duplicate_exact": "Ce terme est déjà dans votre bibliothèque.",
       "duplicate_possible": "Un terme proche est déjà dans votre bibliothèque.",

@@ -28,6 +28,8 @@ export const PROBLEM_CODES = [
   'empty_term',
   'term_too_long',
   'term_not_in_sentence',
+  'header_row_skipped',
+  'invalid_table',
   'duplicate_in_file',
   'duplicate_exact',
   'duplicate_possible',
@@ -113,10 +115,13 @@ export interface ImportSummary {
   item_ids: number[]
 }
 
+/** `markdown` (the default, so the field is only sent for a table) or a CSV / TSV word list. */
+export type ImportFormat = 'markdown' | 'csv' | 'tsv'
+
 /** Nothing is written: the preview only reads the library to find duplicates. */
 export function usePreview() {
   return useMutation({
-    mutationFn: (body: { text: string; deck_id?: number }) =>
+    mutationFn: (body: { text: string; deck_id?: number; format?: ImportFormat }) =>
       apiSend<Preview>('POST', '/import/preview', body),
   })
 }
