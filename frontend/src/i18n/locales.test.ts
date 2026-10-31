@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { VERBATIM_KEYS } from './verbatimKeys'
 import en from './locales/en.json'
 import fr from './locales/fr.json'
 
@@ -55,13 +56,15 @@ describe('translation files', () => {
     ]
     for (const [name, rule] of rules) {
       it(`has no value with ${name}`, () => {
-        const bad = [...frKeys].filter(([, value]) => rule.test(value)).map(([key]) => key)
+        const bad = [...frKeys]
+          .filter(([key, value]) => !VERBATIM_KEYS.has(key) && rule.test(value))
+          .map(([key]) => key)
         expect(bad).toEqual([])
       })
     }
 
     it('uses one apostrophe only: the typographic one', () => {
-      const values = [...frKeys.values()]
+      const values = [...frKeys].filter(([key]) => !VERBATIM_KEYS.has(key)).map(([, v]) => v)
       expect(values.some((value) => value.includes('’'))).toBe(true)
       expect(values.some((value) => /\p{L}'/u.test(value))).toBe(false)
     })

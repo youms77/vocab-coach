@@ -75,7 +75,10 @@ export function Layout() {
       items: [item('/errors', 'errors', t('nav.errors')), item('/stats', 'stats', t('nav.stats'))],
     },
   ]
-  const bottom = [item('/settings', 'settings', t('nav.settings'))]
+  const bottom = [
+    item('/settings', 'settings', t('nav.settings')),
+    item('/about', 'info', t('nav.about')),
+  ]
 
   return (
     <div className="shell">

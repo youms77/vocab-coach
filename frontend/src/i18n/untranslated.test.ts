@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { VERBATIM_KEYS } from './verbatimKeys'
 import en from './locales/en.json'
 import fr from './locales/fr.json'
 
@@ -93,6 +94,7 @@ describe('French values identical to English', () => {
     const informal =
       /(?<![\p{L}’-])(tu|toi|ton|ta|tes|t’|te|as-tu|es-tu|peux-tu|veux-tu|saisis|choisis|clique|ajoute)(?![\p{L}-])/iu
     const bad = [...frKeys]
+      .filter(([key]) => !VERBATIM_KEYS.has(key))
       .filter(([, value]) => informal.test(value.replace(/\{\{[^}]*\}\}/g, '')))
       .map(([key]) => key)
     expect(bad).toEqual([])
@@ -100,6 +102,7 @@ describe('French values identical to English', () => {
 
   it('does not leave the English word "deck" where the glossary says "paquet"', () => {
     const bad = [...frKeys]
+      .filter(([key]) => !VERBATIM_KEYS.has(key))
       .filter(([, value]) => /\bdecks?\b/i.test(value.replace(/\{\{[^}]*\}\}/g, '')))
       .map(([key]) => key)
     expect(bad).toEqual([])

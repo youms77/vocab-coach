@@ -24,7 +24,8 @@
       "vocabulary": "Vocabulaire",
       "practice": "Pratique",
       "progress": "Progression"
-    }
+    },
+    "about": "À propos"
   },
   "demo": {
     "badge": "Données de démo",
@@ -655,7 +656,8 @@
       "duplicate_possible": "Un terme proche est déjà dans votre bibliothèque.",
       "already_in_deck": "Ce terme est déjà dans le paquet cible ; il sera ignoré.",
       "existing_status_kept": "Le terme existant garde son statut."
-    }
+    },
+    "aboutLink": "Vous ne savez pas comment préparer votre liste ? Voyez les formats acceptés et un prompt qui convertit n’importe quel fichier."
   },
   "triage": {
     "title": "Trier les nouveaux termes",
@@ -2639,5 +2641,108 @@
     "extra_forbidden": "Ce champ n’est pas attendu.",
     "json_invalid": "La requête n’est pas du JSON valide.",
     "value_error": "Cette valeur n’est pas acceptée."
+  },
+  "about": {
+    "title": "À propos",
+    "lede": "À quoi sert vocab-coach, ce qu’il fait et comment y apporter vos mots.",
+    "purpose": {
+      "title": "À quoi il sert",
+      "text": "vocab-coach transforme les mots et les expressions que vous rencontrez dans vos lectures, vos cours et votre quotidien en vocabulaire que vous savez vraiment utiliser. Il construit une fiche d’usage pour chaque terme, vous le fait découvrir, planifie des révisions espacées, vous fait écrire et parler avec lui, et tient le journal de vos erreurs récurrentes pour que vous voyiez ce qui progresse."
+    },
+    "principles": {
+      "title": "Principes",
+      "local": "Local et privé : vos données restent sur votre ordinateur. Seul le texte que vous envoyez à un fournisseur d’IA en sort.",
+      "free": "Gratuit : uniquement les offres gratuites des services d’IA et les outils vocaux de votre navigateur. Rien de payant n’est jamais appelé.",
+      "degraded": "Fonctionne sans aucune clé : les révisions, la saisie manuelle et les statistiques continuent ; les fonctions d’IA attendent un fournisseur.",
+      "recall": "Rappel actif : vous essayez toujours de répondre avant que la réponse s’affiche."
+    },
+    "modules": {
+      "title": "Les modules",
+      "library": {
+        "name": "Bibliothèque et import",
+        "text": "Vos termes, regroupés en paquets, avec recherche, filtres et import à partir d’une liste."
+      },
+      "sheets": {
+        "name": "Fiches d’usage",
+        "text": "Un guide rédigé par l’IA pour chaque terme : sens, emploi, collocations, exemples, erreurs typiques des francophones."
+      },
+      "discovery": {
+        "name": "Découverte",
+        "text": "Une première rencontre avec un nouveau terme, avant que ses cartes de révision n’existent."
+      },
+      "reviews": {
+        "name": "Révisions",
+        "text": "Répétition espacée avec FSRS, qui demande toujours de se rappeler avant de montrer la réponse."
+      },
+      "errors": {
+        "name": "Journal d’erreurs",
+        "text": "Vos erreurs récurrentes, classées par catégorie, avec leur évolution dans le temps."
+      },
+      "writing": {
+        "name": "Écriture",
+        "text": "De courts textes qui emploient vos termes, corrigés ; les erreurs vont dans le journal d’erreurs."
+      },
+      "speaking": {
+        "name": "Oral",
+        "text": "Prise de parole libre, shadowing de phrases et scores de prononciation facultatifs."
+      },
+      "transcripts": {
+        "name": "Transcriptions",
+        "text": "Collez une conversation que vous avez eue : les erreurs de vos propres répliques sont relevées."
+      },
+      "drills": {
+        "name": "Exercices ciblés",
+        "text": "De courts exercices visant une seule catégorie d’erreur."
+      },
+      "consolidation": {
+        "name": "Consolidation",
+        "text": "Un court exposé ou une tâche qui réunit les termes d’un paquet."
+      },
+      "tracks": {
+        "name": "Parcours d’anglais général",
+        "text": "Des listes de mots fréquents et des scénarios d’oral, à suivre unité par unité."
+      },
+      "stats": {
+        "name": "Statistiques",
+        "text": "Des chiffres calculés à partir de vos propres révisions et événements, avec un export CSV."
+      },
+      "backup": {
+        "name": "Sauvegarde",
+        "text": "Une sauvegarde complète de vos données dans un seul fichier, dans les réglages."
+      }
+    },
+    "bring": {
+      "title": "Apporter vos mots",
+      "intro": "La page d’import accepte les formats ci-dessous. Quel que soit celui que vous utilisez, vous voyez chaque ligne dans un aperçu avant que quoi que ce soit soit enregistré : les lignes dont l’application n’est pas sûre sont signalées et laissées de côté. Ensuite, le tri à l’entrée (« je connais », « pas sûr », « à apprendre ») vous permet d’écarter les mots que vous connaissez déjà.",
+      "markdown": {
+        "title": "Markdown (.md) ou texte collé",
+        "fields": "Champs de l’en-tête, tous facultatifs :",
+        "text": "Un en-tête facultatif entre deux lignes de trois tirets, puis un terme par ligne, éventuellement suivi de « | » et de la phrase où vous l’avez rencontré."
+      },
+      "text": {
+        "title": "Texte brut (.txt)",
+        "text": "Un terme par ligne, éventuellement suivi de « | » et d’une phrase."
+      },
+      "table": {
+        "title": "CSV ou TSV (.csv, .tsv)",
+        "text": "Pour une liste tenue dans un tableur : enregistrez-la depuis Excel en « CSV UTF-8 ». La colonne 1 est le terme, la colonne 2 (facultative) sa phrase, les autres colonnes sont ignorées. Virgules, points-virgules et tabulations sont reconnus, et une ligne d’en-tête est permise."
+      },
+      "other": {
+        "title": "Tout le reste",
+        "text": "PDF, document Word, photo, liste en désordre : donnez-le à un chatbot avec le prompt ci-dessous, puis collez sa réponse dans la page d’import."
+      },
+      "exampleLabel": "Exemple de liste Markdown",
+      "import": "Ouvrir la page d’import"
+    },
+    "prompt": {
+      "title": "Un prompt pour convertir n’importe quel fichier",
+      "intro": "Ouvrez n’importe quel chatbot gratuit qui accepte les fichiers, joignez votre fichier, collez ce prompt et remplissez les crochets. Collez ensuite dans la page d’import le bloc de code qu’il vous répond. Le prompt suit la langue de l’interface.",
+      "label": "Prompt pour un chatbot",
+      "copy": "Copier le prompt",
+      "copied": "Prompt copié.",
+      "copyFailed": "La copie n’a pas fonctionné : sélectionnez le texte et copiez-le à la main.",
+      "limits": "Limites : un PDF numérisé demande un chatbot capable de lire les images. Découpez un document très long par chapitre et vérifiez la réponse avant de l’importer.",
+      "text": "Tu aides un francophone de niveau B1 en anglais à construire une liste de vocabulaire.\nJe te joins un fichier : soit une liste de mots (CSV, texte, Markdown, Excel,\nphoto d'une liste), soit un document (PDF, Word, photo, notes).\n\nMon contexte :\n- Nom de la liste : [...]\n- Domaine : [ex. économétrie]\n- Objectif : [ex. préparer mon exposé du 20 novembre]\n- Nombre maximum de termes : [30] (ignoré si j'envoie une liste)\n\n1. Quels termes garder\n- Si le fichier est déjà une liste de mots ou d'expressions, garde-les TOUS, dans\n  le même ordre : n'en retire aucun et n'en ajoute aucun. Ignore les numéros, les\n  traductions, les définitions et les autres colonnes. Si une colonne ou une\n  partie de ligne contient une phrase d'exemple en anglais avec le terme,\n  garde-la comme phrase. Sépare les termes écrits sur une même ligne\n  (virgules, points-virgules).\n- Sinon, si j'ai marqué des mots dans le document (surlignés, soulignés, en gras,\n  entourés, notés en marge ou listés à la fin), garde exactement ceux-là et rien d'autre.\n- Sinon, choisis toi-même, par ordre de priorité :\n  a. les termes du domaine indispensables pour parler de ce sujet ;\n  b. l'anglais académique ou professionnel au-delà du niveau B1 : collocations\n     (\"carry out\"), verbes à particule, connecteurs ;\n  c. les formules utiles à l'oral pour présenter ce sujet.\n  Écarte : les mots de base (A1–B1), les mots transparents pour un francophone,\n  les noms propres, les sigles, les nombres, les mots rares qui ne resserviront pas.\n  Ne dépasse pas le maximum ; mets les plus utiles en premier.\n- Dans tous les cas : garde les expressions entières (\"shed light on\", pas \"shed\"),\n  sous leur forme de dictionnaire, et supprime les doublons.\n\n2. Format de la réponse\nRéponds uniquement avec un bloc de code, sans rien avant ni après :\n---\ndeck: [nom de la liste]\ndomain: [domaine]\nsource: \"[titre du fichier]\"\ncontext: \"[objectif]\"\n---\n- terme | phrase recopiée mot pour mot du fichier, qui contient le terme\n\nRègles : une ligne par terme ; s'il n'y a pas de phrase, rien après le terme\n(pas de \"|\") ; pas de définition, de traduction, de numéro ni de titre."
+    }
   }
 }

@@ -27,6 +27,7 @@ const TITLES = [
   [/^\/errors/, 'errorLog.title'],
   [/^\/stats/, 'stats.title'],
   [/^\/settings/, 'settings.title'],
+  [/^\/about/, 'about.title'],
 ] as const
 
 export type PageTitleKey = (typeof TITLES)[number][1] | 'notFound.title'
