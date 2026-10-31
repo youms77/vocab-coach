@@ -42,6 +42,7 @@ describe('Navigation', () => {
       '/errors',
       '/stats',
       '/settings',
+      '/about',
     ])
     expect(within(nav).getByRole('group', { name: 'Practice' })).toBeInTheDocument()
     expect(within(nav).getByRole('link', { name: 'Library' })).toHaveAttribute('aria-current', 'page')

@@ -284,6 +284,9 @@ export function ImportPage() {
       <section className="hero">
         <h1>{t('import.title')}</h1>
         <p className="muted">{t('import.intro')}</p>
+        <p className="muted">
+          <Link to="/about#bring-your-words">{t('import.aboutLink')}</Link>
+        </p>
         <p>
           <Link to="/library">{t('library.back')}</Link>
         </p>

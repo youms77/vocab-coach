@@ -14,6 +14,7 @@ function page<K extends string>(load: () => Promise<Record<K, ComponentType>>, n
   return lazy(async () => ({ default: (await load())[name] }))
 }
 
+const AboutPage = page(() => import('./features/about/AboutPage'), 'AboutPage')
 const ConsolidationAttemptPage = page(
   () => import('./features/consolidation/ConsolidationAttemptPage'),
   'ConsolidationAttemptPage',
@@ -130,6 +131,7 @@ export const routes: RouteObject[] = [
           { path: 'errors/:id', element: <ErrorDetailPage /> },
           { path: 'stats', element: <DashboardPage /> },
           { path: 'settings', element: <SettingsPage /> },
+          { path: 'about', element: <AboutPage /> },
           // Development only (D-291): `import.meta.env.DEV` is replaced by `false` in a production build,
           // which removes this entry and, with it, the page and its stylesheet from the bundle.
           ...(import.meta.env.DEV

@@ -31,6 +31,7 @@ describe('the tab title', () => {
     expect(titleAt('/errors')).toBe('Journal d’erreurs · vocab-coach')
     expect(titleAt('/')).toBe('Accueil · vocab-coach')
     expect(titleAt('/settings')).toBe('Réglages · vocab-coach')
+    expect(titleAt('/about')).toBe('À propos · vocab-coach')
   })
 
   it('gives a detail page the title of its section', () => {
